@@ -1,0 +1,270 @@
+"""
+Main FastAPI Application - Refactored Architecture.
+
+Entry point for the CapivaraX Bot API with:
+- Modular router structure
+- Integration with agents and services
+- Improved middleware and error handling
+- Dependency injection
+"""
+
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message="error reading bcrypt version")
+
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Importa os módulos de registro para popular os registries
+import services.registration  # noqa: F401
+import agents.registration  # noqa: F401
+
+# ====================================================================
+#                       IMPORTS DE MIDDLEWARE
+# ====================================================================
+
+from api.middleware.autofix import autofix_exception_middleware
+from api.middleware.error_handler import setup_error_handlers
+from api.middleware.logging import logging_middleware
+from api.middleware.rate_limit import setup_rate_limiting
+
+# ====================================================================
+#                       IMPORTS DE ROUTERS
+# ====================================================================
+
+from api.routes import (
+    auth,
+    chat,
+    notes,
+    research,
+    dev,
+    workspace,
+    weather,
+    finance,
+    image,
+    video,
+    voice,
+    calendar,
+    car,
+    traffic,
+    smartthings,
+)
+
+# ====================================================================
+#                       CRIAÇÃO DA APLICAÇÃO
+# ====================================================================
+
+# Create FastAPI app
+app = FastAPI(
+    title="CapivaraX Bot API",
+    description="API Backend do CapivaraX Bot - Assistente de IA Unificado com Arquitetura Refatorada",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# ====================================================================
+#                       MIDDLEWARE
+# ====================================================================
+
+# Add custom middleware
+app.middleware("http")(logging_middleware)
+app.middleware("http")(autofix_exception_middleware)
+
+# Setup rate limiting
+setup_rate_limiting(app)
+
+# Setup standardized error handlers
+setup_error_handlers(app)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        os.getenv("CORS_ORIGIN_LOCALHOST", "http://localhost:3000"),
+        os.getenv("CORS_ORIGIN_VITE", "http://localhost:5173"),
+        "https://*.replit.dev",
+        "https://*.vercel.app",
+        os.getenv("FRONTEND_URL", ""),
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ====================================================================
+#                       HEALTH CHECKS
+# ====================================================================
+
+@app.get("/")
+def root():
+    """Root endpoint."""
+    return {
+        "status": "online",
+        "service": "CapivaraX Bot API",
+        "version": "2.0.0",
+        "architecture": "refactored"
+    }
+
+
+@app.get("/api/health")
+def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "version": "2.0.0"
+    }
+
+
+@app.get("/api/health/detailed")
+async def detailed_health_check():
+    """
+    Detailed health check with service status.
+
+    Returns status of all critical services and agents.
+    """
+    from services.core import registry as service_registry
+    from agents.core import registry as agent_registry
+
+    # Get service health
+    service_health = {}
+    try:
+        service_metrics = service_registry.get_all_metrics()
+        for name, metrics in service_metrics.items():
+            service_health[name] = {
+                "status": metrics.get("status"),
+                "initialized": metrics.get("initialized"),
+                "call_count": metrics.get("call_count"),
+                "error_rate": metrics.get("error_rate")
+            }
+    except Exception as e:
+        service_health["error"] = str(e)
+
+    # Get agent health
+    agent_health = {}
+    try:
+        agents = agent_registry.list_agents()
+        agent_health = {
+            "registered_agents": agents,
+            "count": len(agents)
+        }
+    except Exception as e:
+        agent_health["error"] = str(e)
+
+    return {
+        "status": "healthy",
+        "version": "2.0.0",
+        "services": service_health,
+        "agents": agent_health,
+        "environment": os.getenv("ENVIRONMENT", "development")
+    }
+
+
+# ====================================================================
+#                    ENDPOINTS DE DEBUG (DESENVOLVIMENTO)
+# ====================================================================
+
+@app.get("/debug/services")
+def debug_services():
+    """Lista todos os serviços registrados (apenas desenvolvimento)."""
+    from services.core import registry as service_registry
+    
+    try:
+        all_services = service_registry.list_services()
+        metrics = service_registry.get_all_metrics()
+        
+        return {
+            "total": len(all_services),
+            "services": all_services,
+            "metrics": metrics
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/debug/agents")
+def debug_agents():
+    """Lista todos os agentes registrados (apenas desenvolvimento)."""
+    from agents.core import registry as agent_registry
+    
+    try:
+        all_agents = agent_registry.list_agents()
+        
+        return {
+            "total": len(all_agents),
+            "agents": all_agents
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ====================================================================
+#                       ROUTERS
+# ====================================================================
+
+# API version prefix
+API_V1 = "/api/v1"
+
+# Authentication
+app.include_router(auth.router, prefix=f"{API_V1}/auth", tags=["Authentication"])
+
+# Core features
+app.include_router(chat.router, prefix=f"{API_V1}/chat", tags=["Chat"])
+app.include_router(notes.router, prefix=f"{API_V1}/notes", tags=["Notes"])
+app.include_router(workspace.router, prefix=f"{API_V1}/workspace", tags=["Workspace"])
+
+# AI capabilities
+app.include_router(research.router, prefix=f"{API_V1}/research", tags=["Research"])
+app.include_router(dev.router, prefix=f"{API_V1}/dev", tags=["Development"])
+app.include_router(image.router, prefix=f"{API_V1}/image", tags=["Image"])
+app.include_router(video.router, prefix=f"{API_V1}/video", tags=["Video"])
+app.include_router(voice.router, prefix=f"{API_V1}/voice", tags=["Voice"])
+
+# Integrations
+app.include_router(weather.router, prefix=f"{API_V1}/weather", tags=["Weather"])
+app.include_router(finance.router, prefix=f"{API_V1}/finance", tags=["Finance"])
+app.include_router(calendar.router, prefix=f"{API_V1}/calendar", tags=["Calendar"])
+app.include_router(car.router, prefix=f"{API_V1}/car", tags=["Car"])
+app.include_router(traffic.router, prefix=f"{API_V1}/traffic", tags=["Traffic"])
+app.include_router(smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"])
+
+
+# ====================================================================
+#                       STARTUP/SHUTDOWN
+# ====================================================================
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup."""
+    import logging
+    logger = logging.getLogger("capivarax.api")
+    logger.info("CapivaraX Bot API starting up...")
+
+    # Initialize critical services
+    from services import get_service
+
+    critical_services = ["database", "openai", "redis"]
+    for service_name in critical_services:
+        try:
+            service = get_service(service_name)
+            if service and not service.is_initialized():
+                await service.initialize()
+                logger.info(f"Initialized {service_name} service")
+        except Exception as e:
+            logger.warning(f"Service {service_name} not found or failed to initialize: {e}")
+
+    logger.info("CapivaraX Bot API started successfully")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    import logging
+    logger = logging.getLogger("capivarax.api")
+    logger.info("CapivaraX Bot API shutting down...")

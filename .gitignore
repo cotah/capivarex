@@ -1,0 +1,108 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+env/
+venv/
+.venv/
+ENV/
+
+# Secrets and Credentials
+# Use .env.example for templates
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Credential files
+credentials.json
+service_account.json
+token.json
+*.pem
+*.key
+
+# Pytest
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Ruff
+.ruff_cache/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Runtime artifacts (gerados durante execução)
+generated_images/
+generated_videos/
+generated_audio/
+artifacts/
+outputs/
+workspace/
+
+# Database files
+*.db
+*.sqlite3
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Test output files
+pytest_output.txt
+pytest_result.txt
+test_out.txt
+test_output.txt
+
+# Backup files
+*.bak
+*.backup
+*.bak_*
+
+# Test media
+test_*.mp3
+test_*.png
+test_*.jpg
+test_*.jpeg
+
+# Cache
+.cache/
+*.cache
