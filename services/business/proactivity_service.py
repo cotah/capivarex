@@ -144,10 +144,17 @@ class ProactivityService(BaseService):
         # Gather data from available services
         tasks: Dict[str, Any] = {}
 
-        # Calendar
+        # Check device permissions
+        active_device = user_context.devices[0] if user_context.devices else None
+        device_permissions = active_device.permissions if active_device else []
+
+        # Calendar (requires calendar:read permission if device is present)
         calendar_service = get_service("calendar")
         calendar_breaker = self._service_breakers["calendar"]
-        if calendar_service and calendar_service.is_initialized() and not calendar_breaker.current_state == "open":
+        if active_device and "calendar:read" not in device_permissions:
+            self.logger.info(f"Calendar access denied for user {user_id}: missing calendar:read permission")
+            tasks["calendar"] = self._immediate({"error": "Permission denied"})
+        elif calendar_service and calendar_service.is_initialized() and not calendar_breaker.current_state == "open":
             @calendar_breaker
             async def protected_calendar_call():
                 return await asyncio.to_thread(calendar_service.get_next_meeting)
@@ -488,6 +495,21 @@ class ProactivityService(BaseService):
                 self.logger.warning("OpenAI circuit breaker is open. Skipping insight analysis.")
             return ""
 
+        # Fetch long-term memories for richer context
+        memory_context = ""
+        user_data = context.get("user", {})
+        user_id = user_data.get("user_id", "")
+        if user_id:
+            try:
+                from bot.core.memory import MemoryManager
+
+                db_service = get_service("database")
+                if db_service and db_service.is_initialized():
+                    memory_manager = MemoryManager(db_service)
+                    memory_context = await memory_manager.get_context_for_ai(user_id)
+            except Exception as e:
+                self.logger.warning(f"Could not fetch memories for prompt: {e}")
+
         prompt = f"""
         You are the proactive brain of SuperBot God, a personal AI assistant.
         Analyze the user context and decide if there is something URGENT or USEFUL to notify.
@@ -506,6 +528,8 @@ class ProactivityService(BaseService):
         - Car Status: {context.get("car_status")}
         - News: {context.get("news")}
         - Stock Alerts: {context.get("finance_alerts")}
+
+        {memory_context}
 
         Analysis: Is there something urgent or useful for the user now?
         """

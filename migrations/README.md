@@ -31,6 +31,7 @@ supabase db push
 ## Migration Files
 
 - `001_create_user_vehicles.sql` - Creates `user_vehicles` table for Smartcar integration
+- `002_create_memories.sql` - Creates `memories` and `memory_audit_log` tables for auditable memory system
 
 ## Migration Order
 

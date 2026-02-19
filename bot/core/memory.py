@@ -2,197 +2,272 @@
 Memory management system for CapivaraX Bot.
 
 Handles:
-- Notes storage and retrieval
+- Notes storage and retrieval via database (Supabase)
 - User preferences
-- Memory persistence
+- Auditable memory with request_id tracking
 """
 
-import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Optional
-from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger("unbx_bot.memory")
-
-DEFAULT_ENCODING = "utf-8"
+logger = logging.getLogger("capivarax.memory")
 
 
 class MemoryManager:
-    """Manages bot memory (notes and preferences)."""
+    """Manages bot memory using the database for persistence and audit."""
 
-    def __init__(self, workspace_dir: Path):
-        self.workspace = workspace_dir
-        self.memory_file = workspace_dir / "memoria.json"
-        self.notes_export_file = workspace_dir / "notas_export.md"
+    def __init__(self, db_service: Any):
+        """
+        Initialize MemoryManager with a database service.
 
-        # Ensure workspace exists
-        self.workspace.mkdir(parents=True, exist_ok=True)
+        Args:
+            db_service: Database service instance (Supabase client wrapper)
+        """
+        self.db = db_service
 
-        self.default_memory = {
-            "notas": [],
-            "preferencias": {
-                "formato": "topicos",
-                "tamanho": "curto",
-                "tom": "descontraido"
-            }
-        }
+    def _get_client(self):
+        """Get the Supabase client from the database service."""
+        return self.db.get_client()
 
-    def load(self) -> Dict:
-        """Load memory from file."""
-        if not self.memory_file.exists():
-            self.save(self.default_memory)
-            return self.default_memory.copy()
+    async def add_memory(
+        self,
+        user_id: str,
+        memory_type: str,
+        content: str,
+        source: str = "user_input",
+        request_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Add a memory to the database and log the audit event.
 
+        Args:
+            user_id: User UUID
+            memory_type: Memory type ('short_term', 'long_term', 'factual')
+            content: Memory content text
+            source: Origin of the memory ('user_input', 'proactivity_insight', etc.)
+            request_id: Optional request_id for audit tracing
+
+        Returns:
+            The memory ID if successful, None otherwise
+        """
         try:
-            with open(self.memory_file, 'r', encoding=DEFAULT_ENCODING) as f:
-                return json.load(f)
+            client = self._get_client()
+            result = (
+                client.table("memories")
+                .insert({
+                    "user_id": user_id,
+                    "type": memory_type,
+                    "content": content,
+                    "source": source,
+                })
+                .execute()
+            )
+
+            if result.data and len(result.data) > 0:
+                memory_id = result.data[0]["id"]
+                await self._log_audit(request_id, memory_id, user_id, "created")
+                return memory_id
+
+            return None
         except Exception as e:
-            logger.error(f"Failed to load memory: {e}")
-            return self.default_memory.copy()
+            logger.error(f"Failed to add memory for user {user_id}: {e}")
+            return None
 
-    def save(self, memory: Dict):
-        """Save memory to file."""
+    async def get_memories(
+        self,
+        user_id: str,
+        memory_type: str,
+        request_id: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[Dict]:
+        """
+        Get memories by user and type, logging read access.
+
+        Args:
+            user_id: User UUID
+            memory_type: Memory type filter
+            request_id: Optional request_id for audit tracing
+            limit: Maximum number of memories to return
+
+        Returns:
+            List of memory dictionaries
+        """
         try:
-            with open(self.memory_file, 'w', encoding=DEFAULT_ENCODING) as f:
-                json.dump(memory, f, indent=2, ensure_ascii=False)
+            client = self._get_client()
+            result = (
+                client.table("memories")
+                .select("*")
+                .eq("user_id", user_id)
+                .eq("type", memory_type)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+
+            memories = result.data or []
+
+            # Log read access for each memory
+            for mem in memories:
+                await self._log_audit(request_id, mem["id"], user_id, "read")
+
+            return memories
         except Exception as e:
-            logger.error(f"Failed to save memory: {e}")
+            logger.error(f"Failed to get memories for user {user_id}: {e}")
+            return []
 
-    def add_note(self, content: str) -> bool:
-        """Add a new note to memory."""
+    async def get_all_memories(
+        self,
+        user_id: str,
+        request_id: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict]:
+        """
+        Get all memories for a user regardless of type.
+
+        Args:
+            user_id: User UUID
+            request_id: Optional request_id for audit tracing
+            limit: Maximum number of memories to return
+
+        Returns:
+            List of memory dictionaries
+        """
         try:
-            mem = self.load()
-            note = {
-                "id": len(mem["notas"]) + 1,
-                "content": content,
-                "timestamp": datetime.now().isoformat(),
-                "tags": []
-            }
-            mem["notas"].append(note)
-            self.save(mem)
+            client = self._get_client()
+            result = (
+                client.table("memories")
+                .select("*")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+
+            memories = result.data or []
+
+            for mem in memories:
+                await self._log_audit(request_id, mem["id"], user_id, "read")
+
+            return memories
+        except Exception as e:
+            logger.error(f"Failed to get all memories for user {user_id}: {e}")
+            return []
+
+    async def search_memories(self, user_id: str, query: str) -> List[Dict]:
+        """
+        Search memories by content (case-insensitive).
+
+        Args:
+            user_id: User UUID
+            query: Search query string
+
+        Returns:
+            List of matching memory dictionaries
+        """
+        try:
+            client = self._get_client()
+            result = (
+                client.table("memories")
+                .select("*")
+                .eq("user_id", user_id)
+                .ilike("content", f"%{query}%")
+                .order("created_at", desc=True)
+                .execute()
+            )
+
+            return result.data or []
+        except Exception as e:
+            logger.error(f"Failed to search memories for user {user_id}: {e}")
+            return []
+
+    async def delete_memory(self, memory_id: str, user_id: str) -> bool:
+        """
+        Delete a specific memory by ID.
+
+        Args:
+            memory_id: Memory UUID
+            user_id: User UUID (for safety check)
+
+        Returns:
+            True if deleted successfully
+        """
+        try:
+            client = self._get_client()
+            client.table("memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
             return True
         except Exception as e:
-            logger.error(f"Failed to add note: {e}")
+            logger.error(f"Failed to delete memory {memory_id}: {e}")
             return False
 
-    def get_notes(self, limit: Optional[int] = None) -> List[Dict]:
-        """Get all notes (or limited number)."""
-        mem = self.load()
-        notes = mem.get("notas", [])
+    async def log_memory_usage(
+        self,
+        request_id: str,
+        memory_id: str,
+        user_id: str,
+    ) -> None:
+        """
+        Log that a memory was used in a prompt (for audit trail).
 
-        if limit:
-            return notes[-limit:]
-        return notes
+        Args:
+            request_id: Request UUID for tracing
+            memory_id: Memory UUID
+            user_id: User UUID
+        """
+        await self._log_audit(request_id, memory_id, user_id, "used_for_prompt")
 
-    def search_notes(self, query: str) -> List[Dict]:
-        """Search notes by content."""
-        mem = self.load()
-        notes = mem.get("notas", [])
-        query_lower = query.lower()
+    async def _log_audit(
+        self,
+        request_id: Optional[str],
+        memory_id: str,
+        user_id: str,
+        action: str,
+    ) -> None:
+        """
+        Write an entry to the memory audit log.
 
-        return [
-            note for note in notes
-            if query_lower in note.get("content", "").lower()
-        ]
-
-    def delete_note(self, note_id: int) -> bool:
-        """Delete a note by ID."""
+        Args:
+            request_id: Request UUID (can be None)
+            memory_id: Memory UUID
+            user_id: User UUID
+            action: Action type ('created', 'read', 'used_for_prompt')
+        """
         try:
-            mem = self.load()
-            notes = mem.get("notas", [])
-            mem["notas"] = [n for n in notes if n.get("id") != note_id]
-            self.save(mem)
-            return True
+            client = self._get_client()
+            client.table("memory_audit_log").insert({
+                "request_id": request_id,
+                "memory_id": memory_id,
+                "user_id": user_id,
+                "action": action,
+            }).execute()
         except Exception as e:
-            logger.error(f"Failed to delete note: {e}")
-            return False
+            logger.warning(f"Failed to log memory audit ({action}): {e}")
 
-    def clear_all_notes(self) -> bool:
-        """Clear all notes."""
-        try:
-            mem = self.load()
-            mem["notas"] = []
-            self.save(mem)
-            return True
-        except Exception as e:
-            logger.error(f"Failed to clear notes: {e}")
-            return False
+    async def get_context_for_ai(
+        self,
+        user_id: str,
+        request_id: Optional[str] = None,
+    ) -> str:
+        """
+        Get memory context formatted for AI prompt injection.
 
-    def export_notes_to_markdown(self) -> str:
-        """Export all notes to markdown file."""
-        mem = self.load()
-        notes = mem.get("notas", [])
+        Args:
+            user_id: User UUID
+            request_id: Optional request_id for audit tracing
 
-        if not notes:
-            return "Nenhuma nota para exportar."
+        Returns:
+            Formatted string with recent memories
+        """
+        memories = await self.get_memories(user_id, "long_term", request_id, limit=5)
 
-        lines = [
-            "# 📝 Notas Exportadas",
-            "",
-            f"**Data de exportação:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"**Total de notas:** {len(notes)}",
-            "",
-            "---",
-            ""
-        ]
+        if not memories:
+            return ""
 
-        for note in notes:
-            note_id = note.get("id", "?")
-            content = note.get("content", "")
-            timestamp = note.get("timestamp", "")
+        # Log usage for prompt
+        for mem in memories:
+            await self._log_audit(request_id, mem["id"], user_id, "used_for_prompt")
 
-            lines.append(f"## Nota #{note_id}")
-            lines.append(f"**Data:** {timestamp}")
-            lines.append("")
-            lines.append(content)
-            lines.append("")
-            lines.append("---")
-            lines.append("")
+        context_parts = ["Lembre-se destas informacoes sobre o usuario:"]
+        for mem in memories:
+            context_parts.append(f"- {mem.get('content', '')}")
 
-        markdown_content = "\n".join(lines)
-
-        try:
-            with open(self.notes_export_file, 'w', encoding=DEFAULT_ENCODING) as f:
-                f.write(markdown_content)
-            return str(self.notes_export_file)
-        except Exception as e:
-            logger.error(f"Failed to export notes: {e}")
-            return f"Erro ao exportar: {e}"
-
-    def get_preferences(self) -> Dict:
-        """Get user preferences."""
-        mem = self.load()
-        return mem.get("preferencias", self.default_memory["preferencias"])
-
-    def update_preferences(self, preferences: Dict):
-        """Update user preferences."""
-        mem = self.load()
-        mem["preferencias"].update(preferences)
-        self.save(mem)
-
-    def get_context_for_ai(self) -> str:
-        """Get memory context formatted for AI."""
-        mem = self.load()
-        notes = mem.get("notas", [])
-        prefs = mem.get("preferencias", {})
-
-        context_parts = []
-
-        # Add preferences
-        if prefs:
-            context_parts.append("**Preferências do usuário:**")
-            for key, value in prefs.items():
-                context_parts.append(f"- {key}: {value}")
-            context_parts.append("")
-
-        # Add recent notes
-        if notes:
-            recent_notes = notes[-5:]  # Last 5 notes
-            context_parts.append("**Notas recentes:**")
-            for note in recent_notes:
-                content = note.get("content", "")[:100]  # First 100 chars
-                context_parts.append(f"- {content}...")
-            context_parts.append("")
-
-        return "\n".join(context_parts) if context_parts else ""
+        return "\n".join(context_parts)

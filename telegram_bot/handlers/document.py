@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from services.core import get_service
 from telegram_bot.utils.response_sender import send_agent_response
+from utils.rate_limiter import is_rate_limited
 from utils.request_context import bind_request_id
 
 logger = logging.getLogger("capivarax.telegram.handlers.document")
@@ -23,6 +24,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context: Telegram context object.
     """
     bind_request_id()
+
+    if is_rate_limited(update.effective_user.id):
+        return
 
     doc = update.message.document
     logger.info(

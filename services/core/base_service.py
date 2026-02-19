@@ -41,6 +41,41 @@ class ServiceConfigurationError(ServiceError):
     pass
 
 
+def _is_retryable(exc: Exception) -> bool:
+    """
+    Determine if an exception is worth retrying.
+
+    Retries on:
+    - Timeout errors (asyncio.TimeoutError, httpx.TimeoutException)
+    - Server errors (HTTP 5xx)
+    - Rate limit errors (HTTP 429)
+
+    Does NOT retry on:
+    - Client errors (HTTP 4xx except 429)
+    - Any other exception type
+    """
+    # Always retry on timeout
+    if isinstance(exc, (asyncio.TimeoutError,)):
+        return True
+
+    # Check for httpx exceptions (imported lazily to avoid hard dependency)
+    exc_class_name = type(exc).__name__
+
+    if exc_class_name == "TimeoutException":
+        return True
+
+    if exc_class_name == "HTTPStatusError":
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        if status_code is not None:
+            # Retry on 429 (rate limited) and 5xx (server errors)
+            if status_code == 429 or status_code >= 500:
+                return True
+            # Do NOT retry on other 4xx (client errors)
+            return False
+
+    return False
+
+
 def retry_on_failure(
     max_retries: int = 3,
     backoff_factor: float = 2.0,
@@ -48,6 +83,10 @@ def retry_on_failure(
 ):
     """
     Decorator for retrying failed operations with exponential backoff.
+
+    Only retries on transient errors (timeouts, 5xx, 429).
+    Raises immediately on client errors (4xx except 429) and
+    other non-retryable exceptions.
 
     Args:
         max_retries: Maximum number of retry attempts
@@ -64,8 +103,17 @@ def retry_on_failure(
                 try:
                     return await func(*args, **kwargs)
                 except exceptions as e:
+                    # Check if the error is retryable
+                    if not _is_retryable(e):
+                        raise
+
                     last_exception = e
                     if attempt < max_retries:
+                        logger = logging.getLogger("capivarax.services.retry")
+                        logger.warning(
+                            "Attempt %d/%d failed for %s: %s. Retrying in %.1fs...",
+                            attempt + 1, max_retries, func.__name__, e, delay,
+                        )
                         await asyncio.sleep(delay)
                         delay *= backoff_factor
                     else:
