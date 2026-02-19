@@ -45,6 +45,7 @@ class VehicleDbService(BaseService):
         name: str = "vehicle_db",
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Initialise the vehicle database service."""
         super().__init__(name, config)
         self._client: Optional[Client] = None
 

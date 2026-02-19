@@ -30,6 +30,7 @@ class VoiceAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the voice agent."""
         super().__init__(
             name="voice",
             description="Text-to-speech and speech-to-text"

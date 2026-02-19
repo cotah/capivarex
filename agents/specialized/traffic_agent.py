@@ -29,6 +29,7 @@ class TrafficAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the traffic agent."""
         super().__init__(
             name="traffic",
             description="Provides traffic and navigation information"

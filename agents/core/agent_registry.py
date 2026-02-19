@@ -139,6 +139,7 @@ def register_agent(name: str, lazy: bool = True):
         lazy: If True, instantiate only when first accessed
     """
     def decorator(agent_class: Type[BaseAgent]):
+        """Register *agent_class* in the global registry and return it unchanged."""
         registry.register(name, agent_class, lazy=lazy)
         return agent_class
     return decorator

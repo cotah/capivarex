@@ -52,6 +52,7 @@ class PromptCleanerService(BaseService):
         name: str = "prompt_cleaner",
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Initialise the prompt cleaner service."""
         super().__init__(name, config)
         self._openai_client: Optional[AsyncOpenAI] = None
 

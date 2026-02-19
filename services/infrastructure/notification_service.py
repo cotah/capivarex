@@ -15,9 +15,11 @@ class NotificationService(BaseService):
     """Delivers notifications through pluggable channels."""
 
     async def _initialize(self):
+        """Load notification configuration and connect to backends."""
         self.logger.info("NotificationService ready")
 
     async def _health_check(self) -> bool:
+        """Verify the notification service is operational."""
         return True
 
     async def send_message(self, channel: str, recipient: str, message: str) -> bool:

@@ -43,6 +43,7 @@ class ProactivityService(BaseService):
     """
 
     def __init__(self, name: str = "proactivity", config: Dict[str, Any] = None):
+        """Initialise the proactivity service with circuit breakers."""
         super().__init__(name, config)
         self._openai_client: Optional[Any] = None
         self._redis_client: Optional[Any] = None
@@ -141,7 +142,9 @@ class ProactivityService(BaseService):
 
         location = user_context.extra_data.get("location_preference", "Dublin")
 
-        # Gather data from available services
+        # Build a dict of coroutines keyed by service name so they can all
+        # run concurrently via asyncio.gather.  Each coroutine is wrapped by
+        # its service-specific circuit breaker to prevent cascading failures.
         tasks: Dict[str, Any] = {}
 
         # Check device permissions
@@ -157,6 +160,7 @@ class ProactivityService(BaseService):
         elif calendar_service and calendar_service.is_initialized() and not calendar_breaker.current_state == "open":
             @calendar_breaker
             async def protected_calendar_call():
+                """Fetch the next meeting via the calendar service (circuit-protected)."""
                 return await asyncio.to_thread(calendar_service.get_next_meeting)
             tasks["calendar"] = protected_calendar_call()
         else:
@@ -171,6 +175,7 @@ class ProactivityService(BaseService):
         if weather_service and weather_service.is_initialized() and not weather_breaker.current_state == "open":
             @weather_breaker
             async def protected_weather_call():
+                """Fetch current weather for *location* (circuit-protected)."""
                 return await asyncio.to_thread(weather_service.get_current_weather, location)
             tasks["weather"] = protected_weather_call()
         else:
@@ -185,6 +190,7 @@ class ProactivityService(BaseService):
         if car_service and car_service.is_initialized() and not car_breaker.current_state == "open":
             @car_breaker
             async def protected_car_call():
+                """Fetch car battery and location status (circuit-protected)."""
                 return await self._get_car_status(user_id)
             tasks["car_status"] = protected_car_call()
         else:
@@ -201,6 +207,7 @@ class ProactivityService(BaseService):
         if research_service and research_service.is_initialized() and not research_breaker.current_state == "open":
             @research_breaker
             async def protected_research_call():
+                """Search for latest news headlines (circuit-protected)."""
                 return await research_service.search_news("latest technology and finance news")
             tasks["news"] = protected_research_call()
         else:
@@ -215,6 +222,7 @@ class ProactivityService(BaseService):
         if finance_service and finance_service.is_initialized() and not finance_breaker.current_state == "open":
             @finance_breaker
             async def protected_finance_call():
+                """Fetch watchlist stock summaries (circuit-protected)."""
                 return await asyncio.to_thread(
                     finance_service.get_watchlist_summary, ["AAPL", "TSLA", "GOOGL"]
                 )
@@ -292,6 +300,7 @@ class ProactivityService(BaseService):
 
                     @traffic_breaker
                     async def protected_traffic_call():
+                        """Check traffic conditions to the next event location (circuit-protected)."""
                         return await asyncio.to_thread(
                             traffic_service.check_traffic_before_event,
                             event.get("location"),
@@ -536,6 +545,7 @@ class ProactivityService(BaseService):
 
         @openai_breaker
         async def protected_openai_call():
+            """Send the proactivity prompt to GPT-4o and return the response text (circuit-protected)."""
             response = await self._openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],

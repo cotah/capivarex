@@ -18,6 +18,7 @@ class FinanceService(BaseService):
     """Serviço para buscar cotações e dados financeiros via Twelve Data API"""
 
     def __init__(self, name: str = "finance", config: Dict[str, Any] = None):
+        """Initialise the finance service."""
         super().__init__(name, config)
         self.api_key = None
         self.base_url = "https://api.twelvedata.com"

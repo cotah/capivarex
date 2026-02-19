@@ -51,6 +51,7 @@ class FileManagerService(BaseService):
         name: str = "file_manager",
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Initialise the file manager service."""
         super().__init__(name, config)
         self.base_workspace: Optional[Path] = None
 

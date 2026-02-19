@@ -58,6 +58,7 @@ class WhisperService(BaseService):
     """
 
     def __init__(self, name: str = "whisper", config: Optional[Dict[str, Any]] = None):
+        """Initialise the Whisper transcription service."""
         super().__init__(name, config)
         self.api_key: Optional[str] = None
         self.client: Optional[AsyncOpenAI] = None

@@ -66,6 +66,7 @@ class DevAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the dev agent."""
         super().__init__(
             name="dev",
             description="Handles code generation and programming queries",

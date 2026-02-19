@@ -54,6 +54,7 @@ class ElevenLabsService(BaseService):
     """
 
     def __init__(self, name: str = "elevenlabs", config: Optional[Dict[str, Any]] = None):
+        """Initialise the ElevenLabs TTS service."""
         super().__init__(name, config)
         self.api_key: Optional[str] = None
         self.base_url: str = "https://api.elevenlabs.io/v1"

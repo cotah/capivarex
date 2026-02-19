@@ -18,6 +18,7 @@ class WeatherService(BaseService):
     """Serviço para buscar informações de clima via WeatherAPI.com"""
 
     def __init__(self, name: str = "weather", config: Dict[str, Any] = None):
+        """Initialise the weather service."""
         super().__init__(name, config)
         self.api_key = None
         self.base_url = "http://api.weatherapi.com/v1"

@@ -55,6 +55,7 @@ class CalendarService(BaseService):
         name: str = "calendar",
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Initialise the Google Calendar integration."""
         super().__init__(name, config)
         self._service: Optional[Any] = None
         self._credentials: Optional[Any] = None

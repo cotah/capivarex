@@ -51,6 +51,7 @@ class RedisService(BaseService):
         name: str = "redis",
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Initialise the Redis service."""
         super().__init__(name, config)
         self.url: Optional[str] = None
         self.token: Optional[str] = None

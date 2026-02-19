@@ -13,6 +13,7 @@ class CapivaraXBot:
     """Core bot class that manages state, services, and agents."""
 
     def __init__(self, application: Application) -> None:
+        """Initialise the Telegram bot wrapper."""
         self.application: Application = application
         self.logger: logging.Logger = logging.getLogger("capivarax.telegram")
         self.services: Dict[str, Any] = {}

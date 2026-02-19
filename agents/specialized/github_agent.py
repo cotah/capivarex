@@ -38,6 +38,7 @@ class GitHubAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the GitHub agent."""
         super().__init__(
             name="github",
             description="Handles Git and GitHub operations",

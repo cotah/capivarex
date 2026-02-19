@@ -50,6 +50,7 @@ class CarService(BaseService):
         name: str = "car",
         config: Optional[Dict[str, Any]] = None,
     ):
+        """Initialise the Smartcar integration."""
         super().__init__(name, config)
         self.smartcar_client: Optional[smartcar.AuthClient] = None
         self.client_id: Optional[str] = None

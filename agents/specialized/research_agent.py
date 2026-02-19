@@ -27,6 +27,7 @@ class ResearchAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the research agent."""
         super().__init__(
             name="research",
             description="Handles web research, news queries, and information retrieval"

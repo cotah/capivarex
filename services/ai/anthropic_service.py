@@ -46,6 +46,7 @@ class AnthropicService(BaseService):
     """
 
     def __init__(self, name: str = "anthropic", config: Optional[Dict[str, Any]] = None):
+        """Initialise the Anthropic service."""
         super().__init__(name, config)
         self.client: Optional[anthropic.AsyncAnthropic] = None
         self.api_key: Optional[str] = None

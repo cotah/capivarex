@@ -35,6 +35,7 @@ class OrchestratorAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the orchestrator agent."""
         super().__init__(
             name="orchestrator",
             description="Routes requests to specialized agents"

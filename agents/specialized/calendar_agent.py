@@ -31,6 +31,7 @@ class CalendarAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the calendar agent."""
         super().__init__(
             name="calendar",
             description="Manages calendar, meetings, and schedule"
@@ -347,13 +348,22 @@ class CalendarAgent(BaseAgent):
             event_input = CalendarEventInput.model_validate(event_params)
         except Exception as e:
             msg = str(e)
-            if "title" in msg:
+            # Pydantic errors include field names in both the error line
+            # (e.g. "\ntitle\n") and in the input_value repr.  Use the
+            # "\nfield_name\n" pattern to match only the actual missing field.
+            if "\ntitle\n" in msg:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response="Nao consegui identificar o titulo do evento. Por favor, especifique o que deseja agendar.",
                     error="Missing title"
                 )
-            if "start_datetime" in msg:
+            if "\nstart_datetime\n" in msg:
+                if "value_error" in msg:
+                    return AgentResponse(
+                        status=AgentStatus.ERROR,
+                        response="Erro ao processar data e hora do evento. Por favor, use um formato valido (ex: 2025-02-15T15:00:00).",
+                        error="Invalid start_datetime"
+                    )
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response="Nao consegui identificar a data e hora do evento. Por favor, especifique quando deseja agendar.",

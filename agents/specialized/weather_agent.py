@@ -31,6 +31,7 @@ class WeatherAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the weather agent."""
         super().__init__(
             name="weather",
             description="Provides weather forecasts and current conditions"

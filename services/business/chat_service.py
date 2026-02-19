@@ -30,6 +30,13 @@ class ChatService:
         user_id: str,
         user_plan: str,
     ):
+        """Initialise a ChatService bound to a single WebSocket session.
+
+        Args:
+            websocket: The active FastAPI WebSocket connection.
+            user_id: Authenticated user identifier.
+            user_plan: Subscription plan (basic, pro, enterprise).
+        """
         self.ws = websocket
         self.user_id = user_id
         self.user_plan = user_plan
@@ -64,6 +71,7 @@ class ChatService:
     async def _handle_search(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Run a web search via Perplexity and stream a GPT-synthesised answer."""
         query = decision.get("query", user_message)
         await self._send_system(f"Pesquisando sobre: {query}...")
 
@@ -110,6 +118,7 @@ class ChatService:
     async def _handle_dev(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Generate code via the Anthropic Claude service and stream tokens."""
         dev_prompt = decision.get("prompt")
         if not dev_prompt:
             await self._send_error("DEV prompt missing")
@@ -134,6 +143,7 @@ class ChatService:
     async def _handle_image(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Generate an image from the prompt and send the result URL."""
         prompt = decision.get("description", decision.get("prompt", user_message))
         await self._send_system(f"Gerando imagem: {prompt}...")
         try:
@@ -158,6 +168,7 @@ class ChatService:
     async def _handle_video(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Generate a text-to-video clip and send the resulting URL."""
         prompt = decision.get("prompt", user_message)
         duration = int(decision.get("duration", 5))
         ratio = decision.get("ratio", "16:9")
@@ -193,6 +204,7 @@ class ChatService:
     async def _handle_voice(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Convert text to speech via the voice agent and send the audio URL."""
         await self._send_system("Gerando audio...")
         try:
             voice_agent = get_agent("voice")
@@ -220,6 +232,7 @@ class ChatService:
     async def _handle_finance(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Fetch a stock quote from the finance service and send the summary."""
         symbol = decision.get("symbol", "AAPL")
         await self._send_system(f"Consultando cotacao para {symbol}...")
         try:
@@ -244,6 +257,7 @@ class ChatService:
     async def _handle_calendar(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Delegate to the calendar agent and format the event list."""
         await self._send_system("Consultando seu calendario...")
         try:
             calendar_agent = get_agent("calendar")
@@ -285,6 +299,7 @@ class ChatService:
     async def _handle_weather(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Fetch a weather forecast and send a formatted summary."""
         location = decision.get("location", "Dublin")
         await self._send_system(f"Verificando o tempo em {location}...")
         try:
@@ -317,6 +332,7 @@ class ChatService:
     async def _handle_traffic(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Get a traffic summary between two locations and stream the result."""
         origin = decision.get("origin", "Dublin")
         destination = decision.get("destination", "Cork")
         await self._send_system(f"Verificando trafego de {origin} para {destination}...")
@@ -335,6 +351,7 @@ class ChatService:
     async def _handle_car(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Query the electric vehicle via the car agent, refreshing tokens if needed."""
         query = decision.get("query", user_message)
         await self._send_system("Verificando seu veiculo...")
         try:
@@ -386,6 +403,7 @@ class ChatService:
     async def _handle_chat(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Handle a direct chat message via the general-purpose chat agent."""
         try:
             chat_agent = get_agent("chat")
             if not chat_agent:
@@ -407,6 +425,7 @@ class ChatService:
     async def _handle_fallback(
         self, user_message: str, decision: Dict, history: List[Dict],
     ) -> str:
+        """Fall back to raw OpenAI streaming when the action is unrecognised."""
         await self._send_error("Acao desconhecida. Respondendo diretamente...")
         return await self._stream_openai(history)
 
@@ -415,9 +434,11 @@ class ChatService:
     # ------------------------------------------------------------------
 
     async def _send_system(self, content: str) -> None:
+        """Send a system-type status message to the WebSocket client."""
         await self.ws.send_json({"type": "system", "content": content})
 
     async def _send_error(self, content: str) -> None:
+        """Send an error-type message to the WebSocket client."""
         await self.ws.send_json({"type": "error", "content": content})
 
     async def _stream_openai(self, messages: List[Dict]) -> str:
@@ -431,6 +452,12 @@ class ChatService:
 
     # ------------------------------------------------------------------
     # Action dispatch table
+    #
+    # Maps orchestrator action strings to handler methods.  Using a dict
+    # instead of if/elif reduces cyclomatic complexity and makes it easy
+    # to register new actions without touching the dispatch() method.
+    # Handlers are stored as unbound functions; dispatch() passes *self*
+    # explicitly so that they behave like normal instance methods.
     # ------------------------------------------------------------------
 
     _ACTION_HANDLERS: Dict[str, Any] = {

@@ -345,6 +345,7 @@ async def chat_stream(
         payload = _build_error_payload()
 
     async def event_generator():
+        """Yield a single SSE data frame containing the chat response."""
         yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

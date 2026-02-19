@@ -36,6 +36,7 @@ class RequestProcessor:
     """
 
     def __init__(self, user_identifier: int, source: str = "telegram"):
+        """Initialise the request processor for a specific user and source."""
         self.user_identifier = user_identifier
         self.source = source
         self.request_id: Optional[str] = None

@@ -28,6 +28,7 @@ class ConfigManager:
     """Manages bot configuration and credit system."""
 
     def __init__(self, workspace_dir: Path):
+        """Initialise the config manager."""
         self.workspace = workspace_dir
         self.config_file = workspace_dir / "config.json"
         self.usage_dir = workspace_dir / "usage"

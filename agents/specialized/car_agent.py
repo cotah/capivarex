@@ -37,6 +37,7 @@ class CarAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the car agent."""
         super().__init__(
             name="car",
             description="Controls electric vehicle via Smartcar API"

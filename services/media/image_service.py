@@ -41,6 +41,7 @@ class ImageService(BaseService):
     MODEL_NAME: str = "imagen-4.0-generate-001"
 
     def __init__(self, name: str = "image", config: Optional[Dict[str, Any]] = None):
+        """Initialise the image generation service."""
         super().__init__(name, config)
         self.api_key: Optional[str] = None
         self.client: Optional[Any] = None

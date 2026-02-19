@@ -26,6 +26,7 @@ class VideoAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the video agent."""
         super().__init__(
             name="video",
             description="Generates videos using AI"

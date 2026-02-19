@@ -49,7 +49,51 @@
 
 ---
 
-## ⚙️ Getting Started
+## Arquitetura do Sistema
+
+The diagram below shows how a request flows through the system — from the
+entry point (API or Telegram) all the way to the final response.
+
+```mermaid
+flowchart LR
+    A["Entrada\n(API / Telegram Bot)"]
+    B["Gateway\n(RequestProcessor)"]
+    C["OrchestratorAgent"]
+    D["Agente Especializado"]
+    E["Servico de Infra"]
+    F["Resposta"]
+
+    A --> B --> C --> D --> E --> F
+```
+
+### Componentes Principais
+
+| Camada | Diretorio | Responsabilidade |
+|--------|-----------|------------------|
+| **API** | `api/` | Endpoints REST e WebSocket (FastAPI). Recebe requisicoes HTTP, autentica via JWT e delega ao pipeline. |
+| **Telegram Bot** | `telegram_bot/` | Interface Telegram. Converte mensagens do Telegram em chamadas ao pipeline. |
+| **Gateway** | `utils/request_processor.py` | Gera `request_id`, aplica rate limiting, resolve `UserContext` e `TenantContext`, e enriquece o structlog. |
+| **Orchestrator** | `agents/specialized/orchestrator_agent.py` | Analisa a intencao do usuario e decide qual agente especializado deve processar a requisicao. |
+| **Agentes Especializados** | `agents/specialized/` | Um agente por dominio (calendar, car, chat, dev, finance, image, research, traffic, video, voice, weather). Cada um encapsula a logica de negocio do seu dominio. |
+| **Servicos de Negocio** | `services/business/` | Logica transversal: `ChatService` (orquestracao WebSocket), `ProactivityService` (insights proativos), `PromptCleaner`, `ResearchService`. |
+| **Servicos de Infraestrutura** | `services/infrastructure/` | Database (Supabase), Redis, Git, FileManager, CodeExecutor, NotificationService. |
+| **Servicos de Integracao** | `services/integrations/` | Wrappers para APIs externas: Google Calendar, Smartcar, Weather, Finance, SmartThings, Traffic. |
+| **Servicos de IA** | `services/ai/` | OpenAI, Anthropic (Claude), Perplexity, ElevenLabs. |
+| **Servicos de Midia** | `services/media/` | Image, Video, Whisper (transcricao). |
+| **Autofix** | `autofix/` | Sistema autonomo de triage, criacao de tickets e patches para bugs em producao. |
+| **Worker** | `worker.py` | Processamento assincrono de tarefas pesadas via arq + Redis. |
+
+### Padroes Arquiteturais
+
+- **Service Registry** — Todos os servicos registram-se via `@register_service` e sao acessados por `get_service(name)`.
+- **Agent Registry** — Agentes registram-se via `@register_agent` e sao acessados por `get_agent(name)`.
+- **Circuit Breaker** — Cada integracao externa e protegida por `pybreaker` para evitar falhas em cascata.
+- **Strategy Pattern** — Dispatch baseado em dicionario no `ChatService` e no `autofix/core.py`.
+- **RequestProcessor** — Gateway unificado que centraliza rate limiting, contexto e observabilidade.
+
+---
+
+## Getting Started
 
 Follow these instructions to get the project up and running on your local machine.
 

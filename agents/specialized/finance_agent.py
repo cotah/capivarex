@@ -83,6 +83,7 @@ class FinanceAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the finance agent."""
         super().__init__(
             name="finance",
             description="Provides stock quotes and financial market data"

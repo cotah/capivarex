@@ -4,6 +4,14 @@ from pathlib import Path
 from urllib.request import urlopen, Request
 
 def load_env(path: Path) -> dict:
+    """Parse a ``.env`` file into a plain dictionary.
+
+    Args:
+        path: Path to the ``.env`` file.
+
+    Returns:
+        Dictionary mapping variable names to their string values.
+    """
     data = {}
     if not path.exists():
         return data
@@ -21,6 +29,14 @@ def load_env(path: Path) -> dict:
 
 
 def mask_token(token: str) -> str:
+    """Return a masked version of *token* showing only prefix and suffix.
+
+    Args:
+        token: The secret token to mask.
+
+    Returns:
+        A string like ``"abc123...wxyz"`` or ``"***"`` for short tokens.
+    """
     if not token:
         return ""
     if len(token) <= 10:
@@ -29,6 +45,15 @@ def mask_token(token: str) -> str:
 
 
 def api_call(token: str, method: str) -> dict:
+    """Call a Telegram Bot API method and return the JSON response.
+
+    Args:
+        token: Bot token for authentication.
+        method: API method name (e.g. ``"getWebhookInfo"``).
+
+    Returns:
+        Parsed JSON response as a dictionary.
+    """
     url = f"https://api.telegram.org/bot{token}/{method}"
     req = Request(url, method="GET")
     with urlopen(req, timeout=20) as resp:
@@ -36,6 +61,14 @@ def api_call(token: str, method: str) -> dict:
 
 
 def main() -> int:
+    """Reset the Telegram webhook and drop pending updates.
+
+    Reads ``TELEGRAM_BOT_TOKEN`` from the environment or ``.env``,
+    inspects the current webhook, and clears it if active.
+
+    Returns:
+        Exit code: 0 on success, 1 if the token is missing.
+    """
     root = Path(__file__).resolve().parent.parent
     env = load_env(root / ".env")
     token = os.environ.get("TELEGRAM_BOT_TOKEN") or env.get("TELEGRAM_BOT_TOKEN")

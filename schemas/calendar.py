@@ -30,6 +30,8 @@ class CalendarEventInput(BaseModel):
         if isinstance(value, datetime):
             return value
         if isinstance(value, str):
+            # Google Calendar API may return "Z" suffix; normalise to offset
+            # then strip tzinfo so the rest of the codebase works with naive UTC.
             return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(
                 tzinfo=None
             )

@@ -32,6 +32,7 @@ class ChatAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the chat agent."""
         super().__init__(
             name="chat",
             description="Handles general conversation and knowledge queries"

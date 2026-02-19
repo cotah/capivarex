@@ -54,6 +54,7 @@ class CodeExecutorService(BaseService):
         name: str = "code_executor",
         config: Optional[Dict[str, Any]] = None,
     ):
+        """Initialise the code executor service."""
         super().__init__(name, config)
         self.base_workspace: Optional[Path] = None
         self.default_timeout: int = 10

@@ -36,6 +36,7 @@ class SmartHomeAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the smart home agent."""
         super().__init__(
             name="smarthome",
             description="Controls smart home devices via SmartThings"

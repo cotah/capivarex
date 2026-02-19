@@ -16,8 +16,10 @@ def requires_permission(permission: str):
     possui a permissao necessaria para executar a funcao.
     """
     def decorator(func):
+        """Wrap *func* with a permission check before execution."""
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            """Execute *func* only if the active device holds the required permission."""
             # Encontra o user_context nos argumentos da funcao
             user_context = None
             for arg in args:

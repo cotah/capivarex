@@ -28,6 +28,7 @@ class ImageAgent(BaseAgent):
     """
 
     def __init__(self):
+        """Initialise the image agent."""
         super().__init__(
             name="image",
             description="Generates images using AI"

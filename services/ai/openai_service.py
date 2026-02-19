@@ -97,6 +97,7 @@ class OpenAIService(BaseService):
     """
 
     def __init__(self, name: str = "openai", config: Dict[str, Any] = None):
+        """Initialise the OpenAI service."""
         super().__init__(name, config)
         self.client: AsyncOpenAI = None
         self.api_key: str = None

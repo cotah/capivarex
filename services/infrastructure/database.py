@@ -41,6 +41,7 @@ class DatabaseService(BaseService):
     """
 
     def __init__(self, name: str = "database", config: Dict[str, Any] = None):
+        """Initialise the database service."""
         super().__init__(name, config)
         self.client: Optional[Client] = None
         self.url: Optional[str] = None

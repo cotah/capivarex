@@ -22,6 +22,7 @@ class ArqRedisRestAdapter:
     """
 
     def __init__(self):
+        """Initialise the Redis adapter for the arq worker."""
         self._redis_service = None
 
     async def _get_redis(self):

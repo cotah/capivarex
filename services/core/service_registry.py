@@ -29,12 +29,14 @@ class ServiceRegistry:
     _instance: Optional['ServiceRegistry'] = None
 
     def __new__(cls):
+        """Ensure only one ServiceRegistry instance exists (singleton)."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
+        """Initialise internal registry state (runs only once)."""
         if self._initialized:
             return
 
@@ -155,6 +157,7 @@ def register_service(name: str, lazy: bool = True):
         lazy: If True, instantiate only when first accessed
     """
     def decorator(service_class: Type[BaseService]):
+        """Register *service_class* in the global registry and return it unchanged."""
         registry.register(name, service_class, lazy=lazy)
         return service_class
     return decorator

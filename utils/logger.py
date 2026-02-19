@@ -40,12 +40,15 @@ class StructuredLogger:
     """Compatibility wrapper to support legacy logging styles with loguru."""
 
     def __init__(self, inner_logger):
+        """Wrap a loguru logger so callers can use stdlib-style ``%s`` formatting."""
         self._inner = inner_logger
 
     def bind(self, **kwargs: Any) -> "StructuredLogger":
+        """Return a new logger with extra context key-value pairs bound."""
         return StructuredLogger(self._inner.bind(**kwargs))
 
     def _log(self, level: str, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Format *message* with ``%`` or ``.format()``, redact secrets, and emit."""
         extra_data = kwargs.pop("extra", {}) or {}
         exc_info = kwargs.pop("exc_info", False)
         fmt_kwargs = kwargs
@@ -74,21 +77,27 @@ class StructuredLogger:
         target.opt(depth=2, exception=exc_info).log(level, text)
 
     def debug(self, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Emit a DEBUG-level log message."""
         self._log("DEBUG", message, *args, **kwargs)
 
     def info(self, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Emit an INFO-level log message."""
         self._log("INFO", message, *args, **kwargs)
 
     def warning(self, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Emit a WARNING-level log message."""
         self._log("WARNING", message, *args, **kwargs)
 
     def error(self, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Emit an ERROR-level log message."""
         self._log("ERROR", message, *args, **kwargs)
 
     def critical(self, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Emit a CRITICAL-level log message."""
         self._log("CRITICAL", message, *args, **kwargs)
 
     def exception(self, message: Any, *args: Any, **kwargs: Any) -> None:
+        """Emit an ERROR-level log message with traceback (``exc_info=True``)."""
         kwargs.setdefault("exc_info", True)
         self._log("ERROR", message, *args, **kwargs)
 

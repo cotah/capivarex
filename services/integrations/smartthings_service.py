@@ -49,6 +49,7 @@ class SmartThingsService(BaseService):
         name: str = "smartthings",
         config: Optional[Dict[str, Any]] = None,
     ):
+        """Initialise the SmartThings integration."""
         super().__init__(name, config)
         self.base_url: str = "https://api.smartthings.com/v1"
         self.access_token: Optional[str] = None

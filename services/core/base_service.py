@@ -94,8 +94,10 @@ def retry_on_failure(
         exceptions: Tuple of exceptions to catch
     """
     def decorator(func: Callable):
+        """Register *cls* and return it unchanged."""
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            """Execute *func* with retry and exponential back-off on transient errors."""
             last_exception = None
             delay = 1.0
 
@@ -290,4 +292,5 @@ class BaseService(ABC):
         return self._status == ServiceStatus.HEALTHY
 
     def __repr__(self) -> str:
+        """Return a developer-friendly representation."""
         return f"<{self.__class__.__name__}(name='{self.name}', status='{self._status.value}')>"

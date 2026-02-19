@@ -67,6 +67,7 @@ class VideoService(BaseService):
     """
 
     def __init__(self, name: str = "video", config: Optional[Dict[str, Any]] = None):
+        """Initialise the video generation service."""
         super().__init__(name, config)
         self.client: Optional[Any] = None
 

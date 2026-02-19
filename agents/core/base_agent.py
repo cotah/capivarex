@@ -35,6 +35,7 @@ class AgentResponse:
         error: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None
     ):
+        """Create an agent response with the given status and payload."""
         self.status = status
         self.response = response
         self.data = data or {}
@@ -258,4 +259,5 @@ class BaseAgent(ABC):
         }
 
     def __repr__(self) -> str:
+        """Return a developer-friendly representation."""
         return f"<{self.__class__.__name__}(name='{self.name}')>"

@@ -49,6 +49,7 @@ class TrafficService(BaseService):
         name: str = "traffic",
         config: Optional[Dict[str, Any]] = None,
     ):
+        """Initialise the traffic service."""
         super().__init__(name, config)
         self.api_key: Optional[str] = None
         self.routes_url: str = (

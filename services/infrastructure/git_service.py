@@ -48,6 +48,7 @@ class GitService(BaseService):
         name: str = "git",
         config: Optional[Dict[str, Any]] = None,
     ):
+        """Initialise the git service."""
         super().__init__(name, config)
         self.github_token: Optional[str] = None
         self.base_workspace: Optional[Path] = None

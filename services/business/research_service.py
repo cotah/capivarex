@@ -51,6 +51,7 @@ class ResearchService(BaseService):
         name: str = "research",
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Initialise the research service."""
         super().__init__(name, config)
         self._perplexity: Optional[Any] = None
 
