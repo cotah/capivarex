@@ -42,11 +42,20 @@ class RequestProcessor:
         self.user_context: Optional[UserContext] = None
         self.tenant_context: Optional[TenantContext] = None
 
-    def _bind_request_id(self) -> None:
-        """Generate and bind a unique request_id to the structlog context."""
-        self.request_id = str(uuid.uuid4())
-        structlog.contextvars.clear_contextvars()
-        structlog.contextvars.bind_contextvars(request_id=self.request_id)
+    def _bind_context_vars(self) -> None:
+        """Bind request_id, user_id, and tenant_id to the structlog context.
+
+        Should be called after user_context and tenant_context are resolved
+        so that all subsequent log entries include the full tracing context.
+        """
+        context_data: Dict[str, str] = {"request_id": self.request_id}
+
+        if self.user_context:
+            context_data["user_id"] = self.user_context.user_id
+        if self.tenant_context:
+            context_data["tenant_id"] = self.tenant_context.tenant_id
+
+        structlog.contextvars.bind_contextvars(**context_data)
 
     def _is_rate_limited(self) -> bool:
         """Check if the user is sending messages too fast."""
@@ -104,7 +113,10 @@ class RequestProcessor:
         Returns:
             True if the request should proceed, False if it should be blocked.
         """
-        self._bind_request_id()
+        # Initial bind with request_id only (user/tenant unknown yet)
+        self.request_id = str(uuid.uuid4())
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(request_id=self.request_id)
 
         if self._is_rate_limited():
             logger.debug("Rate limit hit for user %s", self.user_identifier)
@@ -112,6 +124,9 @@ class RequestProcessor:
 
         await self._fetch_user_context()
         await self._resolve_tenant()
+
+        # Re-bind with full context (user_id + tenant_id now available)
+        self._bind_context_vars()
         return True
 
 

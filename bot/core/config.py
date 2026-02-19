@@ -134,6 +134,46 @@ class ConfigManager:
         # Increment credits
         self._increment_credits(tenant_id, tokens_in, tokens_out)
 
+    def check_quota(self, tenant_id: str, cost: int) -> bool:
+        """Check if a tenant has enough credits for an operation.
+
+        Args:
+            tenant_id: Tenant identifier.
+            cost: Estimated credit cost for the operation.
+
+        Returns:
+            True if the tenant has sufficient credits remaining.
+        """
+        cfg = self.load()
+        tenant_data = cfg.get("tenants", {}).get(tenant_id)
+        if not tenant_data:
+            return False
+
+        return (tenant_data.get("credits_used", 0) + cost) <= tenant_data.get(
+            "credits_total", 0
+        )
+
+    def log_billing_event(
+        self, tenant_id: str, event_type: str, details: Dict
+    ) -> None:
+        """Log a billing event for future integration (e.g. Stripe webhooks).
+
+        This is a placeholder that currently only writes a structured log
+        entry.  When a billing provider is integrated, this method becomes
+        the single point of extension.
+
+        Args:
+            tenant_id: Tenant identifier.
+            event_type: Event category (e.g. ``quota_exceeded``, ``usage``).
+            details: Arbitrary event metadata.
+        """
+        logger.info(
+            "BILLING EVENT: tenant_id=%s, event='%s', details=%s",
+            tenant_id,
+            event_type,
+            details,
+        )
+
     def _increment_credits(
         self,
         tenant_id: str,
@@ -154,6 +194,13 @@ class ConfigManager:
             cost += tokens_out * 1.5
 
         cost = int(cost)
+
+        # Check quota before allowing the operation
+        if not self.check_quota(tenant_id, cost):
+            self.log_billing_event(
+                tenant_id, "quota_exceeded", {"cost": cost}
+            )
+            raise ValueError(f"Quota exceeded for tenant {tenant_id}")
 
         # Update in-memory delta
         _SESSION_CREDITS_DELTA += cost
