@@ -53,6 +53,7 @@ from api.routes import (
     car,
     traffic,
     smartthings,
+    health,
 )
 
 # ====================================================================
@@ -67,6 +68,15 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# ====================================================================
+#                       PROMETHEUS METRICS
+# ====================================================================
+
+from prometheus_fastapi_instrumentator import Instrumentator
+
+# Exposes /metrics endpoint with request latency, count, size, etc.
+Instrumentator().instrument(app).expose(app)
 
 # ====================================================================
 #                       MIDDLEWARE
@@ -233,6 +243,9 @@ app.include_router(calendar.router, prefix=f"{API_V1}/calendar", tags=["Calendar
 app.include_router(car.router, prefix=f"{API_V1}/car", tags=["Car"])
 app.include_router(traffic.router, prefix=f"{API_V1}/traffic", tags=["Traffic"])
 app.include_router(smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"])
+
+# Monitoring
+app.include_router(health.router, tags=["Monitoring"])
 
 
 # ====================================================================

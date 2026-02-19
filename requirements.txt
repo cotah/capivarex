@@ -54,8 +54,9 @@ pybreaker==1.1.0
 # Task Queue
 arq==0.25.0
 
-# Structured Logging
+# Observability
 structlog==24.1.0
+prometheus-fastapi-instrumentator==6.1.0
 
 # Utilities
 python-dateutil==2.9.0.post0

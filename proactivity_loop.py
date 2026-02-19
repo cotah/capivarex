@@ -107,12 +107,20 @@ async def run_proactivity_cycle() -> None:
 
                 if await proactivity_service.is_notification_allowed(user_id, message):
                     logger.info(
-                        f"Sending proactive notification to user {user_id}: {message}"
+                        f"Sending proactive notification to user {user_id}"
                     )
-                    # Local import to avoid circular dependency with telegram_bot
-                    from telegram_bot import send_proactive_message
 
-                    await send_proactive_message(chat_id, message)
+                    notification_service = get_service("notification")
+                    if notification_service and not notification_service.is_initialized():
+                        await notification_service.initialize()
+
+                    if notification_service:
+                        await notification_service.send_message(
+                            "telegram", chat_id, message
+                        )
+                    else:
+                        logger.warning("NotificationService not available.")
+
                     await proactivity_service.record_notification_sent(user_id, message)
                 else:
                     logger.info(f"Notification for {user_id} blocked by filters.")

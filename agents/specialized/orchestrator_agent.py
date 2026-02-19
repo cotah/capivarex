@@ -4,16 +4,20 @@ Orchestrator Agent - Routes requests to specialized agents.
 Refactored to use new BaseAgent architecture.
 """
 
+import json
 import logging
 from typing import Any, Dict, List
 
+from pydantic import ValidationError
+
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
+from schemas.orchestrator import OrchestratorDecision
 from services import get_service
 
 
 logger = logging.getLogger(__name__)
 
-# Allowed agent types
+# Allowed agent types (kept for quick membership checks)
 ALLOWED_AGENTS = {
     "chat", "research", "dev", "weather", "finance",
     "image", "video", "voice", "calendar", "traffic",
@@ -134,7 +138,8 @@ REGRAS:
 - Se pedir para gerar vídeo → 'video'
 - Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat).
 
-Responda APENAS com uma das treze opções acima, sem explicações.
+Responda SEMPRE em formato JSON, seguindo este schema:
+{"agent": "<nome_do_agente>", "reason": "<justificativa>"}
 """.strip()
 
         try:
@@ -144,24 +149,20 @@ Responda APENAS com uma das treze opções acima, sem explicações.
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=10,
+                response_format={"type": "json_object"},
+                max_tokens=150,
                 temperature=0.0,
             )
 
-            decision = (response.choices[0].message.content or "").strip().lower()
-            # Clean malformed decisions: remove quotes, slashes, extra whitespace
-            decision = decision.strip("'\"").strip("/").strip()
+            response_text = response.choices[0].message.content or ""
+            decision_data = json.loads(response_text)
 
-            # Validate decision
-            if decision not in ALLOWED_AGENTS:
-                self.logger.warning(
-                    f"Invalid decision '{decision}', falling back to 'chat'",
-                    extra={"prompt": prompt[:100]}
-                )
-                decision = "chat"
+            # Validate with Pydantic
+            validated_decision = OrchestratorDecision.model_validate(decision_data)
+            decision = validated_decision.agent
 
             self.logger.info(
-                f"Routed to agent: {decision}",
+                f"Routed to agent: {decision} (Reason: {validated_decision.reason})",
                 extra={"prompt": prompt[:100]}
             )
 
@@ -172,6 +173,17 @@ Responda APENAS com uma das treze opções acima, sem explicações.
                     "agent": decision,
                     "prompt": prompt
                 }
+            )
+
+        except (json.JSONDecodeError, ValidationError) as e:
+            self.logger.warning(
+                f"Failed to parse or validate LLM decision: {e}. Falling back to chat.",
+                extra={"prompt": prompt[:100]}
+            )
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="chat",
+                data={"agent": "chat", "reason": "JSON validation fallback"},
             )
 
         except Exception as e:

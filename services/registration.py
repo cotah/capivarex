@@ -24,6 +24,7 @@ from .infrastructure.code_executor import CodeExecutorService
 from .infrastructure.database import DatabaseService
 from .infrastructure.file_manager import FileManagerService
 from .infrastructure.git_service import GitService
+from .infrastructure.notification_service import NotificationService
 from .infrastructure.redis_service import RedisService
 
 # Serviços de Integrações

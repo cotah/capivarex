@@ -4,6 +4,7 @@ from .redis_service import RedisService
 from .code_executor import CodeExecutorService
 from .file_manager import FileManagerService
 from .git_service import GitService
+from .notification_service import NotificationService
 
 __all__ = [
     "DatabaseService",
@@ -11,4 +12,5 @@ __all__ = [
     "CodeExecutorService",
     "FileManagerService",
     "GitService",
+    "NotificationService",
 ]
