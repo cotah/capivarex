@@ -102,39 +102,48 @@ Follow these instructions to get the project up and running on your local machin
 
     **IMPORTANT:** Never commit `.env`, `credentials.json`, or `service_account.json` to Git. They are already listed in `.gitignore`.
 
-### Running the Application
+### Running with Docker (Recommended)
 
-1.  **Start the backend server:**
+1.  Make sure Docker Desktop is running.
+2.  Run the startup script:
 
-    Open a terminal and run the FastAPI application using Uvicorn.
-    ```bash
-    uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-    ```
-    The backend will be available at `http://localhost:8000`.
-
-2.  **Start the Telegram bot:**
-
-    In a separate terminal, run the Telegram bot script.
-    ```bash
-    python telegram_bot/main.py
-    ```
-    Your bot should now be online and responsive in your Telegram client.
-
-3.  **Start everything (alternative):**
-
-    Use the convenience script to start all services:
     ```bash
     ./start_all.sh
     ```
 
-4.  **Start the background task worker (optional):**
+    This builds the images and starts the API, the arq worker, and Redis via Docker Compose.
 
-    To process long-running tasks in the background (e.g., image generation), start the arq worker in a separate terminal:
+    The API will be available at `http://localhost:8000` and docs at `http://localhost:8000/docs`.
+
+### Running with Docker (Production)
+
+For production deployments using gunicorn with multiple workers:
+
+```bash
+docker-compose -f docker-compose.prod.yml up --build -d
+```
+
+### Running without Docker
+
+1.  **Start the backend server:**
+
+    ```bash
+    uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+    ```
+
+2.  **Start the Telegram bot:**
+
+    ```bash
+    python telegram_bot/main.py
+    ```
+
+3.  **Start the background task worker (optional):**
+
     ```bash
     arq worker.WorkerSettings
     ```
 
-    Requires a Redis instance running and the `REDIS_URL` environment variable configured.
+    Requires a Redis instance and the `REDIS_URL` environment variable.
 
 ---
 

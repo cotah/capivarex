@@ -9,17 +9,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
 
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.11"
 
     - name: Install dependencies
       run: |
@@ -37,3 +34,7 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+
+    - name: Build Docker image
+      run: |
+        docker build . --file Dockerfile --tag capivarax:${{ github.sha }}
