@@ -35,7 +35,12 @@ async def run_proactivity_cycle() -> None:
         await db_service.initialize()
 
     # Get users from the proactivity_preferences table
-    pref_users = await db_service.get_all_users_with_proactivity_enabled()
+    try:
+        pref_users = await db_service.get_all_users_with_proactivity_enabled()
+    except Exception as e:
+        logger.exception(f"CRITICAL: Failed to get users with proactivity enabled from DB. Cycle aborted. Error: {e}")
+        return
+
     if not pref_users:
         logger.info("No users with proactivity preferences found.")
         return
@@ -49,7 +54,7 @@ async def run_proactivity_cycle() -> None:
         user_id = pref["user_id"]
 
         # Look up user details (telegram_chat_id) from users table
-        user = await db_service.get_user_by_telegram_id(user_id)
+        user = await db_service.get_user_by_id(user_id)
         chat_id = user.get("telegram_chat_id") if user else user_id
         proactivity_prefs = pref
 

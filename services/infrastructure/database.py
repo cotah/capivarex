@@ -162,6 +162,36 @@ class DatabaseService(BaseService):
             )
             return None
 
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get user by their primary ID (UUID).
+
+        Args:
+            user_id: The user's primary key ID.
+
+        Returns:
+            User dict or None if not found.
+        """
+        if not self.client:
+            await self.initialize()
+
+        try:
+            response = self.client.table("users").select("*").eq(
+                "id", user_id
+            ).execute()
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+
+            return None
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to get user by ID {user_id}: {e}",
+                exc_info=True
+            )
+            return None
+
     async def update_user_preferences(
         self,
         user_id: str,

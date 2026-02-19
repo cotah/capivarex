@@ -57,8 +57,12 @@ def main_sync():
     # Initialize bot core synchronously using a temporary event loop
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    bot = CapivaraXBot(application)
-    loop.run_until_complete(bot.initialize())
+    try:
+        bot = CapivaraXBot(application)
+        loop.run_until_complete(bot.initialize())
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
     # Register all handlers (also stores bot in bot_data)
     register_all_handlers(application, bot)

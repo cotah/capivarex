@@ -175,7 +175,14 @@ class ProactivityService(BaseService):
                 {"error": "Finance unavailable"}
             )
 
-        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*tasks.values(), return_exceptions=True),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            self.logger.error(f"Context gathering for user {user_id} timed out after 30s.")
+            return {key: {"error": "Timeout"} for key in tasks.keys()}
 
         context: Dict[str, Any] = {}
         for key, value in zip(tasks.keys(), results):
@@ -425,6 +432,7 @@ class ProactivityService(BaseService):
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=180,
                 temperature=0.2,
+                timeout=20.0,
             )
             insight = (response.choices[0].message.content or "").strip()
 
