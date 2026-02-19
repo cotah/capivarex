@@ -6,8 +6,7 @@ from telegram.ext import ContextTypes
 
 from services.core import get_service
 from telegram_bot.utils.response_sender import send_agent_response
-from utils.rate_limiter import is_rate_limited
-from utils.request_context import bind_request_id
+from utils.request_processor import RequestProcessor
 
 logger = logging.getLogger("capivarax.telegram.handlers.document")
 
@@ -23,9 +22,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         update: Telegram update object.
         context: Telegram context object.
     """
-    bind_request_id()
-
-    if is_rate_limited(update.effective_user.id):
+    processor = RequestProcessor(user_identifier=update.effective_user.id)
+    if not await processor.process():
         return
 
     doc = update.message.document
@@ -90,4 +88,3 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except Exception as e:
         logger.error("Error processing document: %s", e, exc_info=True)
         await update.message.reply_text("Erro ao processar documento.")
-

@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from jose import JWTError, jwt
 from pydantic import BaseModel
 
-from api.dependencies import get_current_user
+from api.dependencies import get_current_user, get_authenticated_processor, RequestProcessor
 from api.middleware.rate_limit import limiter
 from models.schemas import Conversation, ConversationCreate, Message
 
@@ -311,10 +311,15 @@ def _build_error_payload() -> Dict[str, Any]:
 async def chat_stream(
     request: Request,
     body: ChatStreamRequest,
+    processor: RequestProcessor = Depends(get_authenticated_processor),
 ) -> StreamingResponse:
     """HTTP SSE endpoint that orchestrates intent detection and agent execution."""
 
     context = _build_request_context(body)
+    # Enrich context with processor data
+    context["request_id"] = processor.request_id
+    if processor.user_context:
+        context["user"] = processor.user_context.model_dump()
 
     try:
         intent = await _detect_intent(body.message, context)
