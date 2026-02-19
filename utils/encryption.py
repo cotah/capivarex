@@ -23,10 +23,8 @@ class EncryptionService:
         if not encryption_key:
             logger.warning("ENCRYPTION_KEY not set, generating temporary key")
             encryption_key = Fernet.generate_key().decode()
-            logger.warning(f"Generated key: {encryption_key}")
             logger.warning(
-                "Add this to .env file: ENCRYPTION_KEY={}",
-                encryption_key,
+                "Set ENCRYPTION_KEY in .env to persist encryption across restarts"
             )
 
         try:

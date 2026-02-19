@@ -43,7 +43,7 @@ async def test_execute_returns_allowed_decision():
     response = Mock()
     response.choices = [Mock()]
     response.choices[0].message = Mock()
-    response.choices[0].message.content = "weather"
+    response.choices[0].message.content = '{"agent": "weather", "reason": "weather query"}'
 
     client = Mock()
     client.chat.completions.create = AsyncMock(return_value=response)
