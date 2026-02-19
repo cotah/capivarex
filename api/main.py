@@ -8,10 +8,6 @@ Entry point for the CapivaraX Bot API with:
 - Dependency injection
 """
 
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", message="error reading bcrypt version")
-
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,9 +16,12 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Importa os módulos de registro para popular os registries
-import services.registration  # noqa: F401
-import agents.registration  # noqa: F401
+# Explicit service and agent registration
+from services.registration import register_all_services
+from agents.registration import register_all_agents
+
+register_all_services()
+register_all_agents()
 
 # ====================================================================
 #                       IMPORTS DE MIDDLEWARE
@@ -92,19 +91,25 @@ setup_rate_limiting(app)
 # Setup standardized error handlers
 setup_error_handlers(app)
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Configure CORS — restrict origins by environment
+_cors_origins = []
+if os.getenv("ENVIRONMENT") == "development":
+    _cors_origins.extend([
         os.getenv("CORS_ORIGIN_LOCALHOST", "http://localhost:3000"),
         os.getenv("CORS_ORIGIN_VITE", "http://localhost:5173"),
         "https://*.replit.dev",
-        "https://*.vercel.app",
-        os.getenv("FRONTEND_URL", ""),
-    ],
+    ])
+
+_frontend_url = os.getenv("FRONTEND_URL")
+if _frontend_url:
+    _cors_origins.append(_frontend_url)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # ====================================================================

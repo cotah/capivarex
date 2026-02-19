@@ -14,9 +14,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Trigger service/agent registration
-import services.registration  # noqa: F401
-import agents.registration  # noqa: F401
+from services.registration import register_all_services
+from agents.registration import register_all_agents
+
+register_all_services()
+register_all_agents()
 
 from arq.connections import RedisSettings
 from services.core import get_service
@@ -57,15 +59,19 @@ async def generate_image_task(ctx, prompt: str, user_id: str, user_plan: str = "
         )
         logger.info(f"Image generated successfully for user {user_id}")
 
-        # Notify user via Telegram if possible
+        # Notify user via NotificationService if possible
         try:
-            from telegram_bot import send_proactive_message
-            if isinstance(result, dict) and result.get("success"):
-                image_path = result.get("image_path", "")
-                await send_proactive_message(
-                    user_id,
-                    f"Sua imagem foi gerada com sucesso! Caminho: {image_path}"
-                )
+            notification_service = get_service("notification")
+            if notification_service:
+                if not notification_service.is_initialized():
+                    await notification_service.initialize()
+                if isinstance(result, dict) and result.get("success"):
+                    image_path = result.get("image_path", "")
+                    await notification_service.send_message(
+                        "telegram",
+                        user_id,
+                        f"Sua imagem foi gerada com sucesso! Caminho: {image_path}",
+                    )
         except Exception as notify_err:
             logger.warning(f"Could not notify user {user_id}: {notify_err}")
 
@@ -101,6 +107,8 @@ class WorkerSettings:
     Arq worker settings.
 
     Defines available tasks, lifecycle hooks, and Redis connection.
+    Uses REDIS_URL for the arq socket connection (required by arq internals).
+    The application code itself routes through Upstash REST via RedisService.
     """
     functions = [generate_image_task]
     on_startup = startup

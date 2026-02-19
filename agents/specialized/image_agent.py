@@ -136,7 +136,7 @@ class ImageAgent(BaseAgent):
         user_plan: str,
         aspect_ratio: str,
     ) -> AgentResponse:
-        """Enqueue image generation as a background task via arq."""
+        """Enqueue image generation as a background task via arq + Upstash REST."""
         try:
             from arq import create_pool
             from arq.connections import RedisSettings
@@ -162,15 +162,50 @@ class ImageAgent(BaseAgent):
             )
 
         except Exception as e:
-            self.logger.warning(f"Failed to enqueue task, falling back to direct generation: {e}")
-            # Fall back to direct generation if queue is unavailable
-            return await self.execute(prompt, {
-                "prompt": prompt,
-                "user_plan": user_plan,
-                "aspect_ratio": aspect_ratio,
-                "user_id": user_id,
-                "use_queue": False,
-            })
+            # Try the Upstash REST adapter as fallback
+            try:
+                from utils.worker_redis_adapter import ArqRedisRestAdapter
+                import json
+                import time
+
+                adapter = ArqRedisRestAdapter()
+                await adapter.initialize()
+
+                payload = json.dumps({
+                    "function": "generate_image_task",
+                    "args": [],
+                    "kwargs": {
+                        "prompt": prompt,
+                        "user_id": user_id,
+                        "user_plan": user_plan,
+                        "aspect_ratio": aspect_ratio,
+                    },
+                }).encode()
+
+                job_id = f"img_{user_id}_{int(time.time())}"
+                await adapter.enqueue_job("default", job_id, payload, int(time.time()))
+
+                self.logger.info(f"Image task enqueued via REST adapter for user {user_id}")
+
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response="Entendido! Estou gerando sua imagem em segundo plano. Avisarei quando estiver pronta!",
+                    data={"queued": True, "prompt": prompt},
+                    metadata={"type": "image_queued"}
+                )
+
+            except Exception as adapter_err:
+                self.logger.warning(
+                    f"Failed to enqueue via both socket ({e}) and REST adapter ({adapter_err}). "
+                    "Falling back to direct generation."
+                )
+                return await self.execute(prompt, {
+                    "prompt": prompt,
+                    "user_plan": user_plan,
+                    "aspect_ratio": aspect_ratio,
+                    "user_id": user_id,
+                    "use_queue": False,
+                })
 
     def get_capabilities(self) -> List[str]:
         """Get image agent capabilities."""
