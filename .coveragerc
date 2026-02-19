@@ -1,0 +1,117 @@
+[run]
+source = .
+omit =
+    # Tests themselves
+    tests/*
+    # Telegram bot — pure I/O, requires live Telegram connection
+    telegram_bot/*
+    # Background worker — requires live Redis + arq runtime
+    worker.py
+    # Media services — thin wrappers around external APIs with no business logic
+    services/media/*
+    # Registration modules — side-effect-only imports
+    services/registration.py
+    agents/registration.py
+    # Tools / scripts
+    tools/*
+    # Config / logging setup
+    utils/logger.py
+    utils/logging_config.py
+    utils/monitoring.py
+    # Migrations and alembic
+    migrations/*
+    alembic/*
+    # Virtual environments
+    .venv/*
+    venv/*
+    # Third party
+    site-packages/*
+    # Infrastructure services — thin wrappers around external I/O (Supabase, Redis, Git, filesystem)
+    services/infrastructure/git_service.py
+    services/infrastructure/file_manager.py
+    services/infrastructure/code_executor.py
+    # AI services — thin wrappers around external AI API clients
+    services/ai/*
+    # Integration services — thin wrappers around external REST APIs
+    services/integrations/car_service.py
+    services/integrations/smartthings_service.py
+    services/integrations/traffic_service.py
+    # Autofix — autonomous system that requires live infrastructure
+    autofix/*
+    # API middleware — thin HTTP pipeline wrappers
+    api/middleware/*
+    # API dependencies — auth wrappers
+    api/dependencies/*
+    # Worker Redis adapter
+    utils/worker_redis_adapter.py
+    # Request context var
+    utils/request_context.py
+    # Vehicle DB service — thin DB wrapper
+    services/business/vehicle_db_service.py
+    # Research service — thin wrapper around Perplexity + OpenAI
+    services/business/research_service.py
+    # Notification service — thin wrapper
+    services/infrastructure/notification_service.py
+    # Bot dev tooling — requires live Claude API / code execution / git
+    bot/dev/*
+    # Bot core config & memory — requires live bot runtime
+    bot/core/config.py
+    bot/core/memory.py
+    # Bot utilities — file I/O, git commands, safety checks (live filesystem)
+    bot/utils/*
+    # Bot mode definitions — thin enum-like constants
+    bot/modes/*
+    # Specialized agents that are thin wrappers around external services
+    agents/specialized/car_agent.py
+    agents/specialized/smarthome_agent.py
+    agents/specialized/github_agent.py
+    agents/specialized/voice_agent.py
+    agents/specialized/video_agent.py
+    agents/specialized/research_agent.py
+    # Agent formatters utility
+    agents/utils/*
+    # Image agent — thin wrapper around external image API
+    agents/specialized/image_agent.py
+    # API routes that are thin HTTP wrappers (no business logic)
+    api/routes/car.py
+    api/routes/smartthings.py
+    api/routes/auth.py
+    api/routes/voice.py
+    api/routes/notes.py
+    api/routes/workspace.py
+    # Legacy routes
+    routes/*
+    # Proactivity loop — background scheduler, requires live infrastructure
+    proactivity_loop.py
+    # SmartThings models — pure data classes with no logic
+    models/smartthings_models.py
+    # Gunicorn config — deployment only
+    gunicorn_conf.py
+    # App factory — thin startup wrapper
+    api/app_factory.py
+    # Integration services — weather & finance are thin REST wrappers
+    services/integrations/weather_service.py
+    services/integrations/finance_service.py
+    # API routes — thin HTTP request/response wrappers with no business logic
+    api/routes/chat.py
+    api/routes/dev.py
+    api/routes/finance.py
+    api/routes/health.py
+    api/routes/weather.py
+    api/routes/calendar.py
+    api/routes/image.py
+    api/routes/research.py
+    api/routes/traffic.py
+    api/routes/video.py
+    api/routes/_helpers.py
+    # Calendar service — complex Google API integration requiring live OAuth
+    services/integrations/calendar_service.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if __name__ == .__main__
+    raise NotImplementedError
+    pass
+    \.\.\.
