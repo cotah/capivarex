@@ -2,8 +2,8 @@
 """
 Unified Request Processor - Gateway layer for all incoming requests.
 
-Centralizes request_id generation, rate limiting, and UserContext fetching
-for both Telegram handlers and FastAPI routes.
+Centralizes request_id generation, rate limiting, UserContext fetching,
+and TenantContext resolution for both Telegram handlers and FastAPI routes.
 """
 
 import logging
@@ -13,6 +13,7 @@ from typing import Dict, Optional
 
 import structlog.contextvars
 
+from bot.core.tenancy import TenancyManager, TenantContext
 from schemas.context import UserContext
 from services.core import get_service
 
@@ -31,6 +32,7 @@ class RequestProcessor:
     - request_id generation and structlog binding
     - Per-user rate limiting
     - UserContext fetching and validation
+    - TenantContext resolution (database-backed, no global state)
     """
 
     def __init__(self, user_identifier: int, source: str = "telegram"):
@@ -38,6 +40,7 @@ class RequestProcessor:
         self.source = source
         self.request_id: Optional[str] = None
         self.user_context: Optional[UserContext] = None
+        self.tenant_context: Optional[TenantContext] = None
 
     def _bind_request_id(self) -> None:
         """Generate and bind a unique request_id to the structlog context."""
@@ -80,6 +83,20 @@ class RequestProcessor:
             )
             return None
 
+    async def _resolve_tenant(self) -> Optional[TenantContext]:
+        """Resolve TenantContext via the database-backed TenancyManager."""
+        db_service = get_service("database")
+        if not db_service or not db_service.is_initialized():
+            return None
+
+        tenancy = TenancyManager(db_service)
+
+        channel = self.source  # "telegram" or "api"
+        identifier = str(self.user_identifier)
+
+        self.tenant_context = await tenancy.resolve_context(channel, identifier)
+        return self.tenant_context
+
     async def process(self) -> bool:
         """
         Execute the full pre-processing pipeline.
@@ -94,6 +111,7 @@ class RequestProcessor:
             return False
 
         await self._fetch_user_context()
+        await self._resolve_tenant()
         return True
 
 

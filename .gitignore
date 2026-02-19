@@ -77,6 +77,10 @@ artifacts/
 outputs/
 workspace/
 
+# Legacy tenancy (now database-backed)
+tenancy/
+identity_map.json
+
 # Database files
 *.db
 *.sqlite3
