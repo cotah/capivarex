@@ -16,11 +16,15 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import pybreaker
+from pydantic import ValidationError
+
 from services.core import (
     BaseService,
     register_service,
     get_service,
 )
+from .schemas import WeatherData, CalendarEvent, CarStatus, NewsData, FinanceData
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,17 @@ class ProactivityService(BaseService):
         super().__init__(name, config)
         self._openai_client: Optional[Any] = None
         self._redis_client: Optional[Any] = None
+
+        # Circuit breakers: open after N consecutive failures, reset after timeout
+        self._service_breakers = {
+            "calendar": pybreaker.CircuitBreaker(fail_max=3, reset_timeout=60),
+            "weather": pybreaker.CircuitBreaker(fail_max=3, reset_timeout=60),
+            "car": pybreaker.CircuitBreaker(fail_max=3, reset_timeout=60),
+            "research": pybreaker.CircuitBreaker(fail_max=3, reset_timeout=60),
+            "finance": pybreaker.CircuitBreaker(fail_max=3, reset_timeout=60),
+            "traffic": pybreaker.CircuitBreaker(fail_max=3, reset_timeout=60),
+            "openai": pybreaker.CircuitBreaker(fail_max=2, reset_timeout=120),
+        }
 
     async def _initialize(self) -> None:
         """Initialize dependencies."""
@@ -130,49 +145,78 @@ class ProactivityService(BaseService):
 
         # Calendar
         calendar_service = get_service("calendar")
-        if calendar_service and calendar_service.is_initialized():
-            tasks["calendar"] = asyncio.to_thread(
-                calendar_service.get_next_meeting
-            )
+        calendar_breaker = self._service_breakers["calendar"]
+        if calendar_service and calendar_service.is_initialized() and not calendar_breaker.current_state == "open":
+            @calendar_breaker
+            async def protected_calendar_call():
+                return await asyncio.to_thread(calendar_service.get_next_meeting)
+            tasks["calendar"] = protected_calendar_call()
         else:
-            tasks["calendar"] = self._immediate({"error": "Calendar unavailable"})
+            error_msg = "Calendar unavailable"
+            if calendar_breaker.current_state == "open":
+                error_msg = "Calendar service is offline (Circuit Open)"
+            tasks["calendar"] = self._immediate({"error": error_msg})
 
         # Weather
         weather_service = get_service("weather")
-        if weather_service and weather_service.is_initialized():
-            tasks["weather"] = asyncio.to_thread(
-                weather_service.get_current_weather, location
-            )
+        weather_breaker = self._service_breakers["weather"]
+        if weather_service and weather_service.is_initialized() and not weather_breaker.current_state == "open":
+            @weather_breaker
+            async def protected_weather_call():
+                return await asyncio.to_thread(weather_service.get_current_weather, location)
+            tasks["weather"] = protected_weather_call()
         else:
-            tasks["weather"] = self._immediate({"error": "Weather unavailable"})
+            error_msg = "Weather unavailable"
+            if weather_breaker.current_state == "open":
+                error_msg = "Weather service is offline (Circuit Open)"
+            tasks["weather"] = self._immediate({"error": error_msg})
 
         # Car
         car_service = get_service("car")
-        if car_service and car_service.is_initialized():
-            tasks["car_status"] = self._get_car_status(user_id)
+        car_breaker = self._service_breakers["car"]
+        if car_service and car_service.is_initialized() and not car_breaker.current_state == "open":
+            @car_breaker
+            async def protected_car_call():
+                return await self._get_car_status(user_id)
+            tasks["car_status"] = protected_car_call()
         else:
+            error_msg = "Car unavailable"
+            if car_breaker.current_state == "open":
+                error_msg = "Car service is offline (Circuit Open)"
             tasks["car_status"] = self._immediate(
-                {"connected": False, "error": "Car unavailable"}
+                {"connected": False, "error": error_msg}
             )
 
         # Research/News
         research_service = get_service("research")
-        if research_service and research_service.is_initialized():
-            tasks["news"] = research_service.search_news(
-                "latest technology and finance news"
-            )
+        research_breaker = self._service_breakers["research"]
+        if research_service and research_service.is_initialized() and not research_breaker.current_state == "open":
+            @research_breaker
+            async def protected_research_call():
+                return await research_service.search_news("latest technology and finance news")
+            tasks["news"] = protected_research_call()
         else:
-            tasks["news"] = self._immediate({"error": "Research unavailable"})
+            error_msg = "Research unavailable"
+            if research_breaker.current_state == "open":
+                error_msg = "Research service is offline (Circuit Open)"
+            tasks["news"] = self._immediate({"error": error_msg})
 
         # Finance
         finance_service = get_service("finance")
-        if finance_service and finance_service.is_initialized():
-            tasks["finance_alerts"] = asyncio.to_thread(
-                finance_service.get_watchlist_summary, ["AAPL", "TSLA", "GOOGL"]
-            )
+        finance_breaker = self._service_breakers["finance"]
+        if finance_service and finance_service.is_initialized() and not finance_breaker.current_state == "open":
+            @finance_breaker
+            async def protected_finance_call():
+                return await asyncio.to_thread(
+                    finance_service.get_watchlist_summary, ["AAPL", "TSLA", "GOOGL"]
+                )
+            tasks["finance_alerts"] = protected_finance_call()
         else:
+            error_msg = "Finance unavailable"
+            if finance_breaker.current_state == "open":
+                error_msg = "Finance service is offline (Circuit Open)"
             tasks["finance_alerts"] = self._immediate(
-                {"error": "Finance unavailable"}
+                {"error": error_msg}
             )
 
         try:
@@ -184,10 +228,35 @@ class ProactivityService(BaseService):
             self.logger.error(f"Context gathering for user {user_id} timed out after 30s.")
             return {key: {"error": "Timeout"} for key in tasks.keys()}
 
+        # Map context keys to their validation schemas
+        schema_map = {
+            "calendar": CalendarEvent,
+            "weather": WeatherData,
+            "car_status": CarStatus,
+            "news": NewsData,
+            "finance_alerts": FinanceData,
+        }
+
         context: Dict[str, Any] = {}
         for key, value in zip(tasks.keys(), results):
             if isinstance(value, Exception):
                 context[key] = {"error": str(value)}
+                self.logger.warning(f"Service '{key}' failed with exception: {value}")
+                continue
+
+            schema = schema_map.get(key)
+            if schema:
+                try:
+                    if isinstance(value, list):
+                        validated_data = [schema.model_validate(item) for item in value]
+                        context[key] = [item.model_dump() for item in validated_data]
+                    else:
+                        validated_data = schema.model_validate(value)
+                        context[key] = validated_data.model_dump()
+                    self.logger.info(f"Service '{key}' data validated successfully.")
+                except ValidationError as e:
+                    context[key] = {"error": "Invalid data structure"}
+                    self.logger.error(f"Service '{key}' data validation failed: {e}")
             else:
                 context[key] = value
 
@@ -195,11 +264,13 @@ class ProactivityService(BaseService):
 
         # Add traffic if there's an event with location
         context["traffic"] = {}
+        traffic_breaker = self._service_breakers["traffic"]
         try:
             traffic_service = get_service("traffic")
             if (
                 traffic_service
                 and traffic_service.is_initialized()
+                and not traffic_breaker.current_state == "open"
                 and isinstance(context.get("calendar"), dict)
                 and context["calendar"].get("location")
             ):
@@ -210,13 +281,22 @@ class ProactivityService(BaseService):
                         start_value.replace("Z", "+00:00")
                     )
                     event_time = event_time.replace(tzinfo=None)
-                    context["traffic"] = await asyncio.to_thread(
-                        traffic_service.check_traffic_before_event,
-                        event.get("location"),
-                        location,
-                        event_time,
-                        15,
-                    )
+
+                    @traffic_breaker
+                    async def protected_traffic_call():
+                        return await asyncio.to_thread(
+                            traffic_service.check_traffic_before_event,
+                            event.get("location"),
+                            location,
+                            event_time,
+                            15,
+                        )
+                    context["traffic"] = await protected_traffic_call()
+            elif traffic_breaker.current_state == "open":
+                context["traffic"] = {"error": "Traffic service is offline (Circuit Open)"}
+        except pybreaker.CircuitBreakerError:
+            self.logger.error("Traffic call blocked by open circuit breaker.")
+            context["traffic"] = {"error": "Traffic service is offline (Circuit Open)"}
         except Exception as e:
             self.logger.warning(f"Failed to get traffic context: {e}")
             context["traffic"] = {"error": str(e)}
@@ -401,7 +481,10 @@ class ProactivityService(BaseService):
         Returns:
             Insight string, or empty if nothing important
         """
-        if not self._openai_client:
+        openai_breaker = self._service_breakers["openai"]
+        if not self._openai_client or openai_breaker.current_state == "open":
+            if openai_breaker.current_state == "open":
+                self.logger.warning("OpenAI circuit breaker is open. Skipping insight analysis.")
             return ""
 
         prompt = f"""
@@ -426,7 +509,8 @@ class ProactivityService(BaseService):
         Analysis: Is there something urgent or useful for the user now?
         """
 
-        try:
+        @openai_breaker
+        async def protected_openai_call():
             response = await self._openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
@@ -434,13 +518,19 @@ class ProactivityService(BaseService):
                 temperature=0.2,
                 timeout=20.0,
             )
-            insight = (response.choices[0].message.content or "").strip()
+            return (response.choices[0].message.content or "").strip()
+
+        try:
+            insight = await protected_openai_call()
 
             if "[SILENCIO]" in insight or not insight:
                 return ""
 
             return insight
 
+        except pybreaker.CircuitBreakerError:
+            self.logger.error("OpenAI call blocked by open circuit breaker.")
+            return ""
         except Exception as e:
             self.logger.error(f"Error analyzing context for proactivity: {e}")
             return ""
