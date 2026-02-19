@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
+from schemas.calendar import CalendarEventInput
 from services import get_service
 
 
@@ -331,6 +332,9 @@ class CalendarAgent(BaseAgent):
         """
         Create a new calendar event.
 
+        Uses ``CalendarEventInput`` for validation and datetime parsing,
+        then delegates to ``_build_google_event`` and the calendar service.
+
         Args:
             calendar_service: Calendar service instance
             event_params: Event parameters (title, start_datetime, etc.)
@@ -338,63 +342,38 @@ class CalendarAgent(BaseAgent):
         Returns:
             AgentResponse with creation result
         """
-        # Validate required parameters
-        if not event_params.get("title"):
-            return AgentResponse(
-                status=AgentStatus.ERROR,
-                response="Nao consegui identificar o titulo do evento. Por favor, especifique o que deseja agendar.",
-                error="Missing title"
-            )
-
-        if not event_params.get("start_datetime"):
-            return AgentResponse(
-                status=AgentStatus.ERROR,
-                response="Nao consegui identificar a data e hora do evento. Por favor, especifique quando deseja agendar.",
-                error="Missing start_datetime"
-            )
-
-        title = event_params["title"]
-
+        # Validate and parse through Pydantic
         try:
-            # Parse start datetime
-            start_str = event_params["start_datetime"]
-            if isinstance(start_str, str):
-                start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-                start_dt = start_dt.replace(tzinfo=None)
-            else:
-                start_dt = start_str
-
-            # Parse or calculate end datetime
-            if event_params.get("end_datetime"):
-                end_str = event_params["end_datetime"]
-                if isinstance(end_str, str):
-                    end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
-                    end_dt = end_dt.replace(tzinfo=None)
-                else:
-                    end_dt = end_str
-            else:
-                # Default: 1 hour after start
-                end_dt = start_dt + timedelta(hours=1)
-
-        except (ValueError, TypeError) as e:
-            self.logger.error(f"Failed to parse event datetime: {e}")
+            event_input = CalendarEventInput.model_validate(event_params)
+        except Exception as e:
+            msg = str(e)
+            if "title" in msg:
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response="Nao consegui identificar o titulo do evento. Por favor, especifique o que deseja agendar.",
+                    error="Missing title"
+                )
+            if "start_datetime" in msg:
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response="Nao consegui identificar a data e hora do evento. Por favor, especifique quando deseja agendar.",
+                    error="Missing start_datetime"
+                )
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao processar data e hora: {str(e)}. Por favor, use um formato valido.",
+                response=f"Erro ao processar dados do evento: {msg}. Por favor, use um formato valido.",
                 error=str(e)
             )
 
-        # Extract optional parameters
-        location = event_params.get("location", "")
-        description = event_params.get("description", "")
+        end_dt = event_input.resolved_end()
 
-        # Create event
+        # Delegate to calendar service
         created_event = calendar_service.create_event(
-            summary=title,
-            start_time=start_dt,
+            summary=event_input.title,
+            start_time=event_input.start_datetime,
             end_time=end_dt,
-            location=location,
-            description=description
+            location=event_input.location,
+            description=event_input.description,
         )
 
         if not created_event:
@@ -405,28 +384,29 @@ class CalendarAgent(BaseAgent):
             )
 
         self.logger.info(
-            f"Event created successfully: {title} at {start_dt.isoformat()}"
+            f"Event created successfully: {event_input.title} at {event_input.start_datetime.isoformat()}"
         )
-
-        # Format success response
-        response = "Evento criado com sucesso!\n\n"
-        response += f"{title}\n"
-        response += f"Data: {start_dt.strftime('%d/%m/%Y as %H:%M')}"
-
-        if end_dt:
-            response += f" - {end_dt.strftime('%H:%M')}"
-
-        if location:
-            response += f"\nLocal: {location}"
-
-        if description:
-            response += f"\nDescricao: {description}"
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=response.strip(),
+            response=self._format_event_response(event_input, end_dt),
             data={"event": created_event}
         )
+
+    @staticmethod
+    def _format_event_response(event: CalendarEventInput, end_dt: datetime) -> str:
+        """Format a human-readable confirmation for a created event."""
+        response = "Evento criado com sucesso!\n\n"
+        response += f"{event.title}\n"
+        response += f"Data: {event.start_datetime.strftime('%d/%m/%Y as %H:%M')}"
+        response += f" - {end_dt.strftime('%H:%M')}"
+
+        if event.location:
+            response += f"\nLocal: {event.location}"
+        if event.description:
+            response += f"\nDescricao: {event.description}"
+
+        return response.strip()
 
     @staticmethod
     def _find_next_event_with_location(

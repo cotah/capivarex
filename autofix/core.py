@@ -1300,6 +1300,21 @@ _PATCH_TEMPLATES = {
 }
 
 
+def _PATCH_TEMPLATE_DEFAULT(error_type: str) -> dict:
+    """Return a generic patch template for unknown error types."""
+    return {
+        "patch_type": "generic_guard",
+        "target_files": ["telegram_bot.py", "bot.py"],
+        "notes": f"Error {error_type}. Add specific handling.",
+        "checklist": [
+            "Identify root cause",
+            "Add appropriate try/except",
+            "Log context for debug",
+            "Test error scenario",
+        ],
+    }
+
+
 def _parse_frame(top_frame: str) -> tuple:
     """Parse a top_frame string into (module, func, line) components.
 
@@ -1478,17 +1493,7 @@ def build_patch(ticket: dict) -> dict:
 
     effective_frame = repo_frame or top_frame
 
-    template = _PATCH_TEMPLATES.get(error_type, {
-        "patch_type": "generic_guard",
-        "target_files": ["telegram_bot.py", "bot.py"],
-        "notes": f"Error {error_type}. Add specific handling.",
-        "checklist": [
-            "Identify root cause",
-            "Add appropriate try/except",
-            "Log context for debug",
-            "Test error scenario"
-        ]
-    })
+    template = _PATCH_TEMPLATES.get(error_type, _PATCH_TEMPLATE_DEFAULT(error_type))
 
     diff = _generate_diff_for_error(error_type, effective_frame, error_msg)
 
@@ -1741,40 +1746,42 @@ def _parse_patch_diff(diff_text: str) -> dict:
     return file_hunks
 
 
+def _apply_single_hunk(
+    content: str, hunk: dict, mode: str,
+) -> tuple[str, dict, bool]:
+    """Apply a single hunk to *content*.
+
+    Returns ``(new_content, result_dict, was_applied)``.
+    """
+    removed = hunk.get("removed", [])
+    added = hunk.get("added", [])
+    n_removed = len(removed)
+    n_added = len(added)
+
+    if not removed:
+        return content, {"status": "not_supported", "removed_lines": n_removed, "added_lines": n_added}, False
+
+    removed_block = "\n".join(removed)
+    if removed_block not in content:
+        return content, {"status": "not_found", "removed_lines": n_removed, "added_lines": n_added}, False
+
+    added_block = "\n".join(added)
+    if mode == "apply":
+        content = content.replace(removed_block, added_block, 1)
+    return content, {"status": "applied", "removed_lines": n_removed, "added_lines": n_added}, True
+
+
 def _apply_hunks_to_content(content: str, hunks: list, mode: str) -> tuple[str, list, bool]:
-    new_content = content
+    """Apply a list of hunks to *content*, delegating each to ``_apply_single_hunk``."""
     hunk_results = []
     applied_any = False
 
     for h in hunks:
-        removed = h.get("removed", [])
-        added = h.get("added", [])
-        if removed:
-            removed_block = "\n".join(removed)
-            added_block = "\n".join(added)
-            if removed_block in new_content:
-                if mode == "apply":
-                    new_content = new_content.replace(removed_block, added_block, 1)
-                hunk_results.append({
-                    "status": "applied",
-                    "removed_lines": len(removed),
-                    "added_lines": len(added)
-                })
-                applied_any = True
-            else:
-                hunk_results.append({
-                    "status": "not_found",
-                    "removed_lines": len(removed),
-                    "added_lines": len(added)
-                })
-        else:
-            hunk_results.append({
-                "status": "not_supported",
-                "removed_lines": len(removed),
-                "added_lines": len(added)
-            })
+        content, result, was_applied = _apply_single_hunk(content, h, mode)
+        hunk_results.append(result)
+        applied_any = applied_any or was_applied
 
-    return new_content, hunk_results, applied_any
+    return content, hunk_results, applied_any
 
 
 def _select_file_hunks(target_file: str, diff_hunks: dict) -> list:
