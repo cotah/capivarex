@@ -32,11 +32,13 @@ venv/
 ENV/
 
 # Secrets and Credentials
-# Use .env.example for templates
+# Use .env.example / .env.prod.example for templates
 .env
+.env.prod
 .env.local
 .env.*.local
 !.env.example
+!.env.prod.example
 
 # Credential files
 credentials.json
