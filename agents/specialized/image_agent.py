@@ -2,9 +2,11 @@
 Image Agent - Generates images using AI.
 
 Refactored to use new BaseAgent architecture.
+Supports background generation via arq task queue.
 """
 
 import logging
+import os
 from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
@@ -52,12 +54,20 @@ class ImageAgent(BaseAgent):
         image_prompt = str(context.get("prompt") or prompt).strip()
         user_plan = str(context.get("user_plan") or "basic")
         aspect_ratio = str(context.get("aspect_ratio") or "1:1")
+        user_id = str(context.get("user_id", "unknown"))
+        use_queue = context.get("use_queue", False)
 
         if not image_prompt:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Prompt de imagem vazio.",
                 error="Empty image prompt"
+            )
+
+        # If queue mode is requested and Redis is available, enqueue the task
+        if use_queue:
+            return await self._enqueue_image_task(
+                image_prompt, user_id, user_plan, aspect_ratio
             )
 
         try:
@@ -118,6 +128,49 @@ class ImageAgent(BaseAgent):
                 response=f"Erro ao gerar imagem: {str(e)}",
                 error=str(e)
             )
+
+    async def _enqueue_image_task(
+        self,
+        prompt: str,
+        user_id: str,
+        user_plan: str,
+        aspect_ratio: str,
+    ) -> AgentResponse:
+        """Enqueue image generation as a background task via arq."""
+        try:
+            from arq import create_pool
+            from arq.connections import RedisSettings
+
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            redis_settings = RedisSettings.from_dsn(redis_url)
+            redis = await create_pool(redis_settings)
+            await redis.enqueue_job(
+                "generate_image_task",
+                prompt=prompt,
+                user_id=user_id,
+                user_plan=user_plan,
+                aspect_ratio=aspect_ratio,
+            )
+
+            self.logger.info(f"Image generation task enqueued for user {user_id}")
+
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="Entendido! Estou gerando sua imagem em segundo plano. Avisarei quando estiver pronta!",
+                data={"queued": True, "prompt": prompt},
+                metadata={"type": "image_queued"}
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Failed to enqueue task, falling back to direct generation: {e}")
+            # Fall back to direct generation if queue is unavailable
+            return await self.execute(prompt, {
+                "prompt": prompt,
+                "user_plan": user_plan,
+                "aspect_ratio": aspect_ratio,
+                "user_id": user_id,
+                "use_queue": False,
+            })
 
     def get_capabilities(self) -> List[str]:
         """Get image agent capabilities."""

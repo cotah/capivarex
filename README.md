@@ -127,6 +127,15 @@ Follow these instructions to get the project up and running on your local machin
     ./start_all.sh
     ```
 
+4.  **Start the background task worker (optional):**
+
+    To process long-running tasks in the background (e.g., image generation), start the arq worker in a separate terminal:
+    ```bash
+    arq worker.WorkerSettings
+    ```
+
+    Requires a Redis instance running and the `REDIS_URL` environment variable configured.
+
 ---
 
 ## 🤝 Contributing
