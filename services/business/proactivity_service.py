@@ -24,6 +24,7 @@ from services.core import (
     register_service,
     get_service,
 )
+from schemas.context import UserContext
 from .schemas import WeatherData, CalendarEvent, CarStatus, NewsData, FinanceData
 
 logger = logging.getLogger(__name__)
@@ -125,20 +126,20 @@ class ProactivityService(BaseService):
             self.logger.warning(f"Failed to get car status for {user_id}: {e}")
             return {"connected": False, "error": str(e)}
 
-    async def gather_context(self, user: Dict[str, Any]) -> Dict[str, Any]:
+    async def gather_context(self, user_context: UserContext) -> Dict[str, Any]:
         """
         Gather all context needed for proactivity analysis.
 
         Args:
-            user: User data dictionary
+            user_context: Validated UserContext object
 
         Returns:
             Context dictionary with data from all services
         """
-        user_id = str(user.get("id", "unknown"))
+        user_id = user_context.user_id
         self.logger.info(f"Gathering context for user {user_id}...")
 
-        location = user.get("location_preference", "Dublin")
+        location = user_context.extra_data.get("location_preference", "Dublin")
 
         # Gather data from available services
         tasks: Dict[str, Any] = {}
@@ -260,7 +261,7 @@ class ProactivityService(BaseService):
             else:
                 context[key] = value
 
-        context["user"] = user
+        context["user"] = user_context.model_dump()
 
         # Add traffic if there's an event with location
         context["traffic"] = {}

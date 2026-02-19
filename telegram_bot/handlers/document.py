@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from services.core import get_service
 from telegram_bot.utils.response_sender import send_agent_response
+from utils.request_context import bind_request_id
 
 logger = logging.getLogger("capivarax.telegram.handlers.document")
 
@@ -21,6 +22,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         update: Telegram update object.
         context: Telegram context object.
     """
+    bind_request_id()
+
     doc = update.message.document
     logger.info(
         "Document received from user_id=%s chat_id=%s file_name=%s",

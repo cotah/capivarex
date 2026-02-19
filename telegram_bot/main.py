@@ -34,6 +34,7 @@ from telegram_bot.core.bot import CapivaraXBot
 from telegram_bot.handlers import register_all_handlers
 from telegram_bot.commands.proactivity import toggle_proactivity
 from telegram_bot.utils.logger import get_logger
+from utils.logging_config import setup_logging
 
 load_dotenv()
 logger = get_logger(__name__)
@@ -93,5 +94,6 @@ def main_sync():
 
 
 if __name__ == "__main__":
+    setup_logging()
     main_sync()
 

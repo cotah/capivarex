@@ -8,6 +8,9 @@ Runs periodic proactivity checks for all users with enabled preferences.
 import asyncio
 from typing import Any, Dict, List
 
+from pydantic import ValidationError
+
+from schemas.context import UserContext
 from services.core import get_service
 from utils.logger import get_logger
 
@@ -54,12 +57,22 @@ async def run_proactivity_cycle() -> None:
         user_id = pref["user_id"]
 
         # Look up user details (telegram_chat_id) from users table
-        user = await db_service.get_user_by_id(user_id)
-        chat_id = user.get("telegram_chat_id") if user else user_id
+        user_data = await db_service.get_user_by_id(user_id)
+        if not user_data:
+            logger.warning(f"User {user_id} not found in database. Skipping.")
+            continue
+
+        try:
+            user_context = UserContext.model_validate(user_data)
+        except ValidationError as e:
+            logger.error(f"User data for {user_id} is invalid: {e}")
+            continue
+
+        chat_id = user_data.get("telegram_chat_id", user_id)
         proactivity_prefs = pref
 
         try:
-            context = await proactivity_service.gather_context(user)
+            context = await proactivity_service.gather_context(user_context)
             insight = await proactivity_service.analyze_context_for_insights(context)
 
             notifications: List[Dict[str, Any]] = []

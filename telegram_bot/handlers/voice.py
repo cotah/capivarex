@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from services.core import get_service
 from telegram_bot.utils.response_sender import send_agent_response
+from utils.request_context import bind_request_id
 
 logger = logging.getLogger("capivarax.telegram.handlers.voice")
 
@@ -22,6 +23,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         update: Telegram update object.
         context: Telegram context object.
     """
+    bind_request_id()
+
     logger.info(
         "Voice message received from user_id=%s chat_id=%s",
         update.effective_user.id if update.effective_user else "unknown",

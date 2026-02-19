@@ -6,6 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from telegram_bot.utils.response_sender import send_agent_response
+from utils.request_context import bind_request_id
 
 logger = logging.getLogger("capivarax.telegram.handlers.message")
 
@@ -21,6 +22,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         update: Telegram update object.
         context: Telegram context object.
     """
+    bind_request_id()
+
     bot = context.application.bot_data.get("capivarax_bot")
     if not bot:
         logger.warning("Message received but bot not initialized yet")
