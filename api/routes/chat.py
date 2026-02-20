@@ -205,6 +205,9 @@ _AGENT_MAP: Dict[str, tuple] = {
     "research": ("research", "execute"),
     "dev":      ("dev",      "execute"),
     "chat":     ("chat",     "execute"),
+    "github":   ("github",   "execute"),
+    "smarthome":("smarthome","execute"),
+    "voice":    ("voice",    "execute"),
 }
 
 _VALID_INTENTS = frozenset(_AGENT_MAP) | {"car"}
