@@ -20,7 +20,8 @@ import bcrypt
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 
 from models.schemas import Token, TokenData, User, UserCreate
 from services.core import get_service
@@ -178,7 +179,7 @@ async def get_current_user(
         if email is None:
             raise credentials_exception
         token_data = TokenData(email=email)
-    except JWTError:
+    except PyJWTError:
         raise credentials_exception
 
     db = _get_db_client()

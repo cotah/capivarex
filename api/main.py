@@ -31,6 +31,7 @@ from api.middleware.autofix import autofix_exception_middleware
 from api.middleware.error_handler import setup_error_handlers
 from api.middleware.logging import logging_middleware
 from api.middleware.rate_limit import setup_rate_limiting
+from api.middleware.security_headers import SecurityHeadersMiddleware
 
 # ====================================================================
 #                       IMPORTS DE ROUTERS
@@ -84,6 +85,9 @@ Instrumentator().instrument(app).expose(app)
 # Add custom middleware
 app.middleware("http")(logging_middleware)
 app.middleware("http")(autofix_exception_middleware)
+
+# Security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Setup rate limiting
 setup_rate_limiting(app)

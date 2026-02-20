@@ -13,7 +13,8 @@ from typing import Annotated, Any, Dict, Optional
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 
 from models.schemas import TokenData
 from services.core import get_service
@@ -78,7 +79,7 @@ async def get_current_user(
         if email is None:
             raise credentials_exception
         token_data = TokenData(email=email)
-    except JWTError:
+    except PyJWTError:
         raise credentials_exception
 
     db = _get_db()

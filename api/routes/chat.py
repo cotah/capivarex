@@ -13,7 +13,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import StreamingResponse
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from pydantic import BaseModel
 
 from api.dependencies import get_current_user, get_authenticated_processor, RequestProcessor
@@ -401,7 +402,7 @@ async def chat_websocket(
             if email is None:
                 await websocket.close(code=1008, reason="Invalid token")
                 return
-        except JWTError:
+        except PyJWTError:
             await websocket.close(code=1008, reason="Invalid token")
             return
 
