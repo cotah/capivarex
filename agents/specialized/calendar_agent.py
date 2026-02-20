@@ -5,7 +5,7 @@ Refactored to use new BaseAgent architecture.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
@@ -261,7 +261,7 @@ class CalendarAgent(BaseAgent):
         calendar_service: Any
     ) -> AgentResponse:
         """Get events for the current week."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         end_of_week = now + timedelta(days=7)
 
         events = calendar_service.get_upcoming_events(

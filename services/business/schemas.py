@@ -1,7 +1,7 @@
 # services/business/schemas.py
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 # Schemas para validação de dados de serviços externos
@@ -45,6 +45,8 @@ class FinanceData(BaseModel):
 
 # Modelo unificado para o contexto, para validação final
 class ProactivityContext(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     user: Dict[str, Any]
     calendar: Optional[CalendarEvent] = None
     weather: Optional[WeatherData] = None
@@ -52,6 +54,3 @@ class ProactivityContext(BaseModel):
     news: Optional[NewsData] = None
     finance_alerts: Optional[List[FinanceData]] = None
     traffic: Optional[Dict[str, Any]] = {}
-
-    class Config:
-        extra = 'allow'  # Permite campos de erro

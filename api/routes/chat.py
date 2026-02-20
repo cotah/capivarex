@@ -482,7 +482,7 @@ async def chat_websocket(
                     {
                         "role": msg.get("role"),
                         "content": msg.get("content"),
-                        "timestamp": msg.get("created_at") or (datetime.utcnow().isoformat() + "Z"),
+                        "timestamp": msg.get("created_at") or (datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
                     }
                     for msg in (history_response.data or [])
                 ]
@@ -510,7 +510,7 @@ async def chat_websocket(
             user_msg = {
                 "role": "user",
                 "content": user_message,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
             try:
                 await redis_svc.save_conversation_message(
@@ -584,7 +584,7 @@ async def chat_websocket(
                 assistant_msg = {
                     "role": "assistant",
                     "content": full_response,
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 }
                 try:
                     await redis_svc.save_conversation_message(

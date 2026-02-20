@@ -1,6 +1,6 @@
 # schemas/context.py
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Device(BaseModel):
@@ -10,6 +10,8 @@ class Device(BaseModel):
 
 
 class UserContext(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     user_id: str  # UUID do usuario no nosso sistema
     telegram_chat_id: int
     full_name: str
@@ -20,7 +22,3 @@ class UserContext(BaseModel):
 
     # Campo para dados extras que ainda nao foram modelados
     extra_data: Dict[str, Any] = Field(default_factory=dict)
-
-    class Config:
-        # Permite que o modelo seja criado a partir de um dicionario que tenha campos extras
-        extra = "ignore"

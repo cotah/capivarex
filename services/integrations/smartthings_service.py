@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -152,7 +152,7 @@ class SmartThingsService(BaseService):
         """
         if self.expires_at is None:
             return False
-        window = datetime.utcnow() + timedelta(minutes=within_minutes)
+        window = datetime.now(timezone.utc) + timedelta(minutes=within_minutes)
         return window >= self.expires_at
 
     def _has_token(self) -> bool:
@@ -501,14 +501,14 @@ class SmartThingsService(BaseService):
                 "status": "healthy",
                 "devices_count": len(devices),
                 "token_expiring_soon": self.token_expiring_soon(),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as exc:
             self.logger.error("Detailed health check failed: %s", exc)
             return {
                 "status": "unhealthy",
                 "error": str(exc),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
 

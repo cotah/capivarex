@@ -415,3 +415,242 @@ import json
 def json_dumps(obj):
     """Shorthand for json.dumps."""
     return json.dumps(obj)
+
+
+# -------------------------------------------------------------------
+# Initialization — success and error paths
+# -------------------------------------------------------------------
+
+class TestRedisInitAdvanced:
+    @pytest.mark.asyncio
+    async def test_init_success_with_pong(self):
+        """Test successful initialization when PING returns PONG."""
+        svc = RedisService()
+        mock_client = AsyncMock()
+        mock_client.post.return_value = _mock_response({"result": "PONG"})
+
+        with patch.dict(os.environ, {
+            "UPSTASH_REDIS_REST_URL": "https://fake.upstash.io",
+            "UPSTASH_REDIS_REST_TOKEN": "fake-token",
+        }, clear=False):
+            svc._client = mock_client
+            await svc._initialize()
+
+        assert svc.url == "https://fake.upstash.io"
+        assert svc.token == "fake-token"
+
+    @pytest.mark.asyncio
+    async def test_init_ping_failure_does_not_raise(self):
+        """Init should not raise even if PING fails (logs warning instead)."""
+        svc = RedisService()
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = RuntimeError("network error")
+
+        with patch.dict(os.environ, {
+            "UPSTASH_REDIS_REST_URL": "https://fake.upstash.io",
+            "UPSTASH_REDIS_REST_TOKEN": "fake-token",
+        }, clear=False):
+            svc._client = mock_client
+            await svc._initialize()  # Should NOT raise
+
+    @pytest.mark.asyncio
+    async def test_health_check_non_pong(self):
+        """Health check returns False when result is not PONG."""
+        svc, mock_client = _make_service()
+        mock_client.post.return_value = _mock_response({"result": "WRONG"})
+        assert await svc._health_check() is False
+
+    @pytest.mark.asyncio
+    async def test_health_check_non_200(self):
+        """Health check returns False on non-200 status."""
+        svc, mock_client = _make_service()
+        resp = Mock()
+        resp.status_code = 500
+        mock_client.post.return_value = resp
+        assert await svc._health_check() is False
+
+
+# -------------------------------------------------------------------
+# Error branches — core commands
+# -------------------------------------------------------------------
+
+class TestCoreCommandErrors:
+    @pytest.mark.asyncio
+    async def test_set_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to set key"):
+            await svc.set("key", "val")
+
+    @pytest.mark.asyncio
+    async def test_get_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to get key"):
+            await svc.get("key")
+
+    @pytest.mark.asyncio
+    async def test_delete_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to delete key"):
+            await svc.delete("key")
+
+    @pytest.mark.asyncio
+    async def test_exists_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to check existence of key"):
+            await svc.exists("key")
+
+    @pytest.mark.asyncio
+    async def test_expire_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to set expiration for key"):
+            await svc.expire("key", 60)
+
+    @pytest.mark.asyncio
+    async def test_get_ttl_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to get TTL for key"):
+            await svc.get_ttl("key")
+
+    @pytest.mark.asyncio
+    async def test_lpush_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to LPUSH on key"):
+            await svc.lpush("list", "item")
+
+    @pytest.mark.asyncio
+    async def test_lrange_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to LRANGE on key"):
+            await svc.lrange("list", 0, -1)
+
+
+# -------------------------------------------------------------------
+# Error branches — conversation helpers
+# -------------------------------------------------------------------
+
+class TestConversationCacheErrors:
+    @pytest.mark.asyncio
+    async def test_save_message_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to save conversation message"):
+            await svc.save_conversation_message("user1", {"role": "user", "content": "hi"})
+
+    @pytest.mark.asyncio
+    async def test_get_context_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to get conversation context"):
+            await svc.get_conversation_context("user1")
+
+    @pytest.mark.asyncio
+    async def test_clear_conversation_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to clear conversation"):
+            await svc.clear_conversation("user1")
+
+    @pytest.mark.asyncio
+    async def test_refresh_ttl_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to refresh conversation TTL"):
+            await svc.refresh_conversation_ttl("user1")
+
+    @pytest.mark.asyncio
+    async def test_save_message_trims_old(self):
+        """Ensure messages are trimmed when exceeding max_messages."""
+        svc, mock_client = _make_service()
+        existing = [{"role": "user", "content": str(i)} for i in range(20)]
+        mock_client.post.side_effect = [
+            _mock_response({"result": json_dumps(existing)}),  # GET
+            _mock_response({"result": "OK"}),  # SET
+            _mock_response({"result": 1}),  # EXPIRE
+        ]
+        result = await svc.save_conversation_message(
+            "user1", {"role": "user", "content": "new"}, max_messages=10
+        )
+        assert result is True
+
+
+# -------------------------------------------------------------------
+# Error branches — history cache-aside
+# -------------------------------------------------------------------
+
+class TestConversationHistoryErrors:
+    @pytest.mark.asyncio
+    async def test_get_history_error_returns_none(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        result = await svc.get_conversation_history("conv1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_set_history_error_returns_false(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        result = await svc.set_conversation_history("conv1", [])
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_invalidate_history_error_returns_false(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        result = await svc.invalidate_conversation_history("conv1")
+        assert result is False
+
+
+# -------------------------------------------------------------------
+# Error branches — session management
+# -------------------------------------------------------------------
+
+class TestSessionManagementErrors:
+    @pytest.mark.asyncio
+    async def test_save_session_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to save session"):
+            await svc.save_session("sess1", {"user_id": "u1"})
+
+    @pytest.mark.asyncio
+    async def test_get_session_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to get session"):
+            await svc.get_session("sess1")
+
+    @pytest.mark.asyncio
+    async def test_delete_session_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.side_effect = RuntimeError("connection lost")
+        with pytest.raises(RuntimeError, match="Failed to delete session"):
+            await svc.delete_session("sess1")
+
+
+# -------------------------------------------------------------------
+# Pipeline error
+# -------------------------------------------------------------------
+
+class TestPipelineErrors:
+    @pytest.mark.asyncio
+    async def test_pipeline_http_error(self):
+        svc, mock_client = _make_service()
+        mock_client.post.return_value = _mock_response({"error": "bad"}, status_code=500)
+        with pytest.raises(RuntimeError, match="Redis pipeline failed"):
+            await svc.pipeline([["GET", "key1"]])
+
+    @pytest.mark.asyncio
+    async def test_pipeline_single_result(self):
+        """Pipeline returns list even for single result dict."""
+        svc, mock_client = _make_service()
+        mock_client.post.return_value = _mock_response({"result": "OK"})
+        result = await svc.pipeline([["SET", "key1", "val1"]])
+        assert result == ["OK"]

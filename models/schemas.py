@@ -2,7 +2,7 @@
 Schemas Pydantic
 Define a estrutura de dados para a API.
 """
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 import uuid
@@ -22,6 +22,8 @@ class UserCreate(UserBase):
 
 
 class User(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
 
     # Novos campos: Planos e Limites
@@ -34,9 +36,6 @@ class User(UserBase):
     use_own_apis: Optional[bool] = False
 
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ====================================================================
@@ -67,13 +66,12 @@ class NoteCreate(NoteBase):
 
 
 class Note(NoteBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: uuid.UUID
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class NoteUpdate(BaseModel):
@@ -86,14 +84,13 @@ class NoteUpdate(BaseModel):
 # ============================================
 
 class Conversation(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     user_id: str
     title: str
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ConversationCreate(BaseModel):
@@ -101,14 +98,13 @@ class ConversationCreate(BaseModel):
 
 
 class Message(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     conversation_id: str
     role: str  # 'user' | 'assistant' | 'system'
     content: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ChatMessage(BaseModel):
@@ -136,6 +132,8 @@ class GitCommitRequest(BaseModel):
 
 
 class Project(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     user_id: str
     name: str
@@ -143,9 +141,6 @@ class Project(BaseModel):
     template_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class CreateProjectRequest(BaseModel):

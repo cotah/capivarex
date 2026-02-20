@@ -27,7 +27,7 @@ venv\Scripts\activate     # Windows
 pip install -r requirements.txt
 
 # Install development dependencies
-pip install pytest pytest-asyncio pytest-cov ruff pip-audit
+pip install -r requirements-dev.txt
 
 # Copy environment template
 cp .env.example .env
@@ -90,7 +90,24 @@ ruff check --fix .
 pip-audit -r requirements.txt
 ```
 
-### 6. Submit a Pull Request
+### 6. Updating Dependencies
+
+We use `pip-compile` (from `pip-tools`) for deterministic dependency locking:
+
+```bash
+# Edit requirements.in with your new/updated dependency
+# Then regenerate the lock file:
+pip-compile requirements.in --output-file requirements.txt
+
+# Install the updated dependencies:
+pip install -r requirements.txt
+```
+
+- `requirements.in` — defines flexible version ranges for direct dependencies
+- `requirements.txt` — locked exact versions (auto-generated, do not edit manually)
+- `requirements-dev.txt` — development/testing tools
+
+### 7. Submit a Pull Request
 
 - Write a clear PR title and description
 - Reference any related issues

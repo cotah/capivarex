@@ -15,7 +15,7 @@ Provides:
 import os
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
 from dotenv import load_dotenv
@@ -32,6 +32,15 @@ logger = logging.getLogger(__name__)
 
 # Scopes required for calendar access
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+
+def _utc_isoformat(dt: datetime) -> str:
+    """Convert a datetime to an RFC 3339 UTC string ending with 'Z'.
+
+    Handles both naive (assumed UTC) and timezone-aware datetimes correctly.
+    """
+    # Strip tzinfo so .isoformat() never appends '+00:00'
+    return dt.replace(tzinfo=None).isoformat() + "Z"
 
 
 @register_service("calendar")
@@ -217,17 +226,17 @@ class CalendarService(BaseService):
 
         try:
             if time_min is None:
-                time_min = datetime.utcnow()
+                time_min = datetime.now(timezone.utc)
             if time_max is None:
                 time_max = time_min + timedelta(days=days_ahead)
 
             time_min_str = (
-                time_min.isoformat() + "Z"
+                _utc_isoformat(time_min)
                 if isinstance(time_min, datetime)
                 else time_min
             )
             time_max_str = (
-                time_max.isoformat() + "Z"
+                _utc_isoformat(time_max)
                 if isinstance(time_max, datetime)
                 else time_max
             )
@@ -278,12 +287,12 @@ class CalendarService(BaseService):
         start_time = time.time()
 
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
             end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-            time_min = start_of_day.isoformat() + "Z"
-            time_max = end_of_day.isoformat() + "Z"
+            time_min = _utc_isoformat(start_of_day)
+            time_max = _utc_isoformat(end_of_day)
 
             events_result = (
                 self._service.events()
@@ -545,8 +554,8 @@ class CalendarService(BaseService):
         call_start = time.time()
 
         try:
-            now = datetime.utcnow()
-            time_min = now.isoformat() + "Z"
+            now = datetime.now(timezone.utc)
+            time_min = _utc_isoformat(now)
 
             events_result = (
                 self._service.events()
@@ -640,7 +649,7 @@ class CalendarService(BaseService):
             today_events = self.get_today_events(calendar_id=cal_id)
 
             # -- Tomorrow's events --
-            tomorrow = datetime.utcnow() + timedelta(days=1)
+            tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
             tomorrow_start = tomorrow.replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
@@ -648,8 +657,8 @@ class CalendarService(BaseService):
                 hour=23, minute=59, second=59, microsecond=999999
             )
 
-            time_min = tomorrow_start.isoformat() + "Z"
-            time_max = tomorrow_end.isoformat() + "Z"
+            time_min = _utc_isoformat(tomorrow_start)
+            time_max = _utc_isoformat(tomorrow_end)
 
             events_result = (
                 self._service.events()
@@ -672,7 +681,7 @@ class CalendarService(BaseService):
             briefing = "**Calendar Briefing**\n\n"
 
             if today_events:
-                briefing += f"**Today ({datetime.utcnow().strftime('%B %d')}):**\n"
+                briefing += f"**Today ({datetime.now(timezone.utc).strftime('%B %d')}):**\n"
                 for ev in today_events:
                     briefing += self.format_event_for_briefing(ev) + "\n"
                 briefing += "\n"
@@ -714,7 +723,7 @@ class CalendarService(BaseService):
             today_events = self.get_today_events(calendar_id=cal_id)
 
             # Tomorrow
-            tomorrow = datetime.utcnow() + timedelta(days=1)
+            tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
             tomorrow_start = tomorrow.replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
@@ -722,8 +731,8 @@ class CalendarService(BaseService):
                 hour=23, minute=59, second=59, microsecond=999999
             )
 
-            time_min = tomorrow_start.isoformat() + "Z"
-            time_max = tomorrow_end.isoformat() + "Z"
+            time_min = _utc_isoformat(tomorrow_start)
+            time_max = _utc_isoformat(tomorrow_end)
 
             events_result = (
                 self._service.events()

@@ -12,7 +12,7 @@ Provides:
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -41,7 +41,7 @@ class AgentResponse:
         self.data = data or {}
         self.error = error
         self.metadata = metadata or {}
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -121,7 +121,7 @@ class BaseAgent(ABC):
             AgentResponse
         """
         self._execution_count += 1
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Pre-execution hook
@@ -152,7 +152,7 @@ class BaseAgent(ABC):
             await self._after_execute(response, context)
 
             # Log execution time
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             self.logger.info(
                 f"{self.name} agent completed",
                 extra={
