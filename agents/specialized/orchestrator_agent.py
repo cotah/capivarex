@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 ALLOWED_AGENTS = {
     "chat", "research", "dev", "weather", "finance",
     "image", "video", "voice", "calendar", "traffic",
-    "car", "smarthome", "github"
+    "car", "smarthome", "github", "time", "translate",
+    "crypto", "timer", "reminder", "youtube", "tracking",
+    "meeting", "search", "leaving_now",
 }
 
 
@@ -93,10 +95,20 @@ Agentes disponíveis:
 - 'image': Criar, gerar ou desenhar uma IMAGEM VISUAL (foto, ilustração, desenho).
 - 'video': Criar, gerar ou produzir um VÍDEO.
 - 'voice': Converter texto em AUDIO/VOZ (falar, narrar, ler em voz alta), ou transcrever áudio em texto.
-- 'calendar': Perguntas sobre agenda, calendário, reuniões, compromissos, eventos, horários.
+- 'calendar': Perguntas sobre agenda, calendário, reuniões, compromissos, eventos, horários (consultar, listar, verificar).
+- 'meeting': CRIAR ou AGENDAR reuniões e eventos novos no calendário (marcar, criar, agendar reunião/evento).
 - 'traffic': Perguntas sobre tráfego, rotas, tempo de viagem, condições de trânsito, navegação.
 - 'car': Controle de veículo elétrico: bateria, carregamento, localização do carro, trancar/destrancar portas, odômetro, status do veículo.
 - 'smarthome': Controle de casa inteligente: luzes, interruptores, dispositivos IoT, termostato da casa, sensores, SmartThings.
+- 'time': Que horas são, fuso horário, hora em outra cidade/país, converter horários entre fusos.
+- 'translate': Traduzir texto entre idiomas, como se diz X em Y, tradução.
+- 'crypto': Cotação de criptomoedas, preço do Bitcoin, Ethereum, altcoins, mercado cripto.
+- 'timer': Criar temporizador, cronômetro, contagem regressiva, "me avise em X minutos".
+- 'reminder': Criar lembrete, "me lembre de X", "não esquecer de Y", alarme para tarefa futura.
+- 'youtube': Pesquisar vídeos no YouTube, vídeos em alta, trending, canais, buscar conteúdo no YouTube.
+- 'tracking': Rastrear encomenda, tracking de pacote, onde está minha encomenda, código de rastreio.
+- 'search': Pesquisar na internet, buscar informação geral, Google, encontrar lugares, lojas, restaurantes, notícias.
+- 'leaving_now': Quando devo sair, hora de sair, quanto tempo tenho para chegar, cálculo de partida para evento.
 
 EXEMPLOS (use como referência):
 "como está a bateria do meu carro?" → car
@@ -113,7 +125,10 @@ EXEMPLOS (use como referência):
 "quais dispositivos estão ligados?" → smarthome
 "status dos dispositivos" → smarthome
 "quais meus compromissos hoje?" → calendar
-"agende uma reunião" → calendar
+"o que tenho na agenda?" → calendar
+"agende uma reunião com João amanhã às 10h" → meeting
+"marca uma reunião de equipe" → meeting
+"crie um evento no calendário" → meeting
 "como está o tempo em São Paulo?" → weather
 "quanto está a ação da Apple?" → finance
 "gere uma imagem de um gato" → image
@@ -128,16 +143,48 @@ EXEMPLOS (use como referência):
 "clone este repositório" → github
 "crie uma branch feature/login" → github
 "olá, tudo bem?" → chat
+"que horas são em Tokyo?" → time
+"que horas são?" → time
+"traduza 'obrigado' para francês" → translate
+"como se diz 'bom dia' em japonês?" → translate
+"qual o preço do Bitcoin?" → crypto
+"cotação do Ethereum" → crypto
+"coloque um timer de 5 minutos" → timer
+"me avise em 10 minutos" → timer
+"me lembre de comprar pão amanhã" → reminder
+"não esquecer de ligar para o médico" → reminder
+"pesquise vídeos de receitas no YouTube" → youtube
+"vídeos em alta no YouTube" → youtube
+"rastreie minha encomenda LP123456789BR" → tracking
+"onde está meu pacote?" → tracking
+"pesquise restaurantes italianos perto de mim" → search
+"busque lojas de eletrônicos em Dublin" → search
+"quando devo sair para a reunião?" → leaving_now
+"a que horas devo sair?" → leaving_now
+"quanto tempo tenho para chegar ao dentista?" → leaving_now
+"hora de sair" → leaving_now
+"eventos de hoje com hora de saída" → leaving_now
 
 REGRAS:
 - Se mencionar git, github, repositório, commit, branch, push, pull, clone → 'github'
 - Se mencionar carro, veículo, bateria (do carro), carregar (veículo), trancar, destrancar → 'car'
 - Se mencionar luzes, dispositivos, casa inteligente, ligar/desligar aparelhos, SmartThings → 'smarthome'
-- Se mencionar agenda, reunião, evento, compromisso → 'calendar'
+- Se perguntar sobre agenda, compromissos, listar eventos → 'calendar'
+- Se pedir para CRIAR/AGENDAR reunião ou evento novo → 'meeting'
 - Se pedir para gerar áudio, falar, narrar, ler em voz alta → 'voice'
 - Se pedir para gerar imagem, desenhar, criar foto, ilustrar → 'image'
 - Se pedir para gerar vídeo → 'video'
-- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat).
+- Se perguntar que horas são, fuso horário, hora em outro lugar → 'time'
+- Se pedir tradução de texto ou palavras → 'translate'
+- Se perguntar preço de criptomoeda, Bitcoin, Ethereum → 'crypto'
+- Se pedir timer, cronômetro, contagem regressiva → 'timer'
+- Se pedir lembrete, "me lembre", "não esquecer" → 'reminder'
+- Se pedir pesquisa de vídeos no YouTube → 'youtube'
+- Se pedir rastreio de encomenda/pacote → 'tracking'
+- Se pedir pesquisa geral na internet, buscar lugares, lojas → 'search'
+- Se perguntar quando sair, hora de sair, tempo para chegar → 'leaving_now'
+- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar).
+- 'search' é para pesquisas genéricas na web; use agentes específicos se aplicável (ex: 'crypto' para Bitcoin, 'finance' para ações).
 
 Responda SEMPRE em formato JSON, seguindo este schema:
 {"agent": "<nome_do_agente>", "reason": "<justificativa>"}

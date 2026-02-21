@@ -26,6 +26,9 @@ from .timer_agent import TimerAgent
 from .reminder_agent import ReminderAgent
 from .youtube_agent import YouTubeAgent
 from .tracking_agent import TrackingAgent
+from .meeting_agent import MeetingAgent
+from .search_agent import SearchAgent
+from .leaving_now_agent import LeavingNowAgent
 
 __all__ = [
     "OrchestratorAgent",
@@ -49,4 +52,7 @@ __all__ = [
     "ReminderAgent",
     "YouTubeAgent",
     "TrackingAgent",
+    "MeetingAgent",
+    "SearchAgent",
+    "LeavingNowAgent",
 ]

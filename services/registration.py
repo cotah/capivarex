@@ -32,6 +32,8 @@ def register_all_services() -> None:
     from .business.crypto_service import CryptoService  # noqa: F401
     from .business.timer_service import TimerService  # noqa: F401
     from .business.reminder_service import ReminderService  # noqa: F401
+    from .business.search_service import SearchService  # noqa: F401
+    from .business.leaving_now_service import LeavingNowService  # noqa: F401
 
     # Serviços de Infraestrutura
     from .infrastructure.code_executor import CodeExecutorService  # noqa: F401
@@ -50,6 +52,7 @@ def register_all_services() -> None:
     from .integrations.weather_service import WeatherService  # noqa: F401
     from .integrations.youtube_service import YouTubeService  # noqa: F401
     from .integrations.tracking_service import TrackingService  # noqa: F401
+    from .integrations.transit_service import TransitService  # noqa: F401
 
     # Serviços de Mídia
     from .media.image_service import ImageService  # noqa: F401

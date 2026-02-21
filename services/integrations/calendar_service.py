@@ -412,6 +412,127 @@ class CalendarService(BaseService):
             )
             return None
 
+    def create_meeting(
+        self,
+        summary: str,
+        start_time: datetime,
+        end_time: datetime,
+        attendees: Optional[List[str]] = None,
+        description: str = "",
+        timezone: str = "Europe/Dublin",
+        calendar_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Cria um evento no Google Calendar COM link do Google Meet.
+
+        Idêntico ao create_event(), mas adiciona ``conferenceData``
+        para gerar automaticamente o link meet.google.com.
+
+        Args:
+            summary:     Título da reunião.
+            start_time:  Início da reunião (datetime).
+            end_time:    Fim da reunião (datetime).
+            attendees:   Lista de emails dos participantes (opcional).
+            description: Descrição/pauta da reunião (opcional).
+            timezone:    Timezone do evento (default: Europe/Dublin).
+            calendar_id: ID do calendário (default: self.calendar_id).
+
+        Returns:
+            Dict com os campos do evento criado incluindo:
+                - ``meet_link``: URL do Google Meet (meet.google.com/xxx-yyy-zzz)
+                - ``html_link``: URL do evento no Google Calendar
+                - ``id``:        ID do evento
+                - ``summary``:   Título
+            Retorna None em caso de falha.
+        """
+        import uuid as _uuid
+
+        self._ensure_service()
+        cal_id = calendar_id or self.calendar_id
+        call_start = time.time()
+
+        try:
+            # Gera um requestId único para idempotência do conferenceData
+            request_id = str(_uuid.uuid4())
+
+            event_body: Dict[str, Any] = {
+                "summary": summary,
+                "description": description,
+                "start": {
+                    "dateTime": start_time.isoformat(),
+                    "timeZone": timezone,
+                },
+                "end": {
+                    "dateTime": end_time.isoformat(),
+                    "timeZone": timezone,
+                },
+                # instrui o Google Calendar a criar uma conferência Meet
+                "conferenceData": {
+                    "createRequest": {
+                        "requestId": request_id,
+                        "conferenceSolutionKey": {"type": "hangoutsMeet"},
+                    }
+                },
+            }
+
+            if attendees:
+                event_body["attendees"] = [
+                    {"email": email} for email in attendees
+                ]
+
+            # conferenceDataVersion=1 é OBRIGATÓRIO para o Meet link ser gerado
+            created_event = (
+                self._service.events()
+                .insert(
+                    calendarId=cal_id,
+                    body=event_body,
+                    conferenceDataVersion=1,
+                )
+                .execute()
+            )
+
+            # Extrai o link do Google Meet da resposta
+            meet_link = ""
+            conference_data = created_event.get("conferenceData", {})
+            entry_points = conference_data.get("entryPoints", [])
+            for ep in entry_points:
+                if ep.get("entryPointType") == "video":
+                    meet_link = ep.get("uri", "")
+                    break
+
+            latency = time.time() - call_start
+            self._track_call(latency, error=False)
+
+            self.logger.info(
+                "Meeting created with Google Meet link",
+                extra={
+                    "event_id": created_event.get("id"),
+                    "title": summary,
+                    "meet_link": meet_link,
+                },
+            )
+
+            return {
+                "id":        created_event.get("id"),
+                "summary":   created_event.get("summary"),
+                "html_link": created_event.get("htmlLink", ""),
+                "meet_link": meet_link,
+                "start":     start_time.isoformat(),
+                "end":       end_time.isoformat(),
+                "attendees": attendees or [],
+                "status":    "created",
+            }
+
+        except Exception as exc:
+            latency = time.time() - call_start
+            self._track_call(latency, error=True)
+            self.logger.error(
+                f"Failed to create meeting: {exc}",
+                extra={"title": summary},
+                exc_info=True,
+            )
+            return None
+
     def update_event(
         self,
         event_id: str,
