@@ -191,6 +191,41 @@ docker-compose -f docker-compose.prod.yml up --build -d
 
 ---
 
+## 🔒 Security
+
+### JWT Secret Key
+
+All API authentication is protected by a JWT secret key configured in `JWT_SECRET_KEY`.
+
+**Generating a secure key:**
+```bash
+python -c "import secrets; print(secrets.token_hex(64))"
+```
+
+**Key rotation** is required in the following situations:
+- Key accidentally exposed (commit, log, message)
+- Suspected unauthorized API access
+- Team member with production access leaves
+- Periodic security rotation (every 90 days recommended)
+
+> ⚠️ Rotating the key **immediately invalidates all active sessions**. All logged-in users will need to sign in again.
+
+For the complete rotation procedure, including a zero-downtime grace-period strategy, see [`docs/JWT_ROTATION.md`](docs/JWT_ROTATION.md).
+
+### Environment Variables
+
+Never commit real credentials. The `.env.example` file contains only placeholder values. The real `.env` file is in `.gitignore`.
+
+| Variable | Description | Required |
+|---|---|---|
+| `JWT_SECRET_KEY` | Signs/verifies all JWT tokens — must be ≥ 32 bytes random | ✅ |
+| `JWT_ALGORITHM` | JWT signing algorithm (default: `HS256`) | ✅ |
+| `JWT_EXPIRATION_MINUTES` | Token lifetime in minutes (default: `60`) | ✅ |
+
+For production deployments, store secrets in a secret manager (AWS Secrets Manager, GCP Secret Manager, Doppler) rather than plain `.env` files.
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! If you have ideas for new features, integrations, or improvements, feel free to open an issue or submit a pull request. Please make sure to follow the existing code style and add tests for any new functionality.

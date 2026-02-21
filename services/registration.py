@@ -28,6 +28,10 @@ def register_all_services() -> None:
     from .business.prompt_cleaner import PromptCleanerService  # noqa: F401
     from .business.research_service import ResearchService  # noqa: F401
     from .business.vehicle_db_service import VehicleDbService  # noqa: F401
+    from .business.translate_service import TranslateService  # noqa: F401
+    from .business.crypto_service import CryptoService  # noqa: F401
+    from .business.timer_service import TimerService  # noqa: F401
+    from .business.reminder_service import ReminderService  # noqa: F401
 
     # Serviços de Infraestrutura
     from .infrastructure.code_executor import CodeExecutorService  # noqa: F401
@@ -44,11 +48,16 @@ def register_all_services() -> None:
     from .integrations.smartthings_service import SmartThingsService  # noqa: F401
     from .integrations.traffic_service import TrafficService  # noqa: F401
     from .integrations.weather_service import WeatherService  # noqa: F401
+    from .integrations.youtube_service import YouTubeService  # noqa: F401
+    from .integrations.tracking_service import TrackingService  # noqa: F401
 
     # Serviços de Mídia
     from .media.image_service import ImageService  # noqa: F401
     from .media.video_service import VideoService  # noqa: F401
     from .media.whisper_service import WhisperService  # noqa: F401
+
+    # Pipeline de Voz (STT + LLM + TTS)
+    from .voice_pipeline_service import VoicePipelineService  # noqa: F401
 
 
 # Backward compatibility: importing this module still triggers registration

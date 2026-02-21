@@ -1,21 +1,82 @@
+# -*- coding: utf-8 -*-
 """
-Weather Agent - Provides weather forecasts.
+agents/specialized/weather_agent.py  (versão melhorada)
+========================================================
+WeatherAgent com suporte a:
+  - Previsão 7 dias com emojis e tendência
+  - Alertas de chuva (>70% chance)
+  - Alertas de vento forte e UV alto
+  - Alertas meteorológicos oficiais (da WeatherAPI)
+  - Resumo semanal (melhor/pior dia)
+  - Clima atual enriquecido (UV, vento, sensação térmica)
+  - Intents: hoje / amanhã / semana / alertas / clima atual
 
-Refactored to use new BaseAgent architecture.
+Mantém backward compat: comportamento original para queries sem intent clara.
 """
 
 import logging
 import re
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
 
-
 logger = logging.getLogger(__name__)
 
-# Regex to extract location from prompt
-LOCATION_PATTERN = re.compile(r"(?:em|in)\s+([a-zA-Z0-9 ,.-]{2,})", re.IGNORECASE)
+# Regex para extrair localização do prompt
+LOCATION_PATTERN = re.compile(
+    r"(?:em|in|para|for|de|of)\s+([a-zA-ZÀ-ÿ0-9 ,.\-]{2,}?)(?:\s*\?|$|,|\s+(?:hoje|amanhã|essa semana|week))",
+    re.IGNORECASE,
+)
+
+# Emojis por condição climática
+_CONDITION_EMOJI = {
+    "sun": "☀️", "clear": "☀️", "sol": "☀️",
+    "cloud": "☁️", "nublado": "☁️", "overcast": "☁️",
+    "partly": "⛅", "parcialmente": "⛅",
+    "rain": "🌧️", "chuva": "🌧️", "drizzle": "🌦️",
+    "thunder": "⛈️", "storm": "⛈️", "tempest": "⛈️",
+    "snow": "❄️", "neve": "❄️", "sleet": "🌨️",
+    "fog": "🌫️", "mist": "🌫️", "neblina": "🌫️",
+    "wind": "💨", "vento": "💨",
+    "hail": "🌨️",
+}
+
+# Dias da semana PT-BR
+_WEEKDAYS_PT = {
+    0: "Seg", 1: "Ter", 2: "Qua", 3: "Qui", 4: "Sex", 5: "Sáb", 6: "Dom",
+}
+_WEEKDAYS_FULL_PT = {
+    0: "segunda-feira", 1: "terça-feira", 2: "quarta-feira",
+    3: "quinta-feira", 4: "sexta-feira", 5: "sábado", 6: "domingo",
+}
+
+
+def _condition_emoji(condition: str) -> str:
+    """Retorna emoji baseado na descrição da condição."""
+    cond_lower = condition.lower()
+    for keyword, emoji in _CONDITION_EMOJI.items():
+        if keyword in cond_lower:
+            return emoji
+    return "🌡️"
+
+
+def _uv_label(uv: float) -> str:
+    if uv <= 2: return "baixo"
+    if uv <= 5: return "moderado"
+    if uv <= 7: return "alto"
+    if uv <= 10: return "muito alto"
+    return "extremo"
+
+
+def _date_to_weekday(date_str: str) -> str:
+    """Converte 'YYYY-MM-DD' para nome curto do dia da semana."""
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return _WEEKDAYS_PT[dt.weekday()]
+    except Exception:
+        return date_str
 
 
 @register_agent("weather")
@@ -24,138 +85,330 @@ class WeatherAgent(BaseAgent):
     Weather agent for weather forecasts and conditions.
 
     Handles:
-    - Current weather
-    - Weather forecasts
-    - Temperature queries
-    - Precipitation probability
+    - Current weather (temperature, condition, UV, wind)
+    - 7-day forecast with trend
+    - Rain/wind/UV alerts
+    - Official meteorological alerts
+    - Week summary (best/worst day)
     """
 
     def __init__(self):
-        """Initialise the weather agent."""
         super().__init__(
             name="weather",
-            description="Provides weather forecasts and current conditions"
+            description="Provides weather forecasts and current conditions",
         )
 
     async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
+        self, prompt: str, context: Dict[str, Any]
     ) -> AgentResponse:
-        """
-        Get weather forecast for location.
-
-        Args:
-            prompt: User's weather query
-            context: Context with optional location
-
-        Returns:
-            AgentResponse with weather data
-        """
-        # Extract location
-        location = self._extract_location(prompt, context)
-
-        if not location:
-            return AgentResponse(
-                status=AgentStatus.ERROR,
-                response="Nao foi possivel identificar a localizacao para previsao do tempo.",
-                error="No location provided"
-            )
-
+        """Route weather query based on detected intent."""
         try:
-            # Get weather service from registry
             weather_svc = get_service("weather")
             if not weather_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Servico de clima nao disponivel.",
-                    error="Weather service not available"
+                    response="Serviço de clima não disponível.",
+                    error="Weather service not available",
                 )
+            if not weather_svc.is_initialized():
+                await weather_svc.initialize()
 
-            await weather_svc.initialize()
-
-            # Get forecast (async call via refactored service)
-            weather = await weather_svc.get_forecast(location)
-
-            location_data = weather.get("location", {})
-            forecast_days = weather.get("forecast", [])
-
-            if not forecast_days:
+            location = self._extract_location(prompt, context)
+            if not location:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response=f"Nao foi possivel obter previsao detalhada para {location}.",
-                    error="No forecast data available"
+                    response=(
+                        "Não consegui identificar a cidade. Tente:\n"
+                        "• *Clima em Dublin*\n"
+                        "• *Previsão para São Paulo essa semana*\n"
+                        "• *Vai chover amanhã em Lisboa?*"
+                    ),
+                    error="No location provided",
                 )
 
-            # Format response
-            today = forecast_days[0]
-            location_name = location_data.get('name', location)
-            location_region = location_data.get('region', '')
+            prompt_lower = (prompt or "").lower()
 
-            response_text = (
-                f"Previsao para {location_name}, {location_region}: "
-                f"{today.get('condition', 'N/A')}. "
-                f"Max {today.get('max_temp_c', 'N/A')}C, "
-                f"Min {today.get('min_temp_c', 'N/A')}C, "
-                f"Chance de chuva {today.get('chance_of_rain', 'N/A')}%."
-            )
+            # ── Intent: alertas ───────────────────────────────────────────────
+            if any(w in prompt_lower for w in ["alerta", "alert", "perigo", "risco"]):
+                return await self._handle_alerts(weather_svc, location)
 
-            return AgentResponse(
-                status=AgentStatus.SUCCESS,
-                response=response_text,
-                data={
-                    "location": location_data,
-                    "forecast": forecast_days,
-                    "today": today
-                }
-            )
+            # ── Intent: semana / 7 dias ───────────────────────────────────────
+            if any(w in prompt_lower for w in [
+                "semana", "week", "7 dias", "sete dias", "próximos dias",
+                "próximos", "previsão", "previsao"
+            ]):
+                days = context.get("days", 7)
+                return await self._handle_week(weather_svc, location, days)
+
+            # ── Intent: amanhã ────────────────────────────────────────────────
+            if any(w in prompt_lower for w in ["amanhã", "amanha", "tomorrow"]):
+                return await self._handle_tomorrow(weather_svc, location)
+
+            # ── Intent: hoje / agora / clima atual ────────────────────────────
+            return await self._handle_today(weather_svc, location)
 
         except Exception as e:
-            self.logger.error(
-                f"Weather query failed for location '{location}': {e}",
-                exc_info=True
-            )
-
+            self.logger.error(f"WeatherAgent error for '{prompt}': {e}", exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Nao foi possivel consultar o clima para {location}.",
+                response=f"Não foi possível consultar o clima.",
                 error=str(e),
-                metadata={"location": location}
+                metadata={"prompt": prompt},
             )
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # HANDLERS
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def _handle_today(
+        self, svc: Any, location: str
+    ) -> AgentResponse:
+        """Clima atual enriquecido: temperatura, sensação, UV, vento, condição."""
+        data = await svc.get_detailed_forecast(location, days=1)
+        loc = data["location"]
+        cur = data["current"]
+        today = data["forecast"][0] if data["forecast"] else {}
+        alerts = data.get("alerts", [])
+
+        emoji = _condition_emoji(cur["condition"])
+        uv = cur.get("uv", 0)
+        wind = cur.get("wind_kph", 0)
+        wind_dir = cur.get("wind_dir", "")
+
+        lines = [
+            f"{emoji} **{loc['name']}, {loc['country']}**",
+            f"🌡️ {cur['temp_c']}°C (sensação {cur['feels_like_c']}°C) — {cur['condition']}",
+            f"💧 Humidade: {cur['humidity']}%",
+            f"💨 Vento: {wind} km/h {wind_dir}",
+            f"🔆 UV: {uv} ({_uv_label(uv)})",
+        ]
+
+        # Chance de chuva do dia
+        if today:
+            rain_pct = today.get("chance_of_rain", 0)
+            if rain_pct > 0:
+                rain_emoji = "🌧️" if rain_pct >= 70 else "🌦️"
+                lines.append(f"{rain_emoji} Chance de chuva hoje: {rain_pct}%")
+            if today.get("sunrise"):
+                lines.append(
+                    f"🌅 Nascer: {today['sunrise']}  🌇 Pôr: {today['sunset']}"
+                )
+
+        # Alertas ativos
+        if alerts:
+            lines.append("")
+            lines.append(f"⚠️ **{len(alerts)} alerta(s) ativo(s):**")
+            for a in alerts[:2]:
+                lines.append(f"  • {a['headline']}")
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={"location": loc, "current": cur, "today": today, "alerts": alerts},
+        )
+
+    async def _handle_tomorrow(
+        self, svc: Any, location: str
+    ) -> AgentResponse:
+        """Previsão para amanhã."""
+        data = await svc.get_detailed_forecast(location, days=2)
+        loc = data["location"]
+        forecast = data["forecast"]
+
+        if len(forecast) < 2:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=f"Não foi possível obter a previsão de amanhã para {loc['name']}.",
+                error="No tomorrow data",
+            )
+
+        tomorrow = forecast[1]
+        emoji = _condition_emoji(tomorrow["condition"])
+        rain_pct = tomorrow["chance_of_rain"]
+        rain_line = f"🌧️ Chance de chuva: **{rain_pct}%**" if rain_pct > 0 else "☀️ Sem previsão de chuva"
+
+        alerts_lines = self._format_day_alerts(tomorrow)
+
+        lines = [
+            f"{emoji} **Amanhã em {loc['name']}**",
+            f"🌡️ Máx {tomorrow['max_temp_c']}°C / Mín {tomorrow['min_temp_c']}°C",
+            f"🌤️ {tomorrow['condition']}",
+            rain_line,
+        ]
+        if tomorrow.get("max_wind_kph", 0) >= 30:
+            lines.append(f"💨 Vento: até {tomorrow['max_wind_kph']} km/h")
+        if tomorrow.get("uv", 0) >= 6:
+            lines.append(f"🔆 UV: {tomorrow['uv']} ({_uv_label(tomorrow['uv'])})")
+        if tomorrow.get("sunrise"):
+            lines.append(f"🌅 Nascer: {tomorrow['sunrise']}  🌇 Pôr: {tomorrow['sunset']}")
+        lines.extend(alerts_lines)
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={"location": loc, "tomorrow": tomorrow},
+        )
+
+    async def _handle_week(
+        self, svc: Any, location: str, days: int = 7
+    ) -> AgentResponse:
+        """Previsão da semana com resumo e alertas de chuva."""
+        data = await svc.get_week_summary(location)
+        loc = data["location"]
+        forecast = data["forecast"]
+        summary = data["summary"]
+        alerts = data.get("alerts", [])
+
+        lines = [f"📅 **Previsão 7 dias — {loc['name']}, {loc['country']}**\n"]
+
+        for day in forecast:
+            emoji = _condition_emoji(day["condition"])
+            weekday = _date_to_weekday(day["date"])
+            rain_pct = day["chance_of_rain"]
+            rain_str = f" 🌧️{rain_pct}%" if rain_pct >= 30 else ""
+            uv_str = f" 🔆UV{day['uv']}" if day.get("uv", 0) >= 6 else ""
+            wind_str = f" 💨{day['max_wind_kph']}km/h" if day.get("max_wind_kph", 0) >= 40 else ""
+            alert_str = " ⚠️" if day.get("rain_alert") or day.get("wind_alert") or day.get("uv_alert") else ""
+
+            lines.append(
+                f"{emoji} **{weekday}** {day['date'][5:]}  "
+                f"{day['max_temp_c']}°/{day['min_temp_c']}°C  "
+                f"{day['condition']}{rain_str}{uv_str}{wind_str}{alert_str}"
+            )
+
+        # Resumo da semana
+        lines.append("")
+        best = summary["best_day"]
+        worst = summary["worst_day"]
+        best_wd = _date_to_weekday(best["date"])
+        worst_wd = _date_to_weekday(worst["date"])
+
+        lines.append(
+            f"✅ **Melhor dia:** {best_wd} ({best['max_temp_c']}°C, "
+            f"chuva {best['chance_of_rain']}%)"
+        )
+        lines.append(
+            f"🌧️ **Mais chuvoso:** {worst_wd} ({worst['chance_of_rain']}% chuva)"
+        )
+        lines.append(
+            f"🌡️ **Média:** máx {summary['avg_max_temp_c']}°C / "
+            f"mín {summary['avg_min_temp_c']}°C"
+        )
+
+        if summary["rainy_days_count"] > 0:
+            lines.append(
+                f"☔ {summary['rainy_days_count']} dia(s) com alta chance de chuva"
+            )
+
+        # Alertas oficiais
+        if alerts:
+            lines.append("")
+            lines.append(f"⚠️ **{len(alerts)} alerta(s) meteorológico(s) ativo(s):**")
+            for a in alerts[:3]:
+                lines.append(f"  • [{a['severity']}] {a['headline']}")
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={"location": loc, "forecast": forecast, "summary": summary, "alerts": alerts},
+        )
+
+    async def _handle_alerts(
+        self, svc: Any, location: str
+    ) -> AgentResponse:
+        """Retorna alertas meteorológicos ativos e alertas derivados da previsão."""
+        data = await svc.get_detailed_forecast(location, days=3)
+        loc = data["location"]
+        official_alerts = data.get("alerts", [])
+        forecast = data["forecast"]
+
+        lines = [f"⚠️ **Alertas meteorológicos — {loc['name']}**\n"]
+
+        # Alertas oficiais da WeatherAPI
+        if official_alerts:
+            lines.append(f"🚨 **{len(official_alerts)} alerta(s) oficial(is):**")
+            for a in official_alerts:
+                lines.append(f"\n**{a['event']}** [{a['severity']}]")
+                lines.append(f"  {a['headline']}")
+                if a.get("description"):
+                    lines.append(f"  _{a['description'][:200]}_")
+                if a.get("expires"):
+                    lines.append(f"  Expira: {a['expires']}")
+        else:
+            lines.append("✅ Nenhum alerta oficial ativo no momento.")
+
+        # Alertas derivados da previsão (chuva/vento/UV)
+        derived = []
+        for day in forecast:
+            day_alerts = self._format_day_alerts(day)
+            if day_alerts:
+                wd = _date_to_weekday(day["date"])
+                for alert in day_alerts:
+                    derived.append(f"  • **{wd}** {day['date'][5:]}: {alert.strip()}")
+
+        if derived:
+            lines.append("")
+            lines.append("📊 **Alertas dos próximos 3 dias:**")
+            lines.extend(derived)
+
+        if not official_alerts and not derived:
+            lines = [
+                f"✅ **Nenhum alerta para {loc['name']}**\n",
+                "O tempo deve estar estável nos próximos 3 dias.",
+            ]
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={"location": loc, "official_alerts": official_alerts, "forecast": forecast},
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # HELPERS
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _format_day_alerts(self, day: Dict[str, Any]) -> List[str]:
+        """Retorna lista de alertas derivados para um dia."""
+        alerts = []
+        if day.get("rain_alert"):
+            alerts.append(f"🌧️ Chuva forte: {day['chance_of_rain']}% de chance")
+        if day.get("wind_alert"):
+            alerts.append(f"💨 Vento forte: até {day['max_wind_kph']} km/h")
+        if day.get("uv_alert"):
+            alerts.append(f"🔆 UV alto: {day['uv']} ({_uv_label(day['uv'])})")
+        return alerts
+
     def _extract_location(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> str:
-        """
-        Extract location from prompt or context.
-
-        Args:
-            prompt: User's prompt
-            context: Execution context
-
-        Returns:
-            Location string
-        """
-        # Check context first
-        if "location" in context and context["location"]:
+        self, prompt: str, context: Dict[str, Any]
+    ) -> Optional[str]:
+        """Extrai localização do prompt ou contexto."""
+        # Contexto tem prioridade
+        if context.get("location"):
             return str(context["location"]).strip()
 
-        # Try to extract from prompt
+        # Regex no prompt
         match = LOCATION_PATTERN.search(prompt or "")
         if match:
             return match.group(1).strip(" .,!?:;")
 
-        # Fallback to entire prompt as location
-        return prompt.strip()
+        # Fallback: prompt inteiro como localização (comportamento original)
+        cleaned = (prompt or "").strip()
+        # Remove palavras-chave de intent para não confundir a API
+        for keyword in ["previsão", "previsao", "clima", "tempo", "weather",
+                        "alerta", "semana", "amanhã", "hoje", "vai chover"]:
+            cleaned = re.sub(rf"\b{keyword}\b", "", cleaned, flags=re.IGNORECASE).strip()
+
+        return cleaned if len(cleaned) >= 2 else None
 
     def get_capabilities(self) -> List[str]:
-        """Get weather agent capabilities."""
         return [
             "current_weather",
             "weather_forecast",
-            "temperature",
-            "precipitation",
-            "conditions"
+            "7_day_forecast",
+            "rain_alerts",
+            "wind_alerts",
+            "uv_alerts",
+            "official_weather_alerts",
+            "week_summary",
+            "best_day_recommendation",
         ]

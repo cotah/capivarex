@@ -8,12 +8,30 @@ from unittest.mock import AsyncMock, Mock, patch, MagicMock
 from services.business.proactivity_service import ProactivityService
 
 
+def _make_redis_mock():
+    """Build an async Redis mock that mimics RedisService get/set API."""
+    store = {}
+
+    async def _get(key):
+        return store.get(key)
+
+    async def _set(key, value, expire_seconds=None):
+        store[key] = value
+        return True
+
+    mock = Mock()
+    mock.get = _get
+    mock.set = _set
+    mock._store = store
+    return mock
+
+
 def _make_service():
     """Build a ProactivityService with mocked clients."""
     svc = ProactivityService()
     svc._initialized = True
     svc._openai_client = Mock()
-    svc._redis_client = Mock()
+    svc._redis_client = _make_redis_mock()
     return svc
 
 
@@ -26,7 +44,6 @@ class TestInitialize:
 
         mock_redis = Mock()
         mock_redis.is_initialized.return_value = True
-        mock_redis.get_client.return_value = Mock()
 
         def _get(name):
             if name == "openai":
@@ -123,11 +140,9 @@ class TestIsNotificationAllowed:
         """When 5+ recent timestamps exist, notification is blocked."""
         svc = _make_service()
         now = time.time()
-        # Simulate 5 recent timestamps (all within last hour)
-        svc._redis_client.lrange = Mock(return_value=[
-            str(now - 60), str(now - 120), str(now - 180),
-            str(now - 240), str(now - 300),
-        ])
+        # Pre-populate frequency key with 5 recent timestamps
+        valid_timestamps = [now - 60 * i for i in range(5)]
+        svc._redis_client._store[f"proactive_freq:u1"] = valid_timestamps
         result = await svc.is_notification_allowed("u1", "test")
         assert result is False
 
@@ -136,33 +151,36 @@ class TestIsNotificationAllowed:
         """When fewer than 5 recent timestamps, notification is allowed."""
         svc = _make_service()
         now = time.time()
-        svc._redis_client.lrange = Mock(return_value=[str(now - 60)])
-        svc._redis_client.exists = Mock(return_value=False)
+        svc._redis_client._store[f"proactive_freq:u1"] = [now - 60]
         result = await svc.is_notification_allowed("u1", "test")
         assert result is True
 
     @pytest.mark.asyncio
     async def test_duplicate_blocked(self):
         """When duplicate hash key exists, notification is blocked."""
+        import hashlib
         svc = _make_service()
-        svc._redis_client.lrange = Mock(return_value=[])  # no rate limit
-        svc._redis_client.exists = Mock(return_value=True)  # duplicate exists
-        result = await svc.is_notification_allowed("u1", "same insight")
+        insight = "same insight"
+        insight_hash = hashlib.md5(insight.encode()).hexdigest()
+        svc._redis_client._store[f"proactive_rep:u1:{insight_hash}"] = 1
+        result = await svc.is_notification_allowed("u1", insight)
         assert result is False
 
 
 class TestRecordNotificationSent:
     @pytest.mark.asyncio
     async def test_record_with_redis(self):
+        import hashlib
         svc = _make_service()
-        svc._redis_client.lpush = Mock()
-        svc._redis_client.expire = Mock()
-        svc._redis_client.set = Mock()
-
         await svc.record_notification_sent("u1", "test insight")
-        svc._redis_client.lpush.assert_called_once()
-        svc._redis_client.expire.assert_called_once()
-        svc._redis_client.set.assert_called_once()
+        # Verify frequency key was set
+        assert f"proactive_freq:u1" in svc._redis_client._store
+        timestamps = svc._redis_client._store[f"proactive_freq:u1"]
+        assert isinstance(timestamps, list)
+        assert len(timestamps) == 1
+        # Verify dedup key was set
+        insight_hash = hashlib.md5("test insight".encode()).hexdigest()
+        assert f"proactive_rep:u1:{insight_hash}" in svc._redis_client._store
 
     @pytest.mark.asyncio
     async def test_record_no_redis(self):

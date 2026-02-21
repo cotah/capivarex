@@ -19,11 +19,11 @@ PyJWT==2.11.0
 openai==2.20.0
 anthropic==0.79.0
 google-generativeai==0.8.6
-google-genai
+google-genai==0.3.0
 elevenlabs==2.35.0
 
 # Google Services
-google-auth==2.49.0.dev0
+google-auth==2.40.3
 google-auth-oauthlib==1.2.4
 google-auth-httplib2==0.3.0
 google-api-python-client==2.190.0
@@ -42,10 +42,10 @@ pandas==3.0.0
 numpy==2.4.2
 
 # Email Validation (CRITICAL - was missing)
-email-validator
+email-validator==2.2.0
 
 # Git Integration
-GitPython
+GitPython==3.1.43
 
 # Resilience
 pybreaker==1.1.0

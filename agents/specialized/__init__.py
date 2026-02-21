@@ -19,6 +19,13 @@ from .traffic_agent import TrafficAgent
 from .car_agent import CarAgent
 from .smarthome_agent import SmartHomeAgent
 from .github_agent import GitHubAgent
+from .time_agent import TimeAgent
+from .translate_agent import TranslateAgent
+from .crypto_agent import CryptoAgent
+from .timer_agent import TimerAgent
+from .reminder_agent import ReminderAgent
+from .youtube_agent import YouTubeAgent
+from .tracking_agent import TrackingAgent
 
 __all__ = [
     "OrchestratorAgent",
@@ -35,4 +42,11 @@ __all__ = [
     "CarAgent",
     "SmartHomeAgent",
     "GitHubAgent",
+    "TimeAgent",
+    "TranslateAgent",
+    "CryptoAgent",
+    "TimerAgent",
+    "ReminderAgent",
+    "YouTubeAgent",
+    "TrackingAgent",
 ]

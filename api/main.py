@@ -55,6 +55,7 @@ from api.routes import (
     smartthings,
     health,
 )
+from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 
 # ====================================================================
 #                       CRIAÇÃO DA APLICAÇÃO
@@ -244,6 +245,7 @@ app.include_router(dev.router, prefix=f"{API_V1}/dev", tags=["Development"])
 app.include_router(image.router, prefix=f"{API_V1}/image", tags=["Image"])
 app.include_router(video.router, prefix=f"{API_V1}/video", tags=["Video"])
 app.include_router(voice.router, prefix=f"{API_V1}/voice", tags=["Voice"])
+app.include_router(voice_pipeline_router, prefix=f"{API_V1}/voice/pipeline", tags=["Voice Pipeline"])
 
 # Integrations
 app.include_router(weather.router, prefix=f"{API_V1}/weather", tags=["Weather"])

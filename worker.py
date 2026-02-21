@@ -21,6 +21,7 @@ register_all_services()
 register_all_agents()
 
 from arq.connections import RedisSettings
+from arq import cron
 from services.core import get_service
 from utils.logger import get_logger
 
@@ -81,6 +82,103 @@ async def generate_image_task(ctx, prompt: str, user_id: str, user_plan: str = "
         return {"error": str(e)}
 
 
+async def check_timers(ctx):
+    """
+    Verifica timers vencidos e envia notificações Telegram.
+    Executada a cada 10 segundos pelo arq cron.
+    """
+    logger = ctx.get("logger", worker_logger)
+
+    timer_service = get_service("timer")
+    if not timer_service:
+        return
+
+    if not timer_service.is_initialized():
+        await timer_service.initialize()
+
+    notification_service = get_service("notification")
+    if notification_service and not notification_service.is_initialized():
+        await notification_service.initialize()
+
+    async def notify(timer):
+        """Notifica o usuário quando o timer vence."""
+        icons = {"timer": "⏱️", "alarm": "⏰", "remind": "🔔"}
+        icon = icons.get(timer.timer_type, "⏱️")
+
+        if timer.timer_type == "alarm":
+            message = f"{icon} **Bom dia!** Seu alarme disparou!"
+        elif timer.timer_type == "remind":
+            message = f"{icon} **Lembrete:** {timer.label}"
+        else:
+            message = f"{icon} **Timer concluído!** {timer.label}"
+
+        if notification_service:
+            try:
+                await notification_service.send_message(
+                    "telegram",
+                    timer.chat_id,
+                    message,
+                )
+                logger.info(
+                    "Timer %s fired for user %s",
+                    timer.timer_id,
+                    timer.user_id,
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to notify timer %s: %s",
+                    timer.timer_id, e,
+                )
+
+    fired = await timer_service.check_and_fire_due(notify_fn=notify)
+    if fired:
+        logger.info("check_timers: %d timer(s) fired", len(fired))
+
+
+async def check_reminders(ctx):
+    """
+    Verifica lembretes vencidos e envia notificações Telegram.
+    Executada a cada 30 segundos pelo arq cron.
+    """
+    logger = ctx.get("logger", worker_logger)
+
+    reminder_service = get_service("reminder")
+    if not reminder_service:
+        return
+    if not reminder_service.is_initialized():
+        await reminder_service.initialize()
+
+    notification_service = get_service("notification")
+    if notification_service and not notification_service.is_initialized():
+        await notification_service.initialize()
+
+    async def notify(reminder):
+        message = f"🔔 **Lembrete:** {reminder['message']}"
+        if reminder.get("recurrence"):
+            from services.business.reminder_service import ReminderService
+            rec_label = ReminderService.format_recurrence(reminder["recurrence"])
+            message += f"\n🔁 _{rec_label}_"
+
+        if notification_service:
+            try:
+                await notification_service.send_message(
+                    "telegram",
+                    reminder["chat_id"],
+                    message,
+                )
+                logger.info(
+                    "Reminder %s fired for user %s",
+                    reminder["id"][:8],
+                    reminder["user_id"],
+                )
+            except Exception as e:
+                logger.error("Failed to notify reminder %s: %s", reminder["id"][:8], e)
+
+    fired = await reminder_service.check_and_fire_due(notify_fn=notify)
+    if fired:
+        logger.info("check_reminders: %d reminder(s) fired", len(fired))
+
+
 # --- WORKER LIFECYCLE ---
 
 async def startup(ctx):
@@ -92,6 +190,16 @@ async def startup(ctx):
     if image_service:
         await image_service.initialize()
         ctx["logger"].info("Image service initialized.")
+
+    timer_service = get_service("timer")
+    if timer_service:
+        await timer_service.initialize()
+        ctx["logger"].info("Timer service initialized.")
+
+    reminder_service = get_service("reminder")
+    if reminder_service:
+        await reminder_service.initialize()
+        ctx["logger"].info("Reminder service initialized.")
 
     ctx["logger"].info("Arq worker started successfully.")
 
@@ -110,7 +218,11 @@ class WorkerSettings:
     Uses REDIS_URL for the arq socket connection (required by arq internals).
     The application code itself routes through Upstash REST via RedisService.
     """
-    functions = [generate_image_task]
+    functions = [generate_image_task, check_timers, check_reminders]
+    cron_jobs = [
+        cron(check_timers, second={0, 10, 20, 30, 40, 50}),  # a cada 10s
+        cron(check_reminders, second={0, 30}),  # a cada 30s
+    ]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(

@@ -47,6 +47,7 @@ class ProactivityService(BaseService):
         super().__init__(name, config)
         self._openai_client: Optional[Any] = None
         self._redis_client: Optional[Any] = None
+        self._redis_service: Optional[Any] = None
 
         # Circuit breakers: open after N consecutive failures, reset after timeout
         self._service_breakers = {
@@ -73,11 +74,12 @@ class ProactivityService(BaseService):
         try:
             redis_service = get_service("redis")
             if redis_service and redis_service.is_initialized():
-                self._redis_client = redis_service.get_client()
+                self._redis_service = redis_service
+                self._redis_client = redis_service
             else:
                 self.logger.warning("Redis service not available for proactivity")
         except Exception as e:
-            self.logger.warning(f"Could not get Redis client: {e}")
+            self.logger.warning(f"Could not get Redis service: {e}")
 
         self.logger.info("ProactivityService initialized")
 
@@ -576,6 +578,8 @@ class ProactivityService(BaseService):
         """
         Check repetition and frequency filters.
 
+        Uses async RedisService API (Upstash REST).
+
         Args:
             user_id: User identifier
             insight: Insight text to check
@@ -583,38 +587,38 @@ class ProactivityService(BaseService):
         Returns:
             True if notification is allowed
         """
-        if not self._redis_client:
+        redis_svc = self._redis_client
+        if not redis_svc:
             return True  # Fail open if Redis unavailable
 
         now = datetime.now().timestamp()
 
-        # Frequency filter (rate limiting)
-        user_key_freq = f"proactive_freq:{user_id}"
-        notifications = self._redis_client.lrange(user_key_freq, 0, -1)
+        try:
+            # Frequency filter: timestamps stored as JSON list
+            user_key_freq = f"proactive_freq:{user_id}"
+            stored = await redis_svc.get(user_key_freq)
+            timestamps: list = stored if isinstance(stored, list) else []
+            valid_timestamps = [ts for ts in timestamps if now - ts < 3600]
 
-        valid_timestamps = []
-        for t in notifications:
-            try:
-                ts = float(t)
-                if now - ts < 3600:
-                    valid_timestamps.append(ts)
-            except (TypeError, ValueError):
-                continue
+            if len(valid_timestamps) >= 5:
+                self.logger.warning(
+                    f"Frequency filter blocked notification for {user_id}"
+                )
+                return False
 
-        if len(valid_timestamps) >= 5:  # Max 5 notifications per hour
-            self.logger.warning(
-                f"Frequency filter blocked notification for {user_id}"
-            )
-            return False
+            # Deduplication filter
+            insight_hash = hashlib.md5(insight.encode()).hexdigest()
+            user_key_rep = f"proactive_rep:{user_id}:{insight_hash}"
+            existing = await redis_svc.get(user_key_rep)
+            if existing is not None:
+                self.logger.warning(
+                    f"Deduplication filter blocked notification for {user_id}"
+                )
+                return False
 
-        # Deduplication filter (cooldown)
-        insight_hash = hashlib.md5(insight.encode()).hexdigest()
-        user_key_rep = f"proactive_rep:{user_id}:{insight_hash}"
-        if self._redis_client.exists(user_key_rep):
-            self.logger.warning(
-                f"Deduplication filter blocked notification for {user_id}"
-            )
-            return False
+        except Exception as e:
+            self.logger.warning(f"Redis filter check failed (fail-open): {e}")
+            return True  # Fail open on Redis error
 
         return True
 
@@ -624,24 +628,34 @@ class ProactivityService(BaseService):
         """
         Record that a notification was sent to activate filters.
 
+        Uses async RedisService API (Upstash REST).
+
         Args:
             user_id: User identifier
             insight: Sent insight text
         """
-        if not self._redis_client:
+        redis_svc = self._redis_client
+        if not redis_svc:
             return
 
         now = datetime.now().timestamp()
 
-        # Record for frequency filter (1 hour expiry)
-        user_key_freq = f"proactive_freq:{user_id}"
-        self._redis_client.lpush(user_key_freq, now)
-        self._redis_client.expire(user_key_freq, 3600)
+        try:
+            # Frequency filter: read current list, append, save (keep last 10)
+            user_key_freq = f"proactive_freq:{user_id}"
+            stored = await redis_svc.get(user_key_freq)
+            timestamps: list = stored if isinstance(stored, list) else []
+            timestamps.append(now)
+            timestamps = timestamps[-10:]
+            await redis_svc.set(user_key_freq, timestamps, expire_seconds=3600)
 
-        # Record for deduplication filter (30 min expiry)
-        insight_hash = hashlib.md5(insight.encode()).hexdigest()
-        user_key_rep = f"proactive_rep:{user_id}:{insight_hash}"
-        self._redis_client.set(user_key_rep, 1, ex=1800)
+            # Deduplication filter (30 min expiry)
+            insight_hash = hashlib.md5(insight.encode()).hexdigest()
+            user_key_rep = f"proactive_rep:{user_id}:{insight_hash}"
+            await redis_svc.set(user_key_rep, 1, expire_seconds=1800)
+
+        except Exception as e:
+            self.logger.warning(f"Redis notification recording failed: {e}")
 
 
 # Backward compatibility

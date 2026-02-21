@@ -61,6 +61,10 @@ COMPANY_TO_SYMBOL = {
     "mercado livre": "MELI",
 }
 
+# Common PT-BR words that are also company names — these are ambiguous
+# and need context to distinguish verb from company (e.g. "vale" verb vs "Vale" company)
+_AMBIGUOUS_COMPANY_WORDS = {"vale"}
+
 # Stopwords to filter out (includes company names so regex doesn't grab them)
 STOPWORDS = {
     "QUAL", "COMO", "ESTA", "ESTAO", "COTACAO", "ACAO", "ACOES",
@@ -178,9 +182,32 @@ class FinanceAgent(BaseAgent):
 
         # 1. Check company name mapping (longest match first to handle
         #    multi-word names like "banco do brasil" before "banco")
+        # For short company names that are also common PT-BR words (in STOPWORDS),
+        # require explicit company context to avoid false positives.
+        # E.g. 'vale' as verb in "quanto vale a bolsa?" should NOT match Vale S.A.
         for company in sorted(COMPANY_TO_SYMBOL, key=len, reverse=True):
-            if company in text_lower:
-                return COMPANY_TO_SYMBOL[company]
+            if len(company) >= 7 or " " in company:
+                if company in text_lower:
+                    return COMPANY_TO_SYMBOL[company]
+            elif company in _AMBIGUOUS_COMPANY_WORDS:
+                # Ambiguous short name: require company context indicators
+                company_ctx = re.compile(
+                    r"(?:ações?\s+d[aeo]\s+|cotação\s+d[aeo]\s+|empresa\s+)"
+                    + re.escape(company)
+                    + r"|"
+                    + re.escape(company)
+                    + r"\s*(?:s\.?a\.?|sa\b)",
+                    re.IGNORECASE,
+                )
+                if company_ctx.search(text):
+                    return COMPANY_TO_SYMBOL[company]
+            else:
+                pattern = re.compile(
+                    r"\b" + re.escape(company) + r"\b",
+                    re.IGNORECASE,
+                )
+                if pattern.search(text):
+                    return COMPANY_TO_SYMBOL[company]
 
         # 2. Try dollar-prefixed ticker ($AAPL)
         dollar_match = DOLLAR_TICKER_PATTERN.search(text)
