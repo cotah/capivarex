@@ -165,6 +165,7 @@ class TestOrchestratorDecision:
             "crypto", "timer", "reminder", "youtube", "tracking",
             "meeting", "search", "leaving_now", "mercado", "notes",
             "restaurant",
+            "email",
         ]
         for agent in valid_agents:
             d = OrchestratorDecision(agent=agent, reason="test")

@@ -25,6 +25,7 @@ ALLOWED_AGENTS = {
     "crypto", "timer", "reminder", "youtube", "tracking",
     "meeting", "search", "leaving_now", "mercado", "notes",
     "restaurant",
+    "email",
 }
 
 
@@ -113,6 +114,7 @@ Agentes disponíveis:
 - 'mercado': Lista de compras, supermercado, nota fiscal, adicionar/remover itens, relatório de gastos, comparar preços, ranking mercados.
 - 'notes': Bloco de notas pessoal: anotar, escrever, salvar, listar, buscar, fixar, apagar notas.
 - 'restaurant': Concierge de restaurantes: sugerir, buscar, filtrar restaurantes por localização, tipo de cozinha, rating, aberto agora, detalhes, telefone, horário, reviews.
+- 'email': Gestão de email: ler, listar, resumir, responder, ignorar emails do Gmail e Hotmail/Outlook, emails não lidos, quantos emails tenho.
 
 EXEMPLOS (use como referência):
 "como está a bateria do meu carro?" → car
@@ -184,6 +186,13 @@ EXEMPLOS (use como referência):
 "mais detalhes sobre o primeiro" → restaurant
 "telefone do restaurante 2" → restaurant
 "onde jantar esta noite?" → restaurant
+"ler meus emails" → email
+"quantos emails não lidos?" → email
+"resumo dos emails de hoje" → email
+"responder o email do João" → email
+"ignorar esse email" → email
+"emails do Gmail" → email
+"emails do Hotmail" → email
 
 REGRAS:
 - Se mencionar git, github, repositório, commit, branch, push, pull, clone → 'github'
@@ -206,6 +215,7 @@ REGRAS:
 - Se mencionar lista de compras, supermercado, nota fiscal, relatório de gastos, ranking mercados → 'mercado'
 - Se pedir para anotar, escrever nota, ver notas, buscar nota, fixar nota, apagar nota → 'notes'
 - Se pedir sugestão de restaurante, buscar onde comer/jantar/almoçar, tipo de cozinha, rating, aberto agora, detalhes de restaurante → 'restaurant'
+- Se pedir para ler, listar, resumir, responder, ignorar emails, contar emails não lidos, Gmail, Hotmail, Outlook → 'email'
 - Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat, restaurant > search para restaurantes).
 - 'search' é para pesquisas genéricas na web; use agentes específicos se aplicável (ex: 'crypto' para Bitcoin, 'finance' para ações).
 

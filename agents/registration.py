@@ -44,6 +44,7 @@ def register_all_agents() -> None:
     from .specialized.weather_agent import WeatherAgent          # noqa: F401
     from .specialized.youtube_agent import YouTubeAgent          # noqa: F401
     from .specialized.restaurant_agent import RestaurantAgent    # noqa: F401
+    from .specialized.email_agent import EmailAgent              # noqa: F401
 
 
 # Backward compatibility: importing this module still triggers registration

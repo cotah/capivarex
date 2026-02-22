@@ -30,18 +30,24 @@ class AgentResponse:
     def __init__(
         self,
         status: AgentStatus,
-        response: str,
+        response: str = "",
         data: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        message: Optional[str] = None,
     ):
         """Create an agent response with the given status and payload."""
         self.status = status
-        self.response = response
+        self.response = message if message is not None else response
         self.data = data or {}
         self.error = error
         self.metadata = metadata or {}
         self.timestamp = datetime.now(timezone.utc).isoformat()
+
+    @property
+    def message(self) -> str:
+        """Alias for response — used by agents that prefer 'message' naming."""
+        return self.response
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""

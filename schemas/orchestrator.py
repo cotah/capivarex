@@ -12,6 +12,7 @@ ALLOWED_AGENTS = Literal[
     "crypto", "timer", "reminder", "youtube", "tracking",
     "meeting", "search", "leaving_now", "mercado", "notes",
     "restaurant",
+    "email",
 ]
 
 
