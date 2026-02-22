@@ -1,7 +1,5 @@
 """Integration tests for FastAPI endpoints."""
 
-import pytest
-from unittest.mock import patch, Mock, AsyncMock
 from fastapi.testclient import TestClient
 
 from api.main import app

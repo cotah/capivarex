@@ -11,16 +11,10 @@ Cobre:
   - Endpoints FastAPI com TestClient
   - Segurança: tamanho máximo de arquivo, extensões permitidas
 """
-import io
-import os
-import uuid
-import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch, PropertyMock
-from typing import AsyncGenerator
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -680,7 +674,6 @@ class TestElevenLabsService:
 
         fake_audio = b"\xFF\xFB\x90" * 500
 
-        import httpx
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.content = fake_audio
@@ -728,7 +721,6 @@ class TestElevenLabsService:
     async def test_health_check_success(self):
         """_health_check deve retornar True quando API responde 200."""
         from services.ai.elevenlabs_service import ElevenLabsService
-        import httpx
 
         svc = ElevenLabsService()
         svc.api_key = "test_key_placeholder"

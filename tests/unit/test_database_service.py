@@ -496,7 +496,7 @@ class TestGetAllUsersWithPreferences:
         svc.client = None
         svc.initialize = AsyncMock()
         # After initialize, client is still None so code will hit exception path
-        result = await svc.get_all_users_with_preferences()
+        await svc.get_all_users_with_preferences()
         svc.initialize.assert_awaited_once()
 
 
@@ -538,7 +538,7 @@ class TestGetUserByTelegramId:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_user_by_telegram_id("123")
+        await svc.get_user_by_telegram_id("123")
         svc.initialize.assert_awaited_once()
 
 
@@ -553,7 +553,7 @@ class TestGetUserByIdClientNone:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_user_by_id("u1")
+        await svc.get_user_by_id("u1")
         svc.initialize.assert_awaited_once()
 
 
@@ -568,7 +568,7 @@ class TestUpdateUserPreferencesClientNone:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.update_user_preferences("u1", {})
+        await svc.update_user_preferences("u1", {})
         svc.initialize.assert_awaited_once()
 
 
@@ -591,7 +591,7 @@ class TestProactivityPreferencesErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_proactivity_preferences("u1")
+        await svc.get_proactivity_preferences("u1")
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -608,7 +608,7 @@ class TestProactivityPreferencesErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.update_proactivity_preferences("u1", True)
+        await svc.update_proactivity_preferences("u1", True)
         # initialize is called twice: once inside update_, once inside get_
         assert svc.initialize.await_count >= 1
 
@@ -626,7 +626,7 @@ class TestProactivityPreferencesErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_all_users_with_proactivity_enabled()
+        await svc.get_all_users_with_proactivity_enabled()
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -659,7 +659,7 @@ class TestUserContextErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.save_user_context("u1", "type", {"k": "v"})
+        await svc.save_user_context("u1", "type", {"k": "v"})
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -676,7 +676,7 @@ class TestUserContextErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_user_context("u1", "type")
+        await svc.get_user_context("u1", "type")
         svc.initialize.assert_awaited_once()
 
 
@@ -712,7 +712,7 @@ class TestCarConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.save_car_connection("u1", "v1", "at", "rt", "2026-12-31")
+        await svc.save_car_connection("u1", "v1", "at", "rt", "2026-12-31")
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -729,7 +729,7 @@ class TestCarConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_car_connection("u1")
+        await svc.get_car_connection("u1")
         svc.initialize.assert_awaited_once()
 
 
@@ -765,7 +765,7 @@ class TestSmartThingsConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.save_smartthings_connection("u1", "at", "rt", "2026-12-31", "app1", "loc1")
+        await svc.save_smartthings_connection("u1", "at", "rt", "2026-12-31", "app1", "loc1")
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -792,7 +792,7 @@ class TestSmartThingsConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_smartthings_connection("u1")
+        await svc.get_smartthings_connection("u1")
         svc.initialize.assert_awaited_once()
 
 
@@ -827,7 +827,7 @@ class TestCalendarCredentialsErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.save_calendar_credentials("u1", {"token": "tok"})
+        await svc.save_calendar_credentials("u1", {"token": "tok"})
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -844,7 +844,7 @@ class TestCalendarCredentialsErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_calendar_credentials("u1")
+        await svc.get_calendar_credentials("u1")
         svc.initialize.assert_awaited_once()
 
 
@@ -880,7 +880,7 @@ class TestGithubConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.save_github_connection("u1", "ghuser", "gh_token")
+        await svc.save_github_connection("u1", "ghuser", "gh_token")
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -897,7 +897,7 @@ class TestGithubConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_github_connection("u1")
+        await svc.get_github_connection("u1")
         svc.initialize.assert_awaited_once()
 
 
@@ -912,7 +912,7 @@ class TestMessagesClientNone:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        result = await svc.get_messages_for_conversation("conv1")
+        await svc.get_messages_for_conversation("conv1")
         svc.initialize.assert_awaited_once()
 
 
@@ -998,7 +998,7 @@ class TestBackwardCompatGetAllUsers:
         mock_svc.initialize = AsyncMock()
         mock_svc.get_all_users_with_preferences = AsyncMock(return_value=[])
         with patch("services.core.get_service", return_value=mock_svc):
-            result = await compat_fn()
+            await compat_fn()
         mock_svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio

@@ -14,16 +14,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from services.registration import register_all_services
-from agents.registration import register_all_agents
+from services.registration import register_all_services  # noqa: E402
+from agents.registration import register_all_agents  # noqa: E402
 
 register_all_services()
 register_all_agents()
 
-from arq.connections import RedisSettings
-from arq import cron
-from services.core import get_service
-from utils.logger import get_logger
+from arq.connections import RedisSettings  # noqa: E402
+from arq import cron  # noqa: E402
+from services.core import get_service  # noqa: E402
+from utils.logger import get_logger  # noqa: E402
 
 worker_logger = get_logger("arq_worker")
 

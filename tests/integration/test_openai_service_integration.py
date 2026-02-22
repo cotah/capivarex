@@ -1,7 +1,7 @@
 """Integration tests for OpenAIService with mocked OpenAI client."""
 
 import pytest
-from unittest.mock import AsyncMock, Mock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from services.ai.openai_service import OpenAIService
 

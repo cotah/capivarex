@@ -1,8 +1,9 @@
 """Extended unit tests for RedisService — CRUD and higher-level methods."""
 
 import os
+import json
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 
 from services.infrastructure.redis_service import RedisService
 from services.core import ServiceUnavailableError
@@ -410,7 +411,6 @@ class TestGetClient:
 # Helper
 # -------------------------------------------------------------------
 
-import json
 
 def json_dumps(obj):
     """Shorthand for json.dumps."""

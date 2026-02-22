@@ -3,7 +3,7 @@
 import asyncio
 import time
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 
 from services.business.proactivity_service import ProactivityService
 
@@ -142,7 +142,7 @@ class TestIsNotificationAllowed:
         now = time.time()
         # Pre-populate frequency key with 5 recent timestamps
         valid_timestamps = [now - 60 * i for i in range(5)]
-        svc._redis_client._store[f"proactive_freq:u1"] = valid_timestamps
+        svc._redis_client._store["proactive_freq:u1"] = valid_timestamps
         result = await svc.is_notification_allowed("u1", "test")
         assert result is False
 
@@ -151,7 +151,7 @@ class TestIsNotificationAllowed:
         """When fewer than 5 recent timestamps, notification is allowed."""
         svc = _make_service()
         now = time.time()
-        svc._redis_client._store[f"proactive_freq:u1"] = [now - 60]
+        svc._redis_client._store["proactive_freq:u1"] = [now - 60]
         result = await svc.is_notification_allowed("u1", "test")
         assert result is True
 
@@ -174,8 +174,8 @@ class TestRecordNotificationSent:
         svc = _make_service()
         await svc.record_notification_sent("u1", "test insight")
         # Verify frequency key was set
-        assert f"proactive_freq:u1" in svc._redis_client._store
-        timestamps = svc._redis_client._store[f"proactive_freq:u1"]
+        assert "proactive_freq:u1" in svc._redis_client._store
+        timestamps = svc._redis_client._store["proactive_freq:u1"]
         assert isinstance(timestamps, list)
         assert len(timestamps) == 1
         # Verify dedup key was set

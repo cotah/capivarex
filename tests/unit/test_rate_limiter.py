@@ -2,7 +2,6 @@
 
 import time
 import pytest
-from unittest.mock import patch
 
 import utils.rate_limiter as rl
 

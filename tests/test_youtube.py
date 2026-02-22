@@ -14,7 +14,7 @@ Cobre:
   - Helpers: _iso_to_readable, _format_count
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

@@ -2,7 +2,6 @@
 Tests para BaseAgent e BaseService — cobertura de ciclo de vida e retry logic.
 Adicionado na Fase C do QA.
 """
-from unittest.mock import AsyncMock, Mock
 import pytest
 from agents.core import AgentStatus, AgentResponse
 
@@ -114,7 +113,7 @@ class ConcreteService:
     """Serviço concreto mínimo para testes de BaseService."""
 
     def __new__(cls, fail_init=False):
-        from services.core import BaseService, ServiceStatus
+        from services.core import BaseService
 
         class _Service(BaseService):
             def __init__(self):
@@ -136,7 +135,6 @@ class ConcreteService:
 @pytest.mark.asyncio
 async def test_service_initialize_sets_flag():
     """initialize() deve setar _initialized = True."""
-    from services.core import ServiceStatus
     svc = ConcreteService()
     await svc.initialize()
     assert svc.is_initialized() is True
@@ -160,7 +158,6 @@ async def test_service_initialize_failure_raises():
     svc.fail_init = True  # garante o flag
 
     # Forçar o fail_init no svc gerado
-    original_init = svc._initialize
 
     async def failing_init():
         raise RuntimeError("init failed")

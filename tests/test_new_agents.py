@@ -5,10 +5,8 @@ Tests para as 3 novas features:
   - TranslateService + TranslateAgent (mock Gemini API)
   - CryptoService + CryptoAgent (mock CoinGecko HTTP)
 """
-import json
 import time
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, Mock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -358,7 +356,6 @@ class TestCryptoService:
     def svc(self):
         """CryptoService com httpx.AsyncClient mockado."""
         from services.business.crypto_service import CryptoService
-        import httpx
 
         s = CryptoService()
 
@@ -419,7 +416,6 @@ class TestCryptoService:
     @pytest.mark.asyncio
     async def test_cache_expires(self, svc):
         """Cache expirado deve fazer nova chamada HTTP."""
-        from services.business.crypto_service import CACHE_TTL_SECONDS
         service, mock_http = svc
 
         # Injeta entrada expirada manualmente

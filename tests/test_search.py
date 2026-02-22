@@ -24,7 +24,7 @@ Cobre:
   - Agent: capabilities
 """
 
-from typing import Any, Dict, List
+from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -367,7 +367,7 @@ class TestSearchAgentIntents:
     @pytest.mark.asyncio
     async def test_places_intent(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute(
+            await search_agent.execute(
                 "restaurante italiano perto de mim", {}
             )
         assert r.is_success()
@@ -377,19 +377,19 @@ class TestSearchAgentIntents:
     @pytest.mark.asyncio
     async def test_places_response_has_address(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("farmácia aberta Dublin", {})
+            await search_agent.execute("farmácia aberta Dublin", {})
         assert "Grafton St" in r.response or "Dublin" in r.response
 
     @pytest.mark.asyncio
     async def test_places_response_has_rating(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("restaurante perto", {})
+            await search_agent.execute("restaurante perto", {})
         assert "4.8" in r.response or "⭐" in r.response
 
     @pytest.mark.asyncio
     async def test_news_intent(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("notícias sobre Bitcoin hoje", {})
+            await search_agent.execute("notícias sobre Bitcoin hoje", {})
         assert r.is_success()
         mock_svc.search_news.assert_called_once()
         assert "Bitcoin atinge" in r.response
@@ -397,7 +397,7 @@ class TestSearchAgentIntents:
     @pytest.mark.asyncio
     async def test_shopping_intent(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("comprar livro de Python", {})
+            await search_agent.execute("comprar livro de Python", {})
         assert r.is_success()
         mock_svc.search_shopping.assert_called_once()
         assert "€29.99" in r.response
@@ -405,14 +405,14 @@ class TestSearchAgentIntents:
     @pytest.mark.asyncio
     async def test_general_intent(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("documentação FastAPI", {})
+            await search_agent.execute("documentação FastAPI", {})
         assert r.is_success()
         mock_svc.search.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_general_shows_answer_box(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute(
+            await search_agent.execute(
                 "Bitcoin price", {"search_type": "general"}
             )
         assert "42" in r.response or "Answer" in r.response
@@ -421,7 +421,7 @@ class TestSearchAgentIntents:
     async def test_context_search_type_override(self, search_agent, mock_svc):
         """Context pode forçar um tipo específico de busca."""
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute(
+            await search_agent.execute(
                 "Python",
                 {"search_type": "shopping"}
             )
@@ -432,7 +432,7 @@ class TestSearchAgentIntents:
         """Se shopping não retorna produtos, faz fallback para busca geral."""
         mock_svc.search_shopping.return_value = {"products": [], "total_products": 0}
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("comprar algo muito específico xpto", {})
+            await search_agent.execute("comprar algo muito específico xpto", {})
         assert r.is_success()
         mock_svc.search.assert_called_once()
 
@@ -440,14 +440,14 @@ class TestSearchAgentIntents:
     async def test_places_empty_returns_error(self, search_agent, mock_svc):
         mock_svc.search_places.return_value = {"places": [], "total_places": 0}
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("restaurante perto", {})
+            await search_agent.execute("restaurante perto", {})
         assert not r.is_success()
         assert "não encontrei" in r.response.lower()
 
     @pytest.mark.asyncio
     async def test_empty_query_returns_help(self, search_agent, mock_svc):
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("", {})
+            await search_agent.execute("", {})
         assert not r.is_success()
         assert "buscar" in r.response.lower() or "busca" in r.response.lower()
 
@@ -461,7 +461,7 @@ class TestSearchAgentErrors:
     @pytest.mark.asyncio
     async def test_service_unavailable(self, search_agent):
         with patch("agents.specialized.search_agent.get_service", return_value=None):
-            r = await search_agent.execute("restaurante Dublin", {})
+            await search_agent.execute("restaurante Dublin", {})
         assert not r.is_success()
         assert "SERPER_API_KEY" in r.response
 
@@ -471,7 +471,7 @@ class TestSearchAgentErrors:
             "SERPER_API_KEY inválida."
         )
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("restaurante perto", {})
+            await search_agent.execute("restaurante perto", {})
         assert not r.is_success()
         assert "SERPER_API_KEY" in r.response
 
@@ -481,7 +481,7 @@ class TestSearchAgentErrors:
             "Quota Serper esgotada."
         )
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute("restaurante perto", {})
+            await search_agent.execute("restaurante perto", {})
         assert not r.is_success()
         assert "quota" in r.response.lower() or "limite" in r.response.lower()
 

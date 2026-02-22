@@ -2,7 +2,7 @@
 
 import time
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 
 from utils.request_processor import RequestProcessor, RATE_LIMIT_SECONDS
 import utils.request_processor as rp_module

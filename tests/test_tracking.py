@@ -19,11 +19,9 @@ Cobre:
   - Agent: formatação da resposta (emoji, ETA, histórico)
 """
 
-from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import httpx
 
 
 # ─── Factories ───────────────────────────────────────────────────────────────

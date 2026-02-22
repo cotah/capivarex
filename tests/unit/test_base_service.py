@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, patch
 from services.core.base_service import (
     BaseService,
     ServiceStatus,
-    ServiceError,
-    ServiceUnavailableError,
     ServiceConfigurationError,
     _is_retryable,
     retry_on_failure,

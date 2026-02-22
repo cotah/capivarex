@@ -250,7 +250,7 @@ class TestGetDetailedForecast:
     async def test_days_capped_at_14(self, weather_service):
         """days > 14 deve ser limitado a 14."""
         data = _make_api_response(days=7)
-        with patch("aiohttp.ClientSession", return_value=_mock_aiohttp(data)) as mock_session:
+        with patch("aiohttp.ClientSession", return_value=_mock_aiohttp(data)):
             await weather_service.get_detailed_forecast("Dublin", days=99)
         # Verifica que params passados à API têm days <= 14
         # (verificação indireta — não crashou)

@@ -1,7 +1,7 @@
 """Unit tests for ChatService dispatch logic."""
 
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 
 from services.business.chat_service import ChatService
 
@@ -44,7 +44,6 @@ class TestChatServiceDispatch:
         """Unknown action triggers fallback handler."""
         svc, ws = _make_service()
         # Patch _handle_fallback as an instance override
-        original_fallback = svc._handle_fallback
         svc._handle_fallback = AsyncMock(return_value="fallback reply")
         result = await svc.dispatch("unknown_action", "msg", {}, [])
         assert result == "fallback reply"

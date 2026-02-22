@@ -491,7 +491,7 @@ class TestN8nCall:
 
         with patch.object(svc, "initialize", new_callable=AsyncMock) as mock_init:
             svc._http = mock_http
-            result = await svc._n8n_call({"action": "test"})
+            await svc._n8n_call({"action": "test"})
             mock_init.assert_called_once()
 
 
@@ -515,7 +515,7 @@ class TestListDelegation:
     async def test_adicionar_chama_n8n(self):
         svc = self._make_svc()
         with patch.object(svc, "_n8n_call", new_callable=AsyncMock, return_value={"ok": True}) as mock:
-            result = await svc.adicionar("leite, pão")
+            await svc.adicionar("leite, pão")
             mock.assert_called_once_with({"action": "adicionar", "itens": "leite, pão"})
 
     @pytest.mark.asyncio

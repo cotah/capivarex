@@ -1,6 +1,6 @@
 """Unit tests for Pydantic schemas."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 from pydantic import ValidationError
