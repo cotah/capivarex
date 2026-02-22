@@ -251,8 +251,8 @@ class TrackingAgent(BaseAgent):
             lines.append("\n**Histórico:**")
             for ev in history[1:4]:  # mostra até 3 eventos anteriores
                 d = f"`{ev['date']}`" if ev.get("date") else ""
-                l = f" — {ev['location']}" if ev.get("location") else ""
-                lines.append(f"  • {d} {ev['message']}{l}")
+                loc_str = f" — {ev['location']}" if ev.get("location") else ""
+                lines.append(f"  • {d} {ev['message']}{loc_str}")
 
         return "\n".join(lines)
 
