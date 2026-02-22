@@ -1,7 +1,7 @@
 # services/business/schemas.py
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, HttpUrl
 
 
 # Schemas para validação de dados de serviços externos

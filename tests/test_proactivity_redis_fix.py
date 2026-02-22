@@ -7,7 +7,7 @@ BUGS COBERTOS:
      → filtros de anti-spam nunca funcionam
   2. Métodos sync (lrange, lpush, exists) em contexto async com RedisService Upstash
 """
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 

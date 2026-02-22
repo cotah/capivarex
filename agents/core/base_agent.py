@@ -97,7 +97,6 @@ class BaseAgent(ABC):
         Returns:
             AgentResponse with status, response text, and optional data
         """
-        pass
 
     async def process(
         self,
@@ -215,7 +214,6 @@ class BaseAgent(ABC):
 
         Subclasses can override for custom pre-processing.
         """
-        pass
 
     async def _after_execute(
         self,
@@ -227,7 +225,6 @@ class BaseAgent(ABC):
 
         Subclasses can override for custom post-processing.
         """
-        pass
 
     def get_capabilities(self) -> List[str]:
         """

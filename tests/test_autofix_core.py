@@ -32,7 +32,6 @@ Rodar:
 import json
 import textwrap
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
 

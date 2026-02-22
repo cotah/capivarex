@@ -76,7 +76,7 @@ async def test_chat_fallback_on_stream_error(chat_agent, mock_openai):
     """ChatAgent falls back to completion when streaming fails."""
     async def _bad_stream(*_a, **_kw):
         raise RuntimeError("stream broken")
-        yield  # noqa: unreachable — keeps it an async generator
+        yield  # noqa: F541 — keeps it an async generator
 
     mock_openai.stream_chat_completion = _bad_stream
 

@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 
 from services.infrastructure.redis_service import RedisService
 from services.core import ServiceUnavailableError
@@ -410,7 +410,7 @@ class TestGetClient:
 # Helper
 # -------------------------------------------------------------------
 
-import json
+import json  # noqa: E402
 
 def json_dumps(obj):
     """Shorthand for json.dumps."""

@@ -9,7 +9,6 @@ Provides:
 """
 
 import asyncio
-import base64
 import mimetypes
 import os
 import logging

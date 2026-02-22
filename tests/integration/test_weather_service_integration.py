@@ -2,7 +2,6 @@
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from aiohttp import ClientResponseError
 
 from services.integrations.weather_service import WeatherService
 

@@ -11,8 +11,8 @@ Cobre:
   - Worker: check_timers dispara notificação correta
 """
 import time
-from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, Mock, patch, call
+from typing import Any, Dict
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

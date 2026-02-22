@@ -18,7 +18,6 @@ Features:
 """
 
 import logging
-import os
 import tempfile
 import time
 import uuid

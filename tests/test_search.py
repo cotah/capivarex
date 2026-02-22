@@ -24,7 +24,7 @@ Cobre:
   - Agent: capabilities
 """
 
-from typing import Any, Dict, List
+from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -421,7 +421,7 @@ class TestSearchAgentIntents:
     async def test_context_search_type_override(self, search_agent, mock_svc):
         """Context pode forçar um tipo específico de busca."""
         with patch("agents.specialized.search_agent.get_service", return_value=mock_svc):
-            r = await search_agent.execute(
+            await search_agent.execute(
                 "Python",
                 {"search_type": "shopping"}
             )

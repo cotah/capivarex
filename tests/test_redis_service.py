@@ -1,7 +1,7 @@
 """
 Unit tests for RedisService — async Upstash REST API client.
 """
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 import json
 
 import pytest

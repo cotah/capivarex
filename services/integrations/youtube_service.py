@@ -22,7 +22,6 @@ Rate limits (YouTube Data API v3):
   - channels.list = 1 unidade / call
 """
 
-import asyncio
 import os
 from typing import Any, Dict, List, Optional
 

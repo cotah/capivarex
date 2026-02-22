@@ -27,17 +27,14 @@ class ServiceStatus(Enum):
 
 class ServiceError(Exception):
     """Base exception for service errors."""
-    pass
 
 
 class ServiceUnavailableError(ServiceError):
     """Raised when service is unavailable."""
-    pass
 
 
 class ServiceConfigurationError(ServiceError):
     """Raised when service configuration is invalid."""
-    pass
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -188,7 +185,6 @@ class BaseService(ABC):
 
         Override this method in subclasses.
         """
-        pass
 
     async def health_check(self) -> ServiceStatus:
         """
@@ -214,7 +210,6 @@ class BaseService(ABC):
         Returns:
             True if healthy, False otherwise
         """
-        pass
 
     def get_metrics(self) -> Dict[str, Any]:
         """

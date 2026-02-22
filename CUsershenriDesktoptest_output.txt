@@ -1,0 +1,413 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-7.4.3, pluggy-1.6.0
+rootdir: C:\Users\henri\Desktop\Capivarex
+configfile: pytest.ini
+plugins: anyio-4.12.1, asyncio-0.21.1, cov-4.1.0, mock-3.12.0
+asyncio: mode=Mode.AUTO
+collected 684 items
+
+tests\test_autofix_core.py ...............F.......F......F....F.F.FF.... [  6%]
+.........F.............................F....F.F......F.F..               [ 15%]
+tests\test_base_agent_service.py ................                        [ 17%]
+tests\test_calendar_agent.py ..............                              [ 19%]
+tests\test_car_agent.py .....                                            [ 20%]
+tests\test_chat_agent.py .....                                           [ 20%]
+tests\test_database_service.py ....                                      [ 21%]
+tests\test_dev_agent.py .......                                          [ 22%]
+tests\test_finance_agent.py ......                                       [ 23%]
+tests\test_finance_agent_extra.py ..........                             [ 24%]
+tests\test_github_agent.py ......                                        [ 25%]
+tests\test_google_calendar_service.py ...............                    [ 27%]
+tests\test_image_agent.py ....                                           [ 28%]
+tests\test_orchestrator.py ....                                          [ 29%]
+tests\test_proactivity_redis_fix.py .......                              [ 30%]
+tests\test_prompt_cleaner.py ............                                [ 31%]
+tests\test_redis_service.py ......                                       [ 32%]
+tests\test_research_agent.py .......                                     [ 33%]
+tests\test_smarthome_agent.py ......                                     [ 34%]
+tests\test_traffic_agent.py ............                                 [ 36%]
+tests\test_voice_agent.py ......                                         [ 37%]
+tests\test_voice_pipeline.py EEEEEEEEEEEFFEEEEEEFEEEEEEEE..........      [ 42%]
+tests\test_weather_agent.py ......                                       [ 43%]
+tests\integration\test_anthropic_service_integration.py ............     [ 45%]
+tests\integration\test_api.py ......                                     [ 46%]
+tests\integration\test_create_event_flow.py .                            [ 46%]
+tests\integration\test_finance_service_integration.py .........          [ 47%]
+tests\integration\test_openai_service_integration.py ..............      [ 49%]
+tests\integration\test_weather_service_integration.py ........           [ 51%]
+tests\unit\test_agent_registry.py ........                               [ 52%]
+tests\unit\test_base_agent.py ............                               [ 53%]
+tests\unit\test_base_service.py ..................                       [ 56%]
+tests\unit\test_chat_service.py ..............................           [ 60%]
+tests\unit\test_database_service.py .................................... [ 66%]
+.....................................................                    [ 73%]
+tests\unit\test_encryption.py ....                                       [ 74%]
+tests\unit\test_permissions.py .....                                     [ 75%]
+tests\unit\test_proactivity_service.py ..........................        [ 79%]
+tests\unit\test_rate_limiter.py .....                                    [ 79%]
+tests\unit\test_redis_service_ext.py ................................... [ 84%]
+................................                                         [ 89%]
+tests\unit\test_request_processor.py ................                    [ 91%]
+tests\unit\test_schemas.py ....................                          [ 94%]
+tests\unit\test_service_registry.py .........                            [ 96%]
+tests\unit\test_tenancy.py ...............                               [ 98%]
+tests\unit\test_weather_agent.py ...........                             [100%]
+
+=================================== ERRORS ====================================
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_process_audio_full_pipeline _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_process_audio_metrics_populated _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_process_audio_no_audio_return _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_text_to_speech_only _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_text_to_speech_no_file _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_speech_to_text_only _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_stream_tts_yields_chunks _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineServiceHappyPath.test_voice_id_override __
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineFailSafe.test_tts_failure_returns_text_anyway _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineFailSafe.test_stt_failure_stops_pipeline _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineFailSafe.test_llm_failure_stops_pipeline _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+__ ERROR at setup of TestVoicePipelineFailSafe.test_orchestrator_unavailable __
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineEdgeCases.test_text_truncated_at_max_chars _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineEdgeCases.test_stream_tts_truncates_long_text _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineEdgeCases.test_default_voice_by_language _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineEdgeCases.test_audio_output_is_saved_to_temp_dir _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineEdgeCases.test_audio_filename_unique_per_call _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineEdgeCases.test_english_language_uses_english_voice _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+__ ERROR at setup of TestVoicePipelineRoutes.test_pipeline_endpoint_success ___
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineRoutes.test_pipeline_endpoint_invalid_extension _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineRoutes.test_pipeline_endpoint_file_too_large _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+___ ERROR at setup of TestVoicePipelineRoutes.test_pipeline_health_endpoint ___
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineRoutes.test_stream_tts_endpoint_success __
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineRoutes.test_stream_tts_empty_text_rejected _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_ ERROR at setup of TestVoicePipelineRoutes.test_stream_tts_text_too_long_rejected _
+tests\test_voice_pipeline.py:77: in pipeline_service
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+================================== FAILURES ===================================
+_________ TestFrameExtraction.test_is_repo_frame_generic_user_module __________
+tests\test_autofix_core.py:204: in test_is_repo_frame_generic_user_module
+    assert _is_repo_frame("/home/user/project/my_module.py", "my_module") is True
+E   AssertionError: assert False is True
+E    +  where False = _is_repo_frame('/home/user/project/my_module.py', 'my_module')
+__________ TestFrameExtraction.test_generate_ticket_id_starts_with_T __________
+tests\test_autofix_core.py:244: in test_generate_ticket_id_starts_with_T
+    assert ticket_id.startswith("T-")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00000192B0D985F0>('T-')
+E    +    where <built-in method startswith of str object at 0x00000192B0D985F0> = '165bfd16'.startswith
+_________ TestTicketManagement.test_upsert_ticket_has_required_fields _________
+tests\test_autofix_core.py:295: in test_upsert_ticket_has_required_fields
+    assert field in ticket, f"Missing field: {field}"
+E   AssertionError: Missing field: ticket_id
+E   assert 'ticket_id' in {'count': 1, 'error_type': 'ValueError', 'fingerprint': 'ValueError|telegram_bot:handle_cmd:42', 'first_seen': '2026-02-21T01:39:58', ...}
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,242] INFO - Ticket upsert: abedf724 frame_source=repo (count=1)
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:374 Ticket upsert: abedf724 frame_source=repo (count=1)
+______________ TestTicketManagement.test_get_ticket_by_id_found _______________
+tests\test_autofix_core.py:326: in test_get_ticket_by_id_found
+    found = core.get_ticket_by_id(ticket["ticket_id"])
+E   KeyError: 'ticket_id'
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,260] INFO - Ticket upsert: abedf724 frame_source=repo (count=1)
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:374 Ticket upsert: abedf724 frame_source=repo (count=1)
+___________ TestTicketManagement.test_update_ticket_status_success ____________
+tests\test_autofix_core.py:335: in test_update_ticket_status_success
+    success = core.update_ticket_status(ticket["ticket_id"], "fixed")
+E   KeyError: 'ticket_id'
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,270] INFO - Ticket upsert: abedf724 frame_source=repo (count=1)
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:374 Ticket upsert: abedf724 frame_source=repo (count=1)
+_________________ TestTicketManagement.test_mark_ticket_fixed _________________
+tests\test_autofix_core.py:345: in test_mark_ticket_fixed
+    result = core.mark_ticket_fixed(ticket["ticket_id"], reason="manual fix")
+E   KeyError: 'ticket_id'
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,281] INFO - Ticket upsert: abedf724 frame_source=repo (count=1)
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:374 Ticket upsert: abedf724 frame_source=repo (count=1)
+__________________ TestTicketManagement.test_mark_ticket_new __________________
+tests\test_autofix_core.py:351: in test_mark_ticket_new
+    core.update_ticket_status(ticket["ticket_id"], "fixed")
+E   KeyError: 'ticket_id'
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,290] INFO - Ticket upsert: abedf724 frame_source=repo (count=1)
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:374 Ticket upsert: abedf724 frame_source=repo (count=1)
+_______ TestStatusCalculation.test_get_status_green_after_fixing_ticket _______
+tests\test_autofix_core.py:439: in test_get_status_green_after_fixing_ticket
+    core.mark_ticket_fixed(ticket["ticket_id"])
+E   KeyError: 'ticket_id'
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,313] INFO - Ticket upsert: abedf724 frame_source=repo (count=1)
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:374 Ticket upsert: abedf724 frame_source=repo (count=1)
+____________ TestSandboxApply.test_sandbox_creates_unique_run_dir _____________
+tests\test_autofix_core.py:653: in test_sandbox_creates_unique_run_dir
+    assert run_dir1 != run_dir2
+E   AssertionError: assert WindowsPath('C:/Users/henri/AppData/Local/Temp/pytest-of-henri/pytest-106/test_sandbox_creates_unique_ru0/autofix/sandbox/run_20260221_013958') != WindowsPath('C:/Users/henri/AppData/Local/Temp/pytest-of-henri/pytest-106/test_sandbox_creates_unique_ru0/autofix/sandbox/run_20260221_013958')
+___________ TestPatchGovernance.test_approve_patch_sets_approved_by ___________
+tests\test_autofix_core.py:723: in test_approve_patch_sets_approved_by
+    assert result.get("approved_by") == "henri"
+E   AssertionError: assert None == 'henri'
+E    +  where None = <built-in method get of dict object at 0x00000192B1E8E700>('approved_by')
+E    +    where <built-in method get of dict object at 0x00000192B1E8E700> = {'decision': {'by': 'henri', 'reason': None, 'ts': '2026-02-21T01:39:58'}, 'diff': '', 'status': 'approved', 'target_files': [], ...}.get
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,362] INFO - Patch 1 updated: status=approved by=henri
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:1685 Patch 1 updated: status=approved by=henri
+___________ TestPatchGovernance.test_reject_patch_sets_rejected_by ____________
+tests\test_autofix_core.py:734: in test_reject_patch_sets_rejected_by
+    assert result.get("rejected_by") == "security_team"
+E   AssertionError: assert None == 'security_team'
+E    +  where None = <built-in method get of dict object at 0x00000192B0E72500>('rejected_by')
+E    +    where <built-in method get of dict object at 0x00000192B0E72500> = {'decision': {'by': 'security_team', 'reason': None, 'ts': '2026-02-21T01:39:58'}, 'diff': '', 'status': 'rejected', 'target_files': [], ...}.get
+---------------------------- Captured stderr call -----------------------------
+[2026-02-21 01:39:58,374] INFO - Patch 1 updated: status=rejected by=security_team
+------------------------------ Captured log call ------------------------------
+INFO     autofix.core:core.py:1685 Patch 1 updated: status=rejected by=security_team
+__________ TestRecordException.test_record_exception_returns_ticket ___________
+tests\test_autofix_core.py:773: in test_record_exception_returns_ticket
+    ticket, is_new = core.record_exception(
+E   TypeError: record_exception() got an unexpected keyword argument 'error_type'
+________ TestRecordException.test_record_exception_no_crash_on_none_tb ________
+tests\test_autofix_core.py:800: in test_record_exception_no_crash_on_none_tb
+    ticket, is_new = core.record_exception(
+E   TypeError: record_exception() got an unexpected keyword argument 'error_type'
+_________ TestVoicePipelineFailSafe.test_whisper_service_unavailable __________
+tests\test_voice_pipeline.py:299: in test_whisper_service_unavailable
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+___ TestVoicePipelineFailSafe.test_elevenlabs_service_unavailable_tts_only ____
+tests\test_voice_pipeline.py:319: in test_elevenlabs_service_unavailable_tts_only
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+_________ TestVoicePipelineEdgeCases.test_stt_only_without_elevenlabs _________
+tests\test_voice_pipeline.py:420: in test_stt_only_without_elevenlabs
+    svc = VoicePipelineService()
+services\voice_pipeline_service.py:71: in __init__
+    super().__init__(name="voice_pipeline", description="STT + LLM + TTS pipeline")
+E   TypeError: BaseService.__init__() got an unexpected keyword argument 'description'
+
+---------- coverage: platform win32, python 3.14.2-final-0 -----------
+Name                                       Stmts   Miss  Cover   Missing
+------------------------------------------------------------------------
+agents\__init__.py                             3      0   100%
+agents\core\__init__.py                        3      0   100%
+agents\core\agent_registry.py                 53      3    94%   41, 158, 168
+agents\core\base_agent.py                     61      0   100%
+agents\specialized\__init__.py                15      0   100%
+agents\specialized\calendar_agent.py         208     70    66%   54-59, 65-73, 77-85, 111, 184-190, 210-229, 243, 280-284, 295-308, 372, 437, 446-448, 465-466, 499, 510-511, 522, 558-563, 571
+agents\specialized\chat_agent.py             101     46    54%   47-54, 73-109, 115-120, 184, 201, 216-222, 249
+agents\specialized\dev_agent.py              133     53    60%   91, 116-149, 171, 184-197, 220, 239-241, 304-306, 340-350, 360-370, 380-390, 400-410
+agents\specialized\finance_agent.py           57      4    93%   154-160, 234
+agents\specialized\orchestrator_agent.py      42      6    86%   63-67, 205
+agents\specialized\traffic_agent.py           79     14    82%   45-53, 161, 193, 200, 229, 250
+agents\specialized\weather_agent.py           42      0   100%
+api\__init__.py                                1      0   100%
+api\main.py                                  109     26    76%   102, 110, 160-167, 177-178, 207-208, 223-224, 269-286, 292-293
+api\routes\__init__.py                        16      0   100%
+api\routes\voice_pipeline_routes.py           71     31    56%   80-82, 89-92, 97-100, 108-111, 220-239, 258-264
+bot\__init__.py                                6      0   100%
+bot\core\__init__.py                           4      0   100%
+bot\core\tenancy.py                           47      0   100%
+core\__init__.py                               0      0   100%
+models\__init__.py                             0      0   100%
+models\schemas.py                             50      1    98%   117
+schemas\__init__.py                            0      0   100%
+schemas\calendar.py                           21      2    90%   29, 38
+schemas\context.py                            11      0   100%
+schemas\orchestrator.py                        4      0   100%
+services\__init__.py                           2      0   100%
+services\business\__init__.py                  5      0   100%
+services\business\chat_service.py            228     26    89%   110-116, 139-141, 152, 160, 185, 189, 224, 290, 308, 328-330, 371-381, 394, 398-401
+services\business\proactivity_service.py     330    132    60%   105, 107, 113-130, 160-161, 163-167, 171, 178-182, 186, 193-197, 201, 210-214, 218, 225-231, 235, 261-263, 269-270, 279, 295-313, 315-321, 339-462, 506, 514-522, 569-570, 619-621, 657-658, 666
+services\business\prompt_cleaner.py          150     30    80%   81-88, 100, 135, 139-148, 162, 191, 416, 432, 453, 456-458, 464, 487-491, 504, 526, 532, 536-538
+services\business\schemas.py                  21      0   100%
+services\core\__init__.py                      3      0   100%
+services\core\base_service.py                103      8    92%   65, 68-74, 122-124
+services\core\service_registry.py             63      6    90%   41, 129-131, 176, 186
+services\infrastructure\__init__.py            7      0   100%
+services\infrastructure\database.py          279      0   100%
+services\infrastructure\redis_service.py     229     10    96%   73, 113, 286, 344, 423-424, 712-716
+services\integrations\__init__.py              7      0   100%
+services\voice_pipeline_service.py           145    119    18%   72-73, 77-92, 95, 125-188, 209-241, 258-269, 297-321, 331-343, 353-380, 386-398
+utils\__init__.py                              0      0   100%
+utils\encryption.py                           38      9    76%   24-26, 33-35, 50-52
+utils\permissions.py                          23      0   100%
+utils\rate_limiter.py                         13      0   100%
+utils\request_processor.py                    76      0   100%
+------------------------------------------------------------------------
+TOTAL                                       2859    596    79%
+
+FAIL Required test coverage of 80% not reached. Total coverage: 79.15%
+=========================== short test summary info ===========================
+FAILED tests/test_autofix_core.py::TestFrameExtraction::test_is_repo_frame_generic_user_module
+FAILED tests/test_autofix_core.py::TestFrameExtraction::test_generate_ticket_id_starts_with_T
+FAILED tests/test_autofix_core.py::TestTicketManagement::test_upsert_ticket_has_required_fields
+FAILED tests/test_autofix_core.py::TestTicketManagement::test_get_ticket_by_id_found
+FAILED tests/test_autofix_core.py::TestTicketManagement::test_update_ticket_status_success
+FAILED tests/test_autofix_core.py::TestTicketManagement::test_mark_ticket_fixed
+FAILED tests/test_autofix_core.py::TestTicketManagement::test_mark_ticket_new
+FAILED tests/test_autofix_core.py::TestStatusCalculation::test_get_status_green_after_fixing_ticket
+FAILED tests/test_autofix_core.py::TestSandboxApply::test_sandbox_creates_unique_run_dir
+FAILED tests/test_autofix_core.py::TestPatchGovernance::test_approve_patch_sets_approved_by
+FAILED tests/test_autofix_core.py::TestPatchGovernance::test_reject_patch_sets_rejected_by
+FAILED tests/test_autofix_core.py::TestRecordException::test_record_exception_returns_ticket
+FAILED tests/test_autofix_core.py::TestRecordException::test_record_exception_no_crash_on_none_tb
+FAILED tests/test_voice_pipeline.py::TestVoicePipelineFailSafe::test_whisper_service_unavailable
+FAILED tests/test_voice_pipeline.py::TestVoicePipelineFailSafe::test_elevenlabs_service_unavailable_tts_only
+FAILED tests/test_voice_pipeline.py::TestVoicePipelineEdgeCases::test_stt_only_without_elevenlabs
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_process_audio_full_pipeline
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_process_audio_metrics_populated
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_process_audio_no_audio_return
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_text_to_speech_only
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_text_to_speech_no_file
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_speech_to_text_only
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_stream_tts_yields_chunks
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineServiceHappyPath::test_voice_id_override
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineFailSafe::test_tts_failure_returns_text_anyway
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineFailSafe::test_stt_failure_stops_pipeline
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineFailSafe::test_llm_failure_stops_pipeline
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineFailSafe::test_orchestrator_unavailable
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineEdgeCases::test_text_truncated_at_max_chars
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineEdgeCases::test_stream_tts_truncates_long_text
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineEdgeCases::test_default_voice_by_language
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineEdgeCases::test_audio_output_is_saved_to_temp_dir
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineEdgeCases::test_audio_filename_unique_per_call
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineEdgeCases::test_english_language_uses_english_voice
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineRoutes::test_pipeline_endpoint_success
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineRoutes::test_pipeline_endpoint_invalid_extension
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineRoutes::test_pipeline_endpoint_file_too_large
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineRoutes::test_pipeline_health_endpoint
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineRoutes::test_stream_tts_endpoint_success
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineRoutes::test_stream_tts_empty_text_rejected
+ERROR tests/test_voice_pipeline.py::TestVoicePipelineRoutes::test_stream_tts_text_too_long_rejected
+================== 16 failed, 643 passed, 25 errors in 7.80s ==================

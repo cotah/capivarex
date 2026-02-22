@@ -1,7 +1,7 @@
 """
 Unit tests for ImageAgent — AI image generation.
 """
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

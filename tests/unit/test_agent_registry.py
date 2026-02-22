@@ -15,7 +15,6 @@ class _DummyAgent(BaseAgent):
 
 class _NotAnAgent:
     """Not a BaseAgent subclass."""
-    pass
 
 
 @pytest.fixture

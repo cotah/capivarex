@@ -18,23 +18,23 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", message="error reading bcrypt version")
 
-import os
-import asyncio
-from dotenv import load_dotenv
-from telegram.ext import ApplicationBuilder, CommandHandler
+import os  # noqa: E402
+import asyncio  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
+from telegram.ext import ApplicationBuilder, CommandHandler  # noqa: E402
 
 # Importa os módulos de registro para popular os registries
-import services.registration  # noqa: F401
-import agents.registration  # noqa: F401
+import services.registration  # noqa: F401, E402
+import agents.registration  # noqa: F401, E402
 
 # ====================================================================
 #                  IMPORTS DO TELEGRAM BOT
 # ====================================================================
-from telegram_bot.core.bot import CapivaraXBot
-from telegram_bot.handlers import register_all_handlers
-from telegram_bot.commands.proactivity import toggle_proactivity
-from telegram_bot.utils.logger import get_logger
-from utils.logging_config import setup_logging
+from telegram_bot.core.bot import CapivaraXBot  # noqa: E402
+from telegram_bot.handlers import register_all_handlers  # noqa: E402
+from telegram_bot.commands.proactivity import toggle_proactivity  # noqa: E402
+from telegram_bot.utils.logger import get_logger  # noqa: E402
+from utils.logging_config import setup_logging  # noqa: E402
 
 load_dotenv()
 logger = get_logger(__name__)

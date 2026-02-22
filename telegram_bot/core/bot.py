@@ -7,6 +7,7 @@ from telegram.ext import Application
 
 from services import get_service
 from agents import get_agent
+from agents.core.base_agent import AgentResponse
 
 
 class CapivaraXBot:

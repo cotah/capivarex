@@ -703,7 +703,7 @@ class TransitService(BaseService):
                         "speed_kmh": round((pos.get("speed", 0) or 0) * 3.6, 1),
                         "timestamp": vp.get("timestamp", 0),
                     })
-        except Exception as e:
+        except Exception:
             pass
         return positions
 
