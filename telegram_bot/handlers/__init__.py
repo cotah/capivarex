@@ -1,4 +1,5 @@
 """Handlers for the refactored Telegram bot."""
+
 import logging
 from typing import Any
 
@@ -7,6 +8,7 @@ from telegram.ext import Application, MessageHandler, CommandHandler, filters
 from .message import handle_message
 from .voice import handle_voice
 from .document import handle_document
+from .photo import handle_photo
 from ..commands import (
     start_command,
     help_command,
@@ -33,10 +35,10 @@ def register_all_handlers(application: Application, bot: Any) -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
     # Store bot instance in application context
     application.bot_data["capivarax_bot"] = bot
-
     logger.info("All handlers registered successfully")
 
 
