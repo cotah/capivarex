@@ -14,9 +14,8 @@ Exemplos de queries:
 """
 
 import logging
-import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent

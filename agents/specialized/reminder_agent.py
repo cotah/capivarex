@@ -360,7 +360,7 @@ class ReminderAgent(BaseAgent):
         for r in reminders:
             short_id = r["id"][:8]
             date_str = svc.format_remind_at(r["remind_at"])
-            rec = f" 🔁" if r.get("recurrence") else ""
+            rec = " 🔁" if r.get("recurrence") else ""
             lines.append(f"`{short_id}` {date_str}{rec} — _{r['message'][:60]}_")
 
         return AgentResponse(

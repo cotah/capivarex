@@ -15,9 +15,8 @@ Exemplos de queries:
 """
 
 import re
-import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
@@ -71,21 +70,10 @@ def _extract_emails(text: str) -> List[str]:
 
 def _extract_duration_minutes(text: str) -> int:
     """Extrai duração em minutos. Default: 60 minutos."""
-    # Primeiro busca padrões explícitos de duração: "de Xh", "por X horas", "X minutos"
-    explicit = re.search(
-        r"(?:de|por|durante)\s+(\d+)\s*(hora[s]?|h\b|minuto[s]?|min\b)",
-        text.lower(),
-    )
-    if explicit:
-        value = int(explicit.group(1))
-        unit = explicit.group(2).lower()
-        return value * 60 if unit.startswith("h") else value
-
-    # Remove horários (às Xh, XhMM) para evitar confundir com duração
-    cleaned = re.sub(
-        r"(?:às|as|at)\s+\d{1,2}[:h]\d{0,2}\s*(?:am|pm)?",
-        "", text.lower(), flags=re.IGNORECASE,
-    )
+    lower = text.lower()
+    # Remove padrões de horário (às 10h, 14h30) para não confundir com duração
+    cleaned = re.sub(r"(?:às|as)\s*\d{1,2}[:h]\d{0,2}", "", lower)
+    cleaned = re.sub(r"\b\d{1,2}[:h]\d{2}\b", "", cleaned)
     match = _RE_DURATION.search(cleaned)
     if not match:
         return 60

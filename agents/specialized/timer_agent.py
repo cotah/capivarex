@@ -16,7 +16,7 @@ Exemplos de queries suportadas:
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service

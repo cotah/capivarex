@@ -19,8 +19,7 @@ Exemplos de queries:
 """
 
 import re
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
@@ -327,7 +326,6 @@ class LeavingNowAgent(BaseAgent):
             lines.append("🚌 **Percurso sugerido:**")
             for step in result.transit_steps[:5]:
                 mode = step.get("mode", "")
-                instruction = step.get("instruction", "")
                 duration = step.get("duration_minutes", 0)
                 transit = step.get("transit", {})
 

@@ -19,7 +19,7 @@ Exemplos de queries:
 """
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
@@ -52,15 +52,6 @@ _NEWS_KEYWORDS = [
 ]
 
 
-def _has_keyword(text: str, keywords: list) -> bool:
-    """Verifica se alguma keyword está no texto usando word boundaries."""
-    for kw in keywords:
-        # Para keywords multi-word ou com acento, usar busca literal com boundary
-        if re.search(rf"\b{re.escape(kw)}\b", text):
-            return True
-    return False
-
-
 def _detect_search_type(prompt: str) -> str:
     """
     Detecta o tipo de busca pelo conteúdo do prompt.
@@ -69,15 +60,16 @@ def _detect_search_type(prompt: str) -> str:
         "places" | "shopping" | "news" | "general"
     """
     text = prompt.lower()
+    words = set(re.findall(r"\w+", text))
 
-    # Places tem prioridade (mais específico)
-    if _has_keyword(text, _PLACE_KEYWORDS):
+    # Places tem prioridade (mais específico) — usa word boundary
+    if any(kw in text if " " in kw else kw in words for kw in _PLACE_KEYWORDS):
         return "places"
 
-    if _has_keyword(text, _SHOPPING_KEYWORDS):
+    if any(kw in text if " " in kw else kw in words for kw in _SHOPPING_KEYWORDS):
         return "shopping"
 
-    if _has_keyword(text, _NEWS_KEYWORDS):
+    if any(kw in text for kw in _NEWS_KEYWORDS):
         return "news"
 
     return "general"
