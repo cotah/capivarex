@@ -8,7 +8,7 @@ Handles:
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional  # FIX F401: removed unused Dict
 from dataclasses import dataclass
 
 logger = logging.getLogger("capivarax.tenancy")
@@ -17,6 +17,7 @@ logger = logging.getLogger("capivarax.tenancy")
 @dataclass
 class TenantContext:
     """Represents a tenant/user context."""
+
     tenant_id: str
     user_id: str
     channel: str  # "cli", "telegram", "webapp"
@@ -29,15 +30,14 @@ class TenancyManager:
     Manages multi-tenancy and identity mapping.
 
     Uses the Supabase `identity_map` table instead of a local JSON file.
-    No global mutable state — every method receives or returns context
-    explicitly.
+    No global mutable state — every method receives or returns context explicitly.
     """
 
     def __init__(self, db_service: Any):
         """
         Args:
-            db_service: An initialized DatabaseService instance
-                        (must expose `.client` with Supabase operations).
+            db_service: An initialized DatabaseService instance (must expose
+                `.client` with Supabase operations).
         """
         self.db = db_service
 
@@ -46,7 +46,9 @@ class TenancyManager:
     # ------------------------------------------------------------------
 
     async def resolve_context(
-        self, channel: str, channel_identifier: str
+        self,
+        channel: str,
+        channel_identifier: str,
     ) -> Optional[TenantContext]:
         """
         Resolve a TenantContext from the identity_map table.
@@ -66,7 +68,6 @@ class TenancyManager:
                 .eq("channel_identifier", channel_identifier)
                 .execute()
             )
-
             if response.data:
                 mapping = response.data[0]
                 return TenantContext(
@@ -76,11 +77,11 @@ class TenancyManager:
                     chat_id=channel_identifier if channel == "telegram" else None,
                     session_id=channel_identifier if channel == "webapp" else None,
                 )
-
             return None
-
         except Exception as e:
-            logger.error("Failed to resolve context for %s/%s: %s", channel, channel_identifier, e)
+            logger.error(
+                "Failed to resolve context for %s/%s: %s", channel, channel_identifier, e
+            )
             return None
 
     # ------------------------------------------------------------------
@@ -101,29 +102,16 @@ class TenancyManager:
             ctx = await self.resolve_context("webapp", session_id)
             if ctx:
                 return ctx
-
         if email:
             return await self.resolve_context("webapp", email)
-
         return None
 
     # ------------------------------------------------------------------
     # Registration
     # ------------------------------------------------------------------
 
-    async def register_telegram_user(
-        self, chat_id: str, user_id: str
-    ) -> bool:
-        """
-        Register (or update) a Telegram identity mapping.
-
-        Args:
-            chat_id: Telegram chat ID.
-            user_id: Internal user UUID.
-
-        Returns:
-            True on success.
-        """
+    async def register_telegram_user(self, chat_id: str, user_id: str) -> bool:
+        """Register (or update) a Telegram identity mapping."""
         return await self._upsert_identity("telegram", chat_id, user_id)
 
     async def register_webapp_user(
@@ -132,17 +120,7 @@ class TenancyManager:
         session_id: Optional[str] = None,
         email: Optional[str] = None,
     ) -> bool:
-        """
-        Register (or update) a webapp identity mapping.
-
-        Args:
-            user_id: Internal user UUID.
-            session_id: Optional webapp session ID.
-            email: Optional user email.
-
-        Returns:
-            True if at least one mapping was created.
-        """
+        """Register (or update) a webapp identity mapping."""
         success = False
         if session_id:
             success = await self._upsert_identity("webapp", session_id, user_id) or success
@@ -171,6 +149,8 @@ class TenancyManager:
         except Exception as e:
             logger.error(
                 "Failed to upsert identity for %s/%s: %s",
-                channel, channel_identifier, e,
+                channel,
+                channel_identifier,
+                e,
             )
             return False

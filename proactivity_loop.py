@@ -37,11 +37,12 @@ async def run_proactivity_cycle() -> None:
     if not db_service.is_initialized():
         await db_service.initialize()
 
-    # Get users from the proactivity_preferences table
     try:
         pref_users = await db_service.get_all_users_with_proactivity_enabled()
     except Exception as e:
-        logger.exception(f"CRITICAL: Failed to get users with proactivity enabled from DB. Cycle aborted. Error: {e}")
+        logger.exception(
+            f"CRITICAL: Failed to get users with proactivity enabled from DB. Cycle aborted. Error: {e}"
+        )
         return
 
     if not pref_users:
@@ -56,7 +57,6 @@ async def run_proactivity_cycle() -> None:
     for pref in pref_users:
         user_id = pref["user_id"]
 
-        # Look up user details (telegram_chat_id) from users table
         user_data = await db_service.get_user_by_id(user_id)
         if not user_data:
             logger.warning(f"User {user_id} not found in database. Skipping.")
@@ -69,28 +69,22 @@ async def run_proactivity_cycle() -> None:
             continue
 
         chat_id = user_data.get("telegram_chat_id", user_id)
-        proactivity_prefs = pref
+        _ = pref  # FIX F841: pref retained for future per-user preference filtering
 
         try:
             context = await proactivity_service.gather_context(user_context)
             insight = await proactivity_service.analyze_context_for_insights(context)
-
             notifications: List[Dict[str, Any]] = []
 
             if insight:
                 notifications.append({"type": "insight", "message": insight})
 
-            # Check SmartThings
-            smartthings_alert = await proactivity_service.check_smartthings_status(
-                user_id
-            )
+            smartthings_alert = await proactivity_service.check_smartthings_status(user_id)
             if smartthings_alert:
                 notifications.append(smartthings_alert)
 
             if not notifications:
-                logger.info(
-                    f"No proactive insights for user {user_id} in this cycle."
-                )
+                logger.info(f"No proactive insights for user {user_id} in this cycle.")
                 continue
 
             for notification in notifications:
@@ -106,29 +100,20 @@ async def run_proactivity_cycle() -> None:
                     continue
 
                 if await proactivity_service.is_notification_allowed(user_id, message):
-                    logger.info(
-                        f"Sending proactive notification to user {user_id}"
-                    )
-
+                    logger.info(f"Sending proactive notification to user {user_id}")
                     notification_service = get_service("notification")
                     if notification_service and not notification_service.is_initialized():
                         await notification_service.initialize()
-
                     if notification_service:
-                        await notification_service.send_message(
-                            "telegram", chat_id, message
-                        )
+                        await notification_service.send_message("telegram", chat_id, message)
                     else:
                         logger.warning("NotificationService not available.")
-
                     await proactivity_service.record_notification_sent(user_id, message)
                 else:
                     logger.info(f"Notification for {user_id} blocked by filters.")
 
         except Exception as e:
-            logger.exception(
-                f"Proactivity cycle failed for user {user_id}: {e}"
-            )
+            logger.exception(f"Proactivity cycle failed for user {user_id}: {e}")
 
 
 async def main_loop() -> None:

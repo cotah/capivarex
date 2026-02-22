@@ -2,14 +2,14 @@
 """
 Pydantic models for calendar event data.
 
-Centralises validation and datetime parsing that was previously
-inlined in CalendarAgent._create_event.
+Centralises validation and datetime parsing that was previously inlined
+in CalendarAgent._create_event.
 """
 
 from datetime import datetime, timedelta
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, field_validator  # FIX F401: removed unused Field
 
 
 class CalendarEventInput(BaseModel):
@@ -30,8 +30,6 @@ class CalendarEventInput(BaseModel):
         if isinstance(value, datetime):
             return value
         if isinstance(value, str):
-            # Google Calendar API may return "Z" suffix; normalise to offset
-            # then strip tzinfo so the rest of the codebase works with naive UTC.
             return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(
                 tzinfo=None
             )

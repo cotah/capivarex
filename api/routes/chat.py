@@ -1,32 +1,39 @@
 """
 Chat Routes (Refactored)
-Endpoints REST e WebSocket para chat com GPT.
 
-Uses agents (get_agent) and services (get_service)
-instead of direct imports from agents/ and services/.
+Endpoints REST e WebSocket para chat com GPT.
+Uses agents (get_agent) and services (get_service) instead of direct imports.
 """
+
+# FIX E402: all imports at top of file
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import jwt
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import StreamingResponse
-import jwt
 from jwt.exceptions import PyJWTError
 from pydantic import BaseModel
 
+from agents import get_agent
 from api.dependencies import get_current_user, get_authenticated_processor, RequestProcessor
 from api.middleware.rate_limit import limiter
-from models.schemas import Conversation, ConversationCreate, Message
-
-# Refactored imports: registry-based access
-from agents import get_agent
 from api.routes._helpers import _get_db
-from services.core import get_service
 from autofix import record_exception
+from models.schemas import Conversation, ConversationCreate, Message
 from services.business.chat_service import ChatService
+from services.core import get_service
+
+load_dotenv()
+
+# JWT config (same env vars used by the original auth module)
+SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "")
+ALGORITHM: str = os.environ.get("JWT_ALGORITHM", "HS256")
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -35,8 +42,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Helpers: lazily resolve services and agents from their registries
 # ---------------------------------------------------------------------------
-
-
 
 def _get_redis():
     """Get the Redis service instance."""
@@ -52,16 +57,6 @@ def _get_openai_service():
     if svc is None:
         raise HTTPException(status_code=503, detail="OpenAI service unavailable")
     return svc
-
-
-# JWT config (same env vars used by the original auth module)
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "")
-ALGORITHM: str = os.environ.get("JWT_ALGORITHM", "HS256")
 
 
 # ============================================
@@ -96,12 +91,9 @@ async def create_conversation(
         "user_id": current_user["id"],
         "title": data.title,
     }
-
     response = db.table("conversations").insert(new_conversation).execute()
-
     if not response.data:
         raise HTTPException(status_code=500, detail="Failed to create conversation")
-
     return response.data[0]
 
 
@@ -112,8 +104,6 @@ async def get_messages(
 ) -> List[Dict[str, Any]]:
     """Lista todas as mensagens de uma conversa."""
     db = _get_db()
-
-    # Verificar se a conversa pertence ao usuario
     conv_response = (
         db.table("conversations")
         .select("id")
@@ -121,11 +111,8 @@ async def get_messages(
         .eq("user_id", current_user["id"])
         .execute()
     )
-
     if not conv_response.data:
         raise HTTPException(status_code=404, detail="Conversation not found")
-
-    # Buscar mensagens
     messages_response = (
         db.table("messages")
         .select("*")
@@ -133,7 +120,6 @@ async def get_messages(
         .order("created_at", desc=False)
         .execute()
     )
-
     return messages_response.data
 
 
@@ -144,7 +130,6 @@ async def delete_conversation(
 ) -> Dict[str, str]:
     """Deleta uma conversa (e todas as mensagens em cascata)."""
     db = _get_db()
-
     conv_response = (
         db.table("conversations")
         .select("id")
@@ -152,12 +137,9 @@ async def delete_conversation(
         .eq("user_id", current_user["id"])
         .execute()
     )
-
     if not conv_response.data:
         raise HTTPException(status_code=404, detail="Conversation not found")
-
     db.table("conversations").delete().eq("id", conversation_id).execute()
-
     return {"message": "Conversation deleted successfully"}
 
 
@@ -193,85 +175,65 @@ class ChatStreamRequest(BaseModel):
 # Strategy Pattern: intent → agent mapping
 # ---------------------------------------------------------------------------
 
-# Maps intent names to (agent_name, method_name) tuples.
-# "execute" is the standard method; "process" is used by calendar/car.
 _AGENT_MAP: Dict[str, tuple] = {
-    "weather":  ("weather",  "execute"),
-    "finance":  ("finance",  "execute"),
-    "image":    ("image",    "execute"),
-    "video":    ("video",    "execute"),
-    "calendar": ("calendar", "process"),
-    "traffic":  ("traffic",  "execute"),
-    "research": ("research", "execute"),
-    "dev":      ("dev",      "execute"),
-    "chat":     ("chat",     "execute"),
-    "github":   ("github",   "execute"),
-    "smarthome":("smarthome","execute"),
-    "voice":    ("voice",    "execute"),
+    "weather":   ("weather",   "execute"),
+    "finance":   ("finance",   "execute"),
+    "image":     ("image",     "execute"),
+    "video":     ("video",     "execute"),
+    "calendar":  ("calendar",  "process"),
+    "traffic":   ("traffic",   "execute"),
+    "research":  ("research",  "execute"),
+    "dev":       ("dev",       "execute"),
+    "chat":      ("chat",      "execute"),
+    "github":    ("github",    "execute"),
+    "smarthome": ("smarthome", "execute"),
+    "voice":     ("voice",     "execute"),
 }
-
 _VALID_INTENTS = frozenset(_AGENT_MAP) | {"car"}
 
 
 def _build_request_context(request: ChatStreamRequest) -> Dict[str, Any]:
-    """Build the shared context dict from a ChatStreamRequest."""
     return {
-        "history": request.history or [],
-        "query": request.query,
-        "prompt": request.prompt,
-        "location": request.location,
-        "symbol": request.symbol,
+        "history":      request.history or [],
+        "query":        request.query,
+        "prompt":       request.prompt,
+        "location":     request.location,
+        "symbol":       request.symbol,
         "aspect_ratio": request.aspect_ratio,
-        "image_path": request.image_path,
-        "duration": request.duration,
-        "ratio": request.ratio,
-        "user_plan": request.user_plan or "basic",
-        "user": None,
+        "image_path":   request.image_path,
+        "duration":     request.duration,
+        "ratio":        request.ratio,
+        "user_plan":    request.user_plan or "basic",
+        "user":         None,
     }
 
 
-async def _detect_intent(
-    message: str, context: Dict[str, Any]
-) -> str:
-    """Use the orchestrator agent to classify the user intent."""
+async def _detect_intent(message: str, context: Dict[str, Any]) -> str:
     orchestrator = get_agent("orchestrator")
     orch_response = await orchestrator.execute(message, context)
     intent = (
-        orch_response.response
-        if hasattr(orch_response, "response")
-        else str(orch_response)
+        orch_response.response if hasattr(orch_response, "response") else str(orch_response)
     )
     return intent if intent in _VALID_INTENTS else "chat"
 
 
-async def _execute_car_agent(
-    message: str, context: Dict[str, Any]
-) -> Any:
-    """Handle the 'car' intent — includes vehicle lookup & token refresh."""
+async def _execute_car_agent(message: str, context: Dict[str, Any]) -> Any:
     car_agent = get_agent("car")
     vehicle_db_svc = get_service("vehicle_db")
     car_svc = get_service("car")
-
     user_id = (
-        str(context.get("user", {}).get("id", "guest"))
-        if context.get("user")
-        else "guest"
+        str(context.get("user", {}).get("id", "guest")) if context.get("user") else "guest"
     )
-
     vehicle = None
     vehicle_id = None
     access_token = None
-
     if vehicle_db_svc:
         vehicle = await vehicle_db_svc.get_primary_vehicle(user_id)
         vehicle_id = vehicle.get("vehicle_id") if vehicle else None
         access_token = vehicle.get("access_token") if vehicle else None
-
         if vehicle and await vehicle_db_svc.is_token_expired(user_id, vehicle_id):
             if car_svc:
-                new_tokens = await car_svc.refresh_access_token(
-                    vehicle["refresh_token"]
-                )
+                new_tokens = await car_svc.refresh_access_token(vehicle["refresh_token"])
                 if "error" not in new_tokens:
                     await vehicle_db_svc.update_tokens(
                         user_id=user_id,
@@ -281,16 +243,14 @@ async def _execute_car_agent(
                         expires_in=new_tokens.get("expires_in", 7200),
                     )
                     access_token = new_tokens["access_token"]
-
     return await car_agent.process(message, {
-        "user_id": user_id,
-        "vehicle_id": vehicle_id,
+        "user_id":      user_id,
+        "vehicle_id":   vehicle_id,
         "access_token": access_token,
     })
 
 
 def _normalize_result(intent: str, agent_result: Any) -> Dict[str, Any]:
-    """Normalize an agent result into a JSON-serialisable SSE payload."""
     if hasattr(agent_result, "to_dict"):
         return {"intent": intent, "type": intent, "result": agent_result.to_dict()}
     if isinstance(agent_result, dict):
@@ -299,16 +259,11 @@ def _normalize_result(intent: str, agent_result: Any) -> Dict[str, Any]:
 
 
 def _build_error_payload() -> Dict[str, Any]:
-    """Return the standard error payload for a failed stream request."""
-    return {
-        "intent": "chat",
-        "type": "error",
-        "text": "Nao foi possivel processar sua solicitacao.",
-    }
+    return {"intent": "chat", "type": "error", "text": "Nao foi possivel processar sua solicitacao."}
 
 
 # ---------------------------------------------------------------------------
-# /stream endpoint  (refactored — complexity ≈ A5)
+# /stream endpoint
 # ---------------------------------------------------------------------------
 
 @router.post("/stream")
@@ -319,37 +274,30 @@ async def chat_stream(
     processor: RequestProcessor = Depends(get_authenticated_processor),
 ) -> StreamingResponse:
     """HTTP SSE endpoint that orchestrates intent detection and agent execution."""
-
     context = _build_request_context(body)
-    # Enrich context with processor data
     context["request_id"] = processor.request_id
     if processor.user_context:
         context["user"] = processor.user_context.model_dump()
 
     try:
         intent = await _detect_intent(body.message, context)
-
         if intent == "car":
             agent_result = await _execute_car_agent(body.message, context)
         else:
             agent_name, method = _AGENT_MAP.get(intent, ("chat", "execute"))
             agent = get_agent(agent_name)
             handler = getattr(agent, method) if agent else None
-
             if handler:
                 agent_result = await handler(body.message, context)
             else:
                 chat_fallback = get_agent("chat")
                 agent_result = await chat_fallback.execute(body.message, context) if chat_fallback else None
-
         payload = _normalize_result(intent, agent_result)
-
     except Exception as exc:
         logger.exception("HTTP chat stream failed: %s", exc)
         payload = _build_error_payload()
 
     async def event_generator():
-        """Yield a single SSE data frame containing the chat response."""
         yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -364,41 +312,19 @@ async def chat_websocket(
     websocket: WebSocket,
     conversation_id: str,
 ) -> None:
-    """
-    WebSocket para chat em tempo real com streaming.
-
-    Fluxo de autenticacao:
-        1. Cliente se conecta ao WebSocket
-        2. Cliente envia: {"type": "auth", "token": "JWT_TOKEN"}
-        3. Backend valida o token e autentica o usuario
-
-    Fluxo de chat:
-        1. Cliente envia: {"message": "Ola!"}
-        2. Backend salva mensagem do usuario
-        3. Backend faz streaming da resposta do GPT
-        4. Cliente recebe: {"type": "token", "content": "..."} (multiplas vezes)
-        5. Cliente recebe: {"type": "done", "message_id": 123}
-    """
-
+    """WebSocket para chat em tempo real com streaming."""
     ws_user_id = "unknown"
     db = _get_db()
 
-    # 1. Aceitar conexao WebSocket
     await websocket.accept()
-
     try:
-        # ============================
-        # BLOCO DE AUTENTICACAO
-        # ============================
+        # Auth
         auth_data = await websocket.receive_json()
-
         if auth_data.get("type") != "auth" or not auth_data.get("token"):
             await websocket.close(code=1008, reason="Invalid auth message")
             return
 
         token = auth_data.get("token")
-
-        # Validar JWT token
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             email: Optional[str] = payload.get("sub")
@@ -409,10 +335,8 @@ async def chat_websocket(
             await websocket.close(code=1008, reason="Invalid token")
             return
 
-        # Buscar usuario
         user_response = db.table("users").select("*").eq("email", email).execute()
         user = user_response.data[0] if user_response.data else None
-
         if not user:
             await websocket.close(code=1008, reason="User not found")
             return
@@ -421,7 +345,6 @@ async def chat_websocket(
         ws_user_id = str(user_id)
         user_plan = user.get("plan", "basic")
 
-        # Verificar se a conversa pertence ao usuario
         conv_response = (
             db.table("conversations")
             .select("*")
@@ -429,48 +352,35 @@ async def chat_websocket(
             .eq("user_id", user_id)
             .execute()
         )
-
         if not conv_response.data:
             await websocket.close(code=1008, reason="Conversation not found")
             return
 
-        # ============================
-        # FIM DO BLOCO DE AUTENTICACAO
-        # ============================
-
-        # Resolve services needed for the message loop
         redis_svc = _get_redis()
         prompt_cleaner_svc = get_service("prompt_cleaner")
-
-        # ChatService encapsulates per-action dispatch
         chat_service = ChatService(
             websocket=websocket,
             user_id=str(user_id),
             user_plan=user_plan,
         )
 
-        # 6. Loop de chat
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
             user_message = message_data.get("message", "")
-
             if not user_message:
                 await websocket.send_json({"type": "error", "content": "Empty message"})
                 continue
 
-            # 8. Tentar recuperar contexto no Redis (ultimas 10 mensagens)
             conversation_context: List[Dict[str, Any]] = []
             try:
                 conversation_context = await redis_svc.get_conversation_context(
-                    user_id=user_id,
-                    last_n=10,
+                    user_id=user_id, last_n=10,
                 ) or []
             except Exception as e:
                 logger.warning("Redis context fetch failed for user %s: %s", user_id, e)
                 conversation_context = []
 
-            # 9. Fallback Supabase em cache miss e warm-up do Redis
             if not conversation_context:
                 history_response = (
                     db.table("messages")
@@ -480,28 +390,23 @@ async def chat_websocket(
                     .limit(20)
                     .execute()
                 )
-
                 conversation_context = [
                     {
                         "role": msg.get("role"),
                         "content": msg.get("content"),
-                        "timestamp": msg.get("created_at") or (datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
+                        "timestamp": msg.get("created_at")
+                            or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     }
                     for msg in (history_response.data or [])
                 ]
-
                 try:
                     for msg in conversation_context:
                         await redis_svc.save_conversation_message(
-                            user_id=user_id,
-                            message=msg,
-                            max_messages=20,
-                            expire_seconds=3600,
+                            user_id=user_id, message=msg, max_messages=20, expire_seconds=3600,
                         )
                 except Exception as e:
                     logger.warning("Redis warm-up failed for user %s: %s", user_id, e)
 
-            # 10. Salvar mensagem do usuario no banco (Supabase)
             user_msg_data = {
                 "conversation_id": conversation_id,
                 "role": "user",
@@ -509,7 +414,6 @@ async def chat_websocket(
             }
             db.table("messages").insert(user_msg_data).execute()
 
-            # 11. Salvar mensagem do usuario no Redis e renovar TTL
             user_msg = {
                 "role": "user",
                 "content": user_message,
@@ -517,16 +421,12 @@ async def chat_websocket(
             }
             try:
                 await redis_svc.save_conversation_message(
-                    user_id=user_id,
-                    message=user_msg,
-                    max_messages=20,
-                    expire_seconds=3600,
+                    user_id=user_id, message=user_msg, max_messages=20, expire_seconds=3600,
                 )
                 await redis_svc.refresh_conversation_ttl(user_id=user_id, expire_seconds=3600)
             except Exception as e:
                 logger.warning("Redis user message save failed for user %s: %s", user_id, e)
 
-            # 12. Formatar contexto para IA
             history = [
                 {"role": msg["role"], "content": msg["content"]}
                 for msg in conversation_context
@@ -535,11 +435,9 @@ async def chat_websocket(
             history.append({"role": "user", "content": user_message})
             history = history[-10:]
 
-            # 13. ORQUESTRACAO: Usar OrchestratorAgent para decidir qual especialista usar
             orchestrator = get_agent("orchestrator")
             context_for_orchestrator: Dict[str, Any] = {
-                "history": history,
-                "user_plan": user_plan,
+                "history": history, "user_plan": user_plan,
             }
             orchestrator_resp = await orchestrator.execute(user_message, context_for_orchestrator)
             action = (
@@ -548,15 +446,13 @@ async def chat_websocket(
                 else str(orchestrator_resp)
             )
 
-            # Fallback para chat se a decisao for invalida
             valid_actions = {
-                "chat", "search", "dev", "image", "video",
-                "finance", "weather", "calendar", "traffic", "car", "voice",
+                "chat", "search", "dev", "image", "video", "finance",
+                "weather", "calendar", "traffic", "car", "voice",
             }
             if action not in valid_actions:
                 action = "chat"
 
-            # 13.5. CLEAN PROMPT: preprocessar mensagem para o agente escolhido
             if prompt_cleaner_svc:
                 cleaned_data = await prompt_cleaner_svc.clean_for_agent(
                     agent_type=action,
@@ -568,12 +464,8 @@ async def chat_websocket(
                 decision = {"action": action}
             decision.setdefault("action", action)
 
-            # Delegate to ChatService (replaces the giant if/elif/else block)
-            full_response = await chat_service.dispatch(
-                action, user_message, decision, history,
-            )
+            full_response = await chat_service.dispatch(action, user_message, decision, history)
 
-            # 14. Salvar resposta do assistente no banco
             if full_response:
                 assistant_msg_data = {
                     "conversation_id": conversation_id,
@@ -583,7 +475,6 @@ async def chat_websocket(
                 response = db.table("messages").insert(assistant_msg_data).execute()
                 message_id = response.data[0]["id"] if response.data else None
 
-                # Salvar resposta no Redis e renovar TTL
                 assistant_msg = {
                     "role": "assistant",
                     "content": full_response,
@@ -591,21 +482,16 @@ async def chat_websocket(
                 }
                 try:
                     await redis_svc.save_conversation_message(
-                        user_id=user_id,
-                        message=assistant_msg,
-                        max_messages=20,
-                        expire_seconds=3600,
+                        user_id=user_id, message=assistant_msg, max_messages=20, expire_seconds=3600,
                     )
                     await redis_svc.refresh_conversation_ttl(user_id=user_id, expire_seconds=3600)
                 except Exception as e:
                     logger.warning("Redis assistant message save failed for user %s: %s", user_id, e)
 
-                # 15. Atualizar updated_at da conversa
                 db.table("conversations").update(
                     {"updated_at": datetime.now(timezone.utc).isoformat()}
                 ).eq("id", conversation_id).execute()
 
-                # 16. Enviar sinal de conclusao
                 await websocket.send_json({"type": "done", "message_id": message_id})
             else:
                 await websocket.send_json({
