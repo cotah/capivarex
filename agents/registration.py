@@ -28,6 +28,7 @@ def register_all_agents() -> None:
     from .specialized.leaving_now_agent import LeavingNowAgent   # noqa: F401
     from .specialized.meeting_agent import MeetingAgent          # noqa: F401
     from .specialized.mercado_agent import MercadoAgent          # noqa: F401
+    from .specialized.notes_agent import NotesAgent              # noqa: F401
     from .specialized.orchestrator_agent import OrchestratorAgent  # noqa: F401
     from .specialized.reminder_agent import ReminderAgent        # noqa: F401
     from .specialized.research_agent import ResearchAgent        # noqa: F401

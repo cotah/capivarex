@@ -30,6 +30,7 @@ from .meeting_agent import MeetingAgent
 from .search_agent import SearchAgent
 from .leaving_now_agent import LeavingNowAgent
 from .mercado_agent import MercadoAgent
+from .notes_agent import NotesAgent
 
 __all__ = [
     "OrchestratorAgent",
@@ -57,4 +58,5 @@ __all__ = [
     "SearchAgent",
     "LeavingNowAgent",
     "MercadoAgent",
+    "NotesAgent",
 ]

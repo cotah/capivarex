@@ -35,6 +35,7 @@ def register_all_services() -> None:
     from .business.search_service import SearchService  # noqa: F401
     from .business.leaving_now_service import LeavingNowService  # noqa: F401
     from .business.mercado_service import MercadoService  # noqa: F401
+    from .business.notes_service import NotesService  # noqa: F401
 
     # Serviços de Infraestrutura
     from .infrastructure.code_executor import CodeExecutorService  # noqa: F401
