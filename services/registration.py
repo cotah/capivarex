@@ -36,6 +36,7 @@ def register_all_services() -> None:
     from .business.leaving_now_service import LeavingNowService  # noqa: F401
     from .business.mercado_service import MercadoService  # noqa: F401
     from .business.notes_service import NotesService  # noqa: F401
+    from .business.quota_service import QuotaService  # noqa: F401
 
     # Serviços de Infraestrutura
     from .infrastructure.code_executor import CodeExecutorService  # noqa: F401
@@ -55,6 +56,7 @@ def register_all_services() -> None:
     from .integrations.youtube_service import YouTubeService  # noqa: F401
     from .integrations.tracking_service import TrackingService  # noqa: F401
     from .integrations.transit_service import TransitService  # noqa: F401
+    from .integrations.twilio_service import TwilioService  # noqa: F401
 
     # Serviços de Mídia
     from .media.image_service import ImageService  # noqa: F401
