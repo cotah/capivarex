@@ -163,7 +163,7 @@ class TestOrchestratorDecision:
             "image", "video", "voice", "calendar", "traffic",
             "car", "smarthome", "github", "time", "translate",
             "crypto", "timer", "reminder", "youtube", "tracking",
-            "meeting", "search", "leaving_now",
+            "meeting", "search", "leaving_now", "mercado",
         ]
         for agent in valid_agents:
             d = OrchestratorDecision(agent=agent, reason="test")

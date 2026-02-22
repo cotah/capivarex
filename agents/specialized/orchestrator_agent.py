@@ -23,7 +23,7 @@ ALLOWED_AGENTS = {
     "image", "video", "voice", "calendar", "traffic",
     "car", "smarthome", "github", "time", "translate",
     "crypto", "timer", "reminder", "youtube", "tracking",
-    "meeting", "search", "leaving_now",
+    "meeting", "search", "leaving_now", "mercado",
 }
 
 
@@ -109,6 +109,7 @@ Agentes disponíveis:
 - 'tracking': Rastrear encomenda, tracking de pacote, onde está minha encomenda, código de rastreio.
 - 'search': Pesquisar na internet, buscar informação geral, Google, encontrar lugares, lojas, restaurantes, notícias.
 - 'leaving_now': Quando devo sair, hora de sair, quanto tempo tenho para chegar, cálculo de partida para evento.
+- 'mercado': Lista de compras, supermercado, nota fiscal, adicionar/remover itens, relatório de gastos, comparar preços, ranking mercados.
 
 EXEMPLOS (use como referência):
 "como está a bateria do meu carro?" → car
@@ -164,6 +165,12 @@ EXEMPLOS (use como referência):
 "quanto tempo tenho para chegar ao dentista?" → leaving_now
 "hora de sair" → leaving_now
 "eventos de hoje com hora de saída" → leaving_now
+"adicionar leite e pão na lista" → mercado
+"ver lista de compras" → mercado
+"relatório mensal de gastos" → mercado
+"comparar preço do leite" → mercado
+"ranking mercados" → mercado
+"nota fiscal" → mercado
 
 REGRAS:
 - Se mencionar git, github, repositório, commit, branch, push, pull, clone → 'github'
@@ -183,7 +190,8 @@ REGRAS:
 - Se pedir rastreio de encomenda/pacote → 'tracking'
 - Se pedir pesquisa geral na internet, buscar lugares, lojas → 'search'
 - Se perguntar quando sair, hora de sair, tempo para chegar → 'leaving_now'
-- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar).
+- Se mencionar lista de compras, supermercado, nota fiscal, relatório de gastos, ranking mercados → 'mercado'
+- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat).
 - 'search' é para pesquisas genéricas na web; use agentes específicos se aplicável (ex: 'crypto' para Bitcoin, 'finance' para ações).
 
 Responda SEMPRE em formato JSON, seguindo este schema:

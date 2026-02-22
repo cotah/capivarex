@@ -10,7 +10,7 @@ ALLOWED_AGENTS = Literal[
     "image", "video", "voice", "calendar", "traffic",
     "car", "smarthome", "github", "time", "translate",
     "crypto", "timer", "reminder", "youtube", "tracking",
-    "meeting", "search", "leaving_now",
+    "meeting", "search", "leaving_now", "mercado",
 ]
 
 
