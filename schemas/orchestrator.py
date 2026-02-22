@@ -11,6 +11,7 @@ ALLOWED_AGENTS = Literal[
     "car", "smarthome", "github", "time", "translate",
     "crypto", "timer", "reminder", "youtube", "tracking",
     "meeting", "search", "leaving_now", "mercado", "notes",
+    "restaurant",
 ]
 
 

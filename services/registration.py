@@ -57,6 +57,7 @@ def register_all_services() -> None:
     from .integrations.tracking_service import TrackingService  # noqa: F401
     from .integrations.transit_service import TransitService  # noqa: F401
     from .integrations.twilio_service import TwilioService  # noqa: F401
+    from .integrations.restaurant_service import RestaurantService  # noqa: F401
 
     # Serviços de Mídia
     from .media.image_service import ImageService  # noqa: F401

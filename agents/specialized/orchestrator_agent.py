@@ -24,6 +24,7 @@ ALLOWED_AGENTS = {
     "car", "smarthome", "github", "time", "translate",
     "crypto", "timer", "reminder", "youtube", "tracking",
     "meeting", "search", "leaving_now", "mercado", "notes",
+    "restaurant",
 }
 
 
@@ -111,6 +112,7 @@ Agentes disponíveis:
 - 'leaving_now': Quando devo sair, hora de sair, quanto tempo tenho para chegar, cálculo de partida para evento.
 - 'mercado': Lista de compras, supermercado, nota fiscal, adicionar/remover itens, relatório de gastos, comparar preços, ranking mercados.
 - 'notes': Bloco de notas pessoal: anotar, escrever, salvar, listar, buscar, fixar, apagar notas.
+- 'restaurant': Concierge de restaurantes: sugerir, buscar, filtrar restaurantes por localização, tipo de cozinha, rating, aberto agora, detalhes, telefone, horário, reviews.
 
 EXEMPLOS (use como referência):
 "como está a bateria do meu carro?" → car
@@ -159,7 +161,7 @@ EXEMPLOS (use como referência):
 "vídeos em alta no YouTube" → youtube
 "rastreie minha encomenda LP123456789BR" → tracking
 "onde está meu pacote?" → tracking
-"pesquise restaurantes italianos perto de mim" → search
+"pesquise restaurantes italianos perto de mim" → restaurant
 "busque lojas de eletrônicos em Dublin" → search
 "quando devo sair para a reunião?" → leaving_now
 "a que horas devo sair?" → leaving_now
@@ -176,6 +178,12 @@ EXEMPLOS (use como referência):
 "minhas notas" → notes
 "busca nota sobre seguro" → notes
 "apaga a nota abc12345" → notes
+"sugere um restaurante italiano perto" → restaurant
+"sushi perto de mim aberto agora" → restaurant
+"restaurantes com rating acima de 4" → restaurant
+"mais detalhes sobre o primeiro" → restaurant
+"telefone do restaurante 2" → restaurant
+"onde jantar esta noite?" → restaurant
 
 REGRAS:
 - Se mencionar git, github, repositório, commit, branch, push, pull, clone → 'github'
@@ -197,7 +205,8 @@ REGRAS:
 - Se perguntar quando sair, hora de sair, tempo para chegar → 'leaving_now'
 - Se mencionar lista de compras, supermercado, nota fiscal, relatório de gastos, ranking mercados → 'mercado'
 - Se pedir para anotar, escrever nota, ver notas, buscar nota, fixar nota, apagar nota → 'notes'
-- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat).
+- Se pedir sugestão de restaurante, buscar onde comer/jantar/almoçar, tipo de cozinha, rating, aberto agora, detalhes de restaurante → 'restaurant'
+- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat, restaurant > search para restaurantes).
 - 'search' é para pesquisas genéricas na web; use agentes específicos se aplicável (ex: 'crypto' para Bitcoin, 'finance' para ações).
 
 Responda SEMPRE em formato JSON, seguindo este schema:
