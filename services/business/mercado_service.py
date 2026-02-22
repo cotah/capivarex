@@ -24,7 +24,6 @@ import httpx
 from services.core import (
     BaseService,
     register_service,
-    retry_on_failure,
     ServiceUnavailableError,
 )
 
@@ -101,7 +100,7 @@ class MercadoService(BaseService):
 
     async def _health_check(self) -> bool:
         try:
-            resp = await self._http.get(N8N_WEBHOOK.replace("/webhook/", "/webhook-test/") + "/health")
+            _ = await self._http.get(N8N_WEBHOOK.replace("/webhook/", "/webhook-test/") + "/health")
             return True  # n8n pode não ter health endpoint — só verificar conexão
         except Exception:
             return True  # não bloquear o serviço se o n8n não responder

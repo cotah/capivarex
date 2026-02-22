@@ -30,7 +30,7 @@ Fluxo de uso:
 
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 from dotenv import load_dotenv

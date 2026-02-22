@@ -22,7 +22,7 @@ Tipos de timer:
 
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 

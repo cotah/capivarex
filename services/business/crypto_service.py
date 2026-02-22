@@ -13,7 +13,6 @@ Features:
   - Cache em memória (TTL 60s — preços mudam rápido mas não milissegundo)
 """
 
-import hashlib
 import logging
 import time
 from typing import Any, Dict, List, Optional
@@ -25,7 +24,6 @@ from services.core import (
     BaseService,
     register_service,
     retry_on_failure,
-    ServiceUnavailableError,
 )
 
 load_dotenv()

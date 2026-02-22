@@ -26,7 +26,7 @@ Rate limits Serper:
 """
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 from dotenv import load_dotenv
