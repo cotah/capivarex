@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import AgentResponse, AgentStatus, BaseAgent, register_agent
 from services import get_service
+from services.business import restaurant_db_service as rdb
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,26 @@ _DETAIL_WORDS = [
     "telefone do", "horário do", "endereço do",
     "info do", "informações do", "ver o", "mostra o",
     "número", "primeiro", "segundo", "terceiro",
+]
+
+_FAVORITES_WORDS = [
+    "meus favoritos", "favoritos", "restaurantes favoritos",
+    "meus restaurantes", "my favorites",
+]
+
+_RESERVATIONS_WORDS = [
+    "minhas reservas", "reservas", "meus pedidos",
+    "my reservations", "reservations",
+]
+
+_ADD_FAV_WORDS = [
+    "guardar", "favoritar", "salvar", "adicionar favorito",
+    "guarda esse", "guardar como favorito",
+]
+
+_RESERVATION_WORDS = [
+    "reservar", "reserva", "fazer reserva", "marcar mesa",
+    "book", "booking",
 ]
 
 _OPEN_NOW_WORDS = [
@@ -71,6 +92,14 @@ def _detect_intent(text: str, context: Dict[str, Any]) -> str:
     # Context pode forçar intent
     if context.get("action"):
         return context["action"]
+    if any(w in t for w in _FAVORITES_WORDS):
+        return "list_favorites"
+    if any(w in t for w in _RESERVATIONS_WORDS):
+        return "list_reservations"
+    if any(w in t for w in _ADD_FAV_WORDS):
+        return "add_favorite"
+    if any(w in t for w in _RESERVATION_WORDS):
+        return "create_reservation"
     if any(w in t for w in _DETAIL_WORDS):
         return "detail"
     if any(w in t for w in _SEARCH_WORDS):
@@ -169,11 +198,23 @@ class RestaurantAgent(BaseAgent):
 
             intent = _detect_intent(prompt, context)
 
+            if intent == "list_favorites":
+                return await self._handle_list_favorites(user_id)
+
+            if intent == "list_reservations":
+                return await self._handle_list_reservations(user_id)
+
+            if intent == "add_favorite":
+                return await self._handle_add_favorite(prompt, context, user_id)
+
+            if intent == "create_reservation":
+                return await self._handle_create_reservation(prompt, context, user_id)
+
             if intent == "detail":
                 return await self._handle_detail(svc, prompt, context)
 
             if intent == "search":
-                return await self._handle_search(svc, prompt, context)
+                return await self._handle_search(svc, prompt, context, user_id)
 
             # Fallback: se contém nome de comida, tenta busca
             return AgentResponse(
@@ -207,7 +248,8 @@ class RestaurantAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_search(
-        self, svc: Any, prompt: str, context: Dict[str, Any]
+        self, svc: Any, prompt: str, context: Dict[str, Any],
+        user_id: str = "",
     ) -> AgentResponse:
         lat: Optional[float] = context.get("lat")
         lng: Optional[float] = context.get("lng")
@@ -244,6 +286,18 @@ class RestaurantAgent(BaseAgent):
             if min_rating > 0:
                 places = [p for p in places if (p.get("rating") or 0) >= min_rating]
 
+        # Persist search for analytics
+        await rdb.save_search(
+            user_id=user_id,
+            cuisine=query,
+            latitude=lat,
+            longitude=lng,
+            radius_km=radius // 1000 if radius >= 1000 else 1,
+            open_now=open_now,
+            min_rating=min_rating or None,
+            results_count=len(places),
+        )
+
         if not places:
             tip = "aberto agora" if open_now else "essa pesquisa"
             return AgentResponse(
@@ -267,6 +321,12 @@ class RestaurantAgent(BaseAgent):
         title = f"🍽️ *Restaurantes{open_filter}{rating_filter}*"
 
         response_text = svc.format_list(places, title)
+
+        # Call-to-action
+        response_text += (
+            "\n\n💡 *Dica:* Diz o número para ver detalhes, "
+            "\"guardar como favorito\" ou \"fazer reserva\"."
+        )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -320,6 +380,174 @@ class RestaurantAgent(BaseAgent):
             status=AgentStatus.SUCCESS,
             response=response_text,
             data={"place": details},
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Favorites & Reservations
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def _handle_add_favorite(
+        self, prompt: str, context: Dict[str, Any], user_id: str,
+    ) -> AgentResponse:
+        last_results: Optional[List] = context.get("last_results")
+        if not last_results:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=(
+                    "Não tenho restaurantes em memória.\n"
+                    "Faz primeiro uma pesquisa para eu poder guardar."
+                ),
+                error="No last_results",
+            )
+
+        idx = _extract_detail_index(prompt)
+        if idx is None:
+            idx = 0
+        if idx >= len(last_results):
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=f"Só tenho {len(last_results)} restaurante(s) na lista.",
+                error="Index out of range",
+            )
+
+        place = last_results[idx]
+        loc = place.get("location", {})
+        await rdb.add_favorite(
+            user_id=user_id,
+            place_id=place.get("place_id", ""),
+            name=place.get("name", ""),
+            address=place.get("address"),
+            rating=place.get("rating"),
+            cuisine=place.get("cuisine"),
+            latitude=loc.get("lat"),
+            longitude=loc.get("lng"),
+        )
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response=(
+                f"⭐ *{place.get('name', 'Restaurante')}* guardado nos favoritos!\n\n"
+                "Diz *\"meus favoritos\"* para ver a lista completa.\n"
+                "Queres que eu tente fazer uma reserva?"
+            ),
+            data={"favorite": place},
+        )
+
+    async def _handle_list_favorites(self, user_id: str) -> AgentResponse:
+        favs = await rdb.get_favorites(user_id)
+        if not favs:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="Ainda não tens restaurantes favoritos.",
+                data={"favorites": []},
+            )
+
+        lines = [f"⭐ *Teus favoritos ({len(favs)}):*\n"]
+        for i, f in enumerate(favs, 1):
+            rating = f"⭐ {f['rating']}" if f.get("rating") else ""
+            lines.append(f"{i}. *{f['name']}* {rating}")
+            if f.get("address"):
+                lines.append(f"   📍 _{f['address']}_")
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={"favorites": favs},
+        )
+
+    async def _handle_create_reservation(
+        self, prompt: str, context: Dict[str, Any], user_id: str,
+    ) -> AgentResponse:
+        last_results: Optional[List] = context.get("last_results")
+
+        # Try to get restaurant from context
+        place: Optional[Dict[str, Any]] = context.get("reservation_place")
+        if not place and last_results:
+            idx = _extract_detail_index(prompt)
+            if idx is None:
+                idx = 0
+            if idx < len(last_results):
+                place = last_results[idx]
+
+        if not place:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=(
+                    "Não sei qual restaurante reservar.\n"
+                    "Faz primeiro uma pesquisa ou diz o número do restaurante."
+                ),
+                error="No restaurant for reservation",
+            )
+
+        party_size = context.get("party_size")
+        reservation_dt = context.get("reservation_dt")
+
+        # If missing info, ask
+        if not party_size or not reservation_dt:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=(
+                    f"🍽️ Reserva no *{place.get('name', 'restaurante')}*\n\n"
+                    "Para prosseguir, preciso de:\n"
+                    "• 📅 *Data e hora* (ex: sexta às 20h)\n"
+                    "• 👥 *Número de pessoas* (ex: 2 pessoas)"
+                ),
+                data={
+                    "awaiting": "reservation_details",
+                    "reservation_place": place,
+                },
+            )
+
+        res = await rdb.create_reservation(
+            user_id=user_id,
+            place_id=place.get("place_id", ""),
+            restaurant_name=place.get("name", ""),
+            restaurant_phone=place.get("phone"),
+            party_size=party_size,
+            reservation_dt=reservation_dt,
+            notes=context.get("notes"),
+        )
+
+        phone_line = ""
+        if place.get("phone"):
+            phone_line = f"\n📞 Telefone: {place['phone']}"
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response=(
+                f"✅ *Reserva criada!*\n"
+                f"🍽️ {place.get('name', 'Restaurante')}\n"
+                f"📅 {reservation_dt}\n"
+                f"👥 {party_size} pessoa(s){phone_line}\n\n"
+                "⚠️ Confirma directamente com o restaurante para garantir."
+            ),
+            data={"reservation": res},
+        )
+
+    async def _handle_list_reservations(self, user_id: str) -> AgentResponse:
+        reservations = await rdb.get_reservations(user_id)
+        if not reservations:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="Não tens reservas registadas.",
+                data={"reservations": []},
+            )
+
+        lines = [f"📋 *Tuas reservas ({len(reservations)}):*\n"]
+        for i, r in enumerate(reservations, 1):
+            status_icon = {"pending": "⏳", "confirmed": "✅", "cancelled": "❌"}.get(
+                r.get("status", ""), "❓"
+            )
+            lines.append(
+                f"{i}. {status_icon} *{r['restaurant_name']}* — "
+                f"{r.get('reservation_dt', 'sem data')} · "
+                f"{r.get('party_size', '?')} pessoa(s)"
+            )
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={"reservations": reservations},
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -379,4 +607,8 @@ class RestaurantAgent(BaseAgent):
             "get_opening_hours",
             "get_restaurant_phone",
             "get_reviews",
+            "add_favorite",
+            "list_favorites",
+            "create_reservation",
+            "list_reservations",
         ]
