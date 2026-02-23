@@ -9,7 +9,7 @@ search, tracking, translate, mercado, leaving_now, time.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 
