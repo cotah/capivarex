@@ -65,7 +65,10 @@ class ServiceRegistry:
         self._service_classes[name] = service_class
 
         if not lazy:
-            self._services[name] = service_class(name=name)
+            try:
+                self._services[name] = service_class(name=name)
+            except TypeError:
+                self._services[name] = service_class()
 
         logger.info(f"Registered service: {name} (lazy={lazy})")
 
@@ -86,7 +89,11 @@ class ServiceRegistry:
         # Check if registered for lazy loading
         if name in self._service_classes:
             service_class = self._service_classes[name]
-            self._services[name] = service_class(name=name)
+            try:
+                self._services[name] = service_class(name=name)
+            except TypeError:
+                # Service __init__ doesn't accept name kwarg — it sets its own name internally
+                self._services[name] = service_class()
             logger.info(f"Lazy-loaded service: {name}")
             return self._services[name]
 
