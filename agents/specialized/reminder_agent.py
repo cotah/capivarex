@@ -40,9 +40,11 @@ _RE_DAILY   = re.compile(r"\btodo\s*dia\b|\bdiariamente\b|\bdaily\b", re.I)
 _RE_WEEKLY  = re.compile(r"\btoda\s*semana\b|\bsemanalmente\b|\bweekly\b", re.I)
 _RE_MONTHLY = re.compile(r"\btodo\s*m[eê]s\b|\bmensalmente\b|\bmonthly\b", re.I)
 
-# Horário: "às 7h", "às 07:30", "às 14h30", "7:30"
+# FIX BUG 3 (regex): Aceita horário sem sufixo "h" — ex: "as 18", "às 18", "18h", "18:30"
+# Antes: r"(?:às\s*|as\s*)?(\d{1,2})[h:](\d{0,2})(?:\s*h)?"  ← exigia [h:] obrigatório
+# Agora:  o grupo [h:] é opcional usando (?:[h:](\d{0,2}))? para capturar minutos
 _RE_TIME = re.compile(
-    r"(?:às\s*|as\s*)?(\d{1,2})[h:](\d{0,2})(?:\s*h)?",
+    r"(?:às\s*|as\s*)?(\d{1,2})(?:[h:](\d{0,2}))?(?:\s*h(?:oras?)?)?",
     re.I,
 )
 
@@ -98,14 +100,19 @@ def _parse_remind_datetime(
     elif _RE_MONTHLY.search(text_lower):
         recurrence = "monthly"
 
-    # Extrai hora
-    hour, minute = 9, 0  # default: 9h se não especificado
+    # Extrai hora — a regex agora aceita "18" sem "h" obrigatório
+    hour, minute = 9, 0  # default: 9h
     time_match = _RE_TIME.search(text)
     if time_match:
-        hour = int(time_match.group(1))
-        minute = int(time_match.group(2)) if time_match.group(2) else 0
-        hour = min(hour, 23)
-        minute = min(minute, 59)
+        candidate = int(time_match.group(1))
+        # Só considera válido se for um horário plausível (0–23)
+        if 0 <= candidate <= 23:
+            hour = candidate
+            raw_min = time_match.group(2) if time_match.lastindex and time_match.lastindex >= 2 else None
+            minute = int(raw_min) if raw_min else 0
+            minute = min(minute, 59)
+        else:
+            time_match = None  # número fora do range de horas — ignorar
 
     # Tenta "em X dias"
     m = _RE_IN_DAYS.search(text_lower)
@@ -217,7 +224,18 @@ class ReminderAgent(BaseAgent):
                     error="ReminderService unavailable",
                 )
             if not svc.is_initialized():
-                await svc.initialize()
+                try:
+                    await svc.initialize()
+                except Exception as init_err:
+                    logger.error("ReminderService init failed: %s", init_err)
+                    return AgentResponse(
+                        status=AgentStatus.ERROR,
+                        response=(
+                            "Não foi possível conectar ao serviço de lembretes. "
+                            "Verifique as configurações do banco de dados (SUPABASE_URL / SUPABASE_SERVICE_KEY)."
+                        ),
+                        error=str(init_err),
+                    )
 
             user_id = str(context.get("user_id", ""))
             chat_id = str(context.get("chat_id", user_id))
