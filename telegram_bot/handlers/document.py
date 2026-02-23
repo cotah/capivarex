@@ -6,7 +6,6 @@ import tempfile
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from services.core import get_service
 from telegram_bot.utils.response_sender import send_agent_response
 from utils.request_processor import RequestProcessor
 
