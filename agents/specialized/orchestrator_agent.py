@@ -243,6 +243,13 @@ Responda SEMPRE em formato JSON, seguindo este schema:
                 temperature=0.0,
             )
 
+            if not response.choices:
+                self.logger.warning("OpenAI returned empty choices, defaulting to chat")
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response="chat",
+                    data={"agent": "chat", "reason": "Empty OpenAI response"},
+                )
             response_text = response.choices[0].message.content or ""
             decision_data = json.loads(response_text)
 
