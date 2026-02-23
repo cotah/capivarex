@@ -470,6 +470,10 @@ class CalendarAgent(BaseAgent):
             start.replace("Z", "+00:00")
         ).replace(tzinfo=None)
 
+    async def check_traffic_for_next_event(self, user_location: str, **kwargs) -> AgentResponse:
+        """Public wrapper for traffic check functionality."""
+        return await self._check_traffic_for_next_event(user_location, **kwargs)
+
     async def _check_traffic_for_next_event(
         self,
         calendar_service: Any,
