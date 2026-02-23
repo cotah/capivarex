@@ -26,6 +26,7 @@ from services.core import (
 )
 from schemas.context import UserContext
 from .schemas import WeatherData, CalendarEvent, CarStatus, NewsData, FinanceData
+from .user_preferences_service import get_preferences
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,14 @@ class ProactivityService(BaseService):
         user_id = user_context.user_id
         self.logger.info(f"Gathering context for user {user_id}...")
 
-        location = user_context.extra_data.get("location_preference", "Dublin")
+        # Fetch user preferences for personalised context
+        prefs = await get_preferences(user_id)
+
+        location = (
+            prefs.get("preferred_city")
+            or user_context.extra_data.get("location_preference")
+            or "Dublin"
+        )
 
         # Build a dict of coroutines keyed by service name so they can all
         # run concurrently via asyncio.gather.  Each coroutine is wrapped by
@@ -279,6 +287,18 @@ class ProactivityService(BaseService):
                 context[key] = value
 
         context["user"] = user_context.model_dump()
+        context["preferences"] = prefs
+
+        # Enrich with home/work coordinates when available
+        home_lat = prefs.get("home_latitude")
+        home_lon = prefs.get("home_longitude")
+        if home_lat and home_lon:
+            context["home_location"] = {"latitude": home_lat, "longitude": home_lon}
+
+        work_lat = prefs.get("work_latitude")
+        work_lon = prefs.get("work_longitude")
+        if work_lat and work_lon:
+            context["work_location"] = {"latitude": work_lat, "longitude": work_lon}
 
         # Add traffic if there's an event with location
         context["traffic"] = {}
@@ -337,6 +357,9 @@ class ProactivityService(BaseService):
             Notification data if action needed, None otherwise
         """
         try:
+            # Fetch user preferences for personalised thresholds
+            prefs = await get_preferences(user_id)
+
             smartthings_service = get_service("smartthings")
             database_service = get_service("database")
 
@@ -393,7 +416,8 @@ class ProactivityService(BaseService):
 
                 main_status = status.get("components", {}).get("main", {})
 
-                if "switch" in capabilities:
+                # Only flag lights when light_auto_on is enabled in preferences
+                if "switch" in capabilities and prefs.get("light_auto_on", False):
                     switch_status = (
                         main_status.get("switch", {})
                         .get("switch", {})
@@ -406,6 +430,7 @@ class ProactivityService(BaseService):
                                 "device_id": device_id,
                                 "label": label,
                                 "action": "turn_off",
+                                "delay_hours": prefs.get("arrival_light_delay_hours", 0),
                             }
                         )
 
@@ -431,8 +456,10 @@ class ProactivityService(BaseService):
                         .get("temperature", {})
                         .get("value")
                     )
+                    # Use home_temperature_threshold from preferences (default 5°C)
+                    temp_threshold = prefs.get("home_temperature_threshold", 5)
                     if isinstance(temp_value, (int, float)) and (
-                        temp_value < 5 or temp_value > 30
+                        temp_value < temp_threshold or temp_value > 30
                     ):
                         issues.append(
                             {
@@ -440,6 +467,7 @@ class ProactivityService(BaseService):
                                 "device_id": device_id,
                                 "label": label,
                                 "temperature": temp_value,
+                                "threshold": temp_threshold,
                                 "action": "review_temperature",
                             }
                         )

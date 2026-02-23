@@ -603,6 +603,10 @@ def get_db() -> Client:
     return None
 
 
+# Alias used by user_preferences_service and other modules
+get_supabase_client = get_db
+
+
 async def get_all_users_with_preferences() -> List[Dict[str, Any]]:
     """Get all users with preferences (backward compatibility)."""
     from services.core import get_service
