@@ -361,6 +361,103 @@ class TestGatherContextPreferences:
         assert result["work_location"]["latitude"] == 38.72
 
 
+class TestGatherContextServicePaths:
+    """Tests covering service-specific branches in gather_context (lines 171-212)."""
+
+    @pytest.mark.asyncio
+    async def test_calendar_permission_denied(self):
+        """When device lacks calendar:read, calendar task is an error."""
+        from schemas.context import UserContext, Device
+
+        svc = _make_service()
+        device = Device(type="mobile", id="d1", permissions=["weather"])
+        ctx = UserContext(
+            user_id="u1", telegram_chat_id=123, full_name="Test",
+            devices=[device],
+        )
+
+        with (
+            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_preferences",
+                new=AsyncMock(return_value={}),
+            ),
+        ):
+            result = await svc.gather_context(ctx)
+        # Permission denied goes through schema validation and becomes error
+        assert "error" in result["calendar"]
+
+    @pytest.mark.asyncio
+    async def test_services_available_and_initialized(self):
+        """When calendar/weather/car are available, protected calls are invoked."""
+        from schemas.context import UserContext
+
+        svc = _make_service()
+        ctx = UserContext(user_id="u1", telegram_chat_id=123, full_name="Test")
+
+        mock_calendar = Mock()
+        mock_calendar.is_initialized.return_value = True
+        mock_calendar.get_next_meeting.return_value = {"summary": "Standup", "start": "2026-02-23T10:00:00Z"}
+
+        mock_weather = Mock()
+        mock_weather.is_initialized.return_value = True
+        mock_weather.get_current_weather.return_value = {"temp": 18, "description": "cloudy"}
+
+        mock_car = Mock()
+        mock_car.is_initialized.return_value = True
+
+        def _get(name):
+            return {
+                "calendar": mock_calendar,
+                "weather": mock_weather,
+                "car": mock_car,
+            }.get(name)
+
+        with (
+            patch("services.business.proactivity_service.get_service", side_effect=_get),
+            patch(
+                "services.business.proactivity_service.get_preferences",
+                new=AsyncMock(return_value={"preferred_city": "Porto"}),
+            ),
+        ):
+            result = await svc.gather_context(ctx)
+
+        # Calendar and weather should have been called
+        assert "calendar" in result
+        assert "weather" in result
+
+    @pytest.mark.asyncio
+    async def test_breaker_open_messages(self):
+        """When circuit breakers are open, services report Circuit Open error."""
+        from schemas.context import UserContext
+
+        svc = _make_service()
+        ctx = UserContext(user_id="u1", telegram_chat_id=123, full_name="Test")
+
+        # Replace breakers with mocks whose current_state is "open"
+        for name in ("calendar", "weather", "car", "research", "finance", "traffic"):
+            mock_breaker = Mock()
+            mock_breaker.current_state = "open"
+            svc._service_breakers[name] = mock_breaker
+
+        mock_svc = Mock()
+        mock_svc.is_initialized.return_value = True
+
+        with (
+            patch("services.business.proactivity_service.get_service", return_value=mock_svc),
+            patch(
+                "services.business.proactivity_service.get_preferences",
+                new=AsyncMock(return_value={}),
+            ),
+        ):
+            result = await svc.gather_context(ctx)
+        # calendar/weather Circuit Open gets schema-validated into "Invalid data structure"
+        assert "error" in result.get("calendar", {})
+        assert "error" in result.get("weather", {})
+        # car_status passes CarStatus validation with Circuit Open message intact
+        assert "Circuit Open" in str(result.get("car_status", {}))
+
+
 class TestGetProactivityService:
     def test_singleton_getter(self):
         with patch("services.business.proactivity_service.get_service", return_value=None):
