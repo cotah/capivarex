@@ -73,6 +73,17 @@ class TestGetPreferences:
         assert result == existing
         assert result["preferred_city"] == "Lisboa"
 
+    @pytest.mark.asyncio
+    async def test_db_operation_exception_returns_empty(self):
+        """get_preferences returns {} when DB query/insert raises."""
+        sb = MagicMock()
+        sb.table.side_effect = Exception("query failed")
+        with patch(f"{MODULE}.get_supabase_client", return_value=sb):
+            from services.business.user_preferences_service import get_preferences
+
+            result = await get_preferences("user123")
+        assert result == {}
+
 
 class TestSetPreferences:
     @pytest.mark.asyncio

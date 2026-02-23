@@ -296,6 +296,71 @@ class TestBuildSmartthingsMessage:
         assert msg == ""
 
 
+class TestGatherContextPreferences:
+    @pytest.mark.asyncio
+    async def test_prefs_exception_falls_back_to_empty(self):
+        """When get_preferences raises, prefs defaults to {} and location to Dublin."""
+        from schemas.context import UserContext
+
+        svc = _make_service()
+        ctx = UserContext(user_id="u1", telegram_chat_id=123, full_name="Test")
+
+        with (
+            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_preferences",
+                new=AsyncMock(side_effect=Exception("boom")),
+            ),
+        ):
+            result = await svc.gather_context(ctx)
+        assert result.get("preferences") == {}
+
+    @pytest.mark.asyncio
+    async def test_prefs_preferred_city_used(self):
+        """When prefs has preferred_city, it is used and home_location is injected."""
+        from schemas.context import UserContext
+
+        svc = _make_service()
+        ctx = UserContext(user_id="u1", telegram_chat_id=123, full_name="Test")
+        prefs = {
+            "preferred_city": "Lisboa",
+            "home_latitude": 38.7,
+            "home_longitude": -9.1,
+        }
+
+        with (
+            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_preferences",
+                new=AsyncMock(return_value=prefs),
+            ),
+        ):
+            result = await svc.gather_context(ctx)
+        assert result["preferences"]["preferred_city"] == "Lisboa"
+        assert "home_location" in result
+        assert result["home_location"]["latitude"] == 38.7
+
+    @pytest.mark.asyncio
+    async def test_prefs_work_coordinates_injected(self):
+        """When prefs has work coordinates, context gets work_location."""
+        from schemas.context import UserContext
+
+        svc = _make_service()
+        ctx = UserContext(user_id="u1", telegram_chat_id=123, full_name="Test")
+        prefs = {"work_latitude": 38.72, "work_longitude": -9.15}
+
+        with (
+            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_preferences",
+                new=AsyncMock(return_value=prefs),
+            ),
+        ):
+            result = await svc.gather_context(ctx)
+        assert "work_location" in result
+        assert result["work_location"]["latitude"] == 38.72
+
+
 class TestGetProactivityService:
     def test_singleton_getter(self):
         with patch("services.business.proactivity_service.get_service", return_value=None):

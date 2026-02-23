@@ -146,3 +146,57 @@ class TestGetReservations:
 
             result = await get_reservations("u1")
         assert result == []
+
+
+class TestAddFavoriteException:
+    @pytest.mark.asyncio
+    async def test_db_exception_returns_empty(self):
+        """add_favorite returns {} when DB raises during insert."""
+        sb = MagicMock()
+        sb.table.side_effect = Exception("db error")
+        with patch(f"{MODULE}.get_supabase_client", return_value=sb):
+            from services.business.restaurant_db_service import add_favorite
+
+            result = await add_favorite(user_id="u1", place_id="p1", name="X")
+        assert result == {}
+
+
+class TestGetFavoritesException:
+    @pytest.mark.asyncio
+    async def test_db_exception_returns_empty_list(self):
+        """get_favorites returns [] when DB raises during query."""
+        sb = MagicMock()
+        sb.table.side_effect = Exception("db error")
+        with patch(f"{MODULE}.get_supabase_client", return_value=sb):
+            from services.business.restaurant_db_service import get_favorites
+
+            result = await get_favorites("u1")
+        assert result == []
+
+
+class TestCreateReservationException:
+    @pytest.mark.asyncio
+    async def test_db_exception_returns_empty(self):
+        """create_reservation returns {} when DB raises during insert."""
+        sb = MagicMock()
+        sb.table.side_effect = Exception("db error")
+        with patch(f"{MODULE}.get_supabase_client", return_value=sb):
+            from services.business.restaurant_db_service import create_reservation
+
+            result = await create_reservation(
+                user_id="u1", place_id="p1", restaurant_name="X"
+            )
+        assert result == {}
+
+
+class TestGetReservationsException:
+    @pytest.mark.asyncio
+    async def test_db_exception_returns_empty_list(self):
+        """get_reservations returns [] when DB raises during query."""
+        sb = MagicMock()
+        sb.table.side_effect = Exception("db error")
+        with patch(f"{MODULE}.get_supabase_client", return_value=sb):
+            from services.business.restaurant_db_service import get_reservations
+
+            result = await get_reservations("u1")
+        assert result == []
