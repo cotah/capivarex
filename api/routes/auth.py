@@ -43,9 +43,15 @@ def _require_env(name: str) -> str:
     return val
 
 
-# Security configuration
-SECRET_KEY: str = _require_env("JWT_SECRET_KEY")
-ALGORITHM: str = _require_env("JWT_ALGORITHM")
+# Security configuration – lazily resolved so that importing the module
+# never crashes when env vars are absent (e.g. during test collection).
+
+def _get_secret_key() -> str:
+    return _require_env("JWT_SECRET_KEY")
+
+def _get_algorithm() -> str:
+    return _require_env("JWT_ALGORITHM")
+
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("JWT_EXPIRATION_MINUTES", "60"))
 
 # OAuth2 scheme - tokenUrl must point to the real endpoint (with prefix)
@@ -141,7 +147,7 @@ def create_access_token(
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
-    encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt: str = jwt.encode(to_encode, _get_secret_key(), algorithm=_get_algorithm())
     return encoded_jwt
 
 
@@ -174,7 +180,7 @@ async def get_current_user(
     )
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, _get_secret_key(), algorithms=[_get_algorithm()])
         email: Optional[str] = payload.get("sub")
         if email is None:
             raise credentials_exception

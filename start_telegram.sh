@@ -5,7 +5,7 @@
 echo "📱 Starting SuperBot God Telegram Bot..."
 
 # Navigate to project directory
-cd "$(dirname "$0")/superbot god" || exit
+cd "$(dirname "$0")" || exit
 
 # Activate virtual environment
 if [ -f ".venv/Scripts/activate" ]; then
