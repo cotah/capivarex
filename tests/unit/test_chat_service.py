@@ -152,7 +152,7 @@ class TestHandleFinance:
     async def test_finance_success(self):
         svc, ws = _make_service()
         mock_fin = Mock()
-        mock_fin.get_quote = Mock(return_value={
+        mock_fin.get_quote = AsyncMock(return_value={
             "name": "Apple", "symbol": "AAPL", "price": 150.0,
             "currency": "USD", "change": 2.5, "percent_change": 1.5,
             "high": 152.0, "low": 148.0,
@@ -179,7 +179,7 @@ class TestHandleWeather:
     async def test_weather_success(self):
         svc, ws = _make_service()
         mock_weather = Mock()
-        mock_weather.get_forecast = Mock(return_value={
+        mock_weather.get_forecast = AsyncMock(return_value={
             "location": {"name": "Dublin", "region": "Leinster"},
             "forecast": [{"condition": "Cloudy", "max_temp_c": 12, "min_temp_c": 5, "chance_of_rain": 60}],
         })
@@ -192,7 +192,7 @@ class TestHandleWeather:
     async def test_weather_no_forecast(self):
         svc, ws = _make_service()
         mock_weather = Mock()
-        mock_weather.get_forecast = Mock(return_value={"location": {}, "forecast": []})
+        mock_weather.get_forecast = AsyncMock(return_value={"location": {}, "forecast": []})
         with patch("services.business.chat_service.get_service", return_value=mock_weather):
             result = await svc._handle_weather("tempo", {}, [])
         assert "Nao foi possivel" in result
@@ -232,7 +232,7 @@ class TestHandleTraffic:
     async def test_traffic_success(self):
         svc, ws = _make_service()
         mock_traffic = Mock()
-        mock_traffic.get_traffic_summary = Mock(return_value="30 min de viagem")
+        mock_traffic.get_traffic_summary = AsyncMock(return_value="30 min de viagem")
         with patch("services.business.chat_service.get_service", return_value=mock_traffic):
             result = await svc._handle_traffic("trafego", {"origin": "A", "destination": "B"}, [])
         assert result == "30 min de viagem"
