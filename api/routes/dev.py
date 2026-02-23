@@ -6,6 +6,7 @@ Uses services (get_service) instead of direct imports from services/.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -157,7 +158,8 @@ async def execute_code(
     """
     executor = _get_code_executor()
     user_id = str(current_user["id"])
-    result = executor.execute_python(
+    result = await asyncio.to_thread(
+        executor.execute_python,
         user_id=user_id,
         code=request.code,
         timeout_seconds=request.timeout_seconds or 10,
