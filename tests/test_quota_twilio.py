@@ -942,9 +942,9 @@ class TestTwilioLogCall:
         svc.logger.warning.assert_called()
 
 
-@pytest.mark.asyncio
 class TestQuotaInit:
 
+    @pytest.mark.asyncio
     async def test_initialize_with_db_and_redis(self):
         from services.business.quota_service import QuotaService
         svc = QuotaService.__new__(QuotaService)
@@ -965,6 +965,7 @@ class TestQuotaInit:
         assert svc._db == db_mock
         assert svc._redis == redis_mock
 
+    @pytest.mark.asyncio
     async def test_initialize_redis_failure(self):
         from services.business.quota_service import QuotaService
         svc = QuotaService.__new__(QuotaService)
@@ -985,6 +986,7 @@ class TestQuotaInit:
         assert svc._db == db_mock
         assert svc._redis is None  # cleared on failure
 
+    @pytest.mark.asyncio
     async def test_health_check(self):
         svc = _quota_svc()
         svc._db = MagicMock()
