@@ -17,8 +17,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
+# Copy and make start script executable
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
 # Expose the port the application uses
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run FastAPI + Telegram Bot together
+CMD ["/start.sh"]
