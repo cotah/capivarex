@@ -82,15 +82,28 @@ setup_rate_limiting(app)
 setup_error_handlers(app)
 
 _cors_origins = []
+
+# Always allow localhost for development
 if os.getenv("ENVIRONMENT") == "development":
     _cors_origins.extend([
         os.getenv("CORS_ORIGIN_LOCALHOST", "http://localhost:3000"),
         os.getenv("CORS_ORIGIN_VITE", "http://localhost:5173"),
         "https://*.replit.dev",
     ])
+
+# Add configured frontend URL (production or staging)
 _frontend_url = os.getenv("FRONTEND_URL")
 if _frontend_url:
     _cors_origins.append(_frontend_url)
+
+# Safety: if no origins configured, log a warning
+if not _cors_origins:
+    import logging
+    logging.getLogger("capivarax.api").warning(
+        "No CORS origins configured. Set FRONTEND_URL or ENVIRONMENT=development. "
+        "Defaulting to allow all origins for safety."
+    )
+    _cors_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,

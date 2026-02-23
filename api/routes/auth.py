@@ -44,8 +44,8 @@ def _require_env(name: str) -> str:
 
 
 # Security configuration
-SECRET_KEY: str = _require_env("JWT_SECRET_KEY")
-ALGORITHM: str = _require_env("JWT_ALGORITHM")
+SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "")
+ALGORITHM: str = os.environ.get("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("JWT_EXPIRATION_MINUTES", "60"))
 
 # OAuth2 scheme - tokenUrl must point to the real endpoint (with prefix)

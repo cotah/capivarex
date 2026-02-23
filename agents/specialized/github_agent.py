@@ -149,9 +149,12 @@ class GitHubAgent(BaseAgent):
 
             # Remove markdown code blocks if present
             if result_text.startswith("```"):
-                result_text = result_text.split("```")[1]
-                if result_text.startswith("json"):
-                    result_text = result_text[4:]
+                parts = result_text.split("```")
+                if len(parts) > 1:
+                    result_text = parts[1]
+                    # Remove optional language identifier on first line (e.g., "json\n")
+                    if result_text.startswith(("json", "python", "text")):
+                        result_text = result_text.split("\n", 1)[-1]
 
             result = json.loads(result_text)
 
