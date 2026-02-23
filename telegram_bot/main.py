@@ -23,9 +23,12 @@ import asyncio  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 from telegram.ext import ApplicationBuilder, CommandHandler  # noqa: E402
 
-# Importa os módulos de registro para popular os registries
-import services.registration  # noqa: F401, E402
-import agents.registration  # noqa: F401, E402
+# Note: Also called in api/main.py. Registry has idempotency guard, safe to call twice.
+from services.registration import register_all_services  # noqa: E402
+from agents.registration import register_all_agents  # noqa: E402
+
+register_all_services()
+register_all_agents()
 
 # ====================================================================
 #                  IMPORTS DO TELEGRAM BOT
