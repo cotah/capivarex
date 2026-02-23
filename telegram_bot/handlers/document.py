@@ -1,5 +1,7 @@
 """Document handler for the refactored Telegram bot."""
 import logging
+import os
+import tempfile
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -47,29 +49,36 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         doc_file = await doc.get_file()
         doc_bytes = await doc_file.download_as_bytearray()
 
-        # Get file manager service
-        file_manager = get_service("file_manager")
-
-        if not file_manager:
-            await update.message.reply_text("Servico de arquivos nao disponivel.")
-            return
-
-        # Save temporarily and process
-        file_path = await file_manager.save_temp_file(doc.file_name, doc_bytes)
+        # Save to temp file
+        suffix = os.path.splitext(doc.file_name)[1] if doc.file_name else ".tmp"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(doc_bytes)
+            file_path = tmp.name
 
         # Process based on file type
-        if doc.file_name.endswith(".pdf"):
-            content = await file_manager.extract_pdf_text(file_path)
-        elif doc.file_name.endswith((".txt", ".md")):
-            content = doc_bytes.decode("utf-8")
-        elif doc.file_name.endswith((".py", ".js", ".java", ".ts", ".go", ".rs")):
-            # Code file - route to dev agent
-            content = doc_bytes.decode("utf-8")
-        else:
-            await update.message.reply_text(
-                f"Tipo de arquivo nao suportado: {doc.file_name}"
-            )
-            return
+        try:
+            if file_path.endswith(".pdf"):
+                try:
+                    import PyPDF2
+                    with open(file_path, "rb") as f:
+                        reader = PyPDF2.PdfReader(f)
+                        content = "\n".join(page.extract_text() or "" for page in reader.pages)
+                except ImportError:
+                    content = "(PDF reading not available - PyPDF2 not installed)"
+            elif doc.file_name.endswith((".txt", ".md")):
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+            elif doc.file_name.endswith((".py", ".js", ".java", ".ts", ".go", ".rs")):
+                # Code file - route to dev agent
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+            else:
+                await update.message.reply_text(
+                    f"Tipo de arquivo nao suportado: {doc.file_name}"
+                )
+                return
+        finally:
+            os.unlink(file_path)
 
         # Process content
         user_context = {
