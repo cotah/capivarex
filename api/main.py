@@ -24,6 +24,7 @@ from api.middleware.logging import logging_middleware
 from api.middleware.rate_limit import setup_rate_limiting
 from api.middleware.security_headers import SecurityHeadersMiddleware
 from api.routes import (
+    agent_generic,
     auth,
     chat,
     notes,
@@ -222,6 +223,7 @@ app.include_router(calendar.router, prefix=f"{API_V1}/calendar", tags=["Calendar
 app.include_router(car.router, prefix=f"{API_V1}/car", tags=["Car"])
 app.include_router(traffic.router, prefix=f"{API_V1}/traffic", tags=["Traffic"])
 app.include_router(smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"])
+app.include_router(agent_generic.router, prefix=f"{API_V1}/agent", tags=["Generic Agent"])
 app.include_router(health.router, tags=["Monitoring"])
 
 
