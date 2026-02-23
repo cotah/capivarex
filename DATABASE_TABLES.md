@@ -2,6 +2,8 @@
 
 Este documento lista **todas as 25 tabelas** que o repositório utiliza no banco de dados (Supabase / PostgreSQL).
 
+> **SQL completo:** O arquivo [`migrations/000_all_tables.sql`](migrations/000_all_tables.sql) contém o `CREATE TABLE` de todas as 25 tabelas prontas para executar no SQL Editor do Supabase.
+
 ## Resumo
 
 | #  | Tabela                     | Origem / Arquivo de referência                          |
