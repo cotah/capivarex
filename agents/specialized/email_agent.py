@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services.core import get_service
+from services.business import email_account_service as edb
 
 
 # ─── Padrões de intenção ─────────────────────────────────────────────────────
@@ -66,6 +67,11 @@ _RE_CANCEL = re.compile(
 )
 _RE_ACCOUNT_GMAIL = re.compile(r"\bgmail\b", re.IGNORECASE)
 _RE_ACCOUNT_HOTMAIL = re.compile(r"\b(hotmail|outlook|microsoft)\b", re.IGNORECASE)
+_RE_SENT = re.compile(
+    r"\b(respondeu|respondid[oa]s?|enviad[oa]s?|sent|replies)\b.*\b(email|bot|mail)\b"
+    r"|\b(email|bot|mail)\b.*\b(respondeu|respondid[oa]s?|enviad[oa]s?|sent|replies)\b",
+    re.IGNORECASE,
+)
 
 
 @register_agent("email")
@@ -110,6 +116,13 @@ class EmailAgent(BaseAgent):
         if not self.is_initialized():
             await self.initialize()
 
+        # Fetch linked accounts so the agent knows what's available
+        try:
+            accounts = await edb.get_email_accounts(user_id)
+            context["email_accounts"] = accounts
+        except Exception:
+            pass
+
         msg = message.strip()
 
         # Verificar se é resposta a confirmação pendente
@@ -118,6 +131,9 @@ class EmailAgent(BaseAgent):
             return await self._handle_confirmation(msg, user_id, context, pending)
 
         # Detectar intenção
+        if _RE_SENT.search(msg):
+            return await self._handle_sent_replies(user_id, context)
+
         if _RE_REPLY.search(msg):
             return await self._handle_reply_intent(msg, user_id, context)
 
@@ -419,6 +435,20 @@ class EmailAgent(BaseAgent):
                 # Marcar como respondido no Supabase
                 await self._mark_replied(pending.get("email_id"), user_id)
 
+                # Log reply in email_replies table
+                try:
+                    await edb.save_reply(
+                        user_id=user_id,
+                        account=pending["account"],
+                        to_email=pending["from_email"],
+                        subject=pending.get("subject", ""),
+                        body=draft,
+                        inbox_id=pending.get("email_id"),
+                        status="sent",
+                    )
+                except Exception:
+                    pass
+
                 context.pop("email_pending_reply", None)
 
                 account_label = (
@@ -464,6 +494,38 @@ class EmailAgent(BaseAgent):
                 f"---\n{new_draft}\n---\n\n"
                 f"✅ **'sim'** para enviar ou **'não'** para cancelar."
             ),
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # EMAILS RESPONDIDOS PELO BOT
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def _handle_sent_replies(
+        self, user_id: str, context: Dict[str, Any]
+    ) -> AgentResponse:
+        try:
+            replies = await edb.get_sent_replies(user_id)
+        except Exception:
+            replies = []
+
+        if not replies:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                message="📭 Ainda não respondi a nenhum email por ti.",
+            )
+
+        lines = ["📤 *Emails respondidos pelo bot*\n"]
+        for i, r in enumerate(replies[:10], 1):
+            lines.append(
+                f"{i}. **Para:** {r.get('to_email', '?')}\n"
+                f"   _{r.get('subject', '(sem assunto)')}_\n"
+                f"   📅 {self._format_time(r.get('sent_at', ''))}\n"
+            )
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            message="\n".join(lines),
+            data={"replies": replies[:10]},
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -741,4 +803,5 @@ class EmailAgent(BaseAgent):
             "responder emails com confirmação",
             "contar emails não lidos",
             "notificar quando chega email novo",
+            "listar emails respondidos pelo bot",
         ]
