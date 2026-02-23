@@ -62,8 +62,16 @@ class OrchestratorAgent(BaseAgent):
         """
         openai_service = get_service("openai")
 
-        # Only initialize if not already initialized (avoid redundant calls)
-        if not openai_service or not openai_service.is_initialized():
+        if not openai_service:
+            self.logger.error("OpenAI service not available")
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response="chat",
+                data={"agent": "chat", "reason": "OpenAI service not available"},
+                error="OpenAI service not registered",
+            )
+
+        if not openai_service.is_initialized():
             try:
                 await openai_service.initialize()
             except Exception as e:

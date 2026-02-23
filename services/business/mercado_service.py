@@ -316,7 +316,7 @@ class MercadoService(BaseService):
         """Insere compra e itens no Supabase."""
         try:
             from services import get_service
-            supabase_svc = get_service("supabase")
+            supabase_svc = get_service("database")
             if not supabase_svc or not supabase_svc.is_initialized():
                 self.logger.warning("Supabase não disponível — compra não guardada")
                 return None
@@ -368,7 +368,7 @@ class MercadoService(BaseService):
         alertas: List[str] = []
         try:
             from services import get_service
-            supabase_svc = get_service("supabase")
+            supabase_svc = get_service("database")
             if not supabase_svc or not supabase_svc.is_initialized():
                 return alertas
 
@@ -461,7 +461,7 @@ class MercadoService(BaseService):
         """Relatório de gastos do mês com breakdown por mercado e categorias."""
         try:
             from services import get_service
-            db = get_service("supabase").client
+            db = get_service("database").client
 
             hoje = date.today()
             mes = mes or hoje.month
@@ -544,7 +544,7 @@ class MercadoService(BaseService):
         """Compara preços de um produto entre mercados."""
         try:
             from services import get_service
-            db = get_service("supabase").client
+            db = get_service("database").client
 
             res = (
                 db.table("mercado_itens")
@@ -600,7 +600,7 @@ class MercadoService(BaseService):
         """Ranking geral de mercados por gasto total histórico."""
         try:
             from services import get_service
-            db = get_service("supabase").client
+            db = get_service("database").client
 
             res = (
                 db.table("mercado_compras")

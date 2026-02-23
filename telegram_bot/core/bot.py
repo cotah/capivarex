@@ -121,10 +121,10 @@ class CapivaraXBot:
             agent_name = decision.response if hasattr(decision, "response") else str(decision)
 
             # Execute the identified agent
-            agent = self.agents.get(agent_name)
+            agent = get_agent(agent_name)
             if not agent:
                 # Fallback to chat agent
-                agent = self.agents.get("chat")
+                agent = get_agent("chat") or self.agents.get("chat")
 
             if not agent:
                 return AgentResponse(
