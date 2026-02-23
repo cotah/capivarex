@@ -203,7 +203,7 @@ class ChatService:
             finance_svc = get_service("finance")
             if not finance_svc:
                 raise RuntimeError("Finance service unavailable")
-            quote = finance_svc.get_quote(symbol)
+            quote = await finance_svc.get_quote(symbol)
             response_text = (
                 f"**Cotacao de {quote.get('name') or symbol} ({quote.get('symbol') or symbol})**\n"
                 f"- Preco: ${quote.get('price', 0):.2f} ({quote.get('currency', 'N/A')})\n"
@@ -259,7 +259,7 @@ class ChatService:
             weather_svc = get_service("weather")
             if not weather_svc:
                 raise RuntimeError("Weather service unavailable")
-            weather = weather_svc.get_forecast(location)
+            weather = await weather_svc.get_forecast(location)
             location_data = weather.get("location", {})
             forecast_days = weather.get("forecast", [])
             if forecast_days:
@@ -288,7 +288,7 @@ class ChatService:
             traffic_svc = get_service("traffic")
             if not traffic_svc:
                 raise RuntimeError("Traffic service unavailable")
-            traffic_summary = traffic_svc.get_traffic_summary(origin, destination)
+            traffic_summary = await traffic_svc.get_traffic_summary(origin, destination)
             await self.ws.send_json({"type": "token", "content": traffic_summary})
             return traffic_summary
         except Exception as e:
