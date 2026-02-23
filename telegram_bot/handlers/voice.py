@@ -8,7 +8,7 @@ from services.core import get_service
 from telegram_bot.utils.response_sender import send_agent_response
 from utils.request_processor import RequestProcessor
 
-logger = logging.getLogger("capivarax.telegram.handlers.voice")
+logger = logging.getLogger("capivarex.telegram.handlers.voice")
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

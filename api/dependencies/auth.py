@@ -21,7 +21,7 @@ from services.core import get_service
 
 load_dotenv()
 
-logger = logging.getLogger("capivarax.api.dependencies.auth")
+logger = logging.getLogger("capivarex.api.dependencies.auth")
 
 # Security configuration
 SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "")

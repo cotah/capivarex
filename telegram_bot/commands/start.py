@@ -4,7 +4,7 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-logger = logging.getLogger("capivarax.telegram.commands.start")
+logger = logging.getLogger("capivarex.telegram.commands.start")
 
 WELCOME_MESSAGE: str = """
 🤖 **Bem-vindo ao CapivaraX Bot!**

@@ -17,7 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 
-logger = logging.getLogger("capivarax.rate_limit")
+logger = logging.getLogger("capivarex.rate_limit")
 
 
 def get_user_plan_key(request: Request) -> str:

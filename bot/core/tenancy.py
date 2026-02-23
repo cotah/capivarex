@@ -11,7 +11,7 @@ import logging
 from typing import Any, Optional  # FIX F401: removed unused Dict
 from dataclasses import dataclass
 
-logger = logging.getLogger("capivarax.tenancy")
+logger = logging.getLogger("capivarex.tenancy")
 
 
 @dataclass

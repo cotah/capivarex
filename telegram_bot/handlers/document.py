@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from telegram_bot.utils.response_sender import send_agent_response
 from utils.request_processor import RequestProcessor
 
-logger = logging.getLogger("capivarax.telegram.handlers.document")
+logger = logging.getLogger("capivarex.telegram.handlers.document")
 
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

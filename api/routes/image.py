@@ -13,7 +13,7 @@ from api.dependencies import get_current_user
 from api.routes._helpers import temp_upload
 from services.core import get_service
 
-logger = logging.getLogger("capivarax.api.routes.image")
+logger = logging.getLogger("capivarex.api.routes.image")
 
 router = APIRouter()
 

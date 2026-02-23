@@ -13,7 +13,7 @@ from typing import Dict, Optional, Type, List
 from .base_agent import BaseAgent
 
 
-logger = logging.getLogger("capivarax.agents.registry")
+logger = logging.getLogger("capivarex.agents.registry")
 
 
 class AgentRegistry:

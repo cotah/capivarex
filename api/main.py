@@ -101,7 +101,7 @@ if _frontend_url:
 # Safety: if no origins configured, log a warning
 if not _cors_origins:
     import logging
-    logging.getLogger("capivarax.api").warning(
+    logging.getLogger("capivarex.api").warning(
         "No CORS origins configured. Set FRONTEND_URL or ENVIRONMENT=development. "
         "Defaulting to allow all origins for safety."
     )
@@ -237,7 +237,7 @@ app.include_router(health.router, tags=["Monitoring"])
 async def startup_event():
     """Initialize services on startup."""
     import logging
-    logger = logging.getLogger("capivarax.api")
+    logger = logging.getLogger("capivarex.api")
     logger.info("CapivaraX Bot API starting up...")
     from services import get_service
     for service_name in ["database", "openai", "redis"]:
@@ -255,4 +255,4 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown."""
     import logging
-    logging.getLogger("capivarax.api").info("CapivaraX Bot API shutting down...")
+    logging.getLogger("capivarex.api").info("CapivaraX Bot API shutting down...")

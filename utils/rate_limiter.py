@@ -8,7 +8,7 @@ Limits each user to one message every RATE_LIMIT_SECONDS.
 import time
 import logging
 
-logger = logging.getLogger("capivarax.rate_limiter")
+logger = logging.getLogger("capivarex.rate_limiter")
 
 # Per-user last message timestamp
 _user_last_message_time: dict = {}

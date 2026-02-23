@@ -3,7 +3,7 @@ import logging
 import time
 from fastapi import Request
 
-logger = logging.getLogger("capivarax.api")
+logger = logging.getLogger("capivarex.api")
 
 async def logging_middleware(request: Request, call_next):
     """Log all requests with timing."""

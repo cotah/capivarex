@@ -31,7 +31,7 @@ from api.dependencies.auth import get_current_user
 from services.core import get_service
 
 router = APIRouter()
-logger = logging.getLogger("capivarax.api.routes.car")
+logger = logging.getLogger("capivarex.api.routes.car")
 
 
 # ---------------------------------------------------------------------------

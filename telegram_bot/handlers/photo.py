@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 from telegram_bot.utils.response_sender import send_agent_response
 from utils.request_processor import RequestProcessor
 
-logger = logging.getLogger("capivarax.telegram.handlers.photo")
+logger = logging.getLogger("capivarex.telegram.handlers.photo")
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

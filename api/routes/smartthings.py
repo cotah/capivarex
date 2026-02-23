@@ -28,7 +28,7 @@ from api.dependencies import get_current_user
 from utils.encryption import decrypt_token, encrypt_token
 
 router = APIRouter()
-logger = logging.getLogger("capivarax.api.routes.smartthings")
+logger = logging.getLogger("capivarex.api.routes.smartthings")
 
 # OAuth Configuration
 CLIENT_ID = os.getenv("SMARTTHINGS_CLIENT_ID")
