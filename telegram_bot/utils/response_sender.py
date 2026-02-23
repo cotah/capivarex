@@ -7,7 +7,7 @@ from telegram import Update
 
 from agents.core import AgentResponse
 
-logger = logging.getLogger("capivarax.telegram.utils.response_sender")
+logger = logging.getLogger("capivarex.telegram.utils.response_sender")
 
 
 async def send_agent_response(

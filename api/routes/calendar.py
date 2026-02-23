@@ -21,7 +21,7 @@ from agents import get_agent
 from api.dependencies import get_current_user
 
 router = APIRouter()
-logger = logging.getLogger("capivarax.api.routes.calendar")
+logger = logging.getLogger("capivarex.api.routes.calendar")
 
 
 # ---------------------------------------------------------------------------

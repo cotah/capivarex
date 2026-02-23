@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from autofix import record_exception
 
-logger = logging.getLogger("capivarax.api.middleware.autofix")
+logger = logging.getLogger("capivarex.api.middleware.autofix")
 
 
 async def autofix_exception_middleware(request: Request, call_next: Callable) -> Response:

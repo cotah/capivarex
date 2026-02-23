@@ -91,16 +91,38 @@ class CalendarService(BaseService):
                 f"Google Calendar dependencies not installed: {exc}"
             )
 
-        self.service_account_file = os.getenv(
-            "GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json"
-        )
+        import json
+        import tempfile
+
         self.calendar_id = os.getenv("GOOGLE_CALENDAR_ID", "primary")
 
-        if not os.path.exists(self.service_account_file):
-            raise ServiceUnavailableError(
-                f"Service account file '{self.service_account_file}' not found. "
-                "Set GOOGLE_SERVICE_ACCOUNT_FILE to the correct path."
+        # Option 1: Credentials from environment variable (recommended for Railway/production)
+        google_creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+        if google_creds_json:
+            try:
+                creds_dict = json.loads(google_creds_json)
+                # Write to a temp file so the Google SDK can read it
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False
+                )
+                json.dump(creds_dict, tmp)
+                tmp.close()
+                self.service_account_file = tmp.name
+                self.logger.info("Using Google credentials from GOOGLE_CREDENTIALS_JSON env var")
+            except (json.JSONDecodeError, IOError) as e:
+                raise ServiceUnavailableError(
+                    f"Failed to parse GOOGLE_CREDENTIALS_JSON: {e}"
+                )
+        else:
+            # Option 2: Credentials from file (local development)
+            self.service_account_file = os.getenv(
+                "GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json"
             )
+            if not os.path.exists(self.service_account_file):
+                raise ServiceUnavailableError(
+                    f"Service account file '{self.service_account_file}' not found. "
+                    "Set GOOGLE_CREDENTIALS_JSON env var or GOOGLE_SERVICE_ACCOUNT_FILE path."
+                )
 
         try:
             credentials = sa_module.Credentials.from_service_account_file(

@@ -28,7 +28,7 @@ from services.core import get_service
 
 load_dotenv()
 
-logger = logging.getLogger("capivarax.api.routes.auth")
+logger = logging.getLogger("capivarex.api.routes.auth")
 
 
 # ---------------------------------------------------------------------------

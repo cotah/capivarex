@@ -13,7 +13,7 @@ from typing import Dict, Optional, Type, List
 from .base_service import BaseService, ServiceStatus
 
 
-logger = logging.getLogger("capivarax.services.registry")
+logger = logging.getLogger("capivarex.services.registry")
 
 
 class ServiceRegistry:

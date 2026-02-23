@@ -15,7 +15,7 @@ from ..commands import (
     status_command,
 )
 
-logger = logging.getLogger("capivarax.telegram.handlers")
+logger = logging.getLogger("capivarex.telegram.handlers")
 
 
 def register_all_handlers(application: Application, bot: Any) -> None:

@@ -107,7 +107,7 @@ def retry_on_failure(
 
                     last_exception = e
                     if attempt < max_retries:
-                        logger = logging.getLogger("capivarax.services.retry")
+                        logger = logging.getLogger("capivarex.services.retry")
                         logger.warning(
                             "Attempt %d/%d failed for %s: %s. Retrying in %.1fs...",
                             attempt + 1, max_retries, func.__name__, e, delay,
@@ -145,7 +145,7 @@ class BaseService(ABC):
         """
         self.name = name
         self.config = config or {}
-        self.logger = logging.getLogger(f"capivarax.services.{name}")
+        self.logger = logging.getLogger(f"capivarex.services.{name}")
         self._status = ServiceStatus.UNKNOWN
         self._initialized = False
         self._call_count = 0

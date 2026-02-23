@@ -16,7 +16,7 @@ class CapivaraXBot:
     def __init__(self, application: Application) -> None:
         """Initialise the Telegram bot wrapper."""
         self.application: Application = application
-        self.logger: logging.Logger = logging.getLogger("capivarax.telegram")
+        self.logger: logging.Logger = logging.getLogger("capivarex.telegram")
         self.services: Dict[str, Any] = {}
         self.agents: Dict[str, Any] = {}
         self._proactivity_task: Optional[asyncio.Task] = None

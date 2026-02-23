@@ -17,7 +17,7 @@ from bot.core.tenancy import TenancyManager, TenantContext
 from schemas.context import UserContext
 from services.core import get_service
 
-logger = logging.getLogger("capivarax.request_processor")
+logger = logging.getLogger("capivarex.request_processor")
 
 # In-memory per-user rate limiter (simple, effective for single worker)
 _user_last_message_time: Dict[int, float] = {}

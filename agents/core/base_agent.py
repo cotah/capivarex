@@ -83,7 +83,7 @@ class BaseAgent(ABC):
         """
         self.name = name
         self.description = description
-        self.logger = logging.getLogger(f"capivarax.agents.{name}")
+        self.logger = logging.getLogger(f"capivarex.agents.{name}")
         self._execution_count = 0
         self._error_count = 0
 

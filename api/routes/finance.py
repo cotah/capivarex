@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.dependencies.auth import get_current_user
 from services.core import get_service
 
-logger = logging.getLogger("capivarax.api.routes.finance")
+logger = logging.getLogger("capivarex.api.routes.finance")
 
 router = APIRouter()
 

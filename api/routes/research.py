@@ -14,7 +14,7 @@ from api.dependencies import get_current_user
 from api.middleware.rate_limit import limiter
 from services.core import get_service
 
-logger = logging.getLogger("capivarax.api.routes.research")
+logger = logging.getLogger("capivarex.api.routes.research")
 
 router = APIRouter()
 

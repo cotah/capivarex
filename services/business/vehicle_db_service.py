@@ -22,7 +22,7 @@ from services.core import (
 )
 
 
-logger = logging.getLogger("capivarax.services.vehicle_db")
+logger = logging.getLogger("capivarex.services.vehicle_db")
 
 # ---------------------------------------------------------------------------
 # Constants

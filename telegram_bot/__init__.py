@@ -5,7 +5,7 @@ import os
 import logging
 from telegram import Bot
 
-logger = logging.getLogger("capivarax.telegram")
+logger = logging.getLogger("capivarex.telegram")
 
 
 async def send_proactive_message(chat_id: str, text: str) -> bool:

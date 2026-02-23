@@ -18,7 +18,7 @@ from fastapi import WebSocket
 from agents import get_agent
 from services.core import get_service
 
-logger = logging.getLogger("capivarax.chat_service")
+logger = logging.getLogger("capivarex.chat_service")
 
 
 class ChatService:

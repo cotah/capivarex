@@ -24,6 +24,7 @@ from api.middleware.logging import logging_middleware
 from api.middleware.rate_limit import setup_rate_limiting
 from api.middleware.security_headers import SecurityHeadersMiddleware
 from api.routes import (
+    agent_generic,
     auth,
     chat,
     notes,
@@ -41,6 +42,7 @@ from api.routes import (
     smartthings,
     health,
 )
+from api.routes import webhooks
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 
 # Load environment variables
@@ -99,7 +101,7 @@ if _frontend_url:
 # Safety: if no origins configured, log a warning
 if not _cors_origins:
     import logging
-    logging.getLogger("capivarax.api").warning(
+    logging.getLogger("capivarex.api").warning(
         "No CORS origins configured. Set FRONTEND_URL or ENVIRONMENT=development. "
         "Defaulting to allow all origins for safety."
     )
@@ -222,6 +224,8 @@ app.include_router(calendar.router, prefix=f"{API_V1}/calendar", tags=["Calendar
 app.include_router(car.router, prefix=f"{API_V1}/car", tags=["Car"])
 app.include_router(traffic.router, prefix=f"{API_V1}/traffic", tags=["Traffic"])
 app.include_router(smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"])
+app.include_router(agent_generic.router, prefix=f"{API_V1}/agent", tags=["Generic Agent"])
+app.include_router(webhooks.router, prefix=f"{API_V1}/webhooks", tags=["Webhooks"])
 app.include_router(health.router, tags=["Monitoring"])
 
 
@@ -233,7 +237,7 @@ app.include_router(health.router, tags=["Monitoring"])
 async def startup_event():
     """Initialize services on startup."""
     import logging
-    logger = logging.getLogger("capivarax.api")
+    logger = logging.getLogger("capivarex.api")
     logger.info("CapivaraX Bot API starting up...")
     from services import get_service
     for service_name in ["database", "openai", "redis"]:
@@ -251,4 +255,4 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown."""
     import logging
-    logging.getLogger("capivarax.api").info("CapivaraX Bot API shutting down...")
+    logging.getLogger("capivarex.api").info("CapivaraX Bot API shutting down...")

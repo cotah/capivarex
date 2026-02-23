@@ -4,7 +4,7 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-logger = logging.getLogger("capivarax.telegram.commands.help")
+logger = logging.getLogger("capivarex.telegram.commands.help")
 
 HELP_MESSAGE: str = """
 📖 **Comandos Disponíveis:**

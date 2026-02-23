@@ -10,7 +10,7 @@ Handles:
 import logging
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger("capivarax.memory")
+logger = logging.getLogger("capivarex.memory")
 
 
 class MemoryManager:

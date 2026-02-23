@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 from services import get_service
 
-logger = logging.getLogger("capivarax.telegram.commands.proactivity")
+logger = logging.getLogger("capivarex.telegram.commands.proactivity")
 
 
 async def toggle_proactivity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

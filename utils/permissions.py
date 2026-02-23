@@ -3,7 +3,7 @@ import logging
 from functools import wraps
 from schemas.context import UserContext
 
-logger = logging.getLogger("capivarax.permissions")
+logger = logging.getLogger("capivarex.permissions")
 
 
 class PermissionDeniedError(Exception):

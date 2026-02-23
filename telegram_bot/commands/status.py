@@ -5,7 +5,7 @@ from typing import List
 from telegram import Update
 from telegram.ext import ContextTypes
 
-logger = logging.getLogger("capivarax.telegram.commands.status")
+logger = logging.getLogger("capivarex.telegram.commands.status")
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
