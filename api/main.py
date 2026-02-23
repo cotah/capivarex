@@ -42,6 +42,7 @@ from api.routes import (
     smartthings,
     health,
 )
+from api.routes import webhooks
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 
 # Load environment variables
@@ -224,6 +225,7 @@ app.include_router(car.router, prefix=f"{API_V1}/car", tags=["Car"])
 app.include_router(traffic.router, prefix=f"{API_V1}/traffic", tags=["Traffic"])
 app.include_router(smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"])
 app.include_router(agent_generic.router, prefix=f"{API_V1}/agent", tags=["Generic Agent"])
+app.include_router(webhooks.router, prefix=f"{API_V1}/webhooks", tags=["Webhooks"])
 app.include_router(health.router, tags=["Monitoring"])
 
 
