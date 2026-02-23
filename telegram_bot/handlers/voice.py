@@ -51,7 +51,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         # Transcribe
-        transcription = await whisper.transcribe(voice_bytes)
+        transcription = await whisper.speech_to_text_from_bytes(voice_bytes)
 
         if not transcription:
             await update.message.reply_text("Nao foi possivel transcrever o audio.")
