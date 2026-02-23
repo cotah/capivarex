@@ -144,7 +144,10 @@ class ProactivityService(BaseService):
         self.logger.info(f"Gathering context for user {user_id}...")
 
         # Fetch user preferences for personalised context
-        prefs = await get_preferences(user_id)
+        try:
+            prefs = await get_preferences(user_id)
+        except Exception:
+            prefs = {}
 
         location = (
             prefs.get("preferred_city")
@@ -358,7 +361,10 @@ class ProactivityService(BaseService):
         """
         try:
             # Fetch user preferences for personalised thresholds
-            prefs = await get_preferences(user_id)
+            try:
+                prefs = await get_preferences(user_id)
+            except Exception:
+                prefs = {}
 
             smartthings_service = get_service("smartthings")
             database_service = get_service("database")

@@ -23,9 +23,11 @@ logger = logging.getLogger(__name__)
 
 async def get_preferences(user_id: str) -> dict:
     """Busca preferências do utilizador. Cria registo padrão se não existir."""
-    sb = get_supabase_client()
+    try:
+        sb = get_supabase_client()
+    except Exception:
+        return {}
     if not sb:
-        logger.warning("Database client unavailable for get_preferences")
         return {}
 
     try:
@@ -33,27 +35,23 @@ async def get_preferences(user_id: str) -> dict:
             sb.table("user_preferences")
             .select("*")
             .eq("user_id", user_id)
-            .single()
+            .maybe_single()
             .execute()
         )
-        if not res.data:
-            # criar com defaults
-            defaults: Dict[str, Any] = {"user_id": user_id}
-            res = sb.table("user_preferences").insert(defaults).execute()
-        return res.data or {}
-    except Exception as e:
-        logger.error("Failed to get preferences for %s: %s", user_id, e)
+        if res.data:
+            return res.data
+        # criar com defaults
+        defaults: Dict[str, Any] = {"user_id": user_id}
+        res = sb.table("user_preferences").insert(defaults).execute()
+        return res.data[0] if res.data else {}
+    except Exception:
         return {}
 
 
 async def set_preferences(user_id: str, **kwargs: Any) -> dict:
     """Upsert das preferências do utilizador."""
-    sb = get_supabase_client()
-    if not sb:
-        logger.warning("Database client unavailable for set_preferences")
-        return {}
-
     try:
+        sb = get_supabase_client()
         data: Dict[str, Any] = {"user_id": user_id, **kwargs}
         res = (
             sb.table("user_preferences")
@@ -61,6 +59,5 @@ async def set_preferences(user_id: str, **kwargs: Any) -> dict:
             .execute()
         )
         return res.data[0] if res.data else {}
-    except Exception as e:
-        logger.error("Failed to set preferences for %s: %s", user_id, e)
+    except Exception:
         return {}

@@ -286,17 +286,20 @@ class RestaurantAgent(BaseAgent):
             if min_rating > 0:
                 places = [p for p in places if (p.get("rating") or 0) >= min_rating]
 
-        # Persist search for analytics
-        await rdb.save_search(
-            user_id=user_id,
-            cuisine=query,
-            latitude=lat,
-            longitude=lng,
-            radius_km=radius // 1000 if radius >= 1000 else 1,
-            open_now=open_now,
-            min_rating=min_rating or None,
-            results_count=len(places),
-        )
+        # Persist search for analytics (fire-and-forget)
+        try:
+            await rdb.save_search(
+                user_id=user_id,
+                cuisine=query,
+                latitude=lat,
+                longitude=lng,
+                radius_km=radius // 1000 if radius >= 1000 else 1,
+                open_now=open_now,
+                min_rating=min_rating or None,
+                results_count=len(places),
+            )
+        except Exception:
+            pass
 
         if not places:
             tip = "aberto agora" if open_now else "essa pesquisa"
@@ -412,16 +415,19 @@ class RestaurantAgent(BaseAgent):
 
         place = last_results[idx]
         loc = place.get("location", {})
-        await rdb.add_favorite(
-            user_id=user_id,
-            place_id=place.get("place_id", ""),
-            name=place.get("name", ""),
-            address=place.get("address"),
-            rating=place.get("rating"),
-            cuisine=place.get("cuisine"),
-            latitude=loc.get("lat"),
-            longitude=loc.get("lng"),
-        )
+        try:
+            await rdb.add_favorite(
+                user_id=user_id,
+                place_id=place.get("place_id", ""),
+                name=place.get("name", ""),
+                address=place.get("address"),
+                rating=place.get("rating"),
+                cuisine=place.get("cuisine"),
+                latitude=loc.get("lat"),
+                longitude=loc.get("lng"),
+            )
+        except Exception:
+            pass
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -434,7 +440,10 @@ class RestaurantAgent(BaseAgent):
         )
 
     async def _handle_list_favorites(self, user_id: str) -> AgentResponse:
-        favs = await rdb.get_favorites(user_id)
+        try:
+            favs = await rdb.get_favorites(user_id)
+        except Exception:
+            favs = []
         if not favs:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
@@ -498,15 +507,18 @@ class RestaurantAgent(BaseAgent):
                 },
             )
 
-        res = await rdb.create_reservation(
-            user_id=user_id,
-            place_id=place.get("place_id", ""),
-            restaurant_name=place.get("name", ""),
-            restaurant_phone=place.get("phone"),
-            party_size=party_size,
-            reservation_dt=reservation_dt,
-            notes=context.get("notes"),
-        )
+        try:
+            res = await rdb.create_reservation(
+                user_id=user_id,
+                place_id=place.get("place_id", ""),
+                restaurant_name=place.get("name", ""),
+                restaurant_phone=place.get("phone"),
+                party_size=party_size,
+                reservation_dt=reservation_dt,
+                notes=context.get("notes"),
+            )
+        except Exception:
+            res = {}
 
         phone_line = ""
         if place.get("phone"):
@@ -525,7 +537,10 @@ class RestaurantAgent(BaseAgent):
         )
 
     async def _handle_list_reservations(self, user_id: str) -> AgentResponse:
-        reservations = await rdb.get_reservations(user_id)
+        try:
+            reservations = await rdb.get_reservations(user_id)
+        except Exception:
+            reservations = []
         if not reservations:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
