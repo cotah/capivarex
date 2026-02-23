@@ -18,9 +18,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install minimal system dependencies needed for health checks
+# Install minimal system dependencies (curl for health checks, git for GitService)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder
