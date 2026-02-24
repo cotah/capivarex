@@ -1,20 +1,102 @@
 """
 Voice Agent - Text-to-speech and speech-to-text.
 
-Refactored to use new BaseAgent architecture.
+FIX [2025-02]: Adicionada função _strip_markdown_for_tts() que remove
+               formatação Markdown antes de enviar texto ao ElevenLabs.
+               Sem este fix, o bot lia em voz alta: "asterisco asterisco
+               Alarme configurado asterisco asterisco" em vez de "Alarme configurado".
 """
 
 import logging
-import os
-import tempfile
+import re
 from pathlib import Path
-from typing import Any, Dict, List
+from tempfile import mkdtemp
+from typing import Any, Dict
 
-from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
+from agents.core import AgentResponse, AgentStatus, BaseAgent, register_agent
 from services import get_service
 
-
 logger = logging.getLogger(__name__)
+
+
+# ─── Markdown stripping ───────────────────────────────────────────────────────
+
+# Ranges de emojis Unicode mais comuns
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001f600-\U0001f64f"  # Emoticons
+    "\U0001f300-\U0001f5ff"  # Símbolos & Pictogramas
+    "\U0001f680-\U0001f6ff"  # Transporte & Mapa
+    "\U0001f1e0-\U0001f1ff"  # Bandeiras
+    "\U00002600-\U000026ff"  # Símbolos Miscelâneos
+    "\U00002700-\U000027bf"  # Dingbats
+    "\U000023f0-\U000023ff"  # Relógios e temporizadores
+    "\U0000231a-\U0000231b"  # Relógio de pulso
+    "\U000025aa-\U000025fe"  # Quadrados pequenos
+    "\U00002b50-\U00002b55"  # Estrelas
+    "\U0001f900-\U0001f9ff"  # Suplemento de símbolos
+    "\U0001fa00-\U0001fa6f"  # Símbolos de xadrez
+    "\U0001fa70-\U0001faff"  # Emojis de símbolos
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def _strip_markdown_for_tts(text: str) -> str:
+    """
+    Remove formatação Markdown e emojis para leitura TTS.
+
+    Converte:
+      **Texto**          → Texto
+      *Texto*            → Texto
+      # Título           → Título
+      • Item             → Item
+      [link](url)        → link
+      `código`           → código (sem backticks)
+      ⏱️ Emoji          → (removido)
+
+    Args:
+        text: Texto com possível formatação Markdown
+
+    Returns:
+        Texto limpo adequado para síntese de voz
+    """
+    if not text:
+        return text
+
+    # Remove bold e italic (***texto***, **texto**, *texto*)
+    text = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", text, flags=re.DOTALL)
+
+    # Remove headers markdown (# ## ###)
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+
+    # Remove bullet points (• - * +)
+    text = re.sub(r"^\s*[•\-\*\+]\s+", "", text, flags=re.MULTILINE)
+
+    # Remove links markdown [texto](url) → texto
+    text = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", text)
+
+    # Remove inline code e code blocks
+    text = re.sub(r"```[\s\S]*?```", "", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+
+    # Remove underscore italic _texto_
+    text = re.sub(r"_(.+?)_", r"\1", text)
+
+    # Remove emojis
+    text = _EMOJI_RE.sub("", text)
+
+    # Remove linhas com apenas separadores (---, ___, ***)
+    text = re.sub(r"^[\-_\*]{3,}\s*$", "", text, flags=re.MULTILINE)
+
+    # Normaliza espaços e newlines excessivos
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r" {2,}", " ", text)
+
+    return text.strip()
+
+
+# ─── Agent ────────────────────────────────────────────────────────────────────
 
 
 @register_agent("voice")
@@ -23,24 +105,17 @@ class VoiceAgent(BaseAgent):
     Voice agent for text-to-speech and speech-to-text.
 
     Handles:
-    - Text-to-speech conversion (TTS)
-    - Speech-to-text transcription (STT)
+    - Text-to-speech conversion (TTS) via ElevenLabs
+    - Speech-to-text transcription (STT) via OpenAI Whisper
     - Multiple voice options
     - Multiple language support
     """
 
     def __init__(self):
         """Initialise the voice agent."""
-        super().__init__(
-            name="voice",
-            description="Text-to-speech and speech-to-text"
-        )
+        super().__init__(name="voice", description="Text-to-speech and speech-to-text")
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Execute voice operation based on context.
 
@@ -57,217 +132,148 @@ class VoiceAgent(BaseAgent):
             context: Execution context with action parameters
 
         Returns:
-            AgentResponse with audio file path (TTS) or transcribed text (STT)
+            AgentResponse with audio file path or transcription
         """
         action = context.get("action", "text_to_speech")
 
-        if action == "text_to_speech":
-            return await self._text_to_speech(prompt, context)
-        elif action == "speech_to_text":
-            return await self._speech_to_text(prompt, context)
+        if action == "speech_to_text":
+            return await self._handle_stt(prompt, context)
         else:
+            return await self._handle_tts(prompt, context)
+
+    async def _handle_tts(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        """Handle text-to-speech conversion."""
+        text = prompt or context.get("text", "")
+        text_to_convert = context.get("text", text)
+
+        if not text_to_convert or len(text_to_convert.strip()) == 0:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Acao de voz nao reconhecida: {action}",
-                error=f"Unknown voice action: {action}"
+                response="Erro: Texto vazio para conversao em audio.",
+                error="Empty text for TTS",
             )
 
-    async def _text_to_speech(
-        self,
-        text: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
-        """
-        Convert text to audio.
+        # FIX: Strip markdown antes de enviar ao ElevenLabs.
+        # Sem este fix, o bot lê "asterisco asterisco Alarme configurado asterisco asterisco"
+        # em vez de "Alarme configurado".
+        text_to_convert = _strip_markdown_for_tts(text_to_convert)
 
-        Args:
-            text: Fallback text to convert
-            context: Context with optional text override and voice selection
-
-        Returns:
-            AgentResponse with audio file path
-        """
-        try:
-            # Use text from context if available, otherwise use prompt
-            text_to_convert = context.get("text", text)
-
-            if not text_to_convert or len(text_to_convert.strip()) == 0:
-                return AgentResponse(
-                    status=AgentStatus.ERROR,
-                    response="Erro: Texto vazio para conversao em audio.",
-                    error="Empty text for TTS"
-                )
-
-            # Get ElevenLabs service
-            elevenlabs_svc = get_service("elevenlabs")
-            if not elevenlabs_svc:
-                return AgentResponse(
-                    status=AgentStatus.ERROR,
-                    response="Servico de voz nao disponivel.",
-                    error="ElevenLabs service not available"
-                )
-
-            await elevenlabs_svc.initialize()
-
-            # Get voice configuration
-            voice_name = context.get("voice", "rachel")
-            try:
-                from services.ai.elevenlabs_service import PORTUGUESE_VOICES
-            except ImportError:
-                PORTUGUESE_VOICES = {}
-            voice_id = PORTUGUESE_VOICES.get(
-                voice_name,
-                PORTUGUESE_VOICES.get("rachel", voice_name)
-            )
-
-            # Convert text to audio
-            audio_bytes = await elevenlabs_svc.text_to_speech(
-                text=text_to_convert,
-                voice_id=voice_id
-            )
-
-            # Save audio to temporary file
-            output_path = context.get("output_path")
-            if not output_path:
-                temp_dir = Path(tempfile.gettempdir()) / "superbot_audio"
-                temp_dir.mkdir(parents=True, exist_ok=True)
-                output_path = temp_dir / f"tts_{os.urandom(8).hex()}.mp3"
-
-            with open(output_path, "wb") as f:
-                f.write(audio_bytes)
-
-            self.logger.info(
-                f"Text-to-speech completed: {len(text_to_convert)} chars -> {output_path}"
-            )
-
-            return AgentResponse(
-                status=AgentStatus.SUCCESS,
-                response=str(output_path),
-                data={
-                    "audio_path": str(output_path),
-                    "text_length": len(text_to_convert),
-                    "voice": voice_name
-                },
-                metadata={
-                    "type": "audio",
-                    "file_path": str(output_path),
-                    "format": "mp3"
-                }
-            )
-
-        except Exception as e:
-            self.logger.error(
-                f"VoiceAgent TTS failed: {e}",
-                exc_info=True
-            )
-
+        if not text_to_convert:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao converter texto em audio: {str(e)}",
-                error=str(e)
+                response="Erro: Texto ficou vazio após remoção de formatação.",
+                error="Text empty after markdown stripping",
             )
 
-    async def _speech_to_text(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
-        """
-        Convert audio to text.
-
-        Args:
-            prompt: User's prompt (unused for STT)
-            context: Context with audio_path or audio_bytes
-
-        Returns:
-            AgentResponse with transcribed text
-        """
-        try:
-            audio_path = context.get("audio_path")
-            audio_bytes = context.get("audio_bytes")
-            language = context.get("language", "pt")
-
-            if not audio_path and not audio_bytes:
-                return AgentResponse(
-                    status=AgentStatus.ERROR,
-                    response="Erro: Nenhum arquivo de audio fornecido.",
-                    error="No audio file provided"
-                )
-
-            # Get Whisper service
-            whisper_svc = get_service("whisper")
-            if not whisper_svc:
-                return AgentResponse(
-                    status=AgentStatus.ERROR,
-                    response="Servico de transcricao nao disponivel.",
-                    error="Whisper service not available"
-                )
-
-            await whisper_svc.initialize()
-
-            # Convert audio to text
-            if audio_bytes:
-                result = await whisper_svc.speech_to_text_from_bytes(
-                    audio_bytes=audio_bytes,
-                    language=language
-                )
-            else:
-                result = await whisper_svc.speech_to_text(
-                    audio_file_path=audio_path,
-                    language=language
-                )
-
-            transcribed_text = result.get("text", "")
-
-            self.logger.info(
-                f"Speech-to-text completed: {len(transcribed_text)} chars"
-            )
-
-            return AgentResponse(
-                status=AgentStatus.SUCCESS,
-                response=transcribed_text,
-                data={
-                    "transcribed_text": transcribed_text,
-                    "language": language,
-                    "text_length": len(transcribed_text)
-                }
-            )
-
-        except Exception as e:
-            self.logger.error(
-                f"VoiceAgent STT failed: {e}",
-                exc_info=True
-            )
-
+        # Get ElevenLabs service
+        elevenlabs_svc = get_service("elevenlabs")
+        if not elevenlabs_svc:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao converter audio em texto: {str(e)}",
-                error=str(e)
+                response="Servico de voz nao disponivel.",
+                error="ElevenLabs service not available",
             )
 
-    def get_available_voices(self) -> Dict[str, str]:
-        """Return available voices from ElevenLabs service."""
+        await elevenlabs_svc.initialize()
+
+        # Get voice configuration
+        voice_name = context.get("voice", "rachel")
         try:
             from services.ai.elevenlabs_service import PORTUGUESE_VOICES
-            return PORTUGUESE_VOICES
-        except Exception as e:
-            self.logger.warning(f"Could not get available voices: {e}")
-        return {}
+        except ImportError:
+            PORTUGUESE_VOICES = {}
+        voice_id = PORTUGUESE_VOICES.get(
+            voice_name, PORTUGUESE_VOICES.get("rachel", voice_name)
+        )
 
-    def get_supported_languages(self) -> Dict[str, str]:
-        """Return supported languages from Whisper service."""
+        # Convert text to audio
+        audio_bytes = await elevenlabs_svc.text_to_speech(
+            text=text_to_convert, voice_id=voice_id
+        )
+
+        # Save audio to temporary file
+        output_path = context.get("output_path")
+        if not output_path:
+            temp_dir = Path(mkdtemp())
+            output_path = str(temp_dir / "voice_output.mp3")
+
+        with open(output_path, "wb") as f:
+            f.write(audio_bytes)
+
+        self.logger.info(
+            "TTS completed: %d chars → %s (voice: %s)",
+            len(text_to_convert),
+            output_path,
+            voice_name,
+        )
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response=f"Áudio gerado com sucesso: {output_path}",
+            data={
+                "audio_path": output_path,
+                "voice": voice_name,
+                "text_length": len(text_to_convert),
+            },
+        )
+
+    async def _handle_stt(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        """Handle speech-to-text transcription."""
+        audio_path = context.get("audio_path")
+        audio_bytes = context.get("audio_bytes")
+        language = context.get("language", "pt")
+
+        if not audio_path and not audio_bytes:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response="Erro: Nenhum arquivo de audio fornecido para transcrição.",
+                error="No audio file provided",
+            )
+
+        openai_svc = get_service("openai")
+        if not openai_svc:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response="Serviço OpenAI não disponível para transcrição.",
+                error="OpenAI service not available",
+            )
+
+        if not openai_svc.is_initialized():
+            await openai_svc.initialize()
+
         try:
-            from services.media.whisper_service import SUPPORTED_LANGUAGES
-            return SUPPORTED_LANGUAGES
-        except Exception as e:
-            self.logger.warning(f"Could not get supported languages: {e}")
-        return {}
+            client = openai_svc.get_client()
 
-    def get_capabilities(self) -> List[str]:
-        """Get voice agent capabilities."""
-        return [
-            "text_to_speech",
-            "speech_to_text",
-            "audio_generation",
-            "transcription"
-        ]
+            if audio_bytes:
+                # Write bytes to temp file
+                temp_dir = Path(mkdtemp())
+                audio_path = str(temp_dir / "input_audio.ogg")
+                with open(audio_path, "wb") as f:
+                    f.write(audio_bytes)
+
+            with open(audio_path, "rb") as audio_file:
+                transcription = await client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language=language,
+                )
+
+            text = transcription.text or ""
+            self.logger.info("STT completed: '%s...'", text[:50])
+
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=text,
+                data={
+                    "transcription": text,
+                    "language": language,
+                },
+            )
+
+        except Exception as e:
+            self.logger.error("STT error: %s", e, exc_info=True)
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=f"Erro na transcrição: {str(e)}",
+                error=str(e),
+            )

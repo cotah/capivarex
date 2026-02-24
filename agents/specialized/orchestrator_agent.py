@@ -2,11 +2,15 @@
 Orchestrator Agent - Routes requests to specialized agents.
 
 Refactored to use new BaseAgent architecture.
+
+FIX [2025-02]: Adicionados agentes 'transport' e 'twilio' ao ALLOWED_AGENTS
+               e ao system_prompt de routing. Ambos os serviços estavam
+               implementados mas nunca eram roteados pelo orquestrador.
 """
 
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from pydantic import ValidationError
 
@@ -17,15 +21,37 @@ from services import get_service
 
 logger = logging.getLogger(__name__)
 
-# Allowed agent types (kept for quick membership checks)
+# FIX: Adicionados "transport" e "twilio" que estavam implementados mas não registados
 ALLOWED_AGENTS = {
-    "chat", "research", "dev", "weather", "finance",
-    "image", "video", "voice", "calendar", "traffic",
-    "car", "smarthome", "github", "time", "translate",
-    "crypto", "timer", "reminder", "youtube", "tracking",
-    "meeting", "search", "leaving_now", "mercado", "notes",
+    "chat",
+    "research",
+    "dev",
+    "weather",
+    "finance",
+    "image",
+    "video",
+    "voice",
+    "calendar",
+    "traffic",
+    "car",
+    "smarthome",
+    "github",
+    "time",
+    "translate",
+    "crypto",
+    "timer",
+    "reminder",
+    "youtube",
+    "tracking",
+    "meeting",
+    "search",
+    "leaving_now",
+    "mercado",
+    "notes",
     "restaurant",
     "email",
+    "transport",  # FIX: Ireland NTA transit (NTA_API_KEY configurada)
+    "twilio",  # FIX: Phone calls via Twilio (credenciais configuradas)
 }
 
 
@@ -41,15 +67,10 @@ class OrchestratorAgent(BaseAgent):
     def __init__(self):
         """Initialise the orchestrator agent."""
         super().__init__(
-            name="orchestrator",
-            description="Routes requests to specialized agents"
+            name="orchestrator", description="Routes requests to specialized agents"
         )
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Analyze prompt and route to appropriate agent.
 
@@ -89,9 +110,10 @@ class OrchestratorAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response="chat",
-                data={"agent": "chat", "reason": "OpenAI client not available"}
+                data={"agent": "chat", "reason": "OpenAI client not available"},
             )
 
+        # FIX: system_prompt atualizado com transport e twilio
         system_prompt = """
 Você é um orquestrador de IA. Sua função é analisar o prompt do usuário e decidir qual especialista é o mais adequado.
 
@@ -107,7 +129,8 @@ Agentes disponíveis:
 - 'voice': Converter texto em AUDIO/VOZ (falar, narrar, ler em voz alta), ou transcrever áudio em texto.
 - 'calendar': Perguntas sobre agenda, calendário, reuniões, compromissos, eventos, horários (consultar, listar, verificar).
 - 'meeting': CRIAR ou AGENDAR reuniões e eventos novos no calendário (marcar, criar, agendar reunião/evento).
-- 'traffic': Perguntas sobre tráfego, rotas, tempo de viagem, condições de trânsito, navegação.
+- 'traffic': Perguntas sobre tráfego, rotas, tempo de viagem, condições de trânsito, navegação de carro.
+- 'transport': Transportes públicos na Irlanda: autocarro, Bus Éireann, Dublin Bus, DART, Luas, Irish Rail, NTA, horários de paragem, próxima viagem de transporte público.
 - 'car': Controle de veículo elétrico: bateria, carregamento, localização do carro, trancar/destrancar portas, odômetro, status do veículo.
 - 'smarthome': Controle de casa inteligente: luzes, interruptores, dispositivos IoT, termostato da casa, sensores, SmartThings.
 - 'time': Que horas são, fuso horário, hora em outra cidade/país, converter horários entre fusos.
@@ -123,6 +146,7 @@ Agentes disponíveis:
 - 'notes': Bloco de notas pessoal: anotar, escrever, salvar, listar, buscar, fixar, apagar notas.
 - 'restaurant': Concierge de restaurantes: sugerir, buscar, filtrar restaurantes por localização, tipo de cozinha, rating, aberto agora, detalhes, telefone, horário, reviews.
 - 'email': Gestão de email: ler, listar, resumir, responder, ignorar emails do Gmail e Hotmail/Outlook, emails não lidos, quantos emails tenho.
+- 'twilio': Fazer chamadas telefónicas, ligar para alguém, chamada de voz para número de telefone.
 
 EXEMPLOS (use como referência):
 "como está a bateria do meu carro?" → car
@@ -201,6 +225,17 @@ EXEMPLOS (use como referência):
 "ignorar esse email" → email
 "emails do Gmail" → email
 "emails do Hotmail" → email
+"próximo autocarro para o centro" → transport
+"horário do DART" → transport
+"próxima paragem Luas" → transport
+"Bus Éireann horário" → transport
+"quando chega o autocarro 46A" → transport
+"horários Dublin Bus" → transport
+"Irish Rail próximo comboio" → transport
+"ligar para o João" → twilio
+"fazer uma chamada para +351912345678" → twilio
+"chama o escritório" → twilio
+"fazer chamada telefónica" → twilio
 
 REGRAS:
 - Se mencionar git, github, repositório, commit, branch, push, pull, clone → 'github'
@@ -224,8 +259,12 @@ REGRAS:
 - Se pedir para anotar, escrever nota, ver notas, buscar nota, fixar nota, apagar nota → 'notes'
 - Se pedir sugestão de restaurante, buscar onde comer/jantar/almoçar, tipo de cozinha, rating, aberto agora, detalhes de restaurante → 'restaurant'
 - Se pedir para ler, listar, resumir, responder, ignorar emails, contar emails não lidos, Gmail, Hotmail, Outlook → 'email'
-- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat, restaurant > search para restaurantes).
+- Se mencionar autocarro, Bus Éireann, Dublin Bus, DART, Luas, Irish Rail, NTA, paragem, transporte público na Irlanda → 'transport'
+- Se pedir para fazer uma chamada telefónica, ligar para alguém, Twilio → 'twilio'
+- Se perguntar sobre tráfego, condições de trânsito, rota de carro → 'traffic'
+- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat, restaurant > search para restaurantes, transport > search para transportes públicos).
 - 'search' é para pesquisas genéricas na web; use agentes específicos se aplicável (ex: 'crypto' para Bitcoin, 'finance' para ações).
+- DISTINÇÃO CRÍTICA: 'traffic' é para tráfego/navegação de carro; 'transport' é para transportes públicos (autocarro, comboio, metro).
 
 Responda SEMPRE em formato JSON, seguindo este schema:
 {"agent": "<nome_do_agente>", "reason": "<justificativa>"}
@@ -257,9 +296,17 @@ Responda SEMPRE em formato JSON, seguindo este schema:
             validated_decision = OrchestratorDecision.model_validate(decision_data)
             decision = validated_decision.agent
 
+            # Safety guard: ensure agent is in allowed set
+            if decision not in ALLOWED_AGENTS:
+                self.logger.warning(
+                    "Agent '%s' not in ALLOWED_AGENTS, defaulting to chat", decision
+                )
+                decision = "chat"
+
             self.logger.info(
-                f"Routed to agent: {decision} (Reason: {validated_decision.reason})",
-                extra={"prompt": prompt[:100]}
+                "Routed to agent: %s | reason: %s",
+                decision,
+                decision_data.get("reason", ""),
             )
 
             return AgentResponse(
@@ -267,34 +314,31 @@ Responda SEMPRE em formato JSON, seguindo este schema:
                 response=decision,
                 data={
                     "agent": decision,
-                    "prompt": prompt
-                }
+                    "reason": decision_data.get("reason", ""),
+                },
             )
 
-        except (json.JSONDecodeError, ValidationError) as e:
-            self.logger.warning(
-                f"Failed to parse or validate LLM decision: {e}. Falling back to chat.",
-                extra={"prompt": prompt[:100]}
-            )
-            return AgentResponse(
-                status=AgentStatus.SUCCESS,
-                response="chat",
-                data={"agent": "chat", "reason": "JSON validation fallback"},
-            )
-
-        except Exception as e:
-            self.logger.error(
-                f"Orchestration failed: {e}",
-                exc_info=True
-            )
-
+        except json.JSONDecodeError as e:
+            self.logger.error("Failed to parse OpenAI JSON response: %s", e)
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="chat",
-                data={"agent": "chat", "reason": "Orchestration failed"},
-                error=str(e)
+                data={"agent": "chat", "reason": "JSON parse error"},
+                error=str(e),
             )
-
-    def get_capabilities(self) -> List[str]:
-        """Get orchestrator capabilities."""
-        return ["routing", "agent_selection", "intent_classification"]
+        except ValidationError as e:
+            self.logger.error("Pydantic validation error: %s", e)
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response="chat",
+                data={"agent": "chat", "reason": "Validation error"},
+                error=str(e),
+            )
+        except Exception as e:
+            self.logger.error("Orchestrator error: %s", e, exc_info=True)
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response="chat",
+                data={"agent": "chat", "reason": "Unexpected error"},
+                error=str(e),
+            )

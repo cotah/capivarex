@@ -2,15 +2,20 @@
 """
 Translate Service
 =================
-Tradução de textos usando a API Google Generative AI (google-genai),
+Tradução de textos usando a API Google Generative AI (google-genai nova SDK),
 que já está no requirements.txt do projeto.
 
 Estratégia:
-  - Usa o modelo Gemini Flash (mais rápido e barato para traduções)
+  - Usa o modelo Gemini 2.0 Flash (mais rápido e barato para traduções)
   - Detecta idioma de origem automaticamente quando não especificado
   - Suporta todos os idiomas que o Gemini conhece (~100+)
   - Cache simples em memória (LRU) para evitar chamadas repetidas
-  - Fallback: se google-genai falhar, tenta via openai_service (já existe)
+  - Usa mesma SDK que image_service e video_service (google-genai)
+
+FIX [2025-02]: Migrado de google.generativeai (SDK antiga, deprecated)
+               para google.genai (nova SDK unificada). A antiga retornava
+               404 "model not found" no ambiente de produção Railway porque
+               só a nova SDK (google-genai) está instalada no requirements.txt.
 """
 
 import hashlib
@@ -67,17 +72,38 @@ SUPPORTED_LANGUAGES: Dict[str, str] = {
 
 # Mapa de nomes alternativos de idiomas → código ISO 639-1
 LANG_ALIASES: Dict[str, str] = {
-    "português": "pt", "portugues": "pt", "portuguese": "pt", "pt-br": "pt",
-    "inglês": "en", "ingles": "en", "english": "en",
-    "espanhol": "es", "spanish": "es", "castellano": "es",
-    "francês": "fr", "frances": "fr", "french": "fr",
-    "alemão": "de", "alemao": "de", "german": "de",
-    "italiano": "it", "italian": "it",
-    "japonês": "ja", "japones": "ja", "japanese": "ja",
-    "coreano": "ko", "korean": "ko",
-    "chinês": "zh", "chines": "zh", "chinese": "zh", "mandarim": "zh",
-    "russo": "ru", "russian": "ru",
-    "árabe": "ar", "arabe": "ar", "arabic": "ar",
+    "português": "pt",
+    "portugues": "pt",
+    "portuguese": "pt",
+    "pt-br": "pt",
+    "inglês": "en",
+    "ingles": "en",
+    "english": "en",
+    "espanhol": "es",
+    "spanish": "es",
+    "castellano": "es",
+    "francês": "fr",
+    "frances": "fr",
+    "french": "fr",
+    "alemão": "de",
+    "alemao": "de",
+    "german": "de",
+    "italiano": "it",
+    "italian": "it",
+    "japonês": "ja",
+    "japones": "ja",
+    "japanese": "ja",
+    "coreano": "ko",
+    "korean": "ko",
+    "chinês": "zh",
+    "chines": "zh",
+    "chinese": "zh",
+    "mandarim": "zh",
+    "russo": "ru",
+    "russian": "ru",
+    "árabe": "ar",
+    "arabe": "ar",
+    "arabic": "ar",
     "hindi": "hi",
 }
 
@@ -91,41 +117,53 @@ def _normalize_lang(lang: str) -> str:
 @register_service("translate")
 class TranslateService(BaseService):
     """
-    Translation service via Google Generative AI (Gemini Flash).
+    Translation service via Google Generative AI (Gemini 2.0 Flash).
+
+    FIX: Usa google-genai (nova SDK) em vez de google.generativeai (SDK antiga).
+    Consistente com image_service.py e video_service.py.
 
     Features:
     - Automatic source language detection
     - ~100+ languages supported
     - In-memory LRU cache (avoid duplicate API calls)
-    - Fallback to OpenAI GPT if Gemini unavailable
     - Preserves formatting (markdown, code blocks, etc.)
     """
+
+    # FIX: Modelo atualizado. gemini-1.5-flash estava deprecado na nova SDK.
+    _MODEL_NAME = "gemini-2.0-flash"
 
     def __init__(self):
         super().__init__(name="translate")
         self._client = None
-        self._model_name = "gemini-1.5-flash"
-        self._cache: Dict[str, Dict] = {}  # key: hash → result
+        self._cache: Dict[str, Dict] = {}
         self._cache_max = 200
 
     async def _initialize(self) -> None:
-        """Initialize Google Generative AI client."""
-        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        """Initialize Google Generative AI client (nova SDK google-genai)."""
+        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 
         if not api_key:
             raise ServiceUnavailableError(
-                "GOOGLE_API_KEY ou GEMINI_API_KEY não encontrada nas variáveis de ambiente"
+                "GEMINI_API_KEY não encontrada nas variáveis de ambiente"
             )
 
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            self._client = genai.GenerativeModel(self._model_name)
-            self.logger.info("TranslateService inicializado com %s", self._model_name)
+            # FIX: Usa nova SDK "google-genai" (from google import genai)
+            # em vez de "google-generativeai" (import google.generativeai as genai)
+            # A nova SDK é a única instalada no requirements.txt do projeto.
+            from google import genai as google_genai  # noqa: F401 - nova SDK
+
+            self._client = google_genai.Client(api_key=api_key)
+            self.logger.info(
+                "TranslateService inicializado com %s (google-genai nova SDK)",
+                self._MODEL_NAME,
+            )
         except ImportError:
             raise ServiceUnavailableError(
-                "google-generativeai não instalado. Execute: pip install google-generativeai"
+                "google-genai não instalado. Execute: pip install google-genai"
             )
+        except Exception as e:
+            raise ServiceUnavailableError(f"Falha ao inicializar cliente Gemini: {e}")
 
     async def _health_check(self) -> bool:
         return self._client is not None
@@ -181,9 +219,8 @@ class TranslateService(BaseService):
             "latency_s": round(latency, 3),
         }
 
-        # Cache result
+        # Cache result (FIFO eviction)
         if len(self._cache) >= self._cache_max:
-            # Remove oldest entry (simple FIFO eviction)
             oldest = next(iter(self._cache))
             del self._cache[oldest]
         self._cache[cache_key] = result
@@ -203,14 +240,25 @@ class TranslateService(BaseService):
 
         prompt = (
             f"Detect the language of this text and respond ONLY with a JSON object.\n"
-            f"Format: {{\"lang_code\": \"xx\", \"lang_name\": \"Language Name\", \"confidence\": \"high\"}}\n"
+            f'Format: {{"lang_code": "xx", "lang_name": "Language Name", "confidence": "high"}}\n'
             f"Text: '''{text[:500]}'''"
         )
 
         try:
-            response = await self._client.generate_content_async(prompt)
+            # FIX: usa nova SDK client.aio.models.generate_content (async)
+            response = await self._client.aio.models.generate_content(
+                model=self._MODEL_NAME,
+                contents=prompt,
+            )
             import json
-            raw = response.text.strip().strip("```json").strip("```").strip()
+
+            raw = response.text.strip()
+            # Strip markdown fences if present
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            raw = raw.strip()
             data = json.loads(raw)
             return {
                 "lang_code": data.get("lang_code", "unknown"),
@@ -239,7 +287,10 @@ class TranslateService(BaseService):
         target_lang_name: str,
         source_lang: Optional[str],
     ) -> tuple[str, Optional[str]]:
-        """Call Gemini API for translation. Returns (translated_text, detected_source)."""
+        """
+        Call Gemini API for translation via nova SDK.
+        Returns (translated_text, detected_source).
+        """
         if source_lang:
             source_hint = f"from {SUPPORTED_LANGUAGES.get(source_lang, source_lang)} "
         else:
@@ -255,9 +306,15 @@ class TranslateService(BaseService):
             f"Text to translate:\n{text}"
         )
 
-        response = await self._client.generate_content_async(prompt)
+        # FIX: usa nova SDK client.aio.models.generate_content (async nativo)
+        # Antes: self._client.generate_content_async(prompt) → SDK antiga
+        # Agora: self._client.aio.models.generate_content(model=..., contents=...) → SDK nova
+        response = await self._client.aio.models.generate_content(
+            model=self._MODEL_NAME,
+            contents=prompt,
+        )
         translated = response.text.strip()
-        return translated, None  # Gemini doesn't return detected lang directly
+        return translated, None  # Gemini não retorna idioma detetado diretamente
 
     def _cache_key(
         self,
