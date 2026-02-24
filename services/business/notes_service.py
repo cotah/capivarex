@@ -4,33 +4,11 @@ services/business/notes_service.py
 ====================================
 Notas pessoais persistentes via Supabase.
 
-Diferença vs ReminderService:
-- ReminderService → "me lembra às 10h de fazer X" (tem data de disparo)
-- NotesService    → "anota que preciso ligar ao dentista" (texto livre, sem data)
-
-Funcionalidades:
-- Criar nota (texto livre, título auto-gerado das primeiras palavras)
-- Listar notas (fixadas primeiro, depois por data DESC)
-- Buscar notas por texto (título + conteúdo)
-- Fixar nota (pinned) para aparecer sempre no topo
-- Arquivar nota (some da listagem normal, mas não é apagada)
-- Apagar nota permanentemente
-- Apagar todas as notas
-
-Tabela Supabase esperada:
-    CREATE TABLE notes (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id     TEXT NOT NULL,
-        chat_id     TEXT NOT NULL,
-        title       TEXT NOT NULL,
-        content     TEXT NOT NULL,
-        tags        TEXT[] DEFAULT '{}',
-        pinned      BOOLEAN DEFAULT FALSE,
-        archived    BOOLEAN DEFAULT FALSE,
-        created_at  TIMESTAMPTZ DEFAULT NOW(),
-        updated_at  TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE INDEX notes_user_idx ON notes(user_id);
+FIX [2025-02]: search_notes agora busca por palavras individuais.
+  ANTES: `.or_("title.ilike.%seguro carro%,content.ilike.%seguro carro%")`
+          → só encontra se "seguro carro" aparecer como substring exata
+  DEPOIS: split em palavras → cada palavra gera um filtro ilike
+          → "seguro carro" encontra notas que tenham "seguro" E "carro" em qualquer posição
 """
 
 import asyncio
@@ -45,11 +23,56 @@ MAX_CONTENT_LENGTH = 2000
 MAX_TITLE_LENGTH = 100
 MAX_NOTES_PER_USER = 500
 
-# Palavras a ignorar ao gerar título automático
 _STOP_WORDS = {
-    "anota", "anote", "escreve", "salva", "guarda", "nota", "que", "de",
-    "o", "a", "os", "as", "um", "uma", "para", "por", "com", "em",
-    "tenho", "preciso", "devo", "quero", "vou", "me", "minha", "meu",
+    "anota",
+    "anote",
+    "escreve",
+    "salva",
+    "guarda",
+    "nota",
+    "que",
+    "de",
+    "o",
+    "a",
+    "os",
+    "as",
+    "um",
+    "uma",
+    "para",
+    "por",
+    "com",
+    "em",
+    "tenho",
+    "preciso",
+    "devo",
+    "quero",
+    "vou",
+    "me",
+    "minha",
+    "meu",
+}
+
+# Palavras de busca genéricas a ignorar para não trazer tudo
+_SEARCH_STOP_WORDS = {
+    "busca",
+    "buscar",
+    "procura",
+    "procurar",
+    "encontra",
+    "encontrar",
+    "nota",
+    "notas",
+    "sobre",
+    "acerca",
+    "relacionado",
+    "ver",
+    "veja",
+    "mostra",
+    "mostrar",
+    "lista",
+    "listar",
+    "minhas",
+    "meus",
 }
 
 
@@ -58,25 +81,15 @@ def _utcnow() -> datetime:
 
 
 def _auto_title(content: str) -> str:
-    """
-    Gera título curto e significativo a partir do conteúdo.
-
-    Exemplos:
-        "Ligar ao dentista amanhã"            → "Ligar ao dentista amanhã"
-        "Anota: renovar seguro carro em março" → "Renovar seguro carro em março"
-    """
-    # Remove prefixos de comando
     cleaned = re.sub(
         r"^(anota[r]?|escreve[r]?|salva[r]?|guarda[r]?|nota[r]?)\s*[:\-]?\s*",
         "",
         content,
         flags=re.I,
     ).strip()
-
     words = re.split(r"\s+", cleaned)
     significant = [
-        w for w in words
-        if w.lower().rstrip(".,!?:") not in _STOP_WORDS and len(w) > 1
+        w for w in words if w.lower().rstrip(".,!?:") not in _STOP_WORDS and len(w) > 1
     ]
     title = " ".join(significant[:8]).strip().rstrip(".,!?:")
     if title:
@@ -85,8 +98,38 @@ def _auto_title(content: str) -> str:
 
 
 def _extract_tags(content: str) -> List[str]:
-    """Extrai hashtags: "nota importante #saúde #urgente" → ["saúde", "urgente"]"""
     return [m.group(1).lower() for m in re.finditer(r"#(\w+)", content)]
+
+
+def _split_query_words(query: str, min_len: int = 3) -> List[str]:
+    """
+    Divide a query em palavras significativas para busca multi-palavra.
+
+    Exemplo:
+        "seguro carro" → ["seguro", "carro"]
+        "buscar nota sobre seguro" → ["seguro"]  (stop words removidas)
+        "dentista" → ["dentista"]
+
+    Args:
+        query: Texto de busca
+        min_len: Tamanho mínimo de uma palavra para ser considerada
+
+    Returns:
+        Lista de palavras significativas (lowercase, sem pontuação)
+    """
+    # Remove pontuação e normaliza
+    cleaned = re.sub(r"[^\w\s]", " ", query.lower())
+    words = cleaned.split()
+    significant = [
+        w
+        for w in words
+        if len(w) >= min_len and w not in _SEARCH_STOP_WORDS and w not in _STOP_WORDS
+    ]
+    # Se não sobrou nada após o filtro, usa as palavras originais sem stop words
+    if not significant:
+        significant = [w for w in words if len(w) >= min_len]
+    # Ainda nada → usa query inteira
+    return significant or [query.lower().strip()]
 
 
 @register_service("notes")
@@ -95,14 +138,14 @@ class NotesService(BaseService):
     Serviço de notas pessoais — CRUD completo via Supabase.
 
     Interface pública:
-        create_note(user_id, chat_id, content, title?)   → Dict
-        list_notes(user_id, limit, include_archived)     → List[Dict]
-        search_notes(user_id, query, limit)              → List[Dict]
-        get_note(user_id, note_id)                       → Optional[Dict]
-        pin_note(user_id, note_id, pinned)               → bool
-        archive_note(user_id, note_id)                   → bool
-        delete_note(user_id, note_id)                    → bool
-        delete_all_notes(user_id)                        → int
+        create_note(user_id, chat_id, content, title?) → Dict
+        list_notes(user_id, limit, include_archived) → List[Dict]
+        search_notes(user_id, query, limit) → List[Dict]   ← FIX: busca por palavras
+        get_note(user_id, note_id) → Optional[Dict]
+        pin_note(user_id, note_id, pinned) → bool
+        archive_note(user_id, note_id) → bool
+        delete_note(user_id, note_id) → bool
+        delete_all_notes(user_id) → int
     """
 
     def __init__(self):
@@ -111,9 +154,12 @@ class NotesService(BaseService):
 
     async def _initialize(self) -> None:
         from services.core import get_service
+
         self._db = get_service("database")
         if not self._db:
-            raise ServiceUnavailableError("DatabaseService indisponível para NotesService")
+            raise ServiceUnavailableError(
+                "DatabaseService indisponível para NotesService"
+            )
         if not self._db.is_initialized():
             await self._db.initialize()
         self.logger.info("NotesService initialized")
@@ -138,21 +184,6 @@ class NotesService(BaseService):
         content: str,
         title: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Cria uma nova nota pessoal.
-
-        Args:
-            user_id:  ID do utilizador
-            chat_id:  Chat ID Telegram
-            content:  Texto da nota (suporta #hashtags)
-            title:    Título opcional — gerado automaticamente se omitido
-
-        Returns:
-            Dict com a nota criada (id, title, content, created_at, ...)
-
-        Raises:
-            ValueError: conteúdo vazio, muito longo, ou limite atingido
-        """
         if not self.is_initialized():
             await self.initialize()
 
@@ -160,7 +191,9 @@ class NotesService(BaseService):
         if not content:
             raise ValueError("O conteúdo da nota não pode ser vazio.")
         if len(content) > MAX_CONTENT_LENGTH:
-            raise ValueError(f"Nota muito longa (máximo {MAX_CONTENT_LENGTH} caracteres).")
+            raise ValueError(
+                f"Nota muito longa (máximo {MAX_CONTENT_LENGTH} caracteres)."
+            )
 
         count = await self._count_notes(user_id)
         if count >= MAX_NOTES_PER_USER:
@@ -170,13 +203,13 @@ class NotesService(BaseService):
 
         now = _utcnow().isoformat()
         payload = {
-            "user_id":    str(user_id),
-            "chat_id":    str(chat_id),
-            "title":      title or _auto_title(content),
-            "content":    content,
-            "tags":       _extract_tags(content),
-            "pinned":     False,
-            "archived":   False,
+            "user_id": str(user_id),
+            "chat_id": str(chat_id),
+            "title": title or _auto_title(content),
+            "content": content,
+            "tags": _extract_tags(content),
+            "pinned": False,
+            "archived": False,
             "created_at": now,
             "updated_at": now,
         }
@@ -185,6 +218,7 @@ class NotesService(BaseService):
             None,
             lambda: self._client().table(NOTES_TABLE).insert(payload).execute(),
         )
+
         if not response.data:
             raise RuntimeError("Falha ao criar nota no banco de dados.")
 
@@ -198,17 +232,6 @@ class NotesService(BaseService):
         limit: int = 10,
         include_archived: bool = False,
     ) -> List[Dict[str, Any]]:
-        """
-        Lista notas do utilizador (fixadas primeiro, depois data DESC).
-
-        Args:
-            user_id:          ID do utilizador
-            limit:            Máximo de resultados (max 50)
-            include_archived: Se True, inclui notas arquivadas
-
-        Returns:
-            Lista de notas ordenada
-        """
         if not self.is_initialized():
             await self.initialize()
 
@@ -240,15 +263,20 @@ class NotesService(BaseService):
         limit: int = 10,
     ) -> List[Dict[str, Any]]:
         """
-        Busca notas por texto no título e conteúdo (case-insensitive).
+        Busca notas por palavras-chave individuais (case-insensitive).
 
-        Args:
-            user_id: ID do utilizador
-            query:   Texto a pesquisar
-            limit:   Máximo de resultados
+        FIX: Antes usava uma única substring ilike — agora divide a query em
+        palavras e faz múltiplos filtros OR, garantindo que cada palavra
+        seja encontrada independentemente de ordem ou contexto.
 
-        Returns:
-            Lista de notas correspondentes
+        Exemplos:
+            "seguro carro" → encontra "Renovar seguro do carro em março"
+            "dentista" → encontra qualquer nota que contenha "dentista"
+            "ligar médico" → encontra notas com "ligar" OU "médico"
+
+        Se a query tiver 2+ palavras significativas, executa duas estratégias:
+        1. Busca pela frase completa (mais relevante — resultado no topo)
+        2. Busca por cada palavra individual, merge sem duplicatas
         """
         if not self.is_initialized():
             await self.initialize()
@@ -258,7 +286,35 @@ class NotesService(BaseService):
             return await self.list_notes(user_id, limit)
 
         limit = min(limit, 50)
-        q = query.lower()
+        words = _split_query_words(query)
+
+        # Estratégia 1: busca pela frase completa
+        exact_results = await self._search_by_phrase(user_id, query, limit)
+
+        # Se já tem resultados suficientes ou é 1 palavra, retorna direto
+        if len(exact_results) >= limit or len(words) <= 1:
+            return exact_results
+
+        # Estratégia 2: busca por palavras individuais (merge, sem duplicatas)
+        seen_ids = {r["id"] for r in exact_results}
+        combined = list(exact_results)
+
+        for word in words:
+            if len(combined) >= limit:
+                break
+            word_results = await self._search_by_phrase(user_id, word, limit)
+            for r in word_results:
+                if r["id"] not in seen_ids:
+                    seen_ids.add(r["id"])
+                    combined.append(r)
+
+        return combined[:limit]
+
+    async def _search_by_phrase(
+        self, user_id: str, phrase: str, limit: int
+    ) -> List[Dict[str, Any]]:
+        """Busca por substring exata em título e conteúdo."""
+        q = phrase.lower()
 
         def _search():
             return (
@@ -278,7 +334,6 @@ class NotesService(BaseService):
         return response.data or []
 
     async def get_note(self, user_id: str, note_id: str) -> Optional[Dict[str, Any]]:
-        """Retorna uma nota pelo ID (deve pertencer ao utilizador)."""
         if not self.is_initialized():
             await self.initialize()
 
@@ -296,12 +351,6 @@ class NotesService(BaseService):
         return response.data[0] if response.data else None
 
     async def pin_note(self, user_id: str, note_id: str, pinned: bool = True) -> bool:
-        """
-        Fixa ou desfixa uma nota.
-
-        Returns:
-            True se actualizado, False se não encontrado
-        """
         if not self.is_initialized():
             await self.initialize()
         return await self._update_fields(
@@ -309,12 +358,6 @@ class NotesService(BaseService):
         )
 
     async def archive_note(self, user_id: str, note_id: str) -> bool:
-        """
-        Arquiva uma nota (some da listagem, mas não é apagada).
-
-        Returns:
-            True se arquivada, False se não encontrada
-        """
         if not self.is_initialized():
             await self.initialize()
         return await self._update_fields(
@@ -324,12 +367,6 @@ class NotesService(BaseService):
         )
 
     async def delete_note(self, user_id: str, note_id: str) -> bool:
-        """
-        Apaga uma nota permanentemente.
-
-        Returns:
-            True se apagada, False se não encontrada
-        """
         if not self.is_initialized():
             await self.initialize()
 
@@ -352,12 +389,6 @@ class NotesService(BaseService):
         return True
 
     async def delete_all_notes(self, user_id: str) -> int:
-        """
-        Apaga TODAS as notas do utilizador.
-
-        Returns:
-            Número de notas apagadas
-        """
         if not self.is_initialized():
             await self.initialize()
 
@@ -390,7 +421,6 @@ class NotesService(BaseService):
     async def _update_fields(
         self, user_id: str, note_id: str, updates: Dict[str, Any]
     ) -> bool:
-        """Actualiza campos de uma nota. Retorna True se encontrada."""
         check = await self._loop().run_in_executor(
             None,
             lambda: (
@@ -424,7 +454,6 @@ class NotesService(BaseService):
 
     @staticmethod
     def format_date(created_at_str: str) -> str:
-        """Formata data de criação: '2026-02-22T10:30:00+00:00' → '22/02/2026 10:30'"""
         try:
             dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
             return dt.strftime("%d/%m/%Y %H:%M")
@@ -433,5 +462,4 @@ class NotesService(BaseService):
 
     @staticmethod
     def short_id(note_id: str) -> str:
-        """Primeiros 8 chars do UUID para exibição: 'abc12345-...' → 'abc12345'"""
         return note_id[:8] if note_id else ""
