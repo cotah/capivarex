@@ -76,15 +76,41 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         logger.info("Transcription successful: %d chars", len(transcription_text))
 
-        # Process as text message
+        # Process as text message — use "source":"voice" (not "input_type")
+        # so the orchestrator routes to chat, NOT voice agent
         user_context = {
             "user_id": update.effective_user.id,
             "chat_id": update.effective_chat.id,
             "username": update.effective_user.username,
-            "input_type": "voice",
+            "source": "voice",  # FIXED: era "input_type": "voice" → causava loop no voice agent
         }
 
         result = await bot.process_message(transcription_text, user_context)
+
+        # Se a resposta é texto (sem áudio), converter para voz via TTS
+        has_audio = result.data and result.data.get("audio_path")
+        if not has_audio and result.response:
+            try:
+                voice_pipeline = get_service("voice_pipeline")
+                if voice_pipeline:
+                    if not voice_pipeline.is_initialized():
+                        await voice_pipeline.initialize()
+                    tts_result = await voice_pipeline.text_to_speech(
+                        text=result.response,
+                        language="pt",
+                    )
+                    audio_path = tts_result.get("audio_path")
+                    if audio_path:
+                        from agents.core import AgentResponse  # noqa: F811
+                        result = AgentResponse(
+                            status=result.status,
+                            response=result.response,
+                            data={"audio_path": audio_path},
+                            metadata={"type": "audio", "file_path": audio_path},
+                        )
+            except Exception as tts_err:
+                logger.warning("TTS failed, falling back to text: %s", tts_err)
+
         await send_agent_response(update, result)
 
     except Exception as e:
