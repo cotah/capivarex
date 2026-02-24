@@ -2,41 +2,41 @@
 Voice Agent - Text-to-speech and speech-to-text.
 
 FIX [2025-02]: Adicionada função _strip_markdown_for_tts() que remove
-               formatação Markdown antes de enviar texto ao ElevenLabs.
-               Sem este fix, o bot lia em voz alta: "asterisco asterisco
-               Alarme configurado asterisco asterisco" em vez de "Alarme configurado".
+formatação Markdown antes de enviar texto ao ElevenLabs.
+
+FIX [2025-02 v2]:
+  - Adicionado get_capabilities() (retornava [] por herdar BaseAgent)
+  - Adicionado try/except no _handle_tts para capturar RuntimeError do ElevenLabs
+    (ex: quota exceeded) e retornar AgentResponse.ERROR em vez de propagar
 """
 
 import logging
 import re
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from agents.core import AgentResponse, AgentStatus, BaseAgent, register_agent
 from services import get_service
 
 logger = logging.getLogger(__name__)
 
-
 # ─── Markdown stripping ───────────────────────────────────────────────────────
-
-# Ranges de emojis Unicode mais comuns
 _EMOJI_RE = re.compile(
     "["
-    "\U0001f600-\U0001f64f"  # Emoticons
-    "\U0001f300-\U0001f5ff"  # Símbolos & Pictogramas
-    "\U0001f680-\U0001f6ff"  # Transporte & Mapa
-    "\U0001f1e0-\U0001f1ff"  # Bandeiras
-    "\U00002600-\U000026ff"  # Símbolos Miscelâneos
-    "\U00002700-\U000027bf"  # Dingbats
-    "\U000023f0-\U000023ff"  # Relógios e temporizadores
-    "\U0000231a-\U0000231b"  # Relógio de pulso
-    "\U000025aa-\U000025fe"  # Quadrados pequenos
-    "\U00002b50-\U00002b55"  # Estrelas
-    "\U0001f900-\U0001f9ff"  # Suplemento de símbolos
-    "\U0001fa00-\U0001fa6f"  # Símbolos de xadrez
-    "\U0001fa70-\U0001faff"  # Emojis de símbolos
+    "\U0001f600-\U0001f64f"
+    "\U0001f300-\U0001f5ff"
+    "\U0001f680-\U0001f6ff"
+    "\U0001f1e0-\U0001f1ff"
+    "\U00002600-\U000026ff"
+    "\U00002700-\U000027bf"
+    "\U000023f0-\U000023ff"
+    "\U0000231a-\U0000231b"
+    "\U000025aa-\U000025fe"
+    "\U00002b50-\U00002b55"
+    "\U0001f900-\U0001f9ff"
+    "\U0001fa00-\U0001fa6f"
+    "\U0001fa70-\U0001faff"
     "]+",
     flags=re.UNICODE,
 )
@@ -47,52 +47,27 @@ def _strip_markdown_for_tts(text: str) -> str:
     Remove formatação Markdown e emojis para leitura TTS.
 
     Converte:
-      **Texto**          → Texto
-      *Texto*            → Texto
-      # Título           → Título
-      • Item             → Item
-      [link](url)        → link
-      `código`           → código (sem backticks)
-      ⏱️ Emoji          → (removido)
-
-    Args:
-        text: Texto com possível formatação Markdown
-
-    Returns:
-        Texto limpo adequado para síntese de voz
+      **Texto** → Texto
+      *Texto*   → Texto
+      # Título  → Título
+      • Item    → Item
+      [link](url) → link
+      `código`  → código
+      ⏱️ Emoji  → (removido)
     """
     if not text:
         return text
-
-    # Remove bold e italic (***texto***, **texto**, *texto*)
     text = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", text, flags=re.DOTALL)
-
-    # Remove headers markdown (# ## ###)
     text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
-
-    # Remove bullet points (• - * +)
     text = re.sub(r"^\s*[•\-\*\+]\s+", "", text, flags=re.MULTILINE)
-
-    # Remove links markdown [texto](url) → texto
     text = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", text)
-
-    # Remove inline code e code blocks
     text = re.sub(r"```[\s\S]*?```", "", text)
     text = re.sub(r"`([^`]+)`", r"\1", text)
-
-    # Remove underscore italic _texto_
     text = re.sub(r"_(.+?)_", r"\1", text)
-
-    # Remove emojis
     text = _EMOJI_RE.sub("", text)
-
-    # Remove linhas com apenas separadores (---, ___, ***)
     text = re.sub(r"^[\-_\*]{3,}\s*$", "", text, flags=re.MULTILINE)
-
-    # Normaliza espaços e newlines excessivos
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r" {2,}", " ", text)
-
     return text.strip()
 
 
@@ -112,30 +87,10 @@ class VoiceAgent(BaseAgent):
     """
 
     def __init__(self):
-        """Initialise the voice agent."""
         super().__init__(name="voice", description="Text-to-speech and speech-to-text")
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
-        """
-        Execute voice operation based on context.
-
-        Context can contain:
-        - action: "text_to_speech" or "speech_to_text"
-        - text: Text to convert to audio (TTS)
-        - audio_path: Path to audio file (STT)
-        - audio_bytes: Bytes of audio file (STT)
-        - voice: Voice name for TTS (optional)
-        - language: Language for STT (optional, default: pt)
-
-        Args:
-            prompt: User's prompt (used as text for TTS if no text in context)
-            context: Execution context with action parameters
-
-        Returns:
-            AgentResponse with audio file path or transcription
-        """
         action = context.get("action", "text_to_speech")
-
         if action == "speech_to_text":
             return await self._handle_stt(prompt, context)
         else:
@@ -153,9 +108,7 @@ class VoiceAgent(BaseAgent):
                 error="Empty text for TTS",
             )
 
-        # FIX: Strip markdown antes de enviar ao ElevenLabs.
-        # Sem este fix, o bot lê "asterisco asterisco Alarme configurado asterisco asterisco"
-        # em vez de "Alarme configurado".
+        # Strip markdown antes de enviar ao ElevenLabs
         text_to_convert = _strip_markdown_for_tts(text_to_convert)
 
         if not text_to_convert:
@@ -165,7 +118,6 @@ class VoiceAgent(BaseAgent):
                 error="Text empty after markdown stripping",
             )
 
-        # Get ElevenLabs service
         elevenlabs_svc = get_service("elevenlabs")
         if not elevenlabs_svc:
             return AgentResponse(
@@ -176,22 +128,38 @@ class VoiceAgent(BaseAgent):
 
         await elevenlabs_svc.initialize()
 
-        # Get voice configuration
         voice_name = context.get("voice", "rachel")
         try:
             from services.ai.elevenlabs_service import PORTUGUESE_VOICES
         except ImportError:
             PORTUGUESE_VOICES = {}
+
         voice_id = PORTUGUESE_VOICES.get(
-            voice_name, PORTUGUESE_VOICES.get("rachel", voice_name)
+            voice_name,
+            PORTUGUESE_VOICES.get("rachel", voice_name),
         )
 
-        # Convert text to audio
-        audio_bytes = await elevenlabs_svc.text_to_speech(
-            text=text_to_convert, voice_id=voice_id
-        )
+        # FIX: try/except para capturar erros do ElevenLabs (quota, network, etc.)
+        try:
+            audio_bytes = await elevenlabs_svc.text_to_speech(
+                text=text_to_convert,
+                voice_id=voice_id,
+            )
+        except Exception as e:
+            self.logger.error("TTS failed: %s", e, exc_info=True)
+            err_lower = str(e).lower()
+            if "quota" in err_lower or "limit" in err_lower:
+                msg = "Quota de voz atingida. Tenta mais tarde."
+            elif "unauthorized" in err_lower or "401" in err_lower:
+                msg = "Chave ElevenLabs inválida ou expirada."
+            else:
+                msg = f"Erro ao gerar áudio: {e}"
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=msg,
+                error=str(e),
+            )
 
-        # Save audio to temporary file
         output_path = context.get("output_path")
         if not output_path:
             temp_dir = Path(mkdtemp())
@@ -206,7 +174,6 @@ class VoiceAgent(BaseAgent):
             output_path,
             voice_name,
         )
-
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=f"Áudio gerado com sucesso: {output_path}",
@@ -243,9 +210,7 @@ class VoiceAgent(BaseAgent):
 
         try:
             client = openai_svc.get_client()
-
             if audio_bytes:
-                # Write bytes to temp file
                 temp_dir = Path(mkdtemp())
                 audio_path = str(temp_dir / "input_audio.ogg")
                 with open(audio_path, "wb") as f:
@@ -259,15 +224,11 @@ class VoiceAgent(BaseAgent):
                 )
 
             text = transcription.text or ""
-            self.logger.info("STT completed: '%s...'", text[:50])
-
+            self.logger.info("STT completed: '%.50s...'", text)
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=text,
-                data={
-                    "transcription": text,
-                    "language": language,
-                },
+                data={"transcription": text, "language": language},
             )
 
         except Exception as e:
@@ -277,3 +238,14 @@ class VoiceAgent(BaseAgent):
                 response=f"Erro na transcrição: {str(e)}",
                 error=str(e),
             )
+
+    # FIX: get_capabilities() estava ausente → herdava [] do BaseAgent
+    def get_capabilities(self) -> List[str]:
+        return [
+            "text_to_speech",
+            "speech_to_text",
+            "tts",
+            "stt",
+            "voice_synthesis",
+            "audio_transcription",
+        ]

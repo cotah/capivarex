@@ -5,6 +5,7 @@ Tests para as 3 novas features:
   - TranslateService + TranslateAgent (mock Gemini API)
   - CryptoService + CryptoAgent (mock CoinGecko HTTP)
 """
+
 import time
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -15,12 +16,14 @@ import pytest
 # 1. TIME AGENT (zero mocks — usa stdlib)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestTimeAgent:
     """TimeAgent usa apenas datetime + zoneinfo — sem deps externas."""
 
     @pytest.fixture
     def agent(self):
         from agents.specialized.time_agent import TimeAgent
+
         return TimeAgent()
 
     @pytest.mark.asyncio
@@ -52,14 +55,13 @@ class TestTimeAgent:
         assert r.is_success()
         assert "date" in r.data
         import re
+
         assert re.match(r"\d{4}-\d{2}-\d{2}", r.data["date"])
 
     @pytest.mark.asyncio
     async def test_timezone_diff_two_cities(self, agent):
         """Diferença entre Dublin e São Paulo deve ser detectada corretamente."""
-        r = await agent.execute(
-            "Diferença de horário entre Dublin e São Paulo?", {}
-        )
+        r = await agent.execute("Diferença de horário entre Dublin e São Paulo?", {})
         assert r.is_success()
         assert "city_a" in r.data
         assert "city_b" in r.data
@@ -86,6 +88,7 @@ class TestTimeAgent:
     async def test_known_cities_map(self, agent):
         """Todos os major cities no mapa devem resolver sem erro."""
         from agents.specialized.time_agent import CITY_TO_TZ
+
         cities_to_test = ["são paulo", "new york", "tokyo", "london", "sydney", "dubai"]
         for city in cities_to_test:
             tz = agent._resolve_tz(city, {})
@@ -110,7 +113,15 @@ class TestTimeAgent:
         """Resposta de data deve incluir dia da semana em PT-BR."""
         r = await agent.execute("Qual a data de hoje?", {})
         assert r.is_success()
-        weekdays = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+        weekdays = [
+            "segunda",
+            "terça",
+            "quarta",
+            "quinta",
+            "sexta",
+            "sábado",
+            "domingo",
+        ]
         assert any(wd in r.response.lower() for wd in weekdays)
 
     def test_capabilities(self, agent):
@@ -123,25 +134,32 @@ class TestTimeAgent:
         """Pedido de diff sem cidades no prompt nem contexto deve retornar ERROR."""
         r = await agent.execute("qual a diferença de horário?", {})
         assert not r.is_success()
-        assert "duas cidades" in r.response.lower() or "two cities" in r.response.lower()
+        assert (
+            "duas cidades" in r.response.lower() or "two cities" in r.response.lower()
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. TRANSLATE SERVICE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestTranslateService:
     """TranslateService com mock do Gemini GenerativeModel."""
 
     @pytest.fixture
     def svc(self):
-        """TranslateService com cliente Gemini mockado."""
+        """TranslateService com cliente Gemini mockado (nova SDK aio.models.generate_content)."""
         from services.business.translate_service import TranslateService
+
         s = TranslateService()
-        mock_model = AsyncMock()
         mock_response = MagicMock()
         mock_response.text = "Hello, how are you?"
-        mock_model.generate_content_async = AsyncMock(return_value=mock_response)
+        mock_aio_generate = AsyncMock(return_value=mock_response)
+        mock_model = MagicMock()
+        mock_model.aio = MagicMock()
+        mock_model.aio.models = MagicMock()
+        mock_model.aio.models.generate_content = mock_aio_generate
         s._client = mock_model
         s._initialized = True
         return s, mock_model
@@ -170,7 +188,7 @@ class TestTranslateService:
         service, mock_model = svc
         await service.translate("Olá", target_lang="en")
         await service.translate("Olá", target_lang="en")  # cache hit
-        assert mock_model.generate_content_async.call_count == 1
+        assert mock_model.aio.models.generate_content.call_count == 1
 
     @pytest.mark.asyncio
     async def test_translate_different_targets_no_cache(self, svc):
@@ -178,15 +196,17 @@ class TestTranslateService:
         service, mock_model = svc
         await service.translate("Olá", target_lang="en")
         await service.translate("Olá", target_lang="es")
-        assert mock_model.generate_content_async.call_count == 2
+        assert mock_model.aio.models.generate_content.call_count == 2
 
     @pytest.mark.asyncio
     async def test_detect_language_returns_dict(self, svc):
         """detect_language deve retornar dict com lang_code."""
         service, mock_model = svc
         mock_response = MagicMock()
-        mock_response.text = '{"lang_code": "pt", "lang_name": "Portuguese", "confidence": "high"}'
-        mock_model.generate_content_async = AsyncMock(return_value=mock_response)
+        mock_response.text = (
+            '{"lang_code": "pt", "lang_name": "Portuguese", "confidence": "high"}'
+        )
+        mock_model.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
         result = await service.detect_language("Olá mundo")
         assert result["lang_code"] == "pt"
@@ -198,7 +218,7 @@ class TestTranslateService:
         service, mock_model = svc
         mock_response = MagicMock()
         mock_response.text = "I cannot determine the language."
-        mock_model.generate_content_async = AsyncMock(return_value=mock_response)
+        mock_model.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
         result = await service.detect_language("???")
         assert result["lang_code"] == "unknown"
@@ -246,6 +266,7 @@ class TestTranslateService:
 # 3. TRANSLATE AGENT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestTranslateAgent:
     """TranslateAgent com TranslateService mockado."""
 
@@ -257,21 +278,25 @@ class TestTranslateAgent:
         agent = TranslateAgent()
         mock_svc = AsyncMock(spec=TranslateService)
         mock_svc.is_initialized.return_value = True
-        mock_svc.translate = AsyncMock(return_value={
-            "translated_text": "Hello, good morning",
-            "original_text": "Olá, bom dia",
-            "source_lang": "pt",
-            "target_lang": "en",
-            "target_lang_name": "Inglês",
-            "detected_lang": None,
-            "chars": 12,
-            "latency_s": 0.3,
-        })
-        mock_svc.detect_language = AsyncMock(return_value={
-            "lang_code": "pt",
-            "lang_name": "Portuguese",
-            "confidence": "high",
-        })
+        mock_svc.translate = AsyncMock(
+            return_value={
+                "translated_text": "Hello, good morning",
+                "original_text": "Olá, bom dia",
+                "source_lang": "pt",
+                "target_lang": "en",
+                "target_lang_name": "Inglês",
+                "detected_lang": None,
+                "chars": 12,
+                "latency_s": 0.3,
+            }
+        )
+        mock_svc.detect_language = AsyncMock(
+            return_value={
+                "lang_code": "pt",
+                "lang_name": "Portuguese",
+                "confidence": "high",
+            }
+        )
 
         return agent, mock_svc
 
@@ -279,7 +304,9 @@ class TestTranslateAgent:
     async def test_translate_prompt_pattern(self, agent_and_svc):
         """'Traduz X para Y' deve chamar translate corretamente."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.translate_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.translate_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Traduz 'olá, bom dia' para inglês", {})
         assert r.is_success()
         mock_svc.translate.assert_called_once()
@@ -288,7 +315,9 @@ class TestTranslateAgent:
     async def test_how_to_say_pattern(self, agent_and_svc):
         """'Como se diz X em Y' deve chamar translate."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.translate_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.translate_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Como se diz 'obrigado' em japonês?", {})
         assert r.is_success()
 
@@ -296,7 +325,9 @@ class TestTranslateAgent:
     async def test_detect_language_intent(self, agent_and_svc):
         """'Qual o idioma desse texto' deve chamar detect_language."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.translate_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.translate_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Qual o idioma desse texto: Bonjour le monde", {})
         assert r.is_success()
         mock_svc.detect_language.assert_called_once()
@@ -305,7 +336,9 @@ class TestTranslateAgent:
     async def test_context_target_lang(self, agent_and_svc):
         """Context com target_lang deve ser usado quando não há padrão no prompt."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.translate_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.translate_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Bom dia, como você está?", {"target_lang": "en"})
         assert r.is_success()
         mock_svc.translate.assert_called_once()
@@ -323,7 +356,9 @@ class TestTranslateAgent:
     async def test_unknown_intent_returns_help_message(self, agent_and_svc):
         """Prompt sem intenção clara deve retornar mensagem de ajuda."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.translate_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.translate_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("qual o clima hoje?", {})
         # Pode retornar ERROR com exemplos de uso
         assert not r.is_success()
@@ -332,7 +367,9 @@ class TestTranslateAgent:
     async def test_short_text_response_inline(self, agent_and_svc):
         """Texto curto deve ter resposta inline (sem bloco separado)."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.translate_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.translate_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("traduz 'hello' para português", {})
         assert r.is_success()
         # Resposta curta não deve ter bloco "Tradução para:"
@@ -349,6 +386,7 @@ class TestTranslateAgent:
 # 4. CRYPTO SERVICE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestCryptoService:
     """CryptoService com mock do cliente HTTP."""
 
@@ -364,16 +402,18 @@ class TestCryptoService:
         mock_price_response = AsyncMock()
         mock_price_response.status_code = 200
         mock_price_response.raise_for_status = Mock()
-        mock_price_response.json = Mock(return_value={
-            "bitcoin": {
-                "usd": 65000.50,
-                "brl": 325000.00,
-                "eur": 60000.00,
-                "usd_24h_change": 2.35,
-                "brl_24h_change": 2.35,
-                "eur_24h_change": 2.35,
+        mock_price_response.json = Mock(
+            return_value={
+                "bitcoin": {
+                    "usd": 65000.50,
+                    "brl": 325000.00,
+                    "eur": 60000.00,
+                    "usd_24h_change": 2.35,
+                    "brl_24h_change": 2.35,
+                    "eur_24h_change": 2.35,
+                }
             }
-        })
+        )
         mock_http.get = AsyncMock(return_value=mock_price_response)
 
         s._http = mock_http
@@ -420,7 +460,12 @@ class TestCryptoService:
 
         # Injeta entrada expirada manualmente
         service._cache["price:bitcoin:usd,brl,eur"] = {
-            "data": {"coin_id": "bitcoin", "prices": {}, "change_24h": {}, "market_cap": {}},
+            "data": {
+                "coin_id": "bitcoin",
+                "prices": {},
+                "change_24h": {},
+                "market_cap": {},
+            },
             "expires_at": time.time() - 1,  # já expirou
         }
         await service.get_price("bitcoin")
@@ -433,18 +478,26 @@ class TestCryptoService:
         mock_markets_response = AsyncMock()
         mock_markets_response.status_code = 200
         mock_markets_response.raise_for_status = Mock()
-        mock_markets_response.json = Mock(return_value=[
-            {
-                "id": "bitcoin", "name": "Bitcoin", "symbol": "btc",
-                "current_price": 65000, "market_cap": 1_200_000_000_000,
-                "price_change_percentage_24h": 2.1,
-            },
-            {
-                "id": "ethereum", "name": "Ethereum", "symbol": "eth",
-                "current_price": 3500, "market_cap": 400_000_000_000,
-                "price_change_percentage_24h": -1.2,
-            },
-        ])
+        mock_markets_response.json = Mock(
+            return_value=[
+                {
+                    "id": "bitcoin",
+                    "name": "Bitcoin",
+                    "symbol": "btc",
+                    "current_price": 65000,
+                    "market_cap": 1_200_000_000_000,
+                    "price_change_percentage_24h": 2.1,
+                },
+                {
+                    "id": "ethereum",
+                    "name": "Ethereum",
+                    "symbol": "eth",
+                    "current_price": 3500,
+                    "market_cap": 400_000_000_000,
+                    "price_change_percentage_24h": -1.2,
+                },
+            ]
+        )
         mock_http.get = AsyncMock(return_value=mock_markets_response)
 
         results = await service.get_top_coins(n=2, vs_currency="usd")
@@ -457,11 +510,14 @@ class TestCryptoService:
     async def test_get_price_rate_limit_error(self, svc):
         """Rate limit (429) deve lançar RuntimeError com mensagem amigável."""
         import httpx
+
         service, mock_http = svc
 
         mock_response = MagicMock()
         mock_response.status_code = 429
-        error = httpx.HTTPStatusError("Too many requests", request=Mock(), response=mock_response)
+        error = httpx.HTTPStatusError(
+            "Too many requests", request=Mock(), response=mock_response
+        )
         mock_http.get = AsyncMock(side_effect=error)
 
         with pytest.raises(RuntimeError, match="Rate limit"):
@@ -492,6 +548,7 @@ class TestCryptoService:
 # 5. CRYPTO AGENT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestCryptoAgent:
     """CryptoAgent com CryptoService mockado."""
 
@@ -503,21 +560,43 @@ class TestCryptoAgent:
         agent = CryptoAgent()
         mock_svc = AsyncMock(spec=CryptoService)
         mock_svc.is_initialized.return_value = True
-        mock_svc.get_price = AsyncMock(return_value={
-            "coin_id": "bitcoin",
-            "coin_name": "Bitcoin",
-            "prices": {"usd": 65000.00, "brl": 325000.00, "eur": 60000.00},
-            "change_24h": {"usd": 2.35, "brl": 2.35, "eur": 2.35},
-            "market_cap": {},
-            "latency_s": 0.2,
-        })
-        mock_svc.get_top_coins = AsyncMock(return_value=[
-            {"rank": 1, "id": "bitcoin", "name": "Bitcoin", "symbol": "BTC",
-             "price": 65000, "change_24h": 2.1, "market_cap": 1_200_000_000_000, "currency": "usd"},
-            {"rank": 2, "id": "ethereum", "name": "Ethereum", "symbol": "ETH",
-             "price": 3500, "change_24h": -1.2, "market_cap": 400_000_000_000, "currency": "usd"},
-        ])
-        mock_svc.resolve_coin_id = Mock(side_effect=lambda x: "bitcoin" if x in ("btc", "bitcoin") else None)
+        mock_svc.get_price = AsyncMock(
+            return_value={
+                "coin_id": "bitcoin",
+                "coin_name": "Bitcoin",
+                "prices": {"usd": 65000.00, "brl": 325000.00, "eur": 60000.00},
+                "change_24h": {"usd": 2.35, "brl": 2.35, "eur": 2.35},
+                "market_cap": {},
+                "latency_s": 0.2,
+            }
+        )
+        mock_svc.get_top_coins = AsyncMock(
+            return_value=[
+                {
+                    "rank": 1,
+                    "id": "bitcoin",
+                    "name": "Bitcoin",
+                    "symbol": "BTC",
+                    "price": 65000,
+                    "change_24h": 2.1,
+                    "market_cap": 1_200_000_000_000,
+                    "currency": "usd",
+                },
+                {
+                    "rank": 2,
+                    "id": "ethereum",
+                    "name": "Ethereum",
+                    "symbol": "ETH",
+                    "price": 3500,
+                    "change_24h": -1.2,
+                    "market_cap": 400_000_000_000,
+                    "currency": "usd",
+                },
+            ]
+        )
+        mock_svc.resolve_coin_id = Mock(
+            side_effect=lambda x: "bitcoin" if x in ("btc", "bitcoin") else None
+        )
 
         return agent, mock_svc
 
@@ -525,7 +604,9 @@ class TestCryptoAgent:
     async def test_bitcoin_price_query(self, agent_and_svc):
         """'Qual o preço do Bitcoin?' deve retornar SUCCESS com preço."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Qual o preço do Bitcoin?", {})
         assert r.is_success()
         assert "Bitcoin" in r.response
@@ -535,7 +616,9 @@ class TestCryptoAgent:
     async def test_btc_ticker_query(self, agent_and_svc):
         """'BTC em BRL' deve usar ticker e currency corretamente."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("BTC em BRL", {})
         assert r.is_success()
 
@@ -543,7 +626,9 @@ class TestCryptoAgent:
     async def test_top_coins_query(self, agent_and_svc):
         """'Top 10 criptomoedas' deve chamar get_top_coins."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Top 10 criptomoedas", {})
         assert r.is_success()
         mock_svc.get_top_coins.assert_called_once()
@@ -554,7 +639,9 @@ class TestCryptoAgent:
     async def test_top_with_n(self, agent_and_svc):
         """'Top 5 cripto' deve passar n=5 para get_top_coins."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             await agent.execute("top 5 criptos", {})
         call_kwargs = mock_svc.get_top_coins.call_args
         n_passed = call_kwargs.kwargs.get("n") or call_kwargs.args[0]
@@ -572,7 +659,9 @@ class TestCryptoAgent:
             "market_cap": {},
             "latency_s": 0.1,
         }
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("ETH em reais", {})
         assert r.is_success()
 
@@ -580,7 +669,9 @@ class TestCryptoAgent:
     async def test_price_includes_24h_change(self, agent_and_svc):
         """Resposta de preço deve incluir variação 24h com emoji."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("preço do bitcoin", {})
         assert r.is_success()
         assert "%" in r.response or "24h" in r.response
@@ -590,7 +681,9 @@ class TestCryptoAgent:
         """Moeda desconhecida deve retornar ERROR."""
         agent, mock_svc = agent_and_svc
         mock_svc.get_price = AsyncMock(side_effect=ValueError("não encontrada"))
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("quanto custa o BogusCoin123?", {})
         assert not r.is_success()
 
@@ -606,7 +699,9 @@ class TestCryptoAgent:
     async def test_context_coin_override(self, agent_and_svc):
         """Context com 'coin' deve sobrepor extração do prompt."""
         agent, mock_svc = agent_and_svc
-        with patch("agents.specialized.crypto_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.crypto_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("qual o preço?", {"coin": "bitcoin"})
         assert r.is_success()
 
