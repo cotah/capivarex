@@ -108,6 +108,22 @@ class CapivaraXBot:
         """
         from agents.core import AgentResponse, AgentStatus
 
+        # Resolve Telegram numeric ID → internal UUID (needed for DB operations)
+        telegram_id = str(context.get("user_id", ""))
+        if telegram_id and not self._is_uuid(telegram_id):
+            try:
+                db_svc = get_service("database")
+                if db_svc and db_svc.is_initialized():
+                    user_row = await db_svc.get_user_by_telegram_id(telegram_id)
+                    if user_row:
+                        context = {
+                            **context,
+                            "user_id": user_row["id"],         # UUID para o DB
+                            "telegram_user_id": telegram_id,   # ID original preservado
+                        }
+            except Exception as e:
+                self.logger.warning("Could not resolve user UUID: %s", e)
+
         try:
             orchestrator = self.agents.get("orchestrator")
             if not orchestrator:
@@ -116,14 +132,11 @@ class CapivaraXBot:
                     response="Bot não está pronto. Tente novamente em alguns segundos.",
                 )
 
-            # Orchestrator identifies the target agent
             decision = await orchestrator.process(text, context)
             agent_name = decision.response if hasattr(decision, "response") else str(decision)
 
-            # Execute the identified agent
             agent = get_agent(agent_name)
             if not agent:
-                # Fallback to chat agent
                 agent = get_agent("chat") or self.agents.get("chat")
 
             if not agent:
@@ -132,7 +145,6 @@ class CapivaraXBot:
                     response=f"Agente '{agent_name}' não disponível.",
                 )
 
-            # Process the message with the specific agent
             result = await agent.process(text, context)
             return result
         except Exception as e:
@@ -141,4 +153,13 @@ class CapivaraXBot:
                 status=AgentStatus.ERROR,
                 response=f"Erro ao processar mensagem: {str(e)}",
             )
+
+    @staticmethod
+    def _is_uuid(value: str) -> bool:
+        """Check if a string is a valid UUID."""
+        import re
+        return bool(re.match(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+            value, re.I,
+        ))
 
