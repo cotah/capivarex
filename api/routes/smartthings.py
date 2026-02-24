@@ -154,7 +154,7 @@ async def _get_valid_access_token(user_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/webhook")
+@router.post("")
 async def smartthings_webhook(request: Request) -> JSONResponse:
     """
     SmartThings Automation Connector lifecycle handler.
