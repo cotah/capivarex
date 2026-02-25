@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 
 # Valid intents for smart home commands
 VALID_INTENTS = {
-    "list_devices", "device_status", "turn_on", "turn_off",
-    "set_brightness", "lock", "unlock", "thermostat", "general"
+    "list_devices",
+    "device_status",
+    "turn_on",
+    "turn_off",
+    "set_brightness",
+    "lock",
+    "unlock",
+    "thermostat",
+    "general",
 }
 
 
@@ -38,8 +45,7 @@ class SmartHomeAgent(BaseAgent):
     def __init__(self):
         """Initialise the smart home agent."""
         super().__init__(
-            name="smarthome",
-            description="Controls smart home devices via SmartThings"
+            name="smarthome", description="Controls smart home devices via SmartThings"
         )
 
     async def _get_smartthings_service(self) -> Optional[Any]:
@@ -67,8 +73,13 @@ class SmartHomeAgent(BaseAgent):
         return None
 
     async def _save_connection(
-        self, user_id: str, access_token: str, refresh_token: str,
-        expires_at: str, installed_app_id: str, location_id: str,
+        self,
+        user_id: str,
+        access_token: str,
+        refresh_token: str,
+        expires_at: str,
+        installed_app_id: str,
+        location_id: str,
     ) -> bool:
         """Persist SmartThings connection to DB."""
         try:
@@ -77,8 +88,12 @@ class SmartHomeAgent(BaseAgent):
                 if not db.is_initialized():
                     await db.initialize()
                 return await db.save_smartthings_connection(
-                    user_id, access_token, refresh_token,
-                    expires_at, installed_app_id, location_id,
+                    user_id,
+                    access_token,
+                    refresh_token,
+                    expires_at,
+                    installed_app_id,
+                    location_id,
                 )
         except Exception as e:
             self.logger.warning(f"Could not save smartthings connection: {e}")
@@ -103,19 +118,19 @@ class SmartHomeAgent(BaseAgent):
         system_prompt = (
             "You are an intent classifier for smart home commands.\n\n"
             "Analyze the user's message and return a JSON object with:\n"
-            "- \"intent\": one of: list_devices, device_status, turn_on, turn_off, "
+            '- "intent": one of: list_devices, device_status, turn_on, turn_off, '
             "set_brightness, lock, unlock, thermostat, general\n"
-            "- \"device_name\": the device name mentioned (e.g. \"sala\", \"quarto\", \"TV\", \"ar condicionado\") or null\n"
-            "- \"brightness\": brightness level 0-100 if mentioned, or null\n"
-            "- \"temperature\": temperature value if mentioned, or null\n\n"
+            '- "device_name": the device name mentioned (e.g. "sala", "quarto", "TV", "ar condicionado") or null\n'
+            '- "brightness": brightness level 0-100 if mentioned, or null\n'
+            '- "temperature": temperature value if mentioned, or null\n\n'
             "Examples:\n"
-            "\"acenda as luzes da sala\" → {\"intent\":\"turn_on\",\"device_name\":\"sala\",\"brightness\":null,\"temperature\":null}\n"
-            "\"apague a luz do quarto\" → {\"intent\":\"turn_off\",\"device_name\":\"quarto\",\"brightness\":null,\"temperature\":null}\n"
-            "\"quais dispositivos tenho?\" → {\"intent\":\"list_devices\",\"device_name\":null,\"brightness\":null,\"temperature\":null}\n"
-            "\"status da TV\" → {\"intent\":\"device_status\",\"device_name\":\"TV\",\"brightness\":null,\"temperature\":null}\n"
-            "\"coloque o brilho em 50%\" → {\"intent\":\"set_brightness\",\"device_name\":null,\"brightness\":50,\"temperature\":null}\n"
-            "\"tranque a porta\" → {\"intent\":\"lock\",\"device_name\":\"porta\",\"brightness\":null,\"temperature\":null}\n"
-            "\"ajuste o ar para 22 graus\" → {\"intent\":\"thermostat\",\"device_name\":\"ar\",\"brightness\":null,\"temperature\":22}\n\n"
+            '"acenda as luzes da sala" → {"intent":"turn_on","device_name":"sala","brightness":null,"temperature":null}\n'
+            '"apague a luz do quarto" → {"intent":"turn_off","device_name":"quarto","brightness":null,"temperature":null}\n'
+            '"quais dispositivos tenho?" → {"intent":"list_devices","device_name":null,"brightness":null,"temperature":null}\n'
+            '"status da TV" → {"intent":"device_status","device_name":"TV","brightness":null,"temperature":null}\n'
+            '"coloque o brilho em 50%" → {"intent":"set_brightness","device_name":null,"brightness":50,"temperature":null}\n'
+            '"tranque a porta" → {"intent":"lock","device_name":"porta","brightness":null,"temperature":null}\n'
+            '"ajuste o ar para 22 graus" → {"intent":"thermostat","device_name":"ar","brightness":null,"temperature":22}\n\n'
             "Return ONLY the JSON object, no other text."
         )
 
@@ -124,13 +139,14 @@ class SmartHomeAgent(BaseAgent):
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
+                    {"role": "user", "content": user_message},
                 ],
                 temperature=0.0,
-                max_tokens=100
+                max_tokens=100,
             )
 
             import json
+
             raw = (response.choices[0].message.content or "").strip()
             # Remove markdown code fences if present
             if raw.startswith("```"):
@@ -187,11 +203,7 @@ class SmartHomeAgent(BaseAgent):
             self.logger.warning(f"Device lookup failed: {e}")
             return None
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Process smart home queries and commands.
 
@@ -202,7 +214,9 @@ class SmartHomeAgent(BaseAgent):
         Returns:
             AgentResponse with device data or command result
         """
-        access_token = context.get("smartthings_access_token") or context.get("access_token")
+        access_token = context.get("smartthings_access_token") or context.get(
+            "access_token"
+        )
 
         # Get SmartThings service
         smartthings = await self._get_smartthings_service()
@@ -210,24 +224,44 @@ class SmartHomeAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Serviço SmartThings não disponível. Verifique a configuração.",
-                error="SmartThings service not available"
+                error="SmartThings service not available",
             )
 
         # Check if service has a token (either stored or from context)
         if not smartthings.access_token and not access_token:
+            import os
+            from urllib.parse import urlencode
+
+            client_id = os.getenv("SMARTTHINGS_CLIENT_ID", "")
+            redirect_uri = os.getenv("SMARTTHINGS_REDIRECT_URI", "")
+            user_id = context.get("user_id", "unknown")
+
+            if client_id and redirect_uri:
+                params = urlencode(
+                    {
+                        "client_id": client_id,
+                        "redirect_uri": redirect_uri,
+                        "response_type": "code",
+                        "scope": "r:devices:* x:devices:* r:locations:* w:devices:*",
+                        "state": user_id,
+                    }
+                )
+                oauth_url = f"https://api.smartthings.com/oauth/authorize?{params}"
+                connect_msg = (
+                    "🏠 SmartThings não conectado\n\n"
+                    "Clica no link abaixo para ligar a tua conta Samsung/SmartThings:\n\n"
+                    f"🔗 {oauth_url}\n\n"
+                    "Após autorizar, os teus dispositivos ficarão disponíveis."
+                )
+            else:
+                connect_msg = (
+                    "🏠 SmartThings não conectado\n\n"
+                    "Configura SMARTTHINGS_CLIENT_ID e SMARTTHINGS_REDIRECT_URI no Railway."
+                )
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=(
-                    "🏠 SmartThings não conectado\n\n"
-                    "Você precisa conectar sua conta SmartThings primeiro.\n"
-                    "Use o endpoint /api/smartthings/auth para autenticar.\n\n"
-                    "Após conectar, você poderá:\n"
-                    "- Ligar/desligar luzes e dispositivos\n"
-                    "- Ver status dos dispositivos\n"
-                    "- Controlar termostato\n"
-                    "- Trancar/destrancar portas"
-                ),
-                data={"needs_connection": True}
+                response=connect_msg,
+                data={"needs_connection": True},
             )
 
         # Analyze intent
@@ -278,13 +312,12 @@ class SmartHomeAgent(BaseAgent):
 
         except Exception as e:
             self.logger.error(
-                f"SmartHomeAgent failed for intent '{intent}': {e}",
-                exc_info=True
+                f"SmartHomeAgent failed for intent '{intent}': {e}", exc_info=True
             )
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao processar comando de casa inteligente: {str(e)}",
-                error=str(e)
+                error=str(e),
             )
 
     # ------------------------------------------------------------------
@@ -301,7 +334,7 @@ class SmartHomeAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response="Nenhum dispositivo encontrado na sua conta SmartThings.",
-                data={"devices": []}
+                data={"devices": []},
             )
 
         lines = ["🏠 Seus Dispositivos SmartThings\n"]
@@ -315,12 +348,11 @@ class SmartHomeAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response="\n".join(lines),
-            data={"devices": devices, "count": len(devices)}
+            data={"devices": devices, "count": len(devices)},
         )
 
     async def _handle_device_status(
-        self, smartthings: Any, device_name: Optional[str],
-        access_token: Optional[str]
+        self, smartthings: Any, device_name: Optional[str], access_token: Optional[str]
     ) -> AgentResponse:
         """Get status of a specific device."""
         device = await self._find_device_by_name(smartthings, device_name, access_token)
@@ -332,18 +364,18 @@ class SmartHomeAgent(BaseAgent):
                     f"Não encontrei o dispositivo '{device_name or 'desconhecido'}'.\n"
                     "Diga 'listar dispositivos' para ver todos os disponíveis."
                 ),
-                data={"found": False}
+                data={"found": False},
             )
 
         device_id = device.get("deviceId")
         label = device.get("label") or device.get("name")
-        status = await smartthings.get_device_status(device_id, access_token=access_token)
+        status = await smartthings.get_device_status(
+            device_id, access_token=access_token
+        )
 
         # Extract switch state if available
         main_comp = status.get("components", {}).get("main", {})
-        switch_state = (
-            main_comp.get("switch", {}).get("switch", {}).get("value", "N/A")
-        )
+        switch_state = main_comp.get("switch", {}).get("switch", {}).get("value", "N/A")
 
         response = (
             f"📊 Status: {label}\n\n"
@@ -351,12 +383,20 @@ class SmartHomeAgent(BaseAgent):
         )
 
         # Add temperature if available
-        temp = main_comp.get("temperatureMeasurement", {}).get("temperature", {}).get("value")
+        temp = (
+            main_comp.get("temperatureMeasurement", {})
+            .get("temperature", {})
+            .get("value")
+        )
         if temp is not None:
             response += f"\nTemperatura: {temp}°C"
 
         # Add humidity if available
-        humidity = main_comp.get("relativeHumidityMeasurement", {}).get("humidity", {}).get("value")
+        humidity = (
+            main_comp.get("relativeHumidityMeasurement", {})
+            .get("humidity", {})
+            .get("value")
+        )
         if humidity is not None:
             response += f"\nUmidade: {humidity}%"
 
@@ -368,12 +408,15 @@ class SmartHomeAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=response,
-            data={"device": label, "status": status}
+            data={"device": label, "status": status},
         )
 
     async def _handle_turn_on(
-        self, smartthings: Any, device_name: Optional[str],
-        brightness: Optional[int], access_token: Optional[str]
+        self,
+        smartthings: Any,
+        device_name: Optional[str],
+        brightness: Optional[int],
+        access_token: Optional[str],
     ) -> AgentResponse:
         """Turn on a device."""
         device = await self._find_device_by_name(smartthings, device_name, access_token)
@@ -385,7 +428,7 @@ class SmartHomeAgent(BaseAgent):
                     f"Não encontrei o dispositivo '{device_name or 'desconhecido'}'.\n"
                     "Diga 'listar dispositivos' para ver todos os disponíveis."
                 ),
-                data={"found": False}
+                data={"found": False},
             )
 
         device_id = device.get("deviceId")
@@ -395,20 +438,25 @@ class SmartHomeAgent(BaseAgent):
             success = await smartthings.turn_on_light(
                 device_id, brightness=brightness, access_token=access_token
             )
-            msg = f"💡 {label} ligado com brilho em {brightness}%!" if success else f"❌ Erro ao ligar {label}."
+            msg = (
+                f"💡 {label} ligado com brilho em {brightness}%!"
+                if success
+                else f"❌ Erro ao ligar {label}."
+            )
         else:
-            success = await smartthings.turn_on_device(device_id, access_token=access_token)
+            success = await smartthings.turn_on_device(
+                device_id, access_token=access_token
+            )
             msg = f"✅ {label} ligado!" if success else f"❌ Erro ao ligar {label}."
 
         return AgentResponse(
             status=AgentStatus.SUCCESS if success else AgentStatus.ERROR,
             response=msg,
-            data={"device": label, "action": "turn_on", "success": success}
+            data={"device": label, "action": "turn_on", "success": success},
         )
 
     async def _handle_turn_off(
-        self, smartthings: Any, device_name: Optional[str],
-        access_token: Optional[str]
+        self, smartthings: Any, device_name: Optional[str], access_token: Optional[str]
     ) -> AgentResponse:
         """Turn off a device."""
         device = await self._find_device_by_name(smartthings, device_name, access_token)
@@ -420,24 +468,29 @@ class SmartHomeAgent(BaseAgent):
                     f"Não encontrei o dispositivo '{device_name or 'desconhecido'}'.\n"
                     "Diga 'listar dispositivos' para ver todos os disponíveis."
                 ),
-                data={"found": False}
+                data={"found": False},
             )
 
         device_id = device.get("deviceId")
         label = device.get("label") or device.get("name")
 
-        success = await smartthings.turn_off_device(device_id, access_token=access_token)
+        success = await smartthings.turn_off_device(
+            device_id, access_token=access_token
+        )
         msg = f"⭕ {label} desligado!" if success else f"❌ Erro ao desligar {label}."
 
         return AgentResponse(
             status=AgentStatus.SUCCESS if success else AgentStatus.ERROR,
             response=msg,
-            data={"device": label, "action": "turn_off", "success": success}
+            data={"device": label, "action": "turn_off", "success": success},
         )
 
     async def _handle_set_brightness(
-        self, smartthings: Any, device_name: Optional[str],
-        brightness: int, access_token: Optional[str]
+        self,
+        smartthings: Any,
+        device_name: Optional[str],
+        brightness: int,
+        access_token: Optional[str],
     ) -> AgentResponse:
         """Set brightness for a light device."""
         device = await self._find_device_by_name(smartthings, device_name, access_token)
@@ -449,7 +502,7 @@ class SmartHomeAgent(BaseAgent):
                     f"Não encontrei o dispositivo '{device_name or 'desconhecido'}'.\n"
                     "Diga 'listar dispositivos' para ver todos os disponíveis."
                 ),
-                data={"found": False}
+                data={"found": False},
             )
 
         device_id = device.get("deviceId")
@@ -468,12 +521,16 @@ class SmartHomeAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS if success else AgentStatus.ERROR,
             response=msg,
-            data={"device": label, "action": "set_brightness", "brightness": brightness, "success": success}
+            data={
+                "device": label,
+                "action": "set_brightness",
+                "brightness": brightness,
+                "success": success,
+            },
         )
 
     async def _handle_lock(
-        self, smartthings: Any, device_name: Optional[str],
-        access_token: Optional[str]
+        self, smartthings: Any, device_name: Optional[str], access_token: Optional[str]
     ) -> AgentResponse:
         """Lock a smart lock."""
         device = await self._find_device_by_name(smartthings, device_name, access_token)
@@ -482,7 +539,7 @@ class SmartHomeAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response="Não encontrei a fechadura. Diga 'listar dispositivos' para ver todos.",
-                data={"found": False}
+                data={"found": False},
             )
 
         device_id = device.get("deviceId")
@@ -494,12 +551,11 @@ class SmartHomeAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS if success else AgentStatus.ERROR,
             response=msg,
-            data={"device": label, "action": "lock", "success": success}
+            data={"device": label, "action": "lock", "success": success},
         )
 
     async def _handle_unlock(
-        self, smartthings: Any, device_name: Optional[str],
-        access_token: Optional[str]
+        self, smartthings: Any, device_name: Optional[str], access_token: Optional[str]
     ) -> AgentResponse:
         """Unlock a smart lock."""
         device = await self._find_device_by_name(smartthings, device_name, access_token)
@@ -508,24 +564,29 @@ class SmartHomeAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response="Não encontrei a fechadura. Diga 'listar dispositivos' para ver todos.",
-                data={"found": False}
+                data={"found": False},
             )
 
         device_id = device.get("deviceId")
         label = device.get("label") or device.get("name")
 
         success = await smartthings.unlock_door(device_id, access_token=access_token)
-        msg = f"🔓 {label} destrancado!" if success else f"❌ Erro ao destrancar {label}."
+        msg = (
+            f"🔓 {label} destrancado!" if success else f"❌ Erro ao destrancar {label}."
+        )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS if success else AgentStatus.ERROR,
             response=msg,
-            data={"device": label, "action": "unlock", "success": success}
+            data={"device": label, "action": "unlock", "success": success},
         )
 
     async def _handle_thermostat(
-        self, smartthings: Any, device_name: Optional[str],
-        temperature: float, access_token: Optional[str]
+        self,
+        smartthings: Any,
+        device_name: Optional[str],
+        temperature: float,
+        access_token: Optional[str],
     ) -> AgentResponse:
         """Set thermostat temperature."""
         device = await self._find_device_by_name(smartthings, device_name, access_token)
@@ -534,7 +595,7 @@ class SmartHomeAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response="Não encontrei o termostato. Diga 'listar dispositivos' para ver todos.",
-                data={"found": False}
+                data={"found": False},
             )
 
         device_id = device.get("deviceId")
@@ -553,12 +614,16 @@ class SmartHomeAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS if success else AgentStatus.ERROR,
             response=msg,
-            data={"device": label, "action": "thermostat", "temperature": temperature, "success": success}
+            data={
+                "device": label,
+                "action": "thermostat",
+                "temperature": temperature,
+                "success": success,
+            },
         )
 
     async def _handle_general(
-        self, smartthings: Any, prompt: str,
-        access_token: Optional[str]
+        self, smartthings: Any, prompt: str, access_token: Optional[str]
     ) -> AgentResponse:
         """Handle general smart home questions using GPT with device context."""
         # Gather device list for context
@@ -580,7 +645,7 @@ class SmartHomeAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Serviço de IA não disponível para responder sua pergunta.",
-                error="OpenAI service not available"
+                error="OpenAI service not available",
             )
 
         await openai_svc.initialize()
@@ -596,17 +661,17 @@ class SmartHomeAgent(BaseAgent):
             response_text = await openai_svc.chat_completion(
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": prompt},
                 ],
                 model="gpt-4o-mini",
                 temperature=0.7,
-                max_tokens=500
+                max_tokens=500,
             )
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=(response_text or "").strip(),
-                data={"method": "general_ai"}
+                data={"method": "general_ai"},
             )
 
         except Exception as e:
@@ -614,7 +679,7 @@ class SmartHomeAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao processar sua pergunta: {str(e)}",
-                error=str(e)
+                error=str(e),
             )
 
     def get_capabilities(self) -> List[str]:
