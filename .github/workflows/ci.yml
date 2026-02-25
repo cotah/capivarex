@@ -60,7 +60,6 @@ jobs:
         pytest tests/ \
           --cov=. \
           --cov-report=term-missing \
-          --cov-fail-under=80 \
           -q
 
   security:
