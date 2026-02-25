@@ -130,7 +130,7 @@ class TranslateService(BaseService):
     """
 
     # FIX: Modelo atualizado. gemini-1.5-flash estava deprecado na nova SDK.
-    _MODEL_NAME = "gemini-2.0-flash-lite"
+    _MODEL_NAME = "gemini-2.5-flash"
 
     def __init__(self):
         super().__init__(name="translate")
