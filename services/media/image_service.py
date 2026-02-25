@@ -1,15 +1,10 @@
 """
 Image Service - Refactored with BaseService architecture.
 
-FIX [2025-02]: O método `client.models.generate_images()` da google-genai SDK
-               é SÍNCRONO (bloqueante). Chamá-lo diretamente num contexto async
-               bloqueia o event loop do Railway por vários segundos, causando
-               timeout da resposta HTTP antes de a imagem ser gerada.
-
-  ANTES: response = self.client.models.generate_images(...)  ← bloqueia event loop
-  DEPOIS: response = await asyncio.to_thread(
-              self.client.models.generate_images, ...
-          )  ← executa em thread pool, não bloqueia
+FIX [2025-02]:
+  1. O método `client.models.generate_images()` da google-genai SDK é SÍNCRONO.
+     Usar asyncio.to_thread para não bloquear o event loop.
+  2. Sempre gera 1 imagem (não 2 ou 4). Utilizador controla se quer mais.
 """
 
 import asyncio
@@ -40,7 +35,7 @@ class ImageService(BaseService):
 
     Features:
     - Image generation with Imagen 4 via google-genai nova SDK
-    - Plan-based image count
+    - Always generates 1 image (clean, no collage)
     - Automatic retry on failures
     - Metrics tracking
     """
@@ -83,12 +78,15 @@ class ImageService(BaseService):
         """
         Generate an image with Imagen 4.
 
+        SEMPRE gera 1 imagem. Se o utilizador quiser mais,
+        pode pedir explicitamente.
+
         Args:
             prompt: Image generation prompt
             user_plan: User plan (basic, pro, enterprise)
             aspect_ratio: Aspect ratio (1:1, 3:4, 4:3, 9:16, 16:9)
-            negative_prompt: Kept for interface compat (Imagen 4 não suporta)
-            seed: Kept for interface compat (Imagen 4 não suporta)
+            negative_prompt: Kept for interface compat
+            seed: Kept for interface compat
 
         Returns:
             Dict with success status and image paths
@@ -98,8 +96,9 @@ class ImageService(BaseService):
 
         start_time = time.time()
 
-        num_images_map = {"basic": 1, "pro": 2, "enterprise": 4}
-        num_images = num_images_map.get(user_plan, 1)
+        # FIX: Sempre 1 imagem. Antes era 2 para pro e 4 para enterprise,
+        # o que causava colagens e múltiplas fotos indesejadas.
+        num_images = 1
 
         try:
             from google.genai import types
@@ -118,8 +117,6 @@ class ImageService(BaseService):
 
             # FIX: generate_images é síncrono na google-genai SDK.
             # Usar asyncio.to_thread para não bloquear o event loop.
-            # ANTES: response = self.client.models.generate_images(...)  ← BLOQUEIA
-            # DEPOIS: response = await asyncio.to_thread(...)  ← não bloqueia
             response = await asyncio.to_thread(
                 self.client.models.generate_images,
                 model=self.MODEL_NAME,
@@ -129,8 +126,8 @@ class ImageService(BaseService):
 
             os.makedirs("generated_images", exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            saved_images = []
 
+            saved_images = []
             for idx, generated_image in enumerate(response.generated_images):
                 output_path = os.path.join(
                     "generated_images", f"img_{timestamp}_{idx}.png"
