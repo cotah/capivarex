@@ -551,6 +551,20 @@ class WeatherAgent(BaseAgent):
             alerts.append(f"🔆 UV alto: {day['uv']} ({_uv_label(day['uv'])})")
         return alerts
 
+    def _extract_location(self, prompt: str, context: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract location from context or prompt.
+        Kept for backward compat with tests.
+        """
+        if context.get("location"):
+            return str(context["location"]).strip()
+
+        match = LOCATION_PATTERN.search(prompt or "")
+        if match:
+            return match.group(1).strip(" .,!?:;")
+
+        return self._extract_location_from_text(prompt)
+
     def _extract_location_from_text(self, prompt: str) -> Optional[str]:
         """
         Último recurso: tenta extrair nome de cidade do texto.
@@ -572,6 +586,7 @@ class WeatherAgent(BaseAgent):
         cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
 
         # Só retorna se sobrou algo com pelo menos 3 caracteres
+        # e que tenha pelo menos uma letra maiúscula ou parece um nome próprio
         if len(cleaned) >= 3:
             return cleaned
 
