@@ -9,6 +9,9 @@ Modos de activação:
   2. Proactivo → ProactivityService chama via context action="check_departure"
   3. Específico → "quando devo sair para a reunião das 15h?"
 
+GPS auto-use (Passo 4C): Quando user_location não está no context,
+busca coordenadas do Supabase via get_location() antes de usar Dublin default.
+
 Exemplos de queries:
   - "Quando devo sair?"
   - "A que horas saio para o próximo evento?"
@@ -29,25 +32,51 @@ from services.business.leaving_now_service import LeavingNowResult
 # ─── Keywords de intent ───────────────────────────────────────────────────────
 
 _REACTIVE_KEYWORDS = [
-    "quando sair", "quando devo sair", "hora de sair", "que horas saio",
-    "quanto tempo tenho", "devo sair", "when to leave", "time to leave",
-    "when should i leave", "should i leave",
-    "a que horas saio", "quando precisar sair",
+    "quando sair",
+    "quando devo sair",
+    "hora de sair",
+    "que horas saio",
+    "quanto tempo tenho",
+    "devo sair",
+    "when to leave",
+    "time to leave",
+    "when should i leave",
+    "should i leave",
+    "a que horas saio",
+    "quando precisar sair",
 ]
 
 _TODAY_ALL_KEYWORDS = [
-    "eventos de hoje", "todos os eventos", "agenda de hoje",
-    "today's events", "all events today", "todos hoje",
+    "eventos de hoje",
+    "todos os eventos",
+    "agenda de hoje",
+    "today's events",
+    "all events today",
+    "todos hoje",
 ]
 
 _TRANSIT_KEYWORDS = [
-    "autocarro", "bus", "metro", "luas", "dart", "comboio", "train",
-    "transporte público", "public transport", "transit",
-    "sem carro", "without car", "a pé não",
+    "autocarro",
+    "bus",
+    "metro",
+    "luas",
+    "dart",
+    "comboio",
+    "train",
+    "transporte público",
+    "public transport",
+    "transit",
+    "sem carro",
+    "without car",
+    "a pé não",
 ]
 
 _DRIVING_KEYWORDS = [
-    "de carro", "car", "driving", "drive", "carro",
+    "de carro",
+    "car",
+    "driving",
+    "drive",
+    "carro",
 ]
 
 
@@ -80,7 +109,7 @@ def _extract_prep_minutes(prompt: str, context: Dict) -> float:
     # "preciso de 15 minutos para me preparar"
     match = re.search(
         r"(\d+)\s*(minutos?|min)\s*(para me preparar|de preparação|para sair)",
-        prompt.lower()
+        prompt.lower(),
     )
     if match:
         return float(match.group(1))
@@ -94,10 +123,11 @@ class LeavingNowAgent(BaseAgent):
     Agente "Hora de Sair" — nunca mais te atrases.
 
     Calcula exactamente quando sair, considerando:
-      - Trânsito em tempo real (Google Maps)
-      - Transporte público + atrasos TFI GTFS-Realtime
-      - Clima (buffer de chuva automático)
-      - Tempo de preparação pessoal
+    - Trânsito em tempo real (Google Maps)
+    - Transporte público + atrasos TFI GTFS-Realtime
+    - Clima (buffer de chuva automático)
+    - Tempo de preparação pessoal
+    - GPS auto-use do Supabase quando sem localização explícita
 
     Activa-se de forma proactiva via ProactivityService
     ou reactiva quando o utilizador pergunta.
@@ -112,9 +142,7 @@ class LeavingNowAgent(BaseAgent):
             ),
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         try:
             svc = get_service("leaving_now")
             if not svc:
@@ -130,11 +158,37 @@ class LeavingNowAgent(BaseAgent):
                 await svc.initialize()
 
             # Localização do utilizador
-            user_location = (
-                context.get("user_location")
-                or context.get("location")
-                or "Dublin, Ireland"
-            )
+            user_location = context.get("user_location") or context.get("location")
+
+            # ── GPS AUTO-USE (Passo 4C) ────────────────────────────────
+            # Se não há user_location no context, tenta GPS do Supabase
+            if not user_location:
+                user_uuid = context.get("user_id")
+                if user_uuid:
+                    try:
+                        from services.business.user_preferences_service import (
+                            get_location,
+                        )
+
+                        loc = await get_location(str(user_uuid), prefer="last")
+                        if loc:
+                            lat, lng = loc
+                            user_location = f"{lat},{lng}"
+                            self.logger.info(
+                                "LeavingNowAgent GPS auto-use: %s,%s for user %s",
+                                lat,
+                                lng,
+                                user_uuid,
+                            )
+                    except Exception as e:
+                        self.logger.warning(
+                            "Could not fetch GPS for leaving_now: %s", e
+                        )
+
+            # Último fallback — Dublin hardcoded
+            if not user_location:
+                user_location = "Dublin, Ireland"
+            # ── FIM GPS AUTO-USE ───────────────────────────────────────
 
             transport_mode = _detect_transport_mode(prompt, context)
             prep_minutes = _extract_prep_minutes(prompt, context)
@@ -154,8 +208,7 @@ class LeavingNowAgent(BaseAgent):
             # ── Evento específico no context ──────────────────────────────────
             if context.get("event"):
                 return await self._handle_specific_event(
-                    svc, context["event"], user_location,
-                    transport_mode, prep_minutes
+                    svc, context["event"], user_location, transport_mode, prep_minutes
                 )
 
             # ── Query natural → próximo evento ────────────────────────────────
@@ -176,8 +229,7 @@ class LeavingNowAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_next_event(
-        self, svc: Any, location: str,
-        transport_mode: str, prep_minutes: float
+        self, svc: Any, location: str, transport_mode: str, prep_minutes: float
     ) -> AgentResponse:
         """Calcula hora de saída para o próximo evento."""
         result = await svc.calculate_for_next_event(
@@ -204,8 +256,12 @@ class LeavingNowAgent(BaseAgent):
         )
 
     async def _handle_specific_event(
-        self, svc: Any, event: Dict,
-        location: str, transport_mode: str, prep_minutes: float
+        self,
+        svc: Any,
+        event: Dict,
+        location: str,
+        transport_mode: str,
+        prep_minutes: float,
     ) -> AgentResponse:
         """Calcula para um evento específico passado no context."""
         result = await svc.calculate_for_event(
@@ -229,8 +285,7 @@ class LeavingNowAgent(BaseAgent):
         )
 
     async def _handle_all_today(
-        self, svc: Any, location: str,
-        transport_mode: str, prep_minutes: float
+        self, svc: Any, location: str, transport_mode: str, prep_minutes: float
     ) -> AgentResponse:
         """Lista hora de saída para todos os eventos de hoje."""
         results = await svc.get_all_events_today(
@@ -249,8 +304,11 @@ class LeavingNowAgent(BaseAgent):
         lines = ["📋 **Agenda de Hoje — Horas de Saída**\n"]
         for i, r in enumerate(results, 1):
             urgency_emoji = {
-                "LATE": "🚨", "URGENT": "🔴",
-                "SOON": "🟡", "COMFORTABLE": "🟢", "RELAXED": "📅",
+                "LATE": "🚨",
+                "URGENT": "🔴",
+                "SOON": "🟡",
+                "COMFORTABLE": "🟢",
+                "RELAXED": "📅",
             }.get(r.urgency, "📅")
 
             departure_str = r.suggested_departure.strftime("%H:%M")
@@ -277,8 +335,7 @@ class LeavingNowAgent(BaseAgent):
         )
 
     async def _handle_proactive(
-        self, svc: Any, location: str,
-        transport_mode: str, prep_minutes: float
+        self, svc: Any, location: str, transport_mode: str, prep_minutes: float
     ) -> AgentResponse:
         """
         Chamado pelo ProactivityService.
@@ -376,16 +433,14 @@ class LeavingNowAgent(BaseAgent):
             )
 
         if result.transit_delay_minutes > 0:
-            lines.append(
-                f"   🚌 Atraso TFI: +{result.transit_delay_minutes:.0f} min"
-            )
+            lines.append(f"   🚌 Atraso TFI: +{result.transit_delay_minutes:.0f} min")
 
         lines.append(f"   ⏱️ Preparação: +{result.prep_minutes:.0f} min")
 
         total_buffer = (
-            result.weather_buffer_minutes +
-            result.transit_delay_minutes +
-            result.prep_minutes
+            result.weather_buffer_minutes
+            + result.transit_delay_minutes
+            + result.prep_minutes
         )
         lines.append(
             f"   **Total: {result.travel_minutes:.0f} + {total_buffer:.0f} = "

@@ -3,17 +3,21 @@
 agents/specialized/restaurant_agent.py
 
 FIX [2025-02]:
-  1. Default city Lisboa → Dublin, Ireland (Wave 2)
-  2. Persistência de last_results no Redis (esta wave)
+ 1. Default city Lisboa → Dublin, Ireland (Wave 2)
+ 2. Persistência de last_results no Redis (esta wave)
+ 3. GPS auto-use do Supabase (Passo 4B)
 
-  PROBLEMA: O bot é stateless. Cada mensagem cria um novo `context` dict vazio.
-  Quando o utilizador diz "mais detalhes sobre o 2" numa mensagem separada,
-  context["last_results"] está vazio → "Não tenho restaurantes em memória."
+PROBLEMA: O bot é stateless. Cada mensagem cria um novo `context` dict vazio.
+Quando o utilizador diz "mais detalhes sobre o 2" numa mensagem separada,
+context["last_results"] está vazio → "Não tenho restaurantes em memória."
 
-  SOLUÇÃO: Após cada busca, guardar os resultados no Redis com chave
-  `restaurant:last_results:{user_id}` (TTL 30 minutos).
-  Em `_handle_detail`, se `context.get("last_results")` estiver vazio,
-  tentar carregar do Redis antes de falhar.
+SOLUÇÃO: Após cada busca, guardar os resultados no Redis com chave
+`restaurant:last_results:{user_id}` (TTL 30 minutos). Em `_handle_detail`,
+se `context.get("last_results")` estiver vazio, tentar carregar do Redis
+antes de falhar.
+
+GPS AUTO-USE (Passo 4B): Quando lat/lng não estão no context, busca
+coordenadas do Supabase via get_location() antes de usar cidade default.
 """
 
 import json
@@ -230,13 +234,14 @@ class RestaurantAgent(BaseAgent):
     Concierge de Restaurantes — busca, filtra e detalha restaurantes.
 
     Context esperado:
-        user_id (str)         ID do utilizador
-        chat_id (str)         Chat Telegram
-        lat (float)           Latitude do utilizador (opcional)
-        lng (float)           Longitude do utilizador (opcional)
-        city (str)            Cidade fallback se sem coordenadas
-        last_results (List)   Resultados da última busca (para detalhe)
-                              → FIX: agora também persiste no Redis
+        user_id     (str)   ID do utilizador (UUID)
+        chat_id     (str)   Chat Telegram
+        lat         (float) Latitude do utilizador (opcional)
+        lng         (float) Longitude do utilizador (opcional)
+        city        (str)   Cidade fallback se sem coordenadas
+        last_results (List) Resultados da última busca (para detalhe)
+
+    GPS auto-use: se lat/lng não estiverem no context, busca do Supabase.
     """
 
     def __init__(self):
@@ -267,6 +272,30 @@ class RestaurantAgent(BaseAgent):
                     response="Utilizador não identificado.",
                     error="No user_id",
                 )
+
+            # ── GPS AUTO-USE (Passo 4B) ────────────────────────────────
+            # Se lat/lng não estão no context, tenta GPS do Supabase
+            if not (context.get("lat") and context.get("lng")):
+                try:
+                    from services.business.user_preferences_service import get_location
+
+                    loc = await get_location(str(user_id), prefer="last")
+                    if loc:
+                        lat, lng = loc
+                        context = {
+                            **context,
+                            "lat": lat,
+                            "lng": lng,
+                        }
+                        self.logger.info(
+                            "RestaurantAgent GPS auto-use: %s,%s for user %s",
+                            lat,
+                            lng,
+                            user_id,
+                        )
+                except Exception as e:
+                    self.logger.warning("Could not fetch GPS for restaurant: %s", e)
+            # ── FIM GPS AUTO-USE ───────────────────────────────────────
 
             intent = _detect_intent(prompt, context)
 
