@@ -3,8 +3,15 @@ Redis Service - Refactored with BaseService architecture.
 
 Full Upstash Redis REST API integration for caching, conversations, and sessions.
 
+FIX [2025-02]: httpx.AsyncClient agora é criado por-request em vez de reutilizado.
+  ANTES: self._client = httpx.AsyncClient(...) no _initialize(), reutilizado entre requests.
+         Quando o event loop fecha entre requests do Telegram, o client ficava inválido:
+         "RuntimeError: Event loop is closed"
+  DEPOIS: async with httpx.AsyncClient(...) as client: em cada _execute_command/_execute_pipeline.
+         Cada request HTTP cria e fecha o seu próprio client — sem state entre requests.
+
 Provides:
-- Upstash Redis REST API client (async via httpx)
+- Upstash Redis REST API client (async via httpx, per-request)
 - Core Redis commands: SET, GET, DEL, EXISTS, LPUSH, LRANGE, EXPIRE, TTL, PING
 - Pipeline support for batch commands
 - Conversation message cache (save, retrieve, clear, refresh TTL)
@@ -56,29 +63,6 @@ class RedisService(BaseService):
         self.url: Optional[str] = None
         self.token: Optional[str] = None
         self.headers: Optional[Dict[str, str]] = None
-        self._client: Optional[httpx.AsyncClient] = None
-
-    # ------------------------------------------------------------------
-    # HTTP client management
-    # ------------------------------------------------------------------
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        """
-        Get or create the async HTTP client with connection pooling.
-
-        Returns:
-            httpx.AsyncClient instance configured for Upstash REST API.
-        """
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                headers=self.headers,
-                timeout=5.0,
-                limits=httpx.Limits(
-                    max_keepalive_connections=5,
-                    max_connections=10,
-                ),
-            )
-        return self._client
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -122,11 +106,8 @@ class RedisService(BaseService):
     async def _health_check(self) -> bool:
         """Return True if a PING to Upstash succeeds."""
         try:
-            client = await self._get_client()
-            response = await client.post(
-                self.url,
-                json=["PING"],
-            )
+            async with httpx.AsyncClient(headers=self.headers, timeout=5.0) as client:
+                response = await client.post(self.url, json=["PING"])
             if response.status_code == 200:
                 data = response.json()
                 return data.get("result") == "PONG"
@@ -135,10 +116,7 @@ class RedisService(BaseService):
             return False
 
     async def _cleanup(self) -> None:
-        """Close the async HTTP client on service shutdown."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        """No-op — clients are created per-request, nothing to close."""
 
     # ------------------------------------------------------------------
     # Low-level command execution (async)
@@ -160,11 +138,8 @@ class RedisService(BaseService):
         """
         call_start = time.time()
         try:
-            client = await self._get_client()
-            response = await client.post(
-                self.url,
-                json=command,
-            )
+            async with httpx.AsyncClient(headers=self.headers, timeout=10.0) as client:
+                response = await client.post(self.url, json=command)
             response.raise_for_status()
             data = response.json()
 
@@ -194,11 +169,8 @@ class RedisService(BaseService):
         call_start = time.time()
         pipeline_url = f"{self.url}/pipeline"
         try:
-            client = await self._get_client()
-            response = await client.post(
-                pipeline_url,
-                json=commands,
-            )
+            async with httpx.AsyncClient(headers=self.headers, timeout=10.0) as client:
+                response = await client.post(pipeline_url, json=commands)
             response.raise_for_status()
             data = response.json()
 
@@ -610,9 +582,7 @@ class RedisService(BaseService):
             )
             return False
 
-    async def invalidate_conversation_history(
-        self, conversation_id: str
-    ) -> bool:
+    async def invalidate_conversation_history(self, conversation_id: str) -> bool:
         """Remove a conversation history from cache.
 
         Args:
