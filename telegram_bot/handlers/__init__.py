@@ -9,6 +9,7 @@ from .message import handle_message
 from .voice import handle_voice
 from .document import handle_document
 from .photo import handle_photo
+from .location import handle_location
 from ..commands import (
     start_command,
     help_command,
@@ -32,10 +33,13 @@ def register_all_handlers(application: Application, bot: Any) -> None:
     application.add_handler(CommandHandler("status", status_command))
 
     # Message handlers
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+    )
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    application.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
     # Store bot instance in application context
     application.bot_data["capivarax_bot"] = bot
