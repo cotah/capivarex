@@ -104,6 +104,7 @@ class TransitService(BaseService):
         # Verifica disponibilidade do gtfs-realtime-bindings
         try:
             from google.transit import gtfs_realtime_pb2  # noqa: F401
+
             self._gtfs_available = True
             self.logger.info("gtfs-realtime-bindings disponível ✓")
         except ImportError:
@@ -171,7 +172,10 @@ class TransitService(BaseService):
             dest_coords = await self._geocode(destination)
 
             if not origin_coords or not dest_coords:
-                return {"success": False, "error": "Não foi possível geocodificar os endereços"}
+                return {
+                    "success": False,
+                    "error": "Não foi possível geocodificar os endereços",
+                }
 
             headers = {
                 "Content-Type": "application/json",
@@ -184,18 +188,33 @@ class TransitService(BaseService):
             }
 
             payload = {
-                "origin": {"location": {"latLng": {
-                    "latitude": origin_coords["lat"],
-                    "longitude": origin_coords["lng"],
-                }}},
-                "destination": {"location": {"latLng": {
-                    "latitude": dest_coords["lat"],
-                    "longitude": dest_coords["lng"],
-                }}},
+                "origin": {
+                    "location": {
+                        "latLng": {
+                            "latitude": origin_coords["lat"],
+                            "longitude": origin_coords["lng"],
+                        }
+                    }
+                },
+                "destination": {
+                    "location": {
+                        "latLng": {
+                            "latitude": dest_coords["lat"],
+                            "longitude": dest_coords["lng"],
+                        }
+                    }
+                },
                 "travelMode": "TRANSIT",
+                "computeAlternativeRoutes": True,
                 "transitPreferences": {
                     "routingPreference": "FEWER_TRANSFERS",
-                    "allowedTravelModes": ["BUS", "SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"],
+                    "allowedTravelModes": [
+                        "BUS",
+                        "SUBWAY",
+                        "TRAIN",
+                        "LIGHT_RAIL",
+                        "RAIL",
+                    ],
                 },
                 "languageCode": "pt-PT",
                 "units": "METRIC",
@@ -208,16 +227,50 @@ class TransitService(BaseService):
             data = resp.json()
 
             if not data.get("routes"):
-                return {"success": False, "error": "Nenhuma rota de transporte encontrada"}
+                return {
+                    "success": False,
+                    "error": "Nenhuma rota de transporte encontrada",
+                }
 
-            route = data["routes"][0]
+            # Rankear rotas: menos transfers primeiro, depois menor duração
+            all_routes = data["routes"]
+            ranked = []
+            for r in all_routes:
+                steps_r, lines_r, _ = self._parse_transit_steps(r)
+                num_transfers = len(lines_r)
+                dur = int(r.get("duration", "0s").replace("s", ""))
+                ranked.append((num_transfers, dur, r, steps_r, lines_r))
+            ranked.sort(key=lambda x: (x[0], x[1]))
+
+            # Melhor rota (menos transfers, depois mais rápida)
+            _, _, route, best_steps, best_lines = ranked[0]
+
+            # Guardar rotas alternativas para mostrar ao utilizador
+            alternatives = []
+            for num_t, dur, alt_route, alt_steps, alt_lines in ranked[1:3]:
+                alt_duration = round(dur / 60, 1)
+                alt_line_names = [ln.get("short_name", "?") for ln in alt_lines]
+                alternatives.append(
+                    {
+                        "duration_minutes": alt_duration,
+                        "num_transfers": num_t,
+                        "lines": alt_line_names,
+                    }
+                )
+
             duration_sec = int(route.get("duration", "0s").replace("s", ""))
             duration_min = round(duration_sec / 60, 1)
 
             arrival = departure_time + timedelta(seconds=duration_sec)
 
-            # Parseia os passos da rota
-            steps, lines, walking_sec = self._parse_transit_steps(route)
+            # Já parseámos na fase de ranking
+            steps = best_steps
+            lines = best_lines
+            walking_sec = sum(
+                int(s.get("duration_minutes", 0) * 60)
+                for s in steps
+                if s.get("mode") == "WALK"
+            )
 
             self._track_call(time.time() - start)
             return {
@@ -231,6 +284,9 @@ class TransitService(BaseService):
                 "lines": lines,
                 "walking_minutes": round(walking_sec / 60, 1),
                 "distance_meters": route.get("distanceMeters", 0),
+                "num_transfers": len(lines),
+                "alternatives": alternatives,
+                "total_routes_found": len(all_routes),
             }
 
         except Exception as e:
@@ -284,7 +340,9 @@ class TransitService(BaseService):
         return {
             "delays": delays,
             "alerts": alerts,
-            "has_delays": any(d["delay_seconds"] >= _DELAY_WARN_THRESHOLD_SEC for d in delays),
+            "has_delays": any(
+                d["delay_seconds"] >= _DELAY_WARN_THRESHOLD_SEC for d in delays
+            ),
             "max_delay_minutes": round(max_delay / 60, 1),
             "total_delays": len(delays),
             "total_alerts": len(alerts),
@@ -310,7 +368,10 @@ class TransitService(BaseService):
         try:
             resp = await self._client.get(
                 f"{_NTA_BASE}/VehiclePositions",
-                headers={"Ocp-Apim-Subscription-Key": self._nta_key, "Cache-Control": "no-cache"},
+                headers={
+                    "Ocp-Apim-Subscription-Key": self._nta_key,
+                    "Cache-Control": "no-cache",
+                },
                 params={"format": "json"},
             )
             resp.raise_for_status()
@@ -320,7 +381,8 @@ class TransitService(BaseService):
 
             if route_short_name:
                 positions = [
-                    p for p in positions
+                    p
+                    for p in positions
                     if route_short_name.upper() in p.get("route_id", "").upper()
                 ]
 
@@ -369,7 +431,12 @@ class TransitService(BaseService):
             return route
 
         # Step 2: Verificar atrasos em tempo real (TFI)
-        delay_data = {"delays": [], "alerts": [], "has_delays": False, "max_delay_minutes": 0}
+        delay_data = {
+            "delays": [],
+            "alerts": [],
+            "has_delays": False,
+            "max_delay_minutes": 0,
+        }
 
         if self._nta_key:
             # Tenta obter atrasos para as linhas da rota
@@ -512,6 +579,7 @@ class TransitService(BaseService):
         """Parseia TripUpdates via protobuf (gtfs-realtime-bindings)."""
         try:
             from google.transit import gtfs_realtime_pb2  # type: ignore
+
             feed = gtfs_realtime_pb2.FeedMessage()
             feed.ParseFromString(content)
 
@@ -539,15 +607,17 @@ class TransitService(BaseService):
                         is_cancelled = True
 
                     if abs(delay) >= _DELAY_WARN_THRESHOLD_SEC or is_cancelled:
-                        delays.append({
-                            "trip_id": tu.trip.trip_id,
-                            "route_id": route_id,
-                            "stop_sequence": stu.stop_sequence,
-                            "stop_id": stu.stop_id,
-                            "delay_seconds": delay,
-                            "delay_minutes": round(delay / 60, 1),
-                            "is_cancelled": is_cancelled,
-                        })
+                        delays.append(
+                            {
+                                "trip_id": tu.trip.trip_id,
+                                "route_id": route_id,
+                                "stop_sequence": stu.stop_sequence,
+                                "stop_id": stu.stop_id,
+                                "delay_seconds": delay,
+                                "delay_minutes": round(delay / 60, 1),
+                                "is_cancelled": is_cancelled,
+                            }
+                        )
 
             return delays
         except Exception as e:
@@ -571,21 +641,24 @@ class TransitService(BaseService):
 
                 for stu in tu.get("stopTimeUpdate", []):
                     delay = (
-                        stu.get("departure", {}).get("delay", 0) or
-                        stu.get("arrival", {}).get("delay", 0) or 0
+                        stu.get("departure", {}).get("delay", 0)
+                        or stu.get("arrival", {}).get("delay", 0)
+                        or 0
                     )
                     is_cancelled = stu.get("scheduleRelationship") == "SKIPPED"
 
                     if abs(delay) >= _DELAY_WARN_THRESHOLD_SEC or is_cancelled:
-                        delays.append({
-                            "trip_id": tu.get("trip", {}).get("tripId", ""),
-                            "route_id": route_id,
-                            "stop_sequence": stu.get("stopSequence", 0),
-                            "stop_id": stu.get("stopId", ""),
-                            "delay_seconds": delay,
-                            "delay_minutes": round(delay / 60, 1),
-                            "is_cancelled": is_cancelled,
-                        })
+                        delays.append(
+                            {
+                                "trip_id": tu.get("trip", {}).get("tripId", ""),
+                                "route_id": route_id,
+                                "stop_sequence": stu.get("stopSequence", 0),
+                                "stop_id": stu.get("stopId", ""),
+                                "delay_seconds": delay,
+                                "delay_minutes": round(delay / 60, 1),
+                                "is_cancelled": is_cancelled,
+                            }
+                        )
             return delays
         except Exception:
             return []
@@ -595,6 +668,7 @@ class TransitService(BaseService):
         """Parseia alertas de serviço via protobuf."""
         try:
             from google.transit import gtfs_realtime_pb2  # type: ignore
+
             feed = gtfs_realtime_pb2.FeedMessage()
             feed.ParseFromString(content)
 
@@ -612,23 +686,34 @@ class TransitService(BaseService):
                 if alert.description_text.translation:
                     description = alert.description_text.translation[0].text
 
-                cause_map = {0: "UNKNOWN", 1: "OTHER", 2: "TECHNICAL_PROBLEM",
-                             3: "STRIKE", 4: "DEMONSTRATION", 5: "ACCIDENT",
-                             6: "HOLIDAY", 7: "WEATHER", 8: "MAINTENANCE",
-                             9: "CONSTRUCTION", 10: "POLICE_ACTIVITY",
-                             11: "MEDICAL_EMERGENCY"}
+                cause_map = {
+                    0: "UNKNOWN",
+                    1: "OTHER",
+                    2: "TECHNICAL_PROBLEM",
+                    3: "STRIKE",
+                    4: "DEMONSTRATION",
+                    5: "ACCIDENT",
+                    6: "HOLIDAY",
+                    7: "WEATHER",
+                    8: "MAINTENANCE",
+                    9: "CONSTRUCTION",
+                    10: "POLICE_ACTIVITY",
+                    11: "MEDICAL_EMERGENCY",
+                }
 
-                alerts.append({
-                    "header_text": header,
-                    "description_text": description[:200] if description else "",
-                    "cause": cause_map.get(alert.cause, "UNKNOWN"),
-                    "severity": alert.effect,
-                    "informed_entities": [
-                        {"route_id": ie.route_id, "stop_id": ie.stop_id}
-                        for ie in alert.informed_entity
-                        if ie.route_id or ie.stop_id
-                    ][:5],
-                })
+                alerts.append(
+                    {
+                        "header_text": header,
+                        "description_text": description[:200] if description else "",
+                        "cause": cause_map.get(alert.cause, "UNKNOWN"),
+                        "severity": alert.effect,
+                        "informed_entities": [
+                            {"route_id": ie.route_id, "stop_id": ie.stop_id}
+                            for ie in alert.informed_entity
+                            if ie.route_id or ie.stop_id
+                        ][:5],
+                    }
+                )
             return alerts
         except Exception as e:
             return [{"error": str(e)}]
@@ -651,13 +736,15 @@ class TransitService(BaseService):
                     .get("translation", [{}])[0]
                     .get("text", "")
                 )
-                alerts.append({
-                    "header_text": header,
-                    "description_text": description[:200],
-                    "cause": alert.get("cause", "UNKNOWN"),
-                    "severity": alert.get("effect", ""),
-                    "informed_entities": [],
-                })
+                alerts.append(
+                    {
+                        "header_text": header,
+                        "description_text": description[:200],
+                        "cause": alert.get("cause", "UNKNOWN"),
+                        "severity": alert.get("effect", ""),
+                        "informed_entities": [],
+                    }
+                )
             return alerts
         except Exception:
             return []
@@ -671,38 +758,43 @@ class TransitService(BaseService):
         try:
             try:
                 from google.transit import gtfs_realtime_pb2  # type: ignore
+
                 feed = gtfs_realtime_pb2.FeedMessage()
                 feed.ParseFromString(resp.content)
                 for entity in feed.entity:
                     if not entity.HasField("vehicle"):
                         continue
                     vp = entity.vehicle
-                    positions.append({
-                        "vehicle_id": vp.vehicle.id,
-                        "trip_id": vp.trip.trip_id,
-                        "route_id": vp.trip.route_id,
-                        "lat": vp.position.latitude,
-                        "lng": vp.position.longitude,
-                        "bearing": vp.position.bearing,
-                        "speed_kmh": round((vp.position.speed or 0) * 3.6, 1),
-                        "timestamp": vp.timestamp,
-                    })
+                    positions.append(
+                        {
+                            "vehicle_id": vp.vehicle.id,
+                            "trip_id": vp.trip.trip_id,
+                            "route_id": vp.trip.route_id,
+                            "lat": vp.position.latitude,
+                            "lng": vp.position.longitude,
+                            "bearing": vp.position.bearing,
+                            "speed_kmh": round((vp.position.speed or 0) * 3.6, 1),
+                            "timestamp": vp.timestamp,
+                        }
+                    )
             except ImportError:
                 # JSON fallback
                 data = resp.json()
                 for entity in data.get("entity", []):
                     vp = entity.get("vehicle", {})
                     pos = vp.get("position", {})
-                    positions.append({
-                        "vehicle_id": vp.get("vehicle", {}).get("id", ""),
-                        "trip_id": vp.get("trip", {}).get("tripId", ""),
-                        "route_id": vp.get("trip", {}).get("routeId", ""),
-                        "lat": pos.get("latitude", 0),
-                        "lng": pos.get("longitude", 0),
-                        "bearing": pos.get("bearing", 0),
-                        "speed_kmh": round((pos.get("speed", 0) or 0) * 3.6, 1),
-                        "timestamp": vp.get("timestamp", 0),
-                    })
+                    positions.append(
+                        {
+                            "vehicle_id": vp.get("vehicle", {}).get("id", ""),
+                            "trip_id": vp.get("trip", {}).get("tripId", ""),
+                            "route_id": vp.get("trip", {}).get("routeId", ""),
+                            "lat": pos.get("latitude", 0),
+                            "lng": pos.get("longitude", 0),
+                            "bearing": pos.get("bearing", 0),
+                            "speed_kmh": round((pos.get("speed", 0) or 0) * 3.6, 1),
+                            "timestamp": vp.get("timestamp", 0),
+                        }
+                    )
         except Exception:
             pass
         return positions
@@ -724,9 +816,7 @@ class TransitService(BaseService):
                 travel_mode = step.get("travelMode", "")
                 nav_instruction = step.get("navigationInstruction", {})
                 instruction = nav_instruction.get("instructions", "")
-                duration_sec = int(
-                    step.get("staticDuration", "0s").replace("s", "")
-                )
+                duration_sec = int(step.get("staticDuration", "0s").replace("s", ""))
 
                 step_data = {
                     "mode": travel_mode,
@@ -747,18 +837,29 @@ class TransitService(BaseService):
                         "vehicle_type": vehicle.get("type", ""),
                         "vehicle_name": vehicle.get("name", {}).get("text", ""),
                         "color": transit_line.get("color", ""),
-                        "agency": (transit_line.get("agencies", [{}])[0]
-                                   .get("name", "") if transit_line.get("agencies") else ""),
-                        "departure_stop": (stop_details.get("departureStop", {})
-                                           .get("name", "")),
-                        "arrival_stop": (stop_details.get("arrivalStop", {})
-                                         .get("name", "")),
-                        "departure_time": (transit_details.get("localizedValues", {})
-                                           .get("departureTime", {})
-                                           .get("time", {}).get("text", "")),
-                        "arrival_time": (transit_details.get("localizedValues", {})
-                                         .get("arrivalTime", {})
-                                         .get("time", {}).get("text", "")),
+                        "agency": (
+                            transit_line.get("agencies", [{}])[0].get("name", "")
+                            if transit_line.get("agencies")
+                            else ""
+                        ),
+                        "departure_stop": (
+                            stop_details.get("departureStop", {}).get("name", "")
+                        ),
+                        "arrival_stop": (
+                            stop_details.get("arrivalStop", {}).get("name", "")
+                        ),
+                        "departure_time": (
+                            transit_details.get("localizedValues", {})
+                            .get("departureTime", {})
+                            .get("time", {})
+                            .get("text", "")
+                        ),
+                        "arrival_time": (
+                            transit_details.get("localizedValues", {})
+                            .get("arrivalTime", {})
+                            .get("time", {})
+                            .get("text", "")
+                        ),
                         "num_stops": transit_details.get("stopCount", 0),
                         "headsign": transit_details.get("headsign", ""),
                     }

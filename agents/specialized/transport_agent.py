@@ -288,6 +288,21 @@ class TransportAgent(BaseAgent):
         if not steps and not transit_lines:
             lines.append("Nenhuma ligação encontrada para este destino.")
 
+        # Mostrar alternativas se existirem
+        alternatives = data.get("alternatives", [])
+        if alternatives:
+            lines.append("\n📋 **Outras opções:**")
+            for i, alt in enumerate(alternatives, 1):
+                alt_lines_str = " → ".join(alt.get("lines", []))
+                alt_dur = alt.get("duration_minutes", 0)
+                alt_transfers = alt.get("num_transfers", 0)
+                transfer_text = (
+                    "directo" if alt_transfers <= 1 else f"{alt_transfers} linhas"
+                )
+                lines.append(
+                    f"  {i}. {alt_lines_str} ({transfer_text}, {alt_dur:.0f} min)"
+                )
+
         return "\n".join(lines).strip()
 
     def get_capabilities(self) -> List[str]:
