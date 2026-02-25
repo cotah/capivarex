@@ -8,10 +8,13 @@ Entry point for the CapivaraX Bot API with:
 - Dependency injection
 """
 
-# ==================================================================== 
+# ====================================================================
 # ALL IMPORTS AT TOP (ruff E402 compliance)
-# ==================================================================== 
+# ====================================================================
+import asyncio
+import contextlib
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -55,9 +58,126 @@ from agents.registration import register_all_agents  # noqa: E402
 register_all_services()
 register_all_agents()
 
-# ==================================================================== 
+# ====================================================================
+# TIMER / REMINDER BACKGROUND LOOP
+# ====================================================================
+
+from utils.logger import get_logger  # noqa: E402
+
+_bg_logger = get_logger("timer_loop")
+
+
+async def _timer_loop() -> None:
+    """
+    Background loop que verifica timers e lembretes vencidos a cada 10s.
+    Corre dentro do processo FastAPI — sem worker separado.
+    """
+    from services.core import get_service
+
+    _bg_logger.info("Timer background loop started.")
+
+    while True:
+        try:
+            # --- Timers ---
+            timer_svc = get_service("timer")
+            if timer_svc:
+                if not timer_svc.is_initialized():
+                    await timer_svc.initialize()
+
+                notification_svc = get_service("notification")
+                if notification_svc and not notification_svc.is_initialized():
+                    await notification_svc.initialize()
+
+                async def notify_timer(timer):
+                    icons = {"timer": "⏱️", "alarm": "⏰", "remind": "🔔"}
+                    icon = icons.get(timer.timer_type, "⏱️")
+                    if timer.timer_type == "alarm":
+                        msg = f"{icon} *Bom dia!* Seu alarme disparou!"
+                    elif timer.timer_type == "remind":
+                        msg = f"{icon} *Lembrete:* {timer.label}"
+                    else:
+                        msg = f"{icon} *Timer concluído!* {timer.label or ''}"
+                    if notification_svc:
+                        await notification_svc.send_message(
+                            "telegram", timer.chat_id, msg
+                        )
+                        _bg_logger.info(
+                            "Timer %s fired for chat %s",
+                            timer.timer_id,
+                            timer.chat_id,
+                        )
+
+                fired = await timer_svc.check_and_fire_due(notify_fn=notify_timer)
+                if fired:
+                    _bg_logger.info("Fired %d timer(s)", len(fired))
+
+            # --- Lembretes ---
+            reminder_svc = get_service("reminder")
+            if reminder_svc:
+                if not reminder_svc.is_initialized():
+                    await reminder_svc.initialize()
+
+                async def notify_reminder(reminder):
+                    msg = f"🔔 *Lembrete:* {reminder['message']}"
+                    notif_svc = get_service("notification")
+                    if notif_svc:
+                        await notif_svc.send_message(
+                            "telegram", reminder["chat_id"], msg
+                        )
+
+                await reminder_svc.check_and_fire_due(notify_fn=notify_reminder)
+
+        except Exception as e:
+            _bg_logger.error("Timer loop error: %s", e, exc_info=True)
+
+        await asyncio.sleep(10)  # verifica a cada 10 segundos
+
+
+# ====================================================================
+# LIFESPAN (startup + shutdown)
+# ====================================================================
+
+import logging as _logging  # noqa: E402
+
+_startup_logger = _logging.getLogger("capivarex.api")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup → yield → Shutdown."""
+    # --- Startup ---
+    _startup_logger.info("CapivaraX Bot API starting up...")
+    from services import get_service
+
+    for service_name in ["database", "openai", "redis"]:
+        try:
+            service = get_service(service_name)
+            if service and not service.is_initialized():
+                await service.initialize()
+                _startup_logger.info("Initialized %s service", service_name)
+        except Exception as e:
+            _startup_logger.warning(
+                "Service %s not found or failed to initialize: %s",
+                service_name,
+                e,
+            )
+
+    # Background timer/reminder loop
+    timer_task = asyncio.create_task(_timer_loop())
+    _startup_logger.info("CapivaraX Bot API started successfully")
+
+    yield
+
+    # --- Shutdown ---
+    _startup_logger.info("CapivaraX Bot API shutting down...")
+    timer_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await timer_task
+
+
+# ====================================================================
 # CRIAÇÃO DA APLICAÇÃO
-# ==================================================================== 
+# ====================================================================
 
 app = FastAPI(
     title="CapivaraX Bot API",
@@ -65,17 +185,18 @@ app = FastAPI(
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
-# ==================================================================== 
+# ====================================================================
 # PROMETHEUS METRICS
-# ==================================================================== 
+# ====================================================================
 
 Instrumentator().instrument(app).expose(app)
 
-# ==================================================================== 
+# ====================================================================
 # MIDDLEWARE
-# ==================================================================== 
+# ====================================================================
 
 app.middleware("http")(logging_middleware)
 app.middleware("http")(autofix_exception_middleware)
@@ -87,11 +208,13 @@ _cors_origins = []
 
 # Always allow localhost for development
 if os.getenv("ENVIRONMENT") == "development":
-    _cors_origins.extend([
-        os.getenv("CORS_ORIGIN_LOCALHOST", "http://localhost:3000"),
-        os.getenv("CORS_ORIGIN_VITE", "http://localhost:5173"),
-        "https://*.replit.dev",
-    ])
+    _cors_origins.extend(
+        [
+            os.getenv("CORS_ORIGIN_LOCALHOST", "http://localhost:3000"),
+            os.getenv("CORS_ORIGIN_VITE", "http://localhost:5173"),
+            "https://*.replit.dev",
+        ]
+    )
 
 # Add configured frontend URL (production or staging)
 _frontend_url = os.getenv("FRONTEND_URL")
@@ -101,6 +224,7 @@ if _frontend_url:
 # Safety: if no origins configured, log a warning
 if not _cors_origins:
     import logging
+
     logging.getLogger("capivarex.api").warning(
         "No CORS origins configured. Set FRONTEND_URL or ENVIRONMENT=development. "
         "Defaulting to allow all origins for safety."
@@ -115,9 +239,10 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# ==================================================================== 
+# ====================================================================
 # HEALTH CHECKS
-# ==================================================================== 
+# ====================================================================
+
 
 @app.get("/")
 def root():
@@ -175,18 +300,24 @@ async def detailed_health_check():
     }
 
 
-# ==================================================================== 
+# ====================================================================
 # DEBUG ENDPOINTS
-# ==================================================================== 
+# ====================================================================
+
 
 @app.get("/debug/services")
 def debug_services():
     """Lista todos os serviços registrados (apenas desenvolvimento)."""
     from services.core import registry as service_registry
+
     try:
         all_services = service_registry.list_services()
         metrics = service_registry.get_all_metrics()
-        return {"total": len(all_services), "services": all_services, "metrics": metrics}
+        return {
+            "total": len(all_services),
+            "services": all_services,
+            "metrics": metrics,
+        }
     except Exception as e:
         return {"error": str(e)}
 
@@ -195,6 +326,7 @@ def debug_services():
 def debug_agents():
     """Lista todos os agentes registrados (apenas desenvolvimento)."""
     from agents.core import registry as agent_registry
+
     try:
         all_agents = agent_registry.list_agents()
         return {"total": len(all_agents), "agents": all_agents}
@@ -202,9 +334,9 @@ def debug_agents():
         return {"error": str(e)}
 
 
-# ==================================================================== 
+# ====================================================================
 # ROUTERS
-# ==================================================================== 
+# ====================================================================
 
 API_V1 = "/api/v1"
 
@@ -217,42 +349,19 @@ app.include_router(dev.router, prefix=f"{API_V1}/dev", tags=["Development"])
 app.include_router(image.router, prefix=f"{API_V1}/image", tags=["Image"])
 app.include_router(video.router, prefix=f"{API_V1}/video", tags=["Video"])
 app.include_router(voice.router, prefix=f"{API_V1}/voice", tags=["Voice"])
-app.include_router(voice_pipeline_router, prefix=f"{API_V1}/voice/pipeline", tags=["Voice Pipeline"])
+app.include_router(
+    voice_pipeline_router, prefix=f"{API_V1}/voice/pipeline", tags=["Voice Pipeline"]
+)
 app.include_router(weather.router, prefix=f"{API_V1}/weather", tags=["Weather"])
 app.include_router(finance.router, prefix=f"{API_V1}/finance", tags=["Finance"])
 app.include_router(calendar.router, prefix=f"{API_V1}/calendar", tags=["Calendar"])
 app.include_router(car.router, prefix=f"{API_V1}/car", tags=["Car"])
 app.include_router(traffic.router, prefix=f"{API_V1}/traffic", tags=["Traffic"])
-app.include_router(smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"])
-app.include_router(agent_generic.router, prefix=f"{API_V1}/agent", tags=["Generic Agent"])
+app.include_router(
+    smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"]
+)
+app.include_router(
+    agent_generic.router, prefix=f"{API_V1}/agent", tags=["Generic Agent"]
+)
 app.include_router(webhooks.router, prefix=f"{API_V1}/webhooks", tags=["Webhooks"])
 app.include_router(health.router, tags=["Monitoring"])
-
-
-# ==================================================================== 
-# STARTUP / SHUTDOWN
-# ==================================================================== 
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup."""
-    import logging
-    logger = logging.getLogger("capivarex.api")
-    logger.info("CapivaraX Bot API starting up...")
-    from services import get_service
-    for service_name in ["database", "openai", "redis"]:
-        try:
-            service = get_service(service_name)
-            if service and not service.is_initialized():
-                await service.initialize()
-                logger.info("Initialized %s service", service_name)
-        except Exception as e:
-            logger.warning("Service %s not found or failed to initialize: %s", service_name, e)
-    logger.info("CapivaraX Bot API started successfully")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown."""
-    import logging
-    logging.getLogger("capivarex.api").info("CapivaraX Bot API shutting down...")
