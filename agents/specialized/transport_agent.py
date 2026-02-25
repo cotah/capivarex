@@ -14,11 +14,14 @@ Usa automaticamente o GPS guardado do utilizador.
 Integra com NTA GTFS-Realtime + Google Maps Routes API.
 """
 
-from typing import Any, Dict, List
+import logging
+import re
+from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
-from services.business.user_preferences_service import get_location
+
+logger = logging.getLogger("capivarex.transport_agent")
 
 # ─── Keywords de intent ──────────────────────────────────────────────────────
 
@@ -81,10 +84,8 @@ def _wants_alerts(prompt: str) -> bool:
     return any(kw in text for kw in _ALERT_KEYWORDS)
 
 
-def _extract_destination(prompt: str) -> str | None:
+def _extract_destination(prompt: str) -> Optional[str]:
     """Tenta extrair destino da query. Ex: 'para o centro' → 'centro'."""
-    import re
-
     patterns = [
         r"para (?:o |a |os |as )?(.+?)(?:\s+agora|\s+hoje|$)",
         r"até (?:o |a )?(.+?)(?:\s+agora|\s+hoje|$)",
@@ -127,10 +128,22 @@ class TransportAgent(BaseAgent):
             lng = context.get("longitude")
 
             # Tenta GPS guardado no Supabase se não vier no context
+            # Import LAZY — não bloqueia o registo do agent se o DB não estiver pronto
             if not (lat and lng) and user_uuid:
-                loc = await get_location(user_uuid, prefer="last")
-                if loc:
-                    lat, lng = loc
+                try:
+                    from services.business.user_preferences_service import get_location
+
+                    loc = await get_location(str(user_uuid), prefer="last")
+                    if loc:
+                        lat, lng = loc
+                        logger.info(
+                            "GPS loaded from Supabase for user %s: %s,%s",
+                            user_uuid,
+                            lat,
+                            lng,
+                        )
+                except Exception as e:
+                    logger.warning("Could not fetch GPS from Supabase: %s", e)
 
             # Sem GPS → pede localização ao utilizador
             if not lat or not lng:
@@ -146,6 +159,7 @@ class TransportAgent(BaseAgent):
             # ── 2. Obter TransitService (NTA + Google Maps) ───────────────
             transit_svc = get_service("transit")
             if not transit_svc:
+                logger.error("TransitService not found in service registry")
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response=(
@@ -156,6 +170,7 @@ class TransportAgent(BaseAgent):
                 )
 
             if not transit_svc.is_initialized():
+                logger.info("Initializing TransitService...")
                 await transit_svc.initialize()
 
             # ── 3. Construir origem e destino ─────────────────────────────
@@ -163,7 +178,7 @@ class TransportAgent(BaseAgent):
             origin = f"{lat},{lng}"
             dest_query = destination or "Dublin City Centre, Ireland"
 
-            self.logger.info(
+            logger.info(
                 "TransportAgent: origin=%s dest=%s user=%s",
                 origin,
                 dest_query,
@@ -193,7 +208,7 @@ class TransportAgent(BaseAgent):
             )
 
         except Exception as e:
-            self.logger.error("TransportAgent error: %s", e, exc_info=True)
+            logger.error("TransportAgent error: %s", e, exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao consultar transportes: {str(e)}",
@@ -201,7 +216,7 @@ class TransportAgent(BaseAgent):
             )
 
     @staticmethod
-    def _format_transit(data: Dict, destination: str | None) -> str:
+    def _format_transit(data: Dict, destination: Optional[str]) -> str:
         lines = []
 
         dest_str = f" → **{destination.title()}**" if destination else ""

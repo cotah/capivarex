@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from typing import Dict, Any, List, Optional
 
 from telegram.ext import Application
@@ -9,6 +10,42 @@ from telegram.ext import Application
 from services import get_service
 from agents import get_agent
 from agents.core.base_agent import AgentResponse
+
+
+# ── Keywords de transporte para fallback de routing ───────────────────────
+_TRANSPORT_KEYWORDS = [
+    "onibus",
+    "ônibus",
+    "autocarro",
+    "autocarros",
+    "bus",
+    "dart",
+    "luas",
+    "comboio",
+    "trem",
+    "metro",
+    "metrô",
+    "paragem",
+    "transporte",
+    "next bus",
+    "next dart",
+    "next luas",
+    "next tram",
+    "bus stop",
+    "train",
+    "transit",
+    "public transport",
+    "timetable",
+    "schedule",
+    "quando passa",
+    "horário",
+    "horarios",
+    "próximo ônibus",
+    "próximo autocarro",
+    "próximo bus",
+    "proximo onibus",
+    "proximo autocarro",
+]
 
 
 class CapivaraXBot:
@@ -27,7 +64,7 @@ class CapivaraXBot:
         Initialize services and agents.
 
         Attempts to bring up critical services (database, openai, redis)
-        and the orchestrator agent. Failures are logged but do not prevent
+        and the orchestrator agent.  Failures are logged but do not prevent
         the bot from starting.
         """
         self.logger.info("Initializing CapivaraX Bot...")
@@ -40,17 +77,14 @@ class CapivaraXBot:
                 service = get_service(service_name)
                 if service and not service.is_initialized():
                     await service.initialize()
-                    self.services[service_name] = service
-                    self.logger.info(
-                        "Initialized %s service successfully", service_name
-                    )
-                else:
-                    self.logger.warning(
-                        "Service %s already initialized or not found", service_name
-                    )
+                self.services[service_name] = service
+                self.logger.info("Initialized %s service successfully", service_name)
             except Exception as e:
                 self.logger.error(
-                    "FAILED to initialize %s: %s", service_name, e, exc_info=True
+                    "FAILED to initialize %s: %s",
+                    service_name,
+                    e,
+                    exc_info=True,
                 )
 
         # Initialize ALL agents
@@ -92,10 +126,18 @@ class CapivaraXBot:
                 if agent:
                     self.agents[agent_name] = agent
                     self.logger.info("Loaded %s agent", agent_name)
+                else:
+                    self.logger.warning(
+                        "Agent %s returned None from registry", agent_name
+                    )
             except Exception as e:
                 self.logger.warning("Could not load %s agent: %s", agent_name, e)
 
-        self.logger.info("CapivaraX Bot initialized successfully")
+        self.logger.info(
+            "CapivaraX Bot initialized successfully — %d agents loaded: %s",
+            len(self.agents),
+            list(self.agents.keys()),
+        )
 
     def start_proactivity_loop(self) -> None:
         """Start the proactivity loop as a background asyncio task.
@@ -120,9 +162,14 @@ class CapivaraXBot:
                     await self._proactivity_task
                 except asyncio.CancelledError:
                     pass
-                self.logger.info("Proactivity loop stopped")
+            self.logger.info("Proactivity loop stopped")
         except Exception as e:
             self.logger.error("Error during shutdown: %s", e, exc_info=True)
+
+    def _is_transport_query(self, text: str) -> bool:
+        """Check if the text is clearly about public transport."""
+        lower = text.lower()
+        return any(kw in lower for kw in _TRANSPORT_KEYWORDS)
 
     async def process_message(
         self, text: str, context: Dict[str, Any]
@@ -140,7 +187,7 @@ class CapivaraXBot:
         """
         from agents.core import AgentResponse, AgentStatus
 
-        # Resolve Telegram numeric ID → internal UUID (needed for DB operations)
+        # ── 1. Resolve Telegram numeric ID → internal UUID ────────────
         telegram_id = str(context.get("user_id", ""))
         if telegram_id and not self._is_uuid(telegram_id):
             try:
@@ -153,10 +200,20 @@ class CapivaraXBot:
                             "user_id": user_row["id"],  # UUID para o DB
                             "telegram_user_id": telegram_id,  # ID original preservado
                         }
+                        self.logger.info(
+                            "Resolved telegram_id %s → UUID %s",
+                            telegram_id,
+                            user_row["id"],
+                        )
+                    else:
+                        self.logger.warning(
+                            "Could not find user for telegram_id=%s", telegram_id
+                        )
             except Exception as e:
                 self.logger.warning("Could not resolve user UUID: %s", e)
 
         try:
+            # ── 2. Orchestrator decide qual agent usar ────────────────
             orchestrator = self.agents.get("orchestrator")
             if not orchestrator:
                 return AgentResponse(
@@ -169,8 +226,32 @@ class CapivaraXBot:
                 decision.response if hasattr(decision, "response") else str(decision)
             )
 
+            self.logger.info(
+                "Orchestrator routed '%s' → agent='%s' (reason: %s)",
+                text[:60],
+                agent_name,
+                decision.data.get("reason", "")
+                if hasattr(decision, "data") and decision.data
+                else "",
+            )
+
+            # ── 3. KEYWORD SAFETY NET ─────────────────────────────────
+            # Se o orchestrator decidiu "chat" mas a mensagem é claramente
+            # sobre transporte público, redirecionar para "transport".
+            # Isto protege contra falhas do GPT-4o-mini no routing.
+            if agent_name == "chat" and self._is_transport_query(text):
+                self.logger.info(
+                    "KEYWORD OVERRIDE: '%s' → transport (was: chat)", text[:60]
+                )
+                agent_name = "transport"
+
+            # ── 4. Obter e executar o agent ───────────────────────────
             agent = get_agent(agent_name)
             if not agent:
+                self.logger.error(
+                    "Agent '%s' NOT FOUND in registry, falling back to chat",
+                    agent_name,
+                )
                 agent = get_agent("chat") or self.agents.get("chat")
 
             if not agent:
@@ -179,8 +260,10 @@ class CapivaraXBot:
                     response=f"Agente '{agent_name}' não disponível.",
                 )
 
+            self.logger.info("Executing agent: %s", agent.name)
             result = await agent.process(text, context)
             return result
+
         except Exception as e:
             self.logger.error("Error processing message: %s", e, exc_info=True)
             return AgentResponse(
@@ -191,8 +274,6 @@ class CapivaraXBot:
     @staticmethod
     def _is_uuid(value: str) -> bool:
         """Check if a string is a valid UUID."""
-        import re
-
         return bool(
             re.match(
                 r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
