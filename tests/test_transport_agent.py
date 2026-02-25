@@ -178,7 +178,7 @@ class TestNoGPS:
     async def test_asks_for_location_when_no_gps(self, agent):
         """Sem GPS no context e sem GPS guardado → pede localização."""
         with patch(
-            "agents.specialized.transport_agent.get_location",
+            "services.business.user_preferences_service.get_location",
             new=AsyncMock(return_value=None),
         ):
             r = await agent.execute("próximo ônibus para o centro", {})
@@ -192,7 +192,7 @@ class TestNoGPS:
     async def test_asks_for_location_no_user_id(self, agent):
         """Sem user_id no context → não consegue buscar GPS → pede localização."""
         with patch(
-            "agents.specialized.transport_agent.get_location",
+            "services.business.user_preferences_service.get_location",
             new=AsyncMock(return_value=None),
         ):
             r = await agent.execute("next bus to city centre", {"user_id": None})
@@ -231,7 +231,7 @@ class TestWithGPS:
 
         with (
             patch(
-                "agents.specialized.transport_agent.get_location",
+                "services.business.user_preferences_service.get_location",
                 new=AsyncMock(return_value=(53.32326, -6.27183)),
             ),
             patch(
