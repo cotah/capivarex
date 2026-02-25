@@ -229,7 +229,22 @@ class TransportAgent(BaseAgent):
         alerts = data.get("service_alerts", [])
 
         if steps:
-            for step in steps[:6]:
+            # Juntar passos de caminhada consecutivos
+            merged_steps = []
+            for step in steps:
+                mode = step.get("mode", "")
+                if (
+                    mode == "WALK"
+                    and merged_steps
+                    and merged_steps[-1].get("mode") == "WALK"
+                ):
+                    merged_steps[-1]["duration_minutes"] += step.get(
+                        "duration_minutes", 0
+                    )
+                else:
+                    merged_steps.append(dict(step))
+
+            for step in merged_steps[:6]:
                 mode = step.get("mode", "")
                 transit = step.get("transit", {})
                 step_dur = step.get("duration_minutes", 0)
