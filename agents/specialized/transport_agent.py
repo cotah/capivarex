@@ -106,6 +106,7 @@ class TransportAgent(BaseAgent):
 
     Consulta horários, próximas partidas e alertas de serviço
     usando o GPS do utilizador automaticamente.
+    Usa TransitService directamente (NTA GTFS-RT + Google Maps).
     """
 
     def __init__(self):
@@ -120,18 +121,18 @@ class TransportAgent(BaseAgent):
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         try:
-            # ── Obter localização ─────────────────────────────────────────
+            # ── 1. Obter localização ──────────────────────────────────────
             user_uuid = context.get("user_id")
             lat = context.get("latitude")
             lng = context.get("longitude")
 
-            # Tentar GPS guardado se não vier no context
+            # Tenta GPS guardado no Supabase se não vier no context
             if not (lat and lng) and user_uuid:
                 loc = await get_location(user_uuid, prefer="last")
                 if loc:
                     lat, lng = loc
 
-            # Se ainda não há GPS, pedir ao utilizador
+            # Sem GPS → pede localização ao utilizador
             if not lat or not lng:
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
@@ -142,29 +143,40 @@ class TransportAgent(BaseAgent):
                     data={"needs_location": True},
                 )
 
-            # ── Obter serviço de leaving_now (tem o transit integrado) ────
-            svc = get_service("leaving_now")
-            if not svc or not svc.is_initialized():
+            # ── 2. Obter TransitService (NTA + Google Maps) ───────────────
+            transit_svc = get_service("transit")
+            if not transit_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço de transporte não disponível.",
-                    error="leaving_now service unavailable",
+                    response=(
+                        "⚠️ Serviço de transporte não disponível de momento.\n"
+                        "Verifica as configurações do NTA_API_KEY e GOOGLE_MAPS_API_KEY."
+                    ),
+                    error="transit service unavailable",
                 )
 
+            if not transit_svc.is_initialized():
+                await transit_svc.initialize()
+
+            # ── 3. Construir origem e destino ─────────────────────────────
             destination = _extract_destination(prompt)
-            _wants_alerts(prompt)  # reservado para uso futuro
-
-            # ── Consultar próximas partidas ───────────────────────────────
             origin = f"{lat},{lng}"
-            dest_query = destination or "Dublin City Centre"
+            dest_query = destination or "Dublin City Centre, Ireland"
 
-            travel_data = await svc._get_transit_data(
-                origin=origin,
-                destination=dest_query,
-                departure_time=None,  # agora
+            self.logger.info(
+                "TransportAgent: origin=%s dest=%s user=%s",
+                origin,
+                dest_query,
+                user_uuid,
             )
 
-            if not travel_data:
+            # ── 4. Consultar próximas partidas via NTA + Google Maps ───────
+            travel_data = await transit_svc.get_transit_with_delays(
+                origin=origin,
+                destination=dest_query,
+            )
+
+            if not travel_data or not travel_data.get("success"):
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=(
@@ -176,7 +188,7 @@ class TransportAgent(BaseAgent):
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=self._format_transit(travel_data, destination, lat, lng),
+                response=self._format_transit(travel_data, destination),
                 data=travel_data,
             )
 
@@ -189,23 +201,20 @@ class TransportAgent(BaseAgent):
             )
 
     @staticmethod
-    def _format_transit(
-        data: Dict, destination: str | None, lat: float, lng: float
-    ) -> str:
+    def _format_transit(data: Dict, destination: str | None) -> str:
         lines = []
 
         dest_str = f" → **{destination.title()}**" if destination else ""
         lines.append(f"🚌 **Próximos transportes{dest_str}**\n")
 
-        # Linhas disponíveis
-        transit_lines = data.get("lines", [])
         steps = data.get("steps", [])
+        transit_lines = data.get("lines", [])
         delay = data.get("realtime_delay_minutes", 0)
         duration = data.get("duration_minutes", 0)
-        alerts = data.get("alerts", [])
+        alerts = data.get("service_alerts", [])
 
         if steps:
-            for step in steps[:5]:
+            for step in steps[:6]:
                 mode = step.get("mode", "")
                 transit = step.get("transit", {})
                 step_dur = step.get("duration_minutes", 0)
@@ -228,36 +237,41 @@ class TransportAgent(BaseAgent):
                     lines.append(line_str)
 
                     if dep_stop:
-                        lines.append(f"  📍 Partida: {dep_stop}")
+                        lines.append(f"   📍 Partida: {dep_stop}")
                     if arr_stop:
-                        lines.append(f"  📍 Chegada: {arr_stop}")
+                        lines.append(f"   📍 Chegada: {arr_stop}")
                     if num_stops:
-                        lines.append(f"  🔢 {num_stops} paragens · {step_dur:.0f} min")
+                        lines.append(f"   🔢 {num_stops} paragens · {step_dur:.0f} min")
                     lines.append("")
 
                 elif mode == "WALK":
-                    lines.append(f"🚶 A pé — {step_dur:.0f} min")
-                    lines.append("")
+                    lines.append(f"🚶 A pé — {step_dur:.0f} min\n")
 
         elif transit_lines:
-            for line in transit_lines[:3]:
-                lines.append(
-                    f"🚌 **{line.get('name', '?')}** — {line.get('departure_time', '')}"
+            # Fallback: apenas nomes de linhas sem steps detalhados
+            for line in transit_lines[:4]:
+                name = (
+                    line.get("short_name")
+                    or line.get("long_name")
+                    or line.get("name", "?")
                 )
+                lines.append(f"🚌 **{name}**")
+            lines.append("")
 
+        # Tempo total
         if duration:
-            delay_str = f" (+{delay:.0f} min atraso)" if delay > 0 else ""
+            delay_str = f" *(+{delay:.0f} min atraso)*" if delay > 0 else ""
             lines.append(f"⏱ Tempo total: **{duration:.0f} min**{delay_str}")
 
-        # Alertas
+        # Alertas de serviço
         if alerts:
-            lines.append("\n⚠️ **Alertas:**")
+            lines.append("\n⚠️ **Alertas de serviço:**")
             for alert in alerts[:2]:
                 if alert:
                     lines.append(f"  • {alert}")
 
         if not steps and not transit_lines:
-            lines.append("Nenhuma partida encontrada para este destino.")
+            lines.append("Nenhuma ligação encontrada para este destino.")
 
         return "\n".join(lines).strip()
 

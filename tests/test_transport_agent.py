@@ -33,7 +33,7 @@ def _make_transit_data(
     delay: float = 0.0,
     line: str = "46A",
 ) -> Dict[str, Any]:
-    """Simula retorno do _get_transit_data do LeavingNowService."""
+    """Simula retorno do get_transit_with_delays do TransitService."""
     return {
         "success": True,
         "duration_minutes": duration,
@@ -57,7 +57,7 @@ def _make_transit_data(
             },
             {"mode": "WALK", "duration_minutes": 3.0},
         ],
-        "alerts": [],
+        "service_alerts": [],
         "has_disruption": delay >= 3,
     }
 
@@ -75,10 +75,10 @@ def agent():
 
 
 @pytest.fixture
-def mock_leaving_now_svc():
+def mock_transit_svc():
     svc = MagicMock()
     svc.is_initialized.return_value = True
-    svc._get_transit_data = AsyncMock(return_value=_make_transit_data())
+    svc.get_transit_with_delays = AsyncMock(return_value=_make_transit_data())
     return svc
 
 
@@ -207,7 +207,7 @@ class TestNoGPS:
 
 class TestWithGPS:
     @pytest.mark.asyncio
-    async def test_uses_gps_from_context(self, agent, mock_leaving_now_svc):
+    async def test_uses_gps_from_context(self, agent, mock_transit_svc):
         """GPS vem directamente no context → usa sem chamar Supabase."""
         context = {
             "user_id": "test-uuid",
@@ -216,16 +216,16 @@ class TestWithGPS:
         }
         with patch(
             "agents.specialized.transport_agent.get_service",
-            return_value=mock_leaving_now_svc,
+            return_value=mock_transit_svc,
         ):
             r = await agent.execute("próximo ônibus para o centro", context)
 
         assert r.is_success()
         assert r.data is not None
-        mock_leaving_now_svc._get_transit_data.assert_called_once()
+        mock_transit_svc.get_transit_with_delays.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_uses_gps_from_supabase(self, agent, mock_leaving_now_svc):
+    async def test_uses_gps_from_supabase(self, agent, mock_transit_svc):
         """GPS não vem no context → busca do Supabase."""
         context = {"user_id": "test-uuid"}
 
@@ -236,48 +236,48 @@ class TestWithGPS:
             ),
             patch(
                 "agents.specialized.transport_agent.get_service",
-                return_value=mock_leaving_now_svc,
+                return_value=mock_transit_svc,
             ),
         ):
             r = await agent.execute("próximo ônibus", context)
 
         assert r.is_success()
-        mock_leaving_now_svc._get_transit_data.assert_called_once()
+        mock_transit_svc.get_transit_with_delays.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_response_contains_line_name(self, agent, mock_leaving_now_svc):
+    async def test_response_contains_line_name(self, agent, mock_transit_svc):
         """Resposta deve conter o nome da linha (46A)."""
         context = {"latitude": 53.32326, "longitude": -6.27183}
 
         with patch(
             "agents.specialized.transport_agent.get_service",
-            return_value=mock_leaving_now_svc,
+            return_value=mock_transit_svc,
         ):
             r = await agent.execute("próximo ônibus", context)
 
         assert "46A" in r.response
 
     @pytest.mark.asyncio
-    async def test_response_contains_departure_stop(self, agent, mock_leaving_now_svc):
+    async def test_response_contains_departure_stop(self, agent, mock_transit_svc):
         """Resposta deve mencionar a paragem de partida."""
         context = {"latitude": 53.32326, "longitude": -6.27183}
 
         with patch(
             "agents.specialized.transport_agent.get_service",
-            return_value=mock_leaving_now_svc,
+            return_value=mock_transit_svc,
         ):
             r = await agent.execute("próximo autocarro", context)
 
         assert "Rathmines" in r.response or "Partida" in r.response
 
     @pytest.mark.asyncio
-    async def test_response_contains_duration(self, agent, mock_leaving_now_svc):
+    async def test_response_contains_duration(self, agent, mock_transit_svc):
         """Resposta deve indicar tempo de viagem."""
         context = {"latitude": 53.32326, "longitude": -6.27183}
 
         with patch(
             "agents.specialized.transport_agent.get_service",
-            return_value=mock_leaving_now_svc,
+            return_value=mock_transit_svc,
         ):
             r = await agent.execute("próximo ônibus", context)
 
@@ -288,7 +288,9 @@ class TestWithGPS:
         """Resposta com atraso deve mencionar o atraso."""
         svc = MagicMock()
         svc.is_initialized.return_value = True
-        svc._get_transit_data = AsyncMock(return_value=_make_transit_data(delay=8.0))
+        svc.get_transit_with_delays = AsyncMock(
+            return_value=_make_transit_data(delay=8.0)
+        )
         context = {"latitude": 53.32326, "longitude": -6.27183}
 
         with patch("agents.specialized.transport_agent.get_service", return_value=svc):
@@ -312,7 +314,7 @@ class TestNoResults:
         """Quando o serviço não encontra transportes → mensagem útil."""
         svc = MagicMock()
         svc.is_initialized.return_value = True
-        svc._get_transit_data = AsyncMock(return_value=None)
+        svc.get_transit_with_delays = AsyncMock(return_value=None)
 
         context = {"latitude": 53.32326, "longitude": -6.27183}
 
@@ -349,7 +351,7 @@ class TestServiceUnavailable:
         """Excepção no serviço → erro amigável, sem crash."""
         svc = MagicMock()
         svc.is_initialized.return_value = True
-        svc._get_transit_data = AsyncMock(side_effect=Exception("NTA timeout"))
+        svc.get_transit_with_delays = AsyncMock(side_effect=Exception("NTA timeout"))
 
         context = {"latitude": 53.32326, "longitude": -6.27183}
 
