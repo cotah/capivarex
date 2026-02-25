@@ -108,7 +108,9 @@ class CalendarService(BaseService):
                 json.dump(creds_dict, tmp)
                 tmp.close()
                 self.service_account_file = tmp.name
-                self.logger.info("Using Google credentials from GOOGLE_CREDENTIALS_JSON env var")
+                self.logger.info(
+                    "Using Google credentials from GOOGLE_CREDENTIALS_JSON env var"
+                )
             except (json.JSONDecodeError, IOError) as e:
                 raise ServiceUnavailableError(
                     f"Failed to parse GOOGLE_CREDENTIALS_JSON: {e}"
@@ -137,9 +139,7 @@ class CalendarService(BaseService):
             )
         except Exception as exc:
             self.logger.error(f"Calendar initialisation failed: {exc}", exc_info=True)
-            raise ServiceUnavailableError(
-                f"Calendar initialisation failed: {exc}"
-            )
+            raise ServiceUnavailableError(f"Calendar initialisation failed: {exc}")
 
     async def _health_check(self) -> bool:
         """Return True when the underlying API service object exists."""
@@ -194,7 +194,9 @@ class CalendarService(BaseService):
         """Ensure the API service is available; attempt auth if not."""
         if self._service is None:
             if not self.authenticate():
-                raise RuntimeError("Calendar service not initialised and authentication failed")
+                raise RuntimeError(
+                    "Calendar service not initialised and authentication failed"
+                )
 
     @staticmethod
     def _format_event_dict(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -210,9 +212,7 @@ class CalendarService(BaseService):
             ),
             "location": event.get("location", ""),
             "description": event.get("description", ""),
-            "attendees": [
-                att.get("email") for att in event.get("attendees", [])
-            ],
+            "attendees": [att.get("email") for att in event.get("attendees", [])],
             "html_link": event.get("htmlLink", ""),
             "status": event.get("status", ""),
         }
@@ -253,14 +253,10 @@ class CalendarService(BaseService):
                 time_max = time_min + timedelta(days=days_ahead)
 
             time_min_str = (
-                _utc_isoformat(time_min)
-                if isinstance(time_min, datetime)
-                else time_min
+                _utc_isoformat(time_min) if isinstance(time_min, datetime) else time_min
             )
             time_max_str = (
-                _utc_isoformat(time_max)
-                if isinstance(time_max, datetime)
-                else time_max
+                _utc_isoformat(time_max) if isinstance(time_max, datetime) else time_max
             )
 
             events_result = (
@@ -382,8 +378,12 @@ class CalendarService(BaseService):
                 "Creating calendar event",
                 extra={
                     "title": summary,
-                    "start": start_time.isoformat() if isinstance(start_time, datetime) else str(start_time),
-                    "end": end_time.isoformat() if isinstance(end_time, datetime) else str(end_time),
+                    "start": start_time.isoformat()
+                    if isinstance(start_time, datetime)
+                    else str(start_time),
+                    "end": end_time.isoformat()
+                    if isinstance(end_time, datetime)
+                    else str(end_time),
                     "location": location,
                 },
             )
@@ -467,16 +467,11 @@ class CalendarService(BaseService):
                 - ``summary``:   Título
             Retorna None em caso de falha.
         """
-        import uuid as _uuid
-
         self._ensure_service()
         cal_id = calendar_id or self.calendar_id
         call_start = time.time()
 
         try:
-            # Gera um requestId único para idempotência do conferenceData
-            request_id = str(_uuid.uuid4())
-
             event_body: Dict[str, Any] = {
                 "summary": summary,
                 "description": description,
@@ -488,39 +483,22 @@ class CalendarService(BaseService):
                     "dateTime": end_time.isoformat(),
                     "timeZone": timezone,
                 },
-                # instrui o Google Calendar a criar uma conferência Meet
-                "conferenceData": {
-                    "createRequest": {
-                        "requestId": request_id,
-                        "conferenceSolutionKey": {"type": "hangoutsMeet"},
-                    }
-                },
             }
 
             if attendees:
-                event_body["attendees"] = [
-                    {"email": email} for email in attendees
-                ]
+                event_body["attendees"] = [{"email": email} for email in attendees]
 
-            # conferenceDataVersion=1 é OBRIGATÓRIO para o Meet link ser gerado
             created_event = (
                 self._service.events()
                 .insert(
                     calendarId=cal_id,
                     body=event_body,
-                    conferenceDataVersion=1,
                 )
                 .execute()
             )
 
-            # Extrai o link do Google Meet da resposta
+            # Meet link não disponível com Gmail pessoal + service account
             meet_link = ""
-            conference_data = created_event.get("conferenceData", {})
-            entry_points = conference_data.get("entryPoints", [])
-            for ep in entry_points:
-                if ep.get("entryPointType") == "video":
-                    meet_link = ep.get("uri", "")
-                    break
 
             latency = time.time() - call_start
             self._track_call(latency, error=False)
@@ -535,14 +513,14 @@ class CalendarService(BaseService):
             )
 
             return {
-                "id":        created_event.get("id"),
-                "summary":   created_event.get("summary"),
+                "id": created_event.get("id"),
+                "summary": created_event.get("summary"),
                 "html_link": created_event.get("htmlLink", ""),
                 "meet_link": meet_link,
-                "start":     start_time.isoformat(),
-                "end":       end_time.isoformat(),
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
                 "attendees": attendees or [],
-                "status":    "created",
+                "status": "created",
             }
 
         except Exception as exc:
@@ -606,9 +584,7 @@ class CalendarService(BaseService):
                     "timeZone": "UTC",
                 }
             if "attendees" in kwargs:
-                event["attendees"] = [
-                    {"email": email} for email in kwargs["attendees"]
-                ]
+                event["attendees"] = [{"email": email} for email in kwargs["attendees"]]
 
             # Also accept a generic ``updates`` dict for raw fields
             if "updates" in kwargs and isinstance(kwargs["updates"], dict):
@@ -657,9 +633,7 @@ class CalendarService(BaseService):
         call_start = time.time()
 
         try:
-            self._service.events().delete(
-                calendarId=cal_id, eventId=event_id
-            ).execute()
+            self._service.events().delete(calendarId=cal_id, eventId=event_id).execute()
 
             latency = time.time() - call_start
             self._track_call(latency, error=False)
@@ -772,9 +746,7 @@ class CalendarService(BaseService):
 
         return formatted
 
-    def generate_calendar_briefing(
-        self, calendar_id: Optional[str] = None
-    ) -> str:
+    def generate_calendar_briefing(self, calendar_id: Optional[str] = None) -> str:
         """
         Generate a full calendar briefing string (today + tomorrow).
 
@@ -793,9 +765,7 @@ class CalendarService(BaseService):
 
             # -- Tomorrow's events --
             tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
-            tomorrow_start = tomorrow.replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
+            tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
             tomorrow_end = tomorrow.replace(
                 hour=23, minute=59, second=59, microsecond=999999
             )
@@ -816,15 +786,16 @@ class CalendarService(BaseService):
             )
 
             tomorrow_events = [
-                self._format_event_dict(ev)
-                for ev in events_result.get("items", [])
+                self._format_event_dict(ev) for ev in events_result.get("items", [])
             ]
 
             # -- Build the briefing text --
             briefing = "**Calendar Briefing**\n\n"
 
             if today_events:
-                briefing += f"**Today ({datetime.now(timezone.utc).strftime('%B %d')}):**\n"
+                briefing += (
+                    f"**Today ({datetime.now(timezone.utc).strftime('%B %d')}):**\n"
+                )
                 for ev in today_events:
                     briefing += self.format_event_for_briefing(ev) + "\n"
                 briefing += "\n"
@@ -867,9 +838,7 @@ class CalendarService(BaseService):
 
             # Tomorrow
             tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
-            tomorrow_start = tomorrow.replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
+            tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
             tomorrow_end = tomorrow.replace(
                 hour=23, minute=59, second=59, microsecond=999999
             )
@@ -890,8 +859,7 @@ class CalendarService(BaseService):
             )
 
             tomorrow_events = [
-                self._format_event_dict(ev)
-                for ev in events_result.get("items", [])
+                self._format_event_dict(ev) for ev in events_result.get("items", [])
             ]
 
             combined = today_events + tomorrow_events
