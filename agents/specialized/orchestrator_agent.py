@@ -50,7 +50,7 @@ ALLOWED_AGENTS = {
     "notes",
     "restaurant",
     "email",
-    # "transport" removido — não existe transport_agent.py; usar leaving_now
+    "transport",  # Transporte público (autocarro, DART, Luas, comboio)
     "twilio",  # FIX: Phone calls via Twilio (credenciais configuradas)
 }
 
@@ -140,7 +140,8 @@ Agentes disponíveis:
 - 'youtube': Pesquisar vídeos no YouTube, vídeos em alta, trending, canais, buscar conteúdo no YouTube.
 - 'tracking': Rastrear encomenda, tracking de pacote, onde está minha encomenda, código de rastreio.
 - 'search': Pesquisar na internet, buscar informação geral, Google, encontrar lugares, lojas, restaurantes, notícias.
-- 'leaving_now': Quando devo sair, hora de sair, quanto tempo tenho para chegar, cálculo de partida para evento, próximo autocarro/ônibus/DART/Luas/comboio, transportes públicos na Irlanda, NTA, Dublin Bus, Bus Éireann, Irish Rail.
+- 'transport': Transportes públicos na Irlanda: autocarro, ônibus, Bus Éireann, Dublin Bus, DART, Luas, Irish Rail, NTA, horários de paragem, próxima viagem de transporte público.
+- 'leaving_now': Quando devo sair, hora de sair, quanto tempo tenho para chegar, cálculo de partida para evento.
 - 'mercado': Lista de compras, supermercado, nota fiscal, adicionar/remover itens, relatório de gastos, comparar preços, ranking mercados.
 - 'notes': Bloco de notas pessoal: anotar, escrever, salvar, listar, buscar, fixar, apagar notas.
 - 'restaurant': Concierge de restaurantes: sugerir, buscar, filtrar restaurantes por localização, tipo de cozinha, rating, aberto agora, detalhes, telefone, horário, reviews.
@@ -200,7 +201,7 @@ EXEMPLOS (use como referência):
 "a que horas devo sair?" → leaving_now
 "quanto tempo tenho para chegar ao dentista?" → leaving_now
 "hora de sair" → leaving_now
-"eventos de hoje com hora de saída" → leaving_now
+"tenho reunião às 15h, quando saio?" → leaving_now
 "adicionar leite e pão na lista" → mercado
 "ver lista de compras" → mercado
 "relatório mensal de gastos" → mercado
@@ -224,16 +225,14 @@ EXEMPLOS (use como referência):
 "ignorar esse email" → email
 "emails do Gmail" → email
 "emails do Hotmail" → email
-"próximo autocarro para o centro" → leaving_now
-"próximo ônibus para o centro" → leaving_now
-"horário do DART" → leaving_now
-"próxima paragem Luas" → leaving_now
-"Bus Éireann horário" → leaving_now
-"quando chega o autocarro 46A" → leaving_now
-"horários Dublin Bus" → leaving_now
-"Irish Rail próximo comboio" → leaving_now
-"próximo ônibus" → leaving_now
-"onibus para" → leaving_now
+"próximo ônibus" → transport
+"próximo autocarro" → transport
+"quando passa o bus" → transport
+"horários do DART" → transport
+"próxima paragem" → transport
+"luas para o centro" → transport
+"onibus" → transport
+"transporte" → transport
 "ligar para o João" → twilio
 "fazer uma chamada para +351912345678" → twilio
 "chama o escritório" → twilio
@@ -261,12 +260,12 @@ REGRAS:
 - Se pedir para anotar, escrever nota, ver notas, buscar nota, fixar nota, apagar nota → 'notes'
 - Se pedir sugestão de restaurante, buscar onde comer/jantar/almoçar, tipo de cozinha, rating, aberto agora, detalhes de restaurante → 'restaurant'
 - Se pedir para ler, listar, resumir, responder, ignorar emails, contar emails não lidos, Gmail, Hotmail, Outlook → 'email'
-- Se mencionar autocarro, ônibus, onibus, Bus Éireann, Dublin Bus, DART, Luas, Irish Rail, NTA, paragem, transporte público na Irlanda → 'leaving_now'
+- Se mencionar autocarro, ônibus, onibus, Bus Éireann, Dublin Bus, DART, Luas, Irish Rail, NTA, paragem, transporte público na Irlanda → 'transport'
 - Se pedir para fazer uma chamada telefónica, ligar para alguém, Twilio → 'twilio'
 - Se perguntar sobre tráfego, condições de trânsito, rota de carro → 'traffic'
-- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat, restaurant > search para restaurantes, leaving_now > search para transportes públicos).
+- Na dúvida entre dois agentes, prefira o mais específico (ex: smarthome > chat, meeting > calendar, mercado > chat, restaurant > search para restaurantes, transport > search para transportes públicos).
 - 'search' é para pesquisas genéricas na web; use agentes específicos se aplicável (ex: 'crypto' para Bitcoin, 'finance' para ações).
-- DISTINÇÃO CRÍTICA: 'traffic' é para tráfego/navegação de carro; 'leaving_now' é para transportes públicos (autocarro, comboio, metro) e hora de sair.
+- DISTINÇÃO CRÍTICA: 'traffic' é para tráfego/navegação de carro; 'transport' é para transportes públicos (autocarro, comboio, metro); 'leaving_now' é para calcular hora de saída para eventos.
 
 Responda SEMPRE em formato JSON, seguindo este schema:
 {"agent": "<nome_do_agente>", "reason": "<justificativa>"}

@@ -1,0 +1,273 @@
+# -*- coding: utf-8 -*-
+"""
+agents/specialized/transport_agent.py
+=======================================
+TransportAgent — Transporte Público em Tempo Real.
+
+Responde a perguntas sobre:
+- Próximo ônibus / autocarro / DART / Luas / comboio
+- Horários de uma linha específica
+- Estado do serviço (alertas, atrasos)
+- Próximas paragens perto do utilizador
+
+Usa automaticamente o GPS guardado do utilizador.
+Integra com NTA GTFS-Realtime + Google Maps Routes API.
+"""
+
+from typing import Any, Dict, List
+
+from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
+from services import get_service
+from services.business.user_preferences_service import get_location
+
+# ─── Keywords de intent ──────────────────────────────────────────────────────
+
+_TRANSIT_KEYWORDS = [
+    # Português (BR + PT)
+    "ônibus",
+    "onibus",
+    "autocarro",
+    "autocarros",
+    "metro",
+    "metrô",
+    "luas",
+    "dart",
+    "comboio",
+    "trem",
+    "transporte",
+    "bus",
+    "paragem",
+    "paragem de",
+    "próximo ônibus",
+    "próximo autocarro",
+    "próximo bus",
+    "horário",
+    "horarios",
+    "quando passa",
+    "linha",
+    # English
+    "next bus",
+    "next dart",
+    "next luas",
+    "next tram",
+    "bus stop",
+    "train",
+    "transit",
+    "public transport",
+    "timetable",
+    "schedule",
+    "when does",
+]
+
+_ALERT_KEYWORDS = [
+    "atraso",
+    "delay",
+    "cancelled",
+    "cancelado",
+    "disruption",
+    "perturbação",
+    "alert",
+    "alerta",
+]
+
+
+def _is_transport_query(prompt: str) -> bool:
+    text = prompt.lower()
+    return any(kw in text for kw in _TRANSIT_KEYWORDS)
+
+
+def _wants_alerts(prompt: str) -> bool:
+    text = prompt.lower()
+    return any(kw in text for kw in _ALERT_KEYWORDS)
+
+
+def _extract_destination(prompt: str) -> str | None:
+    """Tenta extrair destino da query. Ex: 'para o centro' → 'centro'."""
+    import re
+
+    patterns = [
+        r"para (?:o |a |os |as )?(.+?)(?:\s+agora|\s+hoje|$)",
+        r"até (?:o |a )?(.+?)(?:\s+agora|\s+hoje|$)",
+        r"to (?:the )?(.+?)(?:\s+now|\s+today|$)",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, prompt.lower())
+        if m:
+            dest = m.group(1).strip()
+            if dest and len(dest) > 2:
+                return dest
+    return None
+
+
+@register_agent("transport")
+class TransportAgent(BaseAgent):
+    """
+    Agente de Transporte Público.
+
+    Consulta horários, próximas partidas e alertas de serviço
+    usando o GPS do utilizador automaticamente.
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="transport",
+            description=(
+                "Informa sobre próximo ônibus, autocarro, DART, Luas ou comboio. "
+                "Consulta horários em tempo real via NTA. "
+                "Usa GPS do utilizador automaticamente."
+            ),
+        )
+
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        try:
+            # ── Obter localização ─────────────────────────────────────────
+            user_uuid = context.get("user_id")
+            lat = context.get("latitude")
+            lng = context.get("longitude")
+
+            # Tentar GPS guardado se não vier no context
+            if not (lat and lng) and user_uuid:
+                loc = await get_location(user_uuid, prefer="last")
+                if loc:
+                    lat, lng = loc
+
+            # Se ainda não há GPS, pedir ao utilizador
+            if not lat or not lng:
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=(
+                        "📍 Preciso da tua localização para encontrar transportes próximos.\n\n"
+                        "Envia a tua localização pelo Telegram: **📎 → Localização**"
+                    ),
+                    data={"needs_location": True},
+                )
+
+            # ── Obter serviço de leaving_now (tem o transit integrado) ────
+            svc = get_service("leaving_now")
+            if not svc or not svc.is_initialized():
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response="Serviço de transporte não disponível.",
+                    error="leaving_now service unavailable",
+                )
+
+            destination = _extract_destination(prompt)
+            _wants_alerts(prompt)  # reservado para uso futuro
+
+            # ── Consultar próximas partidas ───────────────────────────────
+            origin = f"{lat},{lng}"
+            dest_query = destination or "Dublin City Centre"
+
+            travel_data = await svc._get_transit_data(
+                origin=origin,
+                destination=dest_query,
+                departure_time=None,  # agora
+            )
+
+            if not travel_data:
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=(
+                        f"🚌 Não encontrei transportes próximos"
+                        f"{f' para {destination}' if destination else ''}.\n\n"
+                        "Verifica se há paragens de autocarro, DART ou Luas perto de ti."
+                    ),
+                )
+
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=self._format_transit(travel_data, destination, lat, lng),
+                data=travel_data,
+            )
+
+        except Exception as e:
+            self.logger.error("TransportAgent error: %s", e, exc_info=True)
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=f"Erro ao consultar transportes: {str(e)}",
+                error=str(e),
+            )
+
+    @staticmethod
+    def _format_transit(
+        data: Dict, destination: str | None, lat: float, lng: float
+    ) -> str:
+        lines = []
+
+        dest_str = f" → **{destination.title()}**" if destination else ""
+        lines.append(f"🚌 **Próximos transportes{dest_str}**\n")
+
+        # Linhas disponíveis
+        transit_lines = data.get("lines", [])
+        steps = data.get("steps", [])
+        delay = data.get("realtime_delay_minutes", 0)
+        duration = data.get("duration_minutes", 0)
+        alerts = data.get("alerts", [])
+
+        if steps:
+            for step in steps[:5]:
+                mode = step.get("mode", "")
+                transit = step.get("transit", {})
+                step_dur = step.get("duration_minutes", 0)
+
+                if mode == "TRANSIT" and transit:
+                    line_name = transit.get("short_name") or transit.get(
+                        "long_name", "?"
+                    )
+                    dep_stop = transit.get("departure_stop", "")
+                    arr_stop = transit.get("arrival_stop", "")
+                    dep_time = transit.get("departure_time", "")
+                    num_stops = transit.get("num_stops", 0)
+                    headsign = transit.get("headsign", "")
+
+                    line_str = f"🚌 **{line_name}**"
+                    if headsign:
+                        line_str += f" → {headsign}"
+                    if dep_time:
+                        line_str += f"  ⏱ {dep_time}"
+                    lines.append(line_str)
+
+                    if dep_stop:
+                        lines.append(f"  📍 Partida: {dep_stop}")
+                    if arr_stop:
+                        lines.append(f"  📍 Chegada: {arr_stop}")
+                    if num_stops:
+                        lines.append(f"  🔢 {num_stops} paragens · {step_dur:.0f} min")
+                    lines.append("")
+
+                elif mode == "WALK":
+                    lines.append(f"🚶 A pé — {step_dur:.0f} min")
+                    lines.append("")
+
+        elif transit_lines:
+            for line in transit_lines[:3]:
+                lines.append(
+                    f"🚌 **{line.get('name', '?')}** — {line.get('departure_time', '')}"
+                )
+
+        if duration:
+            delay_str = f" (+{delay:.0f} min atraso)" if delay > 0 else ""
+            lines.append(f"⏱ Tempo total: **{duration:.0f} min**{delay_str}")
+
+        # Alertas
+        if alerts:
+            lines.append("\n⚠️ **Alertas:**")
+            for alert in alerts[:2]:
+                if alert:
+                    lines.append(f"  • {alert}")
+
+        if not steps and not transit_lines:
+            lines.append("Nenhuma partida encontrada para este destino.")
+
+        return "\n".join(lines).strip()
+
+    def get_capabilities(self) -> List[str]:
+        return [
+            "next_bus",
+            "next_dart",
+            "next_luas",
+            "transit_schedule",
+            "realtime_delays",
+            "service_alerts",
+            "gps_based_search",
+        ]
