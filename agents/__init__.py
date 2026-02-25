@@ -40,6 +40,7 @@ from .specialized import (
     CarAgent,
     SmartHomeAgent,
     GitHubAgent,
+    TransportAgent,
 )
 
 __all__ = [
@@ -52,7 +53,6 @@ __all__ = [
     "register_agent",
     "get_agent",
     "list_agents",
-
     # Specialized agents
     "OrchestratorAgent",
     "ChatAgent",
@@ -68,4 +68,5 @@ __all__ = [
     "CarAgent",
     "SmartHomeAgent",
     "GitHubAgent",
+    "TransportAgent",
 ]

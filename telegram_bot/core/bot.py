@@ -1,4 +1,5 @@
 """Core bot class for the refactored Telegram bot."""
+
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
@@ -40,7 +41,9 @@ class CapivaraXBot:
                 if service and not service.is_initialized():
                     await service.initialize()
                     self.services[service_name] = service
-                    self.logger.info("Initialized %s service successfully", service_name)
+                    self.logger.info(
+                        "Initialized %s service successfully", service_name
+                    )
                 else:
                     self.logger.warning(
                         "Service %s already initialized or not found", service_name
@@ -52,9 +55,36 @@ class CapivaraXBot:
 
         # Initialize ALL agents
         agent_names: List[str] = [
-            "orchestrator", "chat", "dev", "research", "image", "video",
-            "voice", "calendar", "weather", "traffic", "car", "finance",
-            "smarthome", "github"
+            "orchestrator",
+            "chat",
+            "dev",
+            "research",
+            "image",
+            "video",
+            "voice",
+            "calendar",
+            "weather",
+            "traffic",
+            "car",
+            "finance",
+            "smarthome",
+            "github",
+            "time",
+            "translate",
+            "crypto",
+            "timer",
+            "reminder",
+            "youtube",
+            "tracking",
+            "meeting",
+            "search",
+            "leaving_now",
+            "mercado",
+            "notes",
+            "restaurant",
+            "email",
+            "transport",
+            "twilio",
         ]
         for agent_name in agent_names:
             try:
@@ -94,7 +124,9 @@ class CapivaraXBot:
         except Exception as e:
             self.logger.error("Error during shutdown: %s", e, exc_info=True)
 
-    async def process_message(self, text: str, context: Dict[str, Any]) -> "AgentResponse":
+    async def process_message(
+        self, text: str, context: Dict[str, Any]
+    ) -> "AgentResponse":
         """
         Process a message using the orchestrator agent.
 
@@ -118,8 +150,8 @@ class CapivaraXBot:
                     if user_row:
                         context = {
                             **context,
-                            "user_id": user_row["id"],         # UUID para o DB
-                            "telegram_user_id": telegram_id,   # ID original preservado
+                            "user_id": user_row["id"],  # UUID para o DB
+                            "telegram_user_id": telegram_id,  # ID original preservado
                         }
             except Exception as e:
                 self.logger.warning("Could not resolve user UUID: %s", e)
@@ -133,7 +165,9 @@ class CapivaraXBot:
                 )
 
             decision = await orchestrator.process(text, context)
-            agent_name = decision.response if hasattr(decision, "response") else str(decision)
+            agent_name = (
+                decision.response if hasattr(decision, "response") else str(decision)
+            )
 
             agent = get_agent(agent_name)
             if not agent:
@@ -158,8 +192,11 @@ class CapivaraXBot:
     def _is_uuid(value: str) -> bool:
         """Check if a string is a valid UUID."""
         import re
-        return bool(re.match(
-            r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-            value, re.I,
-        ))
 
+        return bool(
+            re.match(
+                r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                value,
+                re.I,
+            )
+        )
