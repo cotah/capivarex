@@ -246,11 +246,10 @@ async def smartthings_webhook(request: Request) -> JSONResponse:
 
 @router.get("/connect")
 async def connect_smartthings(
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    user_id: str = Query(default="unknown"),
 ) -> RedirectResponse:
     try:
         _assert_oauth_config()
-        user_id = str(current_user["id"])
         auth_url = (
             f"{OAUTH_AUTHORIZE_URL}"
             f"?client_id={CLIENT_ID}"
@@ -272,14 +271,10 @@ async def connect_smartthings(
 async def oauth_callback(
     code: str = Query(...),
     state: str = Query(...),
-    current_user: Dict[str, Any] = Depends(get_current_user),
 ) -> RedirectResponse:
     try:
         _assert_oauth_config()
-        user_id = str(current_user["id"])
-
-        if state != user_id:
-            raise HTTPException(status_code=403, detail="OAuth state mismatch")
+        user_id = str(state)  # user_id vem no state param
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
