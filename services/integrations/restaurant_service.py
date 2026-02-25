@@ -72,45 +72,49 @@ CUISINE_MAP: Dict[str, str] = {
 }
 
 # Campos a pedir ao Places API (New) — só o necessário para reduzir custo
-FIELDS_BASIC = ",".join([
-    "places.id",
-    "places.displayName",
-    "places.formattedAddress",
-    "places.rating",
-    "places.userRatingCount",
-    "places.priceLevel",
-    "places.currentOpeningHours",
-    "places.primaryType",
-    "places.types",
-    "places.location",
-    "places.nationalPhoneNumber",
-    "places.websiteUri",
-    "places.editorialSummary",
-])
+FIELDS_BASIC = ",".join(
+    [
+        "places.id",
+        "places.displayName",
+        "places.formattedAddress",
+        "places.rating",
+        "places.userRatingCount",
+        "places.priceLevel",
+        "places.currentOpeningHours",
+        "places.primaryType",
+        "places.types",
+        "places.location",
+        "places.nationalPhoneNumber",
+        "places.websiteUri",
+        "places.editorialSummary",
+    ]
+)
 
-FIELDS_DETAIL = ",".join([
-    "id",
-    "displayName",
-    "formattedAddress",
-    "rating",
-    "userRatingCount",
-    "priceLevel",
-    "currentOpeningHours",
-    "regularOpeningHours",
-    "primaryType",
-    "nationalPhoneNumber",
-    "internationalPhoneNumber",
-    "websiteUri",
-    "editorialSummary",
-    "reviews",
-    "photos",
-    "location",
-    "googleMapsUri",
-    "delivery",
-    "dineIn",
-    "takeout",
-    "reservable",
-])
+FIELDS_DETAIL = ",".join(
+    [
+        "id",
+        "displayName",
+        "formattedAddress",
+        "rating",
+        "userRatingCount",
+        "priceLevel",
+        "currentOpeningHours",
+        "regularOpeningHours",
+        "primaryType",
+        "nationalPhoneNumber",
+        "internationalPhoneNumber",
+        "websiteUri",
+        "editorialSummary",
+        "reviews",
+        "photos",
+        "location",
+        "googleMapsUri",
+        "delivery",
+        "dineIn",
+        "takeout",
+        "reservable",
+    ]
+)
 
 # Mapa de price level para texto
 PRICE_LABELS = {
@@ -216,9 +220,7 @@ class RestaurantService(BaseService):
             return cached
 
         # Resolve tipo de cozinha
-        place_type = cuisine or (
-            _resolve_cuisine_type(query) if query else None
-        )
+        place_type = cuisine or (_resolve_cuisine_type(query) if query else None)
 
         payload: Dict[str, Any] = {
             "locationRestriction": {
@@ -237,8 +239,8 @@ class RestaurantService(BaseService):
             # Sem tipo específico → qualquer restaurante
             payload["includedTypes"] = ["restaurant"]
 
-        if query and not place_type:
-            payload["textQuery"] = query
+        # FIX: searchNearby NÃO suporta textQuery — removido.
+        # textQuery só funciona em searchByText (search_by_text).
 
         if open_now:
             payload["openNow"] = True
@@ -276,7 +278,10 @@ class RestaurantService(BaseService):
         self._set_cache(cache_key, results)
         self.logger.info(
             "Nearby search: %d results for (%f, %f) type=%s",
-            len(results), lat, lng, place_type,
+            len(results),
+            lat,
+            lng,
+            place_type,
         )
         return results
 
@@ -412,7 +417,11 @@ class RestaurantService(BaseService):
         address = place.get("address", "")
         address_short = address.split(",")[0] if address else ""
         is_open = place.get("is_open")
-        open_str = " · 🟢 Aberto" if is_open is True else (" · 🔴 Fechado" if is_open is False else "")
+        open_str = (
+            " · 🟢 Aberto"
+            if is_open is True
+            else (" · 🔴 Fechado" if is_open is False else "")
+        )
         phone = place.get("phone", "")
         phone_str = f"\n📞 {phone}" if phone else ""
         maps_url = place.get("maps_url", "")
@@ -427,7 +436,9 @@ class RestaurantService(BaseService):
         )
 
     @staticmethod
-    def format_list(places: List[Dict[str, Any]], title: str = "🍽️ Restaurantes encontrados") -> str:
+    def format_list(
+        places: List[Dict[str, Any]], title: str = "🍽️ Restaurantes encontrados"
+    ) -> str:
         """Formata lista de restaurantes para Telegram."""
         if not places:
             return "Nenhum restaurante encontrado."
@@ -530,16 +541,18 @@ class RestaurantService(BaseService):
         # Maps URL completo
         maps_url = raw.get("googleMapsUri", base.get("maps_url", ""))
 
-        base.update({
-            "weekly_hours": weekly,
-            "reviews": reviews,
-            "services": services,
-            "maps_url": maps_url,
-            "reservable": raw.get("reservable", False),
-            "delivery": raw.get("delivery", False),
-            "takeout": raw.get("takeout", False),
-            "dine_in": raw.get("dineIn", False),
-        })
+        base.update(
+            {
+                "weekly_hours": weekly,
+                "reviews": reviews,
+                "services": services,
+                "maps_url": maps_url,
+                "reservable": raw.get("reservable", False),
+                "delivery": raw.get("delivery", False),
+                "takeout": raw.get("takeout", False),
+                "dine_in": raw.get("dineIn", False),
+            }
+        )
         return base
 
     # ──────────────────────────────────────────────────────────────────────────

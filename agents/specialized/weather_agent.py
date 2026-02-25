@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 """
 agents/specialized/weather_agent.py (versão melhorada)
-========================================================
+=========================================================
 WeatherAgent com suporte a:
-- Previsão 7 dias com emojis e tendência
-- Alertas de chuva (>70% chance)
-- Alertas de vento forte e UV alto
-- Alertas meteorológicos oficiais (da WeatherAPI)
-- Resumo semanal (melhor/pior dia)
-- Clima atual enriquecido (UV, vento, sensação térmica)
-- Intents: hoje / amanhã / semana / alertas / clima actual
-- GPS auto-use: busca coordenadas do Supabase quando sem cidade
+  - Previsão 7 dias com emojis e tendência
+  - Alertas de chuva (>70% chance)
+  - Alertas de vento forte e UV alto
+  - Alertas meteorológicos oficiais (da WeatherAPI)
+  - Resumo semanal (melhor/pior dia)
+  - Clima atual enriquecido (UV, vento, sensação térmica)
+  - Intents: hoje / amanhã / semana / alertas / clima actual
+  - GPS auto-use: busca coordenadas do Supabase quando sem cidade
+
+FIX [2025-02]: "tempo agora" retornava Agora, Ethiopia.
+  Causa: cleanup removia "tempo" mas deixava "agora" como nome de cidade.
+  Fix: GPS é tentado ANTES do cleanup. Cleanup tem mais palavras filtradas.
 
 Mantém backward compat: comportamento original para queries sem intent clara.
 """
@@ -25,6 +29,7 @@ from services import get_service
 
 logger = logging.getLogger(__name__)
 
+# Padrão para capturar cidade explícita: "em Dublin", "in London", "para SP"
 LOCATION_PATTERN = re.compile(
     r"(?:em|in|para|for|de|of)\s+([a-zA-ZÀ-ÿ0-9 ,.\-]{2,}?)(?:\s*\?|$|,|\s+(?:hoje|amanhã|essa semana|week))",
     re.IGNORECASE,
@@ -57,6 +62,7 @@ _CONDITION_EMOJI = {
 }
 
 _WEEKDAYS_PT = {0: "Seg", 1: "Ter", 2: "Qua", 3: "Qui", 4: "Sex", 5: "Sáb", 6: "Dom"}
+
 _WEEKDAYS_FULL_PT = {
     0: "segunda-feira",
     1: "terça-feira",
@@ -66,6 +72,115 @@ _WEEKDAYS_FULL_PT = {
     5: "sábado",
     6: "domingo",
 }
+
+# Palavras que NÃO são nomes de cidade — remover do prompt antes de buscar
+_NON_LOCATION_WORDS = [
+    # Verbos / perguntas
+    "previsão",
+    "previsao",
+    "clima",
+    "tempo",
+    "weather",
+    "alerta",
+    "alertas",
+    "semana",
+    "amanhã",
+    "amanha",
+    "hoje",
+    "vai",
+    "chover",
+    "nevar",
+    "ventar",
+    # Palavras comuns que sobram após limpeza
+    "agora",
+    "aqui",
+    "aí",
+    "ali",
+    "lá",
+    "cá",
+    "como",
+    "qual",
+    "que",
+    "quando",
+    "quanto",
+    "onde",
+    "está",
+    "estará",
+    "estar",
+    "será",
+    "ser",
+    "vai",
+    "ir",
+    "o",
+    "a",
+    "os",
+    "as",
+    "um",
+    "uma",
+    "uns",
+    "umas",
+    "e",
+    "ou",
+    "de",
+    "do",
+    "da",
+    "dos",
+    "das",
+    "no",
+    "na",
+    "nos",
+    "nas",
+    "ao",
+    "à",
+    "aos",
+    "às",
+    "por",
+    "pra",
+    "pro",
+    "para",
+    "com",
+    "sem",
+    "esse",
+    "essa",
+    "este",
+    "esta",
+    "isso",
+    "isto",
+    "meu",
+    "minha",
+    "teu",
+    "tua",
+    "seu",
+    "sua",
+    "me",
+    "te",
+    "se",
+    "nos",
+    "vos",
+    "muito",
+    "mais",
+    "menos",
+    "bem",
+    "mal",
+    "já",
+    "ainda",
+    "sempre",
+    "nunca",
+    "sim",
+    "não",
+    "nao",
+    "tomorrow",
+    "today",
+    "now",
+    "here",
+    "there",
+    "the",
+    "is",
+    "it",
+    "what",
+    "how",
+    "will",
+]
 
 
 def _condition_emoji(condition: str) -> str:
@@ -77,7 +192,6 @@ def _condition_emoji(condition: str) -> str:
 
 
 def _uv_label(uv: float) -> str:
-    # FIX E701: expanded to multi-line
     if uv <= 2:
         return "baixo"
     if uv <= 5:
@@ -101,14 +215,6 @@ def _date_to_weekday(date_str: str) -> str:
 class WeatherAgent(BaseAgent):
     """
     Weather agent for weather forecasts and conditions.
-
-    Handles:
-    - Current weather (temperature, condition, UV, wind)
-    - 7-day forecast with trend
-    - Rain/wind/UV alerts
-    - Official meteorological alerts
-    - Week summary (best/worst day)
-    - GPS auto-use from Supabase when no city provided
     """
 
     def __init__(self):
@@ -131,13 +237,22 @@ class WeatherAgent(BaseAgent):
                     response="Serviço de clima não disponível.",
                     error="Weather service not available",
                 )
+
             if not weather_svc.is_initialized():
                 await weather_svc.initialize()
 
-            location = self._extract_location(prompt, context)
+            # ── PASSO 1: Cidade explícita no context? ─────────────────
+            location = None
+            if context.get("location"):
+                location = str(context["location"]).strip()
 
-            # ── GPS AUTO-USE (Passo 4A) ────────────────────────────────
-            # Se não encontrou cidade no prompt/context, tenta GPS do Supabase
+            # ── PASSO 2: Cidade explícita no prompt? ("em Dublin") ────
+            if not location:
+                match = LOCATION_PATTERN.search(prompt or "")
+                if match:
+                    location = match.group(1).strip(" .,!?:;")
+
+            # ── PASSO 3: GPS do Supabase (ANTES do cleanup!) ─────────
             if not location:
                 user_uuid = context.get("user_id")
                 if user_uuid:
@@ -158,8 +273,12 @@ class WeatherAgent(BaseAgent):
                             )
                     except Exception as e:
                         self.logger.warning("Could not fetch GPS for weather: %s", e)
-            # ── FIM GPS AUTO-USE ───────────────────────────────────────
 
+            # ── PASSO 4: Cleanup do prompt (último recurso) ──────────
+            if not location:
+                location = self._extract_location_from_text(prompt)
+
+            # ── PASSO 5: Sem nada → pede ao utilizador ────────────────
             if not location:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
@@ -205,7 +324,6 @@ class WeatherAgent(BaseAgent):
             )
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                # FIX F541: removed f-string with no placeholders
                 response="Não foi possível consultar o clima.",
                 error=str(e),
                 metadata={"prompt": prompt},
@@ -234,6 +352,7 @@ class WeatherAgent(BaseAgent):
             f"💨 Vento: {wind} km/h {wind_dir}",
             f"🔆 UV: {uv} ({_uv_label(uv)})",
         ]
+
         if today:
             rain_pct = today.get("chance_of_rain", 0)
             if rain_pct > 0:
@@ -241,11 +360,12 @@ class WeatherAgent(BaseAgent):
                 lines.append(f"{rain_emoji} Chance de chuva hoje: {rain_pct}%")
             if today.get("sunrise"):
                 lines.append(f"🌅 Nascer: {today['sunrise']} 🌇 Pôr: {today['sunset']}")
+
         if alerts:
             lines.append("")
             lines.append(f"⚠️ **{len(alerts)} alerta(s) ativo(s):**")
             for a in alerts[:2]:
-                lines.append(f" • {a['headline']}")
+                lines.append(f"  • {a['headline']}")
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -257,12 +377,14 @@ class WeatherAgent(BaseAgent):
         data = await svc.get_detailed_forecast(location, days=2)
         loc = data["location"]
         forecast = data["forecast"]
+
         if len(forecast) < 2:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Não foi possível obter a previsão de amanhã para {loc['name']}.",
                 error="No tomorrow data",
             )
+
         tomorrow = forecast[1]
         emoji = _condition_emoji(tomorrow["condition"])
         rain_pct = tomorrow["chance_of_rain"]
@@ -278,6 +400,7 @@ class WeatherAgent(BaseAgent):
             f"🌤️ {tomorrow['condition']}",
             rain_line,
         ]
+
         if tomorrow.get("max_wind_kph", 0) >= 30:
             lines.append(f"💨 Vento: até {tomorrow['max_wind_kph']} km/h")
         if tomorrow.get("uv", 0) >= 6:
@@ -286,6 +409,7 @@ class WeatherAgent(BaseAgent):
             lines.append(
                 f"🌅 Nascer: {tomorrow['sunrise']} 🌇 Pôr: {tomorrow['sunset']}"
             )
+
         lines.extend(self._format_day_alerts(tomorrow))
 
         return AgentResponse(
@@ -304,6 +428,7 @@ class WeatherAgent(BaseAgent):
         alerts = data.get("alerts", [])
 
         lines = [f"📅 **Previsão 7 dias — {loc['name']}, {loc['country']}**\n"]
+
         for day in forecast:
             emoji = _condition_emoji(day["condition"])
             weekday = _date_to_weekday(day["date"])
@@ -320,6 +445,7 @@ class WeatherAgent(BaseAgent):
                 if day.get("rain_alert") or day.get("wind_alert") or day.get("uv_alert")
                 else ""
             )
+
             lines.append(
                 f"{emoji} **{weekday}** {day['date'][5:]} "
                 f"{day['max_temp_c']}°/{day['min_temp_c']}°C "
@@ -349,7 +475,7 @@ class WeatherAgent(BaseAgent):
             lines.append("")
             lines.append(f"⚠️ **{len(alerts)} alerta(s) meteorológico(s) ativo(s):**")
             for a in alerts[:3]:
-                lines.append(f" • [{a['severity']}] {a['headline']}")
+                lines.append(f"  • [{a['severity']}] {a['headline']}")
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -369,15 +495,16 @@ class WeatherAgent(BaseAgent):
         forecast = data["forecast"]
 
         lines = [f"⚠️ **Alertas meteorológicos — {loc['name']}**\n"]
+
         if official_alerts:
             lines.append(f"🚨 **{len(official_alerts)} alerta(s) oficial(is):**")
             for a in official_alerts:
                 lines.append(f"\n**{a['event']}** [{a['severity']}]")
-                lines.append(f" {a['headline']}")
+                lines.append(f"  {a['headline']}")
                 if a.get("description"):
-                    lines.append(f" _{a['description'][:200]}_")
+                    lines.append(f"  _{a['description'][:200]}_")
                 if a.get("expires"):
-                    lines.append(f" Expira: {a['expires']}")
+                    lines.append(f"  Expira: {a['expires']}")
         else:
             lines.append("✅ Nenhum alerta oficial ativo no momento.")
 
@@ -387,7 +514,7 @@ class WeatherAgent(BaseAgent):
             if day_alerts:
                 wd = _date_to_weekday(day["date"])
                 for alert in day_alerts:
-                    derived.append(f" • **{wd}** {day['date'][5:]}: {alert.strip()}")
+                    derived.append(f"  • **{wd}** {day['date'][5:]}: {alert.strip()}")
 
         if derived:
             lines.append("")
@@ -424,29 +551,31 @@ class WeatherAgent(BaseAgent):
             alerts.append(f"🔆 UV alto: {day['uv']} ({_uv_label(day['uv'])})")
         return alerts
 
-    def _extract_location(self, prompt: str, context: Dict[str, Any]) -> Optional[str]:
-        if context.get("location"):
-            return str(context["location"]).strip()
-        match = LOCATION_PATTERN.search(prompt or "")
-        if match:
-            return match.group(1).strip(" .,!?:;")
+    def _extract_location_from_text(self, prompt: str) -> Optional[str]:
+        """
+        Último recurso: tenta extrair nome de cidade do texto.
+        Remove palavras comuns que NÃO são cidades.
+        Só retorna se sobrar algo que pareça um nome real.
+        """
         cleaned = (prompt or "").strip()
-        for keyword in [
-            "previsão",
-            "previsao",
-            "clima",
-            "tempo",
-            "weather",
-            "alerta",
-            "semana",
-            "amanhã",
-            "hoje",
-            "vai chover",
-        ]:
+
+        # Remove todas as palavras que não são cidades
+        for word in _NON_LOCATION_WORDS:
             cleaned = re.sub(
-                rf"\b{keyword}\b", "", cleaned, flags=re.IGNORECASE
+                rf"\b{re.escape(word)}\b", "", cleaned, flags=re.IGNORECASE
             ).strip()
-        return cleaned if len(cleaned) >= 2 else None
+
+        # Remove pontuação solta
+        cleaned = re.sub(r"[?,!.:;]+", "", cleaned).strip()
+
+        # Remove espaços duplos
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+
+        # Só retorna se sobrou algo com pelo menos 3 caracteres
+        if len(cleaned) >= 3:
+            return cleaned
+
+        return None
 
     def get_capabilities(self) -> List[str]:
         return [
