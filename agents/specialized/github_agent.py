@@ -1,9 +1,23 @@
 """
 GitHub Agent - Handles Git and GitHub operations via Telegram.
-
 Refactored to use new BaseAgent architecture.
+
+FIX [2025-02] — MÉTODO NÃO EXISTE:
+  O agent chamava métodos que não existem no GitService:
+  - get_status() → deve ser status()
+  - get_log()    → deve ser log()
+  - checkout_branch() → deve ser checkout()
+  - clone_repo() → deve ser clone()
+  - init_repo() retorno esperava 'path' ✅ (correcto)
+
+  Também corrigidos os formatos de retorno:
+  - status() retorna {branch, is_dirty, untracked, modified, staged}
+    (agent esperava {status, branch})
+  - log() retorna lista de dicts [{sha, message, author, date}]
+    (agent esperava {commits: [{hash, message, ...}]})
 """
 
+import asyncio
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -11,13 +25,20 @@ from typing import Any, Dict, List, Optional
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
 
-
 logger = logging.getLogger(__name__)
 
 # Valid intents for GitHub commands
 VALID_INTENTS = {
-    "create_repo", "commit", "status", "log", "create_branch",
-    "checkout_branch", "push", "pull", "clone", "help",
+    "create_repo",
+    "commit",
+    "status",
+    "log",
+    "create_branch",
+    "checkout_branch",
+    "push",
+    "pull",
+    "clone",
+    "help",
 }
 
 
@@ -54,7 +75,7 @@ class GitHubAgent(BaseAgent):
                 return svc
             return None
         except Exception as e:
-            self.logger.warning(f"Could not get Git service: {e}")
+            self.logger.warning("Could not get Git service: %s", e)
             return None
 
     async def _load_stored_connection(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -66,7 +87,7 @@ class GitHubAgent(BaseAgent):
                     await db.initialize()
                 return await db.get_github_connection(user_id)
         except Exception as e:
-            self.logger.warning(f"Could not load github connection: {e}")
+            self.logger.warning("Could not load github connection: %s", e)
         return None
 
     async def _save_connection(
@@ -82,25 +103,24 @@ class GitHubAgent(BaseAgent):
                     user_id, github_username, access_token
                 )
         except Exception as e:
-            self.logger.warning(f"Could not save github connection: {e}")
+            self.logger.warning("Could not save github connection: %s", e)
         return False
 
     # ------------------------------------------------------------------
     # Intent classification
     # ------------------------------------------------------------------
-
     async def _analyze_intent(self, user_message: str) -> Dict[str, Any]:
-        """Analyze user intent and extract parameters using OpenAI.
-
-        Returns:
-            Dict with 'intent' and extracted parameters.
-        """
+        """Analyze user intent and extract parameters using OpenAI."""
         openai_svc = get_service("openai")
         if not openai_svc:
             return {"intent": "help"}
 
         if not openai_svc.is_initialized():
-            await openai_svc.initialize()
+            try:
+                await asyncio.wait_for(openai_svc.initialize(), timeout=10)
+            except asyncio.TimeoutError:
+                self.logger.warning("OpenAI init timed out for GitHub intent")
+                return {"intent": "help"}
 
         client = openai_svc.client
         if not client:
@@ -119,9 +139,11 @@ class GitHubAgent(BaseAgent):
             "Examples:\n"
             '"crie um repositório chamado meu-projeto" → '
             '{"intent":"create_repo","repo_name":"meu-projeto"}\n'
-            '"faça um commit com a mensagem \'fix: bug corrigido\'" → '
+            "\"faça um commit com a mensagem 'fix: bug corrigido'\" → "
             '{"intent":"commit","commit_message":"fix: bug corrigido"}\n'
             '"mostre o status do repositório" → {"intent":"status"}\n'
+            '"status do repositorio" → {"intent":"status"}\n'
+            '"git status" → {"intent":"status"}\n'
             '"liste os últimos commits" → {"intent":"log"}\n'
             '"crie uma branch feature/nova" → '
             '{"intent":"create_branch","branch_name":"feature/nova"}\n'
@@ -135,29 +157,29 @@ class GitHubAgent(BaseAgent):
         )
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message},
-                ],
-                temperature=0.0,
-                max_tokens=200,
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.0,
+                    max_tokens=200,
+                ),
+                timeout=15,
             )
 
             result_text = (response.choices[0].message.content or "").strip()
-
             # Remove markdown code blocks if present
             if result_text.startswith("```"):
                 parts = result_text.split("```")
                 if len(parts) > 1:
                     result_text = parts[1]
-                    # Remove optional language identifier on first line (e.g., "json\n")
                     if result_text.startswith(("json", "python", "text")):
                         result_text = result_text.split("\n", 1)[-1]
 
             result = json.loads(result_text)
-
             intent = result.get("intent", "help")
             if intent not in VALID_INTENTS:
                 intent = "help"
@@ -168,31 +190,36 @@ class GitHubAgent(BaseAgent):
                 "commit_message": result.get("commit_message"),
                 "branch_name": result.get("branch_name"),
                 "repo_url": result.get("repo_url"),
-                "project_path": result.get("project_path") or "./workspace/current",
+                "project_path": result.get("project_path"),
             }
 
         except Exception as e:
-            self.logger.error(f"Intent analysis failed: {e}")
+            self.logger.error("Intent analysis failed: %s", e)
             return {"intent": "help"}
+
+    # ------------------------------------------------------------------
+    # Path resolution
+    # ------------------------------------------------------------------
+    def _resolve_path(self, git_svc: Any, analysis: Dict[str, Any]) -> str:
+        """Resolve the project path from analysis or use workspace default."""
+        custom_path = analysis.get("project_path")
+        if custom_path:
+            return custom_path
+        # Use the service's base workspace
+        base = getattr(git_svc, "base_workspace", None)
+        if base:
+            return str(base / "current")
+        return "/tmp/workspace/current"
 
     # ------------------------------------------------------------------
     # Main execute
     # ------------------------------------------------------------------
-
     async def execute(
         self,
         prompt: str,
         context: Dict[str, Any],
     ) -> AgentResponse:
-        """Process a GitHub/Git command.
-
-        Args:
-            prompt: User's GitHub command.
-            context: Execution context.
-
-        Returns:
-            AgentResponse with operation result.
-        """
+        """Process a GitHub/Git command."""
         try:
             git_svc = await self._get_git_service()
             if not git_svc:
@@ -222,7 +249,7 @@ class GitHubAgent(BaseAgent):
             return await handler(git_svc, analysis)
 
         except Exception as e:
-            self.logger.error(f"GitHub agent failed: {e}", exc_info=True)
+            self.logger.error("GitHub agent failed: %s", e, exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao executar operação Git: {str(e)}",
@@ -230,7 +257,7 @@ class GitHubAgent(BaseAgent):
             )
 
     # ------------------------------------------------------------------
-    # Handlers
+    # Handlers — FIX: Nomes de métodos corrigidos para match com GitService
     # ------------------------------------------------------------------
 
     async def _handle_create_repo(
@@ -247,9 +274,14 @@ class GitHubAgent(BaseAgent):
                 ),
             )
 
-        project_path = f"./workspace/{repo_name}"
-        result = git_svc.init_repo(project_path)
+        base = getattr(git_svc, "base_workspace", None)
+        if base:
+            project_path = str(base / repo_name)
+        else:
+            project_path = f"/tmp/workspace/{repo_name}"
 
+        # FIX: init_repo() está correcto no service ✅
+        result = git_svc.init_repo(project_path)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=(
@@ -273,9 +305,10 @@ class GitHubAgent(BaseAgent):
                 ),
             )
 
-        project_path = analysis.get("project_path", "./workspace/current")
-        result = git_svc.commit(project_path, commit_message)
+        project_path = self._resolve_path(git_svc, analysis)
 
+        # FIX: commit() está correcto no service ✅
+        result = git_svc.commit(project_path, commit_message)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=(
@@ -290,18 +323,47 @@ class GitHubAgent(BaseAgent):
         self, git_svc: Any, analysis: Dict[str, Any]
     ) -> AgentResponse:
         """Handle repository status check."""
-        project_path = analysis.get("project_path", "./workspace/current")
-        result = git_svc.get_status(project_path)
+        project_path = self._resolve_path(git_svc, analysis)
 
-        status_text = result["status"] if result["status"] else "Nenhuma mudança"
+        # FIX: Era get_status() → service tem status()
+        result = git_svc.status(project_path)
+
+        # FIX: Formatar o retorno real do service
+        # Service retorna: {branch, is_dirty, untracked, modified, staged}
+        branch = result.get("branch", "unknown")
+        is_dirty = result.get("is_dirty", False)
+        untracked = result.get("untracked", [])
+        modified = result.get("modified", [])
+        staged = result.get("staged", [])
+
+        lines = ["📊 **Status do Repositório**\n", f"🌿 Branch: `{branch}`\n"]
+
+        if not is_dirty and not untracked:
+            lines.append("✅ Working tree limpa — nada para commitar.")
+        else:
+            if staged:
+                lines.append("**Staged (prontos para commit):**")
+                for f in staged[:15]:
+                    lines.append(f"  ✅ `{f}`")
+                lines.append("")
+
+            if modified:
+                lines.append("**Modificados (não staged):**")
+                for f in modified[:15]:
+                    lines.append(f"  📝 `{f}`")
+                lines.append("")
+
+            if untracked:
+                lines.append("**Não rastreados:**")
+                for f in untracked[:15]:
+                    lines.append(f"  ❓ `{f}`")
+
+            total = len(staged) + len(modified) + len(untracked)
+            lines.append(f"\n📈 Total: {total} ficheiro(s) com mudanças")
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=(
-                f"📊 **Status do Repositório**\n\n"
-                f"🌿 Branch: `{result['branch']}`\n\n"
-                f"```\n{status_text}\n```"
-            ),
+            response="\n".join(lines),
             data=result,
         )
 
@@ -309,26 +371,31 @@ class GitHubAgent(BaseAgent):
         self, git_svc: Any, analysis: Dict[str, Any]
     ) -> AgentResponse:
         """Handle commit log viewing."""
-        project_path = analysis.get("project_path", "./workspace/current")
-        result = git_svc.get_log(project_path, limit=5)
+        project_path = self._resolve_path(git_svc, analysis)
 
-        if not result["commits"]:
+        # FIX: Era get_log(path, limit=5) → service tem log(path, max_count=5)
+        commits = git_svc.log(project_path, max_count=5)
+
+        # FIX: Service retorna lista directa, não {commits: [...]}
+        if not commits:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response="Nenhum commit encontrado.",
             )
 
         log_text = "📜 **Últimos Commits:**\n\n"
-        for commit in result["commits"]:
-            log_text += (
-                f"• `{commit['hash'][:8]}` — {commit['message']}\n"
-                f"  👤 {commit['author']} · 📅 {commit['date'][:10]}\n\n"
-            )
+        for commit in commits:
+            # FIX: Service usa 'sha' não 'hash'
+            sha = commit.get("sha", "?")
+            message = commit.get("message", "")
+            author = commit.get("author", "")
+            date = commit.get("date", "")[:10]
+            log_text += f"• `{sha}` — {message}\n  👤 {author} · 📅 {date}\n\n"
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=log_text.strip(),
-            data=result,
+            data={"commits": commits},
         )
 
     async def _handle_create_branch(
@@ -345,9 +412,10 @@ class GitHubAgent(BaseAgent):
                 ),
             )
 
-        project_path = analysis.get("project_path", "./workspace/current")
-        result = git_svc.create_branch(project_path, branch_name)
+        project_path = self._resolve_path(git_svc, analysis)
 
+        # FIX: create_branch() está correcto no service ✅
+        result = git_svc.create_branch(project_path, branch_name)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=f"✅ Branch **{branch_name}** criada com sucesso!",
@@ -368,9 +436,10 @@ class GitHubAgent(BaseAgent):
                 ),
             )
 
-        project_path = analysis.get("project_path", "./workspace/current")
-        result = git_svc.checkout_branch(project_path, branch_name)
+        project_path = self._resolve_path(git_svc, analysis)
 
+        # FIX: Era checkout_branch() → service tem checkout()
+        result = git_svc.checkout(project_path, branch_name)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=f"✅ Branch **{branch_name}** ativada!",
@@ -381,11 +450,11 @@ class GitHubAgent(BaseAgent):
         self, git_svc: Any, analysis: Dict[str, Any]
     ) -> AgentResponse:
         """Handle push to GitHub."""
-        project_path = analysis.get("project_path", "./workspace/current")
-        branch_name = analysis.get("branch_name")
+        project_path = self._resolve_path(git_svc, analysis)
+        branch_name = analysis.get("branch_name", "main")
 
+        # FIX: push() está correcto, mas branch default corrigido ✅
         result = git_svc.push(project_path, "origin", branch_name)
-
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response="✅ Push realizado com sucesso para o GitHub!",
@@ -396,9 +465,10 @@ class GitHubAgent(BaseAgent):
         self, git_svc: Any, analysis: Dict[str, Any]
     ) -> AgentResponse:
         """Handle pull from GitHub."""
-        project_path = analysis.get("project_path", "./workspace/current")
-        result = git_svc.pull(project_path)
+        project_path = self._resolve_path(git_svc, analysis)
 
+        # FIX: pull() está correcto ✅
+        result = git_svc.pull(project_path)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response="✅ Pull realizado com sucesso!",
@@ -420,10 +490,14 @@ class GitHubAgent(BaseAgent):
             )
 
         repo_name = repo_url.rstrip("/").split("/")[-1].replace(".git", "")
-        target_path = f"./workspace/{repo_name}"
+        base = getattr(git_svc, "base_workspace", None)
+        if base:
+            target_path = str(base / repo_name)
+        else:
+            target_path = f"/tmp/workspace/{repo_name}"
 
-        result = git_svc.clone_repo(repo_url, target_path)
-
+        # FIX: Era clone_repo() → service tem clone()
+        result = git_svc.clone(repo_url, target_path)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=f"✅ Repositório clonado com sucesso em `{result['path']}`!",
@@ -455,7 +529,6 @@ class GitHubAgent(BaseAgent):
             '• "crie uma branch feature/login"\n'
             '• "faça push para o GitHub"'
         )
-
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=help_text,
