@@ -34,6 +34,7 @@ from .notes_agent import NotesAgent
 from .restaurant_agent import RestaurantAgent
 from .email_agent import EmailAgent
 from .transport_agent import TransportAgent
+from .twilio_agent import TwilioAgent
 
 __all__ = [
     "OrchestratorAgent",
@@ -65,4 +66,5 @@ __all__ = [
     "RestaurantAgent",
     "EmailAgent",
     "TransportAgent",
+    "TwilioAgent",
 ]
