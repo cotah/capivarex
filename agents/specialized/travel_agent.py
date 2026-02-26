@@ -92,9 +92,34 @@ class TravelAgent(BaseAgent):
         cabin = intent.get("cabin_class", "economy")
         passengers_count = intent.get("passengers", 1)
 
-        # Safeguard: only use return_date if explicitly provided and different from departure
-        if return_date and return_date == departure:
-            return_date = None
+        # Strong safeguard: only allow return_date if the user EXPLICITLY asked for round-trip
+        # GPT sometimes hallucinates a return date even for one-way queries
+        if return_date:
+            round_trip_keywords = [
+                "round trip",
+                "roundtrip",
+                "return",
+                "round-trip",
+                "ida e volta",
+                "ida y vuelta",
+                "volta",
+                "vuelta",
+                "retorno",
+                "regresso",
+                "back",
+                "hin und zurück",
+                "aller-retour",
+            ]
+            user_text_lower = intent.get("_original_prompt", "").lower()
+            user_wants_roundtrip = any(
+                kw in user_text_lower for kw in round_trip_keywords
+            )
+            if not user_wants_roundtrip:
+                self.logger.info(
+                    "Forcing one-way: GPT returned return_date=%s but user did not ask for round-trip",
+                    return_date,
+                )
+                return_date = None
 
         if not origin or not destination or not departure:
             msg = (
@@ -345,7 +370,10 @@ If the request is unclear, return {{"type":"unknown"}}."""
 
             import json
 
-            return json.loads(text)
+            parsed = json.loads(text)
+            # Pass original prompt for safeguard checks downstream
+            parsed["_original_prompt"] = prompt
+            return parsed
 
         except Exception as e:
             self.logger.warning("GPT intent parsing failed: %s", e)
@@ -371,11 +399,11 @@ If the request is unclear, return {{"type":"unknown"}}."""
         is_stay = any(w in lower for w in stay_words)
 
         if is_flight:
-            return {"type": "flight"}
+            return {"type": "flight", "_original_prompt": prompt}
         elif is_stay:
-            return {"type": "stay"}
+            return {"type": "stay", "_original_prompt": prompt}
 
-        return {"type": "unknown"}
+        return {"type": "unknown", "_original_prompt": prompt}
 
     # ------------------------------------------------------------------ #
     # Help text                                                            #
