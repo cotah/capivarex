@@ -48,6 +48,31 @@ _TRANSPORT_KEYWORDS = [
 ]
 
 
+# ── Keywords de chamada telefónica para fallback de routing ───────────────
+_TWILIO_KEYWORDS = [
+    "liga para",
+    "ligar para",
+    "liga pro",
+    "ligar pro",
+    "faz uma chamada",
+    "fazer uma chamada",
+    "fazer chamada",
+    "faz chamada",
+    "chamada para",
+    "chamada telefónica",
+    "chamada telefonica",
+    "chama o",
+    "chama a",
+    "call ",
+    "phone call",
+    "make a call",
+    "liga +",
+    "ligar +",
+    "chamada pra",
+    "chamada pro",
+]
+
+
 class CapivaraXBot:
     """Core bot class that manages state, services, and agents."""
 
@@ -171,6 +196,18 @@ class CapivaraXBot:
         lower = text.lower()
         return any(kw in lower for kw in _TRANSPORT_KEYWORDS)
 
+    def _is_twilio_query(self, text: str) -> bool:
+        """Check if the text is clearly about making a phone call."""
+        lower = text.lower()
+        if any(kw in lower for kw in _TWILIO_KEYWORDS):
+            return True
+        has_phone = bool(re.search(r"\+?\d[\d\s\-\(\)]{7,18}\d", text))
+        has_call_word = any(
+            w in lower
+            for w in ["liga", "ligar", "chama", "chamar", "chamada", "call", "phone"]
+        )
+        return has_phone and has_call_word
+
     async def process_message(
         self, text: str, context: Dict[str, Any]
     ) -> "AgentResponse":
@@ -244,6 +281,12 @@ class CapivaraXBot:
                     "KEYWORD OVERRIDE: '%s' → transport (was: chat)", text[:60]
                 )
                 agent_name = "transport"
+
+            if agent_name == "chat" and self._is_twilio_query(text):
+                self.logger.info(
+                    "KEYWORD OVERRIDE: '%s' → twilio (was: chat)", text[:60]
+                )
+                agent_name = "twilio"
 
             # ── 4. Obter e executar o agent ───────────────────────────
             agent = get_agent(agent_name)
