@@ -37,35 +37,73 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import AgentResponse, AgentStatus, BaseAgent, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
 # ─── Palavras-chave de intenção ─────────────────────────────────────────────
 
 _CREATE_WORDS = [
-    "anota", "anotar", "escreve", "escrever", "salva", "salvar",
-    "guarda", "guardar", "nota:", "nova nota", "cria nota",
-    "registar", "regista", "add nota",
+    "anota",
+    "anotar",
+    "escreve",
+    "escrever",
+    "salva",
+    "salvar",
+    "guarda",
+    "guardar",
+    "nota:",
+    "nova nota",
+    "cria nota",
+    "registar",
+    "regista",
+    "add nota",
 ]
 _LIST_WORDS = [
-    "minhas notas", "meus notas", "ver notas", "mostra notas",
-    "listar notas", "lista notas", "minhas anotações",
-    "quais notas", "mostrar notas", "todas as notas", "notas ativas",
+    "minhas notas",
+    "meus notas",
+    "ver notas",
+    "mostra notas",
+    "listar notas",
+    "lista notas",
+    "minhas anotações",
+    "quais notas",
+    "mostrar notas",
+    "todas as notas",
+    "notas ativas",
 ]
 _SEARCH_WORDS = [
-    "busca nota", "buscar nota", "busca nas notas", "procura nota",
-    "procura nas notas", "encontra nota", "pesquisa nota",
-    "nota sobre", "notas sobre", "search nota",
+    "busca nota",
+    "buscar nota",
+    "busca nas notas",
+    "procura nota",
+    "procura nas notas",
+    "encontra nota",
+    "pesquisa nota",
+    "nota sobre",
+    "notas sobre",
+    "search nota",
 ]
 _PIN_WORDS = ["fixa", "fixar", "marca como importante", "pin nota", "destaca"]
 _UNPIN_WORDS = ["desfixa", "desfixar", "remove destaque", "unpin"]
 _DELETE_WORDS = [
-    "apaga", "apagar", "remove", "remover", "deleta", "deletar",
-    "elimina", "eliminar",
+    "apaga",
+    "apagar",
+    "remove",
+    "remover",
+    "deleta",
+    "deletar",
+    "elimina",
+    "eliminar",
 ]
 _DELETE_ALL_WORDS = [
-    "apaga todas", "apagar todas", "limpa notas", "limpar notas",
-    "remove todas", "deletar tudo", "apaga tudo",
+    "apaga todas",
+    "apagar todas",
+    "limpa notas",
+    "limpar notas",
+    "remove todas",
+    "deletar tudo",
+    "apaga tudo",
 ]
 
 # UUID parcial (8 chars hex) para identificar notas
@@ -152,6 +190,7 @@ class NotesAgent(BaseAgent):
         )
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        lang = get_user_lang(context)
         try:
             svc = get_service("notes")
             if not svc:
@@ -169,7 +208,7 @@ class NotesAgent(BaseAgent):
             if not user_id:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Utilizador não identificado.",
+                    response=t("user_not_identified", lang=lang),
                     error="No user_id in context",
                 )
 
@@ -177,7 +216,9 @@ class NotesAgent(BaseAgent):
 
             if intent == "create":
                 content = context.get("content") or _extract_content(prompt)
-                return await self._handle_create(svc, user_id, chat_id, content, context.get("title"))
+                return await self._handle_create(
+                    svc, user_id, chat_id, content, context.get("title")
+                )
 
             if intent == "list":
                 return await self._handle_list(svc, user_id)
@@ -228,7 +269,9 @@ class NotesAgent(BaseAgent):
             )
 
         except ValueError as e:
-            return AgentResponse(status=AgentStatus.ERROR, response=str(e), error=str(e))
+            return AgentResponse(
+                status=AgentStatus.ERROR, response=str(e), error=str(e)
+            )
         except Exception as e:
             self.logger.error("NotesAgent error: %s", e, exc_info=True)
             return AgentResponse(
@@ -244,7 +287,9 @@ class NotesAgent(BaseAgent):
     async def _handle_create(
         self, svc: Any, user_id: str, chat_id: str, content: str, title: Optional[str]
     ) -> AgentResponse:
-        note = await svc.create_note(user_id=user_id, chat_id=chat_id, content=content, title=title)
+        note = await svc.create_note(
+            user_id=user_id, chat_id=chat_id, content=content, title=title
+        )
         short = svc.short_id(note["id"])
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -324,7 +369,9 @@ class NotesAgent(BaseAgent):
             data={"note_id": full_id, "pinned": pinned},
         )
 
-    async def _handle_delete(self, svc: Any, user_id: str, note_id: str) -> AgentResponse:
+    async def _handle_delete(
+        self, svc: Any, user_id: str, note_id: str
+    ) -> AgentResponse:
         full_id = await self._resolve_id(svc, user_id, note_id)
         if not full_id or not await svc.delete_note(user_id, full_id):
             return AgentResponse(
@@ -397,6 +444,11 @@ class NotesAgent(BaseAgent):
 
     def get_capabilities(self) -> List[str]:
         return [
-            "create_note", "list_notes", "search_notes",
-            "pin_note", "unpin_note", "delete_note", "delete_all_notes",
+            "create_note",
+            "list_notes",
+            "search_notes",
+            "pin_note",
+            "unpin_note",
+            "delete_note",
+            "delete_all_notes",
         ]

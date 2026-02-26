@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
@@ -67,10 +68,40 @@ _AMBIGUOUS_COMPANY_WORDS = {"vale"}
 
 # Stopwords to filter out (includes company names so regex doesn't grab them)
 STOPWORDS = {
-    "QUAL", "COMO", "ESTA", "ESTAO", "COTACAO", "ACAO", "ACOES",
-    "PRECO", "BOLSA", "HOJE", "DA", "DE", "DO", "A", "O", "E",
-    "QUANTO", "VALE", "PARA", "DAS", "DOS", "NO", "NA", "UM", "UMA",
-    "AS", "OS", "EM", "SE", "QUE", "POR", "COM", "MAIS", "SOBRE",
+    "QUAL",
+    "COMO",
+    "ESTA",
+    "ESTAO",
+    "COTACAO",
+    "ACAO",
+    "ACOES",
+    "PRECO",
+    "BOLSA",
+    "HOJE",
+    "DA",
+    "DE",
+    "DO",
+    "A",
+    "O",
+    "E",
+    "QUANTO",
+    "VALE",
+    "PARA",
+    "DAS",
+    "DOS",
+    "NO",
+    "NA",
+    "UM",
+    "UMA",
+    "AS",
+    "OS",
+    "EM",
+    "SE",
+    "QUE",
+    "POR",
+    "COM",
+    "MAIS",
+    "SOBRE",
 } | {name.upper() for name in COMPANY_TO_SYMBOL if len(name) <= 6 and " " not in name}
 
 
@@ -90,14 +121,10 @@ class FinanceAgent(BaseAgent):
         """Initialise the finance agent."""
         super().__init__(
             name="finance",
-            description="Provides stock quotes and financial market data"
+            description="Provides stock quotes and financial market data",
         )
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Get financial quote for symbol.
 
@@ -108,15 +135,16 @@ class FinanceAgent(BaseAgent):
         Returns:
             AgentResponse with quote data
         """
-        symbol = str(
-            context.get("symbol") or self._extract_symbol(prompt)
-        ).strip().upper()
+        lang = get_user_lang(context)
+        symbol = (
+            str(context.get("symbol") or self._extract_symbol(prompt)).strip().upper()
+        )
 
         if not symbol:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Nao foi possivel identificar o ticker para consulta financeira.",
-                error="No symbol provided"
+                response=t("finance_no_ticker", lang=lang),
+                error="No symbol provided",
             )
 
         try:
@@ -125,8 +153,8 @@ class FinanceAgent(BaseAgent):
             if not finance_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Servico financeiro nao disponivel.",
-                    error="Finance service not available"
+                    response=t("finance_service_unavailable", lang=lang),
+                    error="Finance service not available",
                 )
 
             await finance_svc.initialize()
@@ -145,23 +173,19 @@ class FinanceAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=response_text,
-                data={
-                    "symbol": symbol,
-                    "quote": quote
-                }
+                data={"symbol": symbol, "quote": quote},
             )
 
         except Exception as e:
             self.logger.error(
-                f"Finance query failed for symbol '{symbol}': {e}",
-                exc_info=True
+                f"Finance query failed for symbol '{symbol}': {e}", exc_info=True
             )
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Nao foi possivel consultar cotacao para {symbol}.",
                 error=str(e),
-                metadata={"symbol": symbol}
+                metadata={"symbol": symbol},
             )
 
     def _extract_symbol(self, prompt: str) -> str:
@@ -231,9 +255,4 @@ class FinanceAgent(BaseAgent):
 
     def get_capabilities(self) -> List[str]:
         """Get finance agent capabilities."""
-        return [
-            "stock_quotes",
-            "price_information",
-            "market_data",
-            "ticker_lookup"
-        ]
+        return ["stock_quotes", "price_information", "market_data", "ticker_lookup"]

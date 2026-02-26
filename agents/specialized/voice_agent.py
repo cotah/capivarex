@@ -24,6 +24,7 @@ from typing import Any, Dict, List
 
 from agents.core import AgentResponse, AgentStatus, BaseAgent, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
@@ -178,6 +179,7 @@ class VoiceAgent(BaseAgent):
 
     async def _handle_tts(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """Handle text-to-speech conversion."""
+        lang = get_user_lang(context)
         text = prompt or context.get("text", "")
         text_to_convert = context.get("text", text)
 
@@ -190,7 +192,7 @@ class VoiceAgent(BaseAgent):
         if not text_to_convert or len(text_to_convert.strip()) == 0:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Erro: Texto vazio para conversao em audio.",
+                response=t("tts_empty_text", lang=lang),
                 error="Empty text for TTS",
             )
 
@@ -200,7 +202,7 @@ class VoiceAgent(BaseAgent):
         if not text_to_convert:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Erro: Texto ficou vazio após remoção de formatação.",
+                response=t("tts_empty_after_strip", lang=lang),
                 error="Text empty after markdown stripping",
             )
 
@@ -208,7 +210,7 @@ class VoiceAgent(BaseAgent):
         if not elevenlabs_svc:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Serviço ElevenLabs indisponível.",
+                response=t("service_unavailable", lang=lang, service="ElevenLabs"),
                 error="ElevenLabs service not found",
             )
 
@@ -228,11 +230,11 @@ class VoiceAgent(BaseAgent):
             self.logger.error("TTS failed: %s", e, exc_info=True)
             err_lower = str(e).lower()
             if "quota" in err_lower or "limit" in err_lower:
-                msg = "Quota de voz atingida. Tenta mais tarde."
+                msg = t("tts_quota_exceeded", lang=lang)
             elif "unauthorized" in err_lower or "401" in err_lower:
-                msg = "Chave ElevenLabs inválida ou expirada."
+                msg = t("tts_invalid_key", lang=lang)
             else:
-                msg = f"Erro ao gerar áudio: {e}"
+                msg = t("tts_error", lang=lang, error=str(e))
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=msg,
@@ -248,17 +250,18 @@ class VoiceAgent(BaseAgent):
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response="Áudio gerado com sucesso.",
+            response=t("tts_success", lang=lang),
             data={"audio_path": output_path, "voice": voice_name},
         )
 
     async def _handle_stt(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """Handle speech-to-text transcription."""
+        lang = get_user_lang(context)
         audio_path = context.get("audio_path")
         if not audio_path:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Nenhum ficheiro de áudio fornecido.",
+                response=t("stt_no_audio", lang=lang),
                 error="No audio_path in context",
             )
 
@@ -266,7 +269,7 @@ class VoiceAgent(BaseAgent):
         if not openai_svc:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Serviço OpenAI indisponível.",
+                response=t("service_unavailable", lang=lang, service="OpenAI"),
                 error="OpenAI service not found",
             )
 

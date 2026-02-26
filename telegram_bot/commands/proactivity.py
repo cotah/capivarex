@@ -1,4 +1,5 @@
 """Toggle proactive notifications for the current user."""
+
 import logging
 
 from telegram import Update
@@ -9,7 +10,9 @@ from services import get_service
 logger = logging.getLogger("capivarex.telegram.commands.proactivity")
 
 
-async def toggle_proactivity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def toggle_proactivity(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Toggle proactive notifications on/off for the calling user.
 
     Uses the ``proactivity_preferences`` table in Supabase to persist the
@@ -20,7 +23,9 @@ async def toggle_proactivity(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         db = get_service("database")
         if not db:
-            await update.message.reply_text("❌ Serviço de banco de dados indisponível.")
+            await update.message.reply_text(
+                "❌ Serviço de banco de dados indisponível."
+            )
             return
 
         if not db.is_initialized():
@@ -61,7 +66,9 @@ async def toggle_proactivity(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
 
     except Exception as e:
-        logger.error("Error toggling proactivity for user %s: %s", user_id, e, exc_info=True)
+        logger.error(
+            "Error toggling proactivity for user %s: %s", user_id, e, exc_info=True
+        )
         await update.message.reply_text(
             "❌ Erro ao alterar configuração de proatividade. Tente novamente."
         )

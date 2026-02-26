@@ -1,4 +1,5 @@
 """Help command for the refactored Telegram bot."""
+
 import logging
 
 from telegram import Update

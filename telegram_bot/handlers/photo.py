@@ -68,9 +68,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         caption: str = update.message.caption or ""
 
         user_context = {
-            "user_id":    update.effective_user.id,
-            "chat_id":    update.effective_chat.id,
-            "username":   update.effective_user.username,
+            "user_id": update.effective_user.id,
+            "chat_id": update.effective_chat.id,
+            "username": update.effective_user.username,
             "input_type": "photo",
             "image_data": bytes(image_bytes),
             "image_mime": "image/jpeg",

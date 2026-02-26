@@ -1,4 +1,5 @@
 """Status command for the refactored Telegram bot."""
+
 import logging
 from typing import List
 
@@ -42,8 +43,14 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     for name in bot.agents.keys():
         agents_status.append(f"✅ {name}")
 
-    services_text: str = chr(10).join(services_status) if services_status else "Nenhum serviço inicializado"
-    agents_text: str = chr(10).join(agents_status) if agents_status else "Nenhum agente inicializado"
+    services_text: str = (
+        chr(10).join(services_status)
+        if services_status
+        else "Nenhum serviço inicializado"
+    )
+    agents_text: str = (
+        chr(10).join(agents_status) if agents_status else "Nenhum agente inicializado"
+    )
 
     status_message: str = f"""
 🤖 **Status do CapivaraX Bot**

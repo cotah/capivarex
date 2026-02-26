@@ -10,67 +10,10 @@ from telegram.ext import Application
 from services import get_service
 from agents import get_agent
 from agents.core.base_agent import AgentResponse
+from services.i18n import check_keywords, TWILIO_KEYWORDS, TRANSPORT_KEYWORDS
+from services.i18n.keywords import check_keywords_with_phone
 
-
-# ── Keywords de transporte para fallback de routing ───────────────────────
-_TRANSPORT_KEYWORDS = [
-    "onibus",
-    "ônibus",
-    "autocarro",
-    "autocarros",
-    "bus",
-    "dart",
-    "luas",
-    "comboio",
-    "trem",
-    "metro",
-    "metrô",
-    "paragem",
-    "transporte",
-    "next bus",
-    "next dart",
-    "next luas",
-    "next tram",
-    "bus stop",
-    "train",
-    "transit",
-    "public transport",
-    "timetable",
-    "schedule",
-    "quando passa",
-    "horário",
-    "horarios",
-    "próximo ônibus",
-    "próximo autocarro",
-    "próximo bus",
-    "proximo onibus",
-    "proximo autocarro",
-]
-
-
-# ── Keywords de chamada telefónica para fallback de routing ───────────────
-_TWILIO_KEYWORDS = [
-    "liga para",
-    "ligar para",
-    "liga pro",
-    "ligar pro",
-    "faz uma chamada",
-    "fazer uma chamada",
-    "fazer chamada",
-    "faz chamada",
-    "chamada para",
-    "chamada telefónica",
-    "chamada telefonica",
-    "chama o",
-    "chama a",
-    "call ",
-    "phone call",
-    "make a call",
-    "liga +",
-    "ligar +",
-    "chamada pra",
-    "chamada pro",
-]
+# NOTE: _TRANSPORT_KEYWORDS and _TWILIO_KEYWORDS removed — now in services/i18n/keywords.py
 
 
 class CapivaraXBot:
@@ -192,21 +135,14 @@ class CapivaraXBot:
             self.logger.error("Error during shutdown: %s", e, exc_info=True)
 
     def _is_transport_query(self, text: str) -> bool:
-        """Check if the text is clearly about public transport."""
-        lower = text.lower()
-        return any(kw in lower for kw in _TRANSPORT_KEYWORDS)
+        """Check if the text is clearly about public transport (multi-language)."""
+        return check_keywords(text, TRANSPORT_KEYWORDS)
 
     def _is_twilio_query(self, text: str) -> bool:
-        """Check if the text is clearly about making a phone call."""
-        lower = text.lower()
-        if any(kw in lower for kw in _TWILIO_KEYWORDS):
+        """Check if the text is clearly about making a phone call (multi-language)."""
+        if check_keywords(text, TWILIO_KEYWORDS):
             return True
-        has_phone = bool(re.search(r"\+?\d[\d\s\-\(\)]{7,18}\d", text))
-        has_call_word = any(
-            w in lower
-            for w in ["liga", "ligar", "chama", "chamar", "chamada", "call", "phone"]
-        )
-        return has_phone and has_call_word
+        return check_keywords_with_phone(text)
 
     async def process_message(
         self, text: str, context: Dict[str, Any]

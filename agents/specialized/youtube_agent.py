@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 # ─── Intenções ────────────────────────────────────────────────────────────────
 _TRENDING_WORDS = [
@@ -138,12 +139,13 @@ class YouTubeAgent(BaseAgent):
         )
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        lang = get_user_lang(context)
         try:
             svc = get_service("youtube")
             if not svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço do YouTube não disponível.",
+                    response=t("youtube_service_unavailable", lang=lang),
                     error="YouTubeService unavailable",
                 )
             if not svc.is_initialized():

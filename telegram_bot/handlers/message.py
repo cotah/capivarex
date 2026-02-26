@@ -62,6 +62,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "user_id": update.effective_user.id,
         "chat_id": update.effective_chat.id,
         "username": update.effective_user.username,
+        "language_code": getattr(update.effective_user, "language_code", None) or "en",
     }
 
     # ── Enrich context with GPS coordinates from Supabase ───────────────

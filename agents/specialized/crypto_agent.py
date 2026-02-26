@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +38,16 @@ _RE_CURRENCY = re.compile(
 
 # Mapa de sinônimos de moeda → código
 _CURRENCY_MAP = {
-    "dólar": "usd", "dolar": "usd", "usd": "usd",
-    "real": "brl", "reais": "brl", "brl": "brl",
-    "euro": "eur", "eur": "eur",
-    "libra": "gbp", "gbp": "gbp",
+    "dólar": "usd",
+    "dolar": "usd",
+    "usd": "usd",
+    "real": "brl",
+    "reais": "brl",
+    "brl": "brl",
+    "euro": "eur",
+    "eur": "eur",
+    "libra": "gbp",
+    "gbp": "gbp",
 }
 
 # Símbolos de moeda para formatação
@@ -77,12 +84,13 @@ class CryptoAgent(BaseAgent):
         context: Dict[str, Any],
     ) -> AgentResponse:
         """Handle crypto query."""
+        lang = get_user_lang(context)
         try:
             crypto_svc = get_service("crypto")
             if not crypto_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço de criptomoedas não disponível.",
+                    response=t("crypto_service_unavailable", lang=lang),
                     error="CryptoService unavailable",
                 )
 
@@ -99,7 +107,9 @@ class CryptoAgent(BaseAgent):
             ):
                 n = int(top_match.group(1)) if top_match and top_match.group(1) else 10
                 currency = self._extract_currency(prompt_lower, context) or "usd"
-                return await self._handle_top(crypto_svc, n=min(n, 20), currency=currency)
+                return await self._handle_top(
+                    crypto_svc, n=min(n, 20), currency=currency
+                )
 
             # Intent: specific coin price
             coin = self._extract_coin(prompt_lower, context, crypto_svc)
@@ -169,7 +179,9 @@ class CryptoAgent(BaseAgent):
                 continue
 
             symbol = _CURRENCY_SYMBOLS.get(c, c.upper())
-            price_fmt = f"{symbol} {price:,.2f}" if price < 10_000 else f"{symbol} {price:,.0f}"
+            price_fmt = (
+                f"{symbol} {price:,.2f}" if price < 10_000 else f"{symbol} {price:,.0f}"
+            )
 
             if change is not None:
                 arrow = "📈" if change > 0 else "📉" if change < 0 else "➡️"
@@ -202,8 +214,10 @@ class CryptoAgent(BaseAgent):
             price = c.get("price")
             change = c.get("change_24h")
             price_fmt = (
-                f"{symbol} {price:,.2f}" if price and price < 10_000
-                else f"{symbol} {price:,.0f}" if price
+                f"{symbol} {price:,.2f}"
+                if price and price < 10_000
+                else f"{symbol} {price:,.0f}"
+                if price
                 else "N/A"
             )
             change_str = ""
@@ -239,6 +253,7 @@ class CryptoAgent(BaseAgent):
 
         # Try known aliases sorted by length (longest first)
         from services.business.crypto_service import COIN_ALIASES
+
         for alias in sorted(COIN_ALIASES.keys(), key=len, reverse=True):
             # Word-boundary check for short tickers (btc, eth, sol, ...)
             if len(alias) <= 4:

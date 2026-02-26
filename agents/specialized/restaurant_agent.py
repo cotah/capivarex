@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 from agents.core import AgentResponse, AgentStatus, BaseAgent, register_agent
 from services import get_service
 from services.business import restaurant_db_service as rdb
+from services.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
@@ -254,12 +255,13 @@ class RestaurantAgent(BaseAgent):
         )
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        lang = get_user_lang(context)
         try:
             svc = get_service("restaurant")
             if not svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço de restaurantes não disponível.",
+                    response=t("restaurant_service_unavailable", lang=lang),
                     error="RestaurantService unavailable",
                 )
             if not svc.is_initialized():
@@ -269,7 +271,7 @@ class RestaurantAgent(BaseAgent):
             if not user_id:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Utilizador não identificado.",
+                    response=t("user_not_identified", lang=lang),
                     error="No user_id",
                 )
 
@@ -334,7 +336,7 @@ class RestaurantAgent(BaseAgent):
             self.logger.error("RestaurantAgent error: %s", e, exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Erro inesperado. Tenta novamente.",
+                response=t("error_unexpected", lang=lang),
                 error=str(e),
             )
 
@@ -436,6 +438,7 @@ class RestaurantAgent(BaseAgent):
         context: Dict[str, Any],
         user_id: str = "",
     ) -> AgentResponse:
+        lang = get_user_lang(context)
         last_results: Optional[List] = context.get("last_results")
 
         # FIX: Se não há last_results no context (mensagem separada),
@@ -476,7 +479,7 @@ class RestaurantAgent(BaseAgent):
         if not place_id:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Não foi possível obter detalhes deste restaurante.",
+                response=t("restaurant_details_error", lang=lang),
                 error="No place_id",
             )
 
@@ -493,13 +496,14 @@ class RestaurantAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_add_favorite(self, prompt, context, user_id):
+        lang = get_user_lang(context)
         last_results = context.get("last_results")
         if not last_results and user_id:
             last_results = await _load_results_from_redis(user_id)
         if not last_results:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Faz primeiro uma pesquisa para eu poder guardar.",
+                response=t("restaurant_search_first", lang=lang),
                 error="No last_results",
             )
         idx = _extract_detail_index(prompt)
@@ -536,6 +540,7 @@ class RestaurantAgent(BaseAgent):
         )
 
     async def _handle_list_favorites(self, user_id):
+        lang = get_user_lang()
         try:
             favs = await rdb.get_favorites(user_id)
         except Exception:
@@ -543,7 +548,7 @@ class RestaurantAgent(BaseAgent):
         if not favs:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Ainda não tens restaurantes favoritos.",
+                response=t("restaurant_no_favorites", lang=lang),
                 data={"favorites": []},
             )
         lines = [f"⭐ *Teus favoritos ({len(favs)}):*\n"]

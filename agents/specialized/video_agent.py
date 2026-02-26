@@ -27,16 +27,9 @@ class VideoAgent(BaseAgent):
 
     def __init__(self):
         """Initialise the video agent."""
-        super().__init__(
-            name="video",
-            description="Generates videos using AI"
-        )
+        super().__init__(name="video", description="Generates videos using AI")
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Generate a video from a text prompt or image.
 
@@ -66,7 +59,7 @@ class VideoAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Prompt de video vazio.",
-                error="Empty video prompt"
+                error="Empty video prompt",
             )
 
         try:
@@ -76,7 +69,7 @@ class VideoAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response="Servico de geracao de video nao disponivel.",
-                    error="Video service not available"
+                    error="Video service not available",
                 )
 
             await video_svc.initialize()
@@ -105,7 +98,7 @@ class VideoAgent(BaseAgent):
                         status=AgentStatus.ERROR,
                         response=result.get("error", "Erro ao gerar video."),
                         error=result.get("error", "Video generation failed"),
-                        data=result
+                        data=result,
                     )
 
                 return AgentResponse(
@@ -115,33 +108,26 @@ class VideoAgent(BaseAgent):
                     metadata={
                         "type": "video",
                         "file_path": result.get("video_path"),
-                        "format": "mp4"
-                    }
+                        "format": "mp4",
+                    },
                 )
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response="Video gerado com sucesso!",
                 data={"success": True, "result": result},
-                metadata={"type": "video"}
+                metadata={"type": "video"},
             )
 
         except Exception as e:
-            self.logger.error(
-                f"VideoAgent failed: {e}",
-                exc_info=True
-            )
+            self.logger.error(f"VideoAgent failed: {e}", exc_info=True)
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao gerar video: {str(e)}",
-                error=str(e)
+                error=str(e),
             )
 
     def get_capabilities(self) -> List[str]:
         """Get video agent capabilities."""
-        return [
-            "text_to_video",
-            "image_to_video",
-            "video_generation"
-        ]
+        return ["text_to_video", "image_to_video", "video_generation"]

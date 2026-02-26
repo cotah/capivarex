@@ -150,8 +150,8 @@ CITY_TO_TZ: Dict[str, str] = {
 
 # Mapa de períodos do dia
 _PERIODS = {
-    (0, 5):   "de madrugada",
-    (5, 12):  "de manhã",
+    (0, 5): "de madrugada",
+    (5, 12): "de manhã",
     (12, 14): "ao meio-dia",
     (14, 18): "à tarde",
     (18, 21): "à noite",
@@ -159,13 +159,31 @@ _PERIODS = {
 }
 
 # Nomes dos dias em PT-BR
-_WEEKDAYS_PT = ["segunda-feira", "terça-feira", "quarta-feira",
-                "quinta-feira", "sexta-feira", "sábado", "domingo"]
+_WEEKDAYS_PT = [
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado",
+    "domingo",
+]
 
 # Meses em PT-BR
 _MONTHS_PT = [
-    "", "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    "",
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
 ]
 
 
@@ -205,7 +223,10 @@ class TimeAgent(BaseAgent):
             prompt_lower = (prompt or "").lower()
 
             # Intent: diferença de horário entre duas cidades
-            if any(w in prompt_lower for w in ["diferença", "diferenca", "difference", "entre"]):
+            if any(
+                w in prompt_lower
+                for w in ["diferença", "diferenca", "difference", "entre"]
+            ):
                 return self._handle_diff(prompt_lower, context)
 
             # Extrai cidade(s) do prompt
@@ -215,7 +236,9 @@ class TimeAgent(BaseAgent):
                 return self._handle_diff(prompt_lower, context, cities)
 
             # Intent: data de hoje
-            if any(w in prompt_lower for w in ["data", "dia de hoje", "hoje é", "que dia"]):
+            if any(
+                w in prompt_lower for w in ["data", "dia de hoje", "hoje é", "que dia"]
+            ):
                 tz = self._resolve_tz(cities[0] if cities else None, context)
                 return self._handle_date(tz)
 
@@ -235,9 +258,7 @@ class TimeAgent(BaseAgent):
     # Handlers
     # ──────────────────────────────────────────────────────────────────────────
 
-    def _handle_time(
-        self, tz: ZoneInfo, city_name: Optional[str]
-    ) -> AgentResponse:
+    def _handle_time(self, tz: ZoneInfo, city_name: Optional[str]) -> AgentResponse:
         """Returns current time in a timezone."""
         now = datetime.now(tz)
         tz_name = str(tz)
@@ -276,10 +297,7 @@ class TimeAgent(BaseAgent):
         now = datetime.now(tz)
         weekday = _WEEKDAYS_PT[now.weekday()]
         month = _MONTHS_PT[now.month]
-        text = (
-            f"Hoje é **{weekday}**, "
-            f"{now.day} de {month} de {now.year}."
-        )
+        text = f"Hoje é **{weekday}**, {now.day} de {month} de {now.year}."
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
@@ -350,10 +368,18 @@ class TimeAgent(BaseAgent):
             status=AgentStatus.SUCCESS,
             response=text,
             data={
-                "city_a": {"name": city_a_display, "time": time_a.strftime("%H:%M"),
-                           "timezone": str(tz_a), "utc_offset": int(offset_a)},
-                "city_b": {"name": city_b_display, "time": time_b.strftime("%H:%M"),
-                           "timezone": str(tz_b), "utc_offset": int(offset_b)},
+                "city_a": {
+                    "name": city_a_display,
+                    "time": time_a.strftime("%H:%M"),
+                    "timezone": str(tz_a),
+                    "utc_offset": int(offset_a),
+                },
+                "city_b": {
+                    "name": city_b_display,
+                    "time": time_b.strftime("%H:%M"),
+                    "timezone": str(tz_b),
+                    "utc_offset": int(offset_b),
+                },
                 "diff_hours": diff,
             },
         )
@@ -373,9 +399,7 @@ class TimeAgent(BaseAgent):
                     break
         return found
 
-    def _resolve_tz(
-        self, city: Optional[str], context: Dict[str, Any]
-    ) -> ZoneInfo:
+    def _resolve_tz(self, city: Optional[str], context: Dict[str, Any]) -> ZoneInfo:
         """
         Resolve a ZoneInfo from city name, context, or default to UTC.
         Priority: city name → context["timezone"] → "UTC"

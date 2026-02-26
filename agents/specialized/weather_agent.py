@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
@@ -229,12 +230,13 @@ class WeatherAgent(BaseAgent):
         context: Dict[str, Any],
     ) -> AgentResponse:
         """Route weather query based on detected intent."""
+        lang = get_user_lang(context)
         try:
             weather_svc = get_service("weather")
             if not weather_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço de clima não disponível.",
+                    response=t("weather_service_unavailable", lang=lang),
                     error="Weather service not available",
                 )
 

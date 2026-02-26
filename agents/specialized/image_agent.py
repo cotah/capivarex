@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class ImageAgent(BaseAgent):
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """Generate an image from a text prompt."""
+        lang = get_user_lang(context)
         image_prompt = str(context.get("prompt") or prompt).strip()
         user_plan = str(context.get("user_plan") or "basic")
         aspect_ratio = str(context.get("aspect_ratio") or "1:1")
@@ -90,7 +92,7 @@ class ImageAgent(BaseAgent):
         if not image_prompt:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Prompt de imagem vazio.",
+                response=t("image_empty_prompt", lang=lang),
                 error="Empty image prompt",
             )
 
@@ -115,7 +117,7 @@ class ImageAgent(BaseAgent):
             if not image_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Servico de geracao de imagem nao disponivel.",
+                    response=t("image_service_unavailable", lang=lang),
                     error="Image service not available",
                 )
 

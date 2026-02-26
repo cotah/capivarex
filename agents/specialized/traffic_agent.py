@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,7 @@ class TrafficAgent(BaseAgent):
     def __init__(self):
         """Initialise the traffic agent."""
         super().__init__(
-            name="traffic",
-            description="Provides traffic and navigation information"
+            name="traffic", description="Provides traffic and navigation information"
         )
 
     async def _get_traffic_service(self) -> Optional[Any]:
@@ -52,11 +52,7 @@ class TrafficAgent(BaseAgent):
             self.logger.warning(f"Could not get traffic service: {e}")
             return None
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Process traffic and navigation queries.
 
@@ -67,6 +63,7 @@ class TrafficAgent(BaseAgent):
         Returns:
             AgentResponse with traffic information
         """
+        lang = get_user_lang(context)
         try:
             # Extract origin and destination from prompt first, then context
             origin, destination = self._extract_locations(prompt)
@@ -82,7 +79,7 @@ class TrafficAgent(BaseAgent):
                         "Exemplo: 'Como esta o trafego de Dublin para Cork?'"
                     ),
                     error="Missing origin or destination",
-                    data={"needs_location": True}
+                    data={"needs_location": True},
                 )
 
             # Get traffic service
@@ -90,8 +87,8 @@ class TrafficAgent(BaseAgent):
             if not traffic_service:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Servico de trafego nao disponivel.",
-                    error="Traffic service not available"
+                    response=t("traffic_service_unavailable", lang=lang),
+                    error="Traffic service not available",
                 )
 
             # Fetch traffic information
@@ -103,7 +100,7 @@ class TrafficAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response="Nao foi possivel obter informacoes de trafego no momento.",
-                    error=result.get("error", "Traffic query failed")
+                    error=result.get("error", "Traffic query failed"),
                 )
 
             # Generate formatted response
@@ -116,20 +113,17 @@ class TrafficAgent(BaseAgent):
                     "route_data": result.get("route"),
                     "traffic_data": result.get("traffic"),
                     "origin": origin,
-                    "destination": destination
-                }
+                    "destination": destination,
+                },
             )
 
         except Exception as e:
-            self.logger.error(
-                f"TrafficAgent failed: {e}",
-                exc_info=True
-            )
+            self.logger.error(f"TrafficAgent failed: {e}", exc_info=True)
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao buscar informacoes de trafego: {str(e)}",
-                error=str(e)
+                error=str(e),
             )
 
     async def check_traffic_for_event(
@@ -137,7 +131,7 @@ class TrafficAgent(BaseAgent):
         event_location: str,
         user_location: str,
         event_time: datetime,
-        preparation_minutes: int = 15
+        preparation_minutes: int = 15,
     ) -> AgentResponse:
         """
         Check traffic conditions before a calendar event.
@@ -161,41 +155,43 @@ class TrafficAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response="Servico de trafego nao disponivel.",
-                    error="Traffic service not available"
+                    error="Traffic service not available",
                 )
 
             result = await traffic_service.check_traffic_before_event(
                 event_location=event_location,
                 user_location=user_location,
                 event_time=event_time,
-                preparation_minutes=preparation_minutes
+                preparation_minutes=preparation_minutes,
             )
 
             if not result.get("success"):
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response="Nao foi possivel verificar o trafego para este evento.",
-                    error=result.get("error", "Traffic check failed")
+                    error=result.get("error", "Traffic check failed"),
                 )
 
             # Format response
             response = f"{result.get('message', '')}\n\n"
             response += f"Destino: {event_location}\n"
-            response += f"Tempo de viagem: {result.get('travel_time_minutes', 0)} minutos\n"
+            response += (
+                f"Tempo de viagem: {result.get('travel_time_minutes', 0)} minutos\n"
+            )
             response += f"Distancia: {result.get('distance_km', 0)} km\n"
 
-            if result.get('suggested_departure'):
+            if result.get("suggested_departure"):
                 try:
                     departure_time = datetime.fromisoformat(
-                        result['suggested_departure']
+                        result["suggested_departure"]
                     )
                     response += f"Horario sugerido de saida: {departure_time.strftime('%H:%M')}\n"
                 except (ValueError, TypeError):
                     pass
 
-            if result.get('event_time'):
+            if result.get("event_time"):
                 try:
-                    evt_time = datetime.fromisoformat(result['event_time'])
+                    evt_time = datetime.fromisoformat(result["event_time"])
                     response += f"Horario do evento: {evt_time.strftime('%H:%M')}"
                 except (ValueError, TypeError):
                     pass
@@ -208,20 +204,17 @@ class TrafficAgent(BaseAgent):
                     "travel_time_minutes": result.get("travel_time_minutes"),
                     "distance_km": result.get("distance_km"),
                     "suggested_departure": result.get("suggested_departure"),
-                    "message": result.get("message")
-                }
+                    "message": result.get("message"),
+                },
             )
 
         except Exception as e:
-            self.logger.error(
-                f"Traffic check for event failed: {e}",
-                exc_info=True
-            )
+            self.logger.error(f"Traffic check for event failed: {e}", exc_info=True)
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao verificar trafego: {str(e)}",
-                error=str(e)
+                error=str(e),
             )
 
     def get_capabilities(self) -> List[str]:
@@ -231,7 +224,7 @@ class TrafficAgent(BaseAgent):
             "navigation",
             "routes",
             "travel_time",
-            "event_traffic_check"
+            "event_traffic_check",
         ]
 
     def _extract_locations(self, prompt: str) -> Tuple[Optional[str], Optional[str]]:
@@ -251,7 +244,7 @@ class TrafficAgent(BaseAgent):
 
         # Portuguese: "de X para Y"
         match = re.search(
-            r'de\s+(.+?)\s+para\s+(.+?)\s*[\?\.!]*\s*$',
+            r"de\s+(.+?)\s+para\s+(.+?)\s*[\?\.!]*\s*$",
             prompt,
             re.IGNORECASE,
         )
@@ -260,7 +253,7 @@ class TrafficAgent(BaseAgent):
 
         # English: "from X to Y"
         match = re.search(
-            r'from\s+(.+?)\s+to\s+(.+?)\s*[\?\.!]*\s*$',
+            r"from\s+(.+?)\s+to\s+(.+?)\s*[\?\.!]*\s*$",
             prompt,
             re.IGNORECASE,
         )

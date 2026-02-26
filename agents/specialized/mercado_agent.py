@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 # ── Padrões de intenção ───────────────────────────────────────────────────────
 _RE_ADICIONAR = re.compile(
@@ -78,12 +79,13 @@ class MercadoAgent(BaseAgent):
         context: Dict[str, Any],
     ) -> AgentResponse:
         """Ponto de entrada principal — detecta intenção e delega ao serviço."""
+        lang = get_user_lang(context)
         try:
             svc = get_service("mercado")
             if not svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço de mercado não disponível.",
+                    response=t("mercado_service_unavailable", lang=lang),
                     error="MercadoService unavailable",
                 )
             if not svc.is_initialized():
@@ -96,8 +98,12 @@ class MercadoAgent(BaseAgent):
             if image_data:
                 chat_id = str(context.get("chat_id", "unknown"))
                 mime_type = context.get("image_mime", "image/jpeg")
-                result = await svc.processar_nota(image_data, chat_id, mime_type=mime_type)
-                status = AgentStatus.SUCCESS if result.get("sucesso") else AgentStatus.ERROR
+                result = await svc.processar_nota(
+                    image_data, chat_id, mime_type=mime_type
+                )
+                status = (
+                    AgentStatus.SUCCESS if result.get("sucesso") else AgentStatus.ERROR
+                )
                 return AgentResponse(
                     status=status,
                     response=result.get("mensagem", "❌ Erro ao processar nota."),

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class ChatAgent(BaseAgent):
         """Initialise the chat agent."""
         super().__init__(
             name="chat",
-            description="Handles general conversation and knowledge queries"
+            description="Handles general conversation and knowledge queries",
         )
 
     # ------------------------------------------------------------------
@@ -75,23 +76,21 @@ class ChatAgent(BaseAgent):
             try:
                 cached = await redis_svc.get_conversation_history(conversation_id)
                 if cached is not None:
-                    self.logger.info(
-                        f"Cache HIT for conversation {conversation_id}"
-                    )
+                    self.logger.info(f"Cache HIT for conversation {conversation_id}")
                     return cached
             except Exception as e:
                 self.logger.debug(f"Redis cache read failed: {e}")
 
         # 2. Cache miss — try DB
-        self.logger.info(f"Cache MISS for conversation {conversation_id}, fetching from DB")
+        self.logger.info(
+            f"Cache MISS for conversation {conversation_id}, fetching from DB"
+        )
         db_svc = get_service("database")
         if db_svc:
             try:
                 if not db_svc.is_initialized():
                     await db_svc.initialize()
-                db_history = await db_svc.get_messages_for_conversation(
-                    conversation_id
-                )
+                db_history = await db_svc.get_messages_for_conversation(conversation_id)
                 if db_history:
                     # 3. Populate cache
                     if redis_svc:
@@ -123,11 +122,7 @@ class ChatAgent(BaseAgent):
     # Main execute
     # ------------------------------------------------------------------
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Process chat request.
 
@@ -151,8 +146,8 @@ class ChatAgent(BaseAgent):
         if not openai_service:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Desculpe, nao consegui processar sua mensagem agora.",
-                error="OpenAI service not available"
+                response=t("error_processing", lang=get_user_lang(context)),
+                error="OpenAI service not available",
             )
 
         await openai_service.initialize()
@@ -171,20 +166,18 @@ class ChatAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=response_text,
-                    data={"method": "streaming"}
+                    data={"method": "streaming"},
                 )
         except Exception as e:
-            self.logger.warning(
-                f"Streaming failed, falling back to completion: {e}"
-            )
+            self.logger.warning(f"Streaming failed, falling back to completion: {e}")
 
         # Fallback to standard completion
         client = openai_service.get_client()
         if not client:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Desculpe, nao consegui processar sua mensagem agora.",
-                error="OpenAI client not available"
+                response=t("error_processing", lang=get_user_lang(context)),
+                error="OpenAI client not available",
             )
 
         try:
@@ -200,8 +193,8 @@ class ChatAgent(BaseAgent):
             if not content:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Desculpe, nao consegui processar sua mensagem agora.",
-                    error="Empty response from OpenAI"
+                    response=t("error_processing", lang=get_user_lang(context)),
+                    error="Empty response from OpenAI",
                 )
 
             # Invalidate cache after successful response
@@ -210,26 +203,19 @@ class ChatAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=content,
-                data={"method": "completion"}
+                data={"method": "completion"},
             )
 
         except Exception as e:
-            self.logger.error(
-                f"Chat completion failed: {e}",
-                exc_info=True
-            )
+            self.logger.error(f"Chat completion failed: {e}", exc_info=True)
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Desculpe, nao consegui processar sua mensagem agora.",
-                error=str(e)
+                response=t("error_processing", lang=get_user_lang(context)),
+                error=str(e),
             )
 
-    def _build_messages(
-        self,
-        prompt: str,
-        history: Any
-    ) -> List[Dict[str, str]]:
+    def _build_messages(self, prompt: str, history: Any) -> List[Dict[str, str]]:
         """
         Build message list from history.
 
@@ -252,10 +238,7 @@ class ChatAgent(BaseAgent):
                 content = item.get("content")
 
                 if role in {"system", "user", "assistant"} and content is not None:
-                    messages.append({
-                        "role": role,
-                        "content": str(content)
-                    })
+                    messages.append({"role": role, "content": str(content)})
 
         # Add current prompt
         messages.append({"role": "user", "content": prompt})
@@ -269,5 +252,5 @@ class ChatAgent(BaseAgent):
             "knowledge_queries",
             "general_questions",
             "greetings",
-            "small_talk"
+            "small_talk",
         ]

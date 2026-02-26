@@ -23,32 +23,82 @@ from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 # ─── Detecção de intent ───────────────────────────────────────────────────────
 
 # Palavras que indicam busca de LUGARES físicos
 _PLACE_KEYWORDS = [
-    "aberto", "aberta", "perto", "próximo", "próxima", "next to",
-    "restaurante", "farmácia", "livraria", "loja", "café", "bar",
-    "hotel", "hospital", "supermercado", "shopping", "cinema",
-    "dentista", "médico", "clínica", "posto", "banco", "atm",
-    "near me", "nearby", "open now", "where to",
-    "em dublin", "in dublin", "em cork", "em galway",
+    "aberto",
+    "aberta",
+    "perto",
+    "próximo",
+    "próxima",
+    "next to",
+    "restaurante",
+    "farmácia",
+    "livraria",
+    "loja",
+    "café",
+    "bar",
+    "hotel",
+    "hospital",
+    "supermercado",
+    "shopping",
+    "cinema",
+    "dentista",
+    "médico",
+    "clínica",
+    "posto",
+    "banco",
+    "atm",
+    "near me",
+    "nearby",
+    "open now",
+    "where to",
+    "em dublin",
+    "in dublin",
+    "em cork",
+    "em galway",
 ]
 
 # Palavras que indicam busca de PRODUTOS/SHOPPING
 _SHOPPING_KEYWORDS = [
-    "comprar", "preço", "quanto custa", "price", "buy", "shop",
-    "presente", "gift", "produto", "loja online", "delivery",
-    "melhor", "barato", "barata", "desconto", "oferta",
-    "amazon", "ebay", "aliexpress",
+    "comprar",
+    "preço",
+    "quanto custa",
+    "price",
+    "buy",
+    "shop",
+    "presente",
+    "gift",
+    "produto",
+    "loja online",
+    "delivery",
+    "melhor",
+    "barato",
+    "barata",
+    "desconto",
+    "oferta",
+    "amazon",
+    "ebay",
+    "aliexpress",
 ]
 
 # Palavras que indicam busca de NOTÍCIAS
 _NEWS_KEYWORDS = [
-    "notícia", "notícias", "news", "hoje", "agora", "recente",
-    "último", "última", "breaking", "manchete", "atualidade",
+    "notícia",
+    "notícias",
+    "news",
+    "hoje",
+    "agora",
+    "recente",
+    "último",
+    "última",
+    "breaking",
+    "manchete",
+    "atualidade",
 ]
 
 
@@ -116,9 +166,8 @@ class SearchAgent(BaseAgent):
             ),
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        lang = get_user_lang(context)
         try:
             svc = get_service("search")
             if not svc:
@@ -138,7 +187,7 @@ class SearchAgent(BaseAgent):
             if not query:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="O que devo buscar? Tente: *Busca restaurantes italianos em Dublin*",
+                    response=t("search_empty_query", lang=lang),
                     error="Empty query",
                 )
 
@@ -199,9 +248,7 @@ class SearchAgent(BaseAgent):
     # Handlers por tipo
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def _handle_places(
-        self, svc: Any, query: str, country: str
-    ) -> AgentResponse:
+    async def _handle_places(self, svc: Any, query: str, country: str) -> AgentResponse:
         data = await svc.search_places(query, country=country)
         places = data.get("places", [])
 

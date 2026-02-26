@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
@@ -30,14 +31,10 @@ class ResearchAgent(BaseAgent):
         """Initialise the research agent."""
         super().__init__(
             name="research",
-            description="Handles web research, news queries, and information retrieval"
+            description="Handles web research, news queries, and information retrieval",
         )
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Perform research query.
 
@@ -48,13 +45,14 @@ class ResearchAgent(BaseAgent):
         Returns:
             AgentResponse with research results and sources
         """
+        lang = get_user_lang(context)
         query = str(context.get("query") or prompt).strip()
 
         if not query:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Nao recebi uma consulta para pesquisa.",
-                error="Empty query"
+                response=t("research_empty_query", lang=lang),
+                error="Empty query",
             )
 
         try:
@@ -67,22 +65,16 @@ class ResearchAgent(BaseAgent):
             return await self._standard_search(query)
 
         except Exception as e:
-            self.logger.error(
-                f"Research failed: {e}",
-                exc_info=True
-            )
+            self.logger.error(f"Research failed: {e}", exc_info=True)
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Nao foi possivel concluir a pesquisa no momento.",
-                error=str(e)
+                response=t("research_error", lang=lang),
+                error=str(e),
             )
 
     async def _deep_research(
-        self,
-        query: str,
-        queries: List[str],
-        context: Dict[str, Any]
+        self, query: str, queries: List[str], context: Dict[str, Any]
     ) -> AgentResponse:
         """
         Perform deep research with multiple queries.
@@ -103,7 +95,7 @@ class ResearchAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Servico de pesquisa nao disponivel.",
-                error="Perplexity service not available"
+                error="Perplexity service not available",
             )
 
         await perplexity_svc.initialize()
@@ -123,7 +115,7 @@ class ResearchAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Nao foi possivel gerar um resumo da pesquisa.",
-                error="Empty summary from deep research"
+                error="Empty summary from deep research",
             )
 
         summary = f"Pesquisa sobre: {topic}\n\n" + "\n\n".join(all_answers)
@@ -134,8 +126,8 @@ class ResearchAgent(BaseAgent):
             data={
                 "topic": topic,
                 "queries": queries,
-                "results_count": len(all_answers)
-            }
+                "results_count": len(all_answers),
+            },
         )
 
     async def _standard_search(self, query: str) -> AgentResponse:
@@ -153,7 +145,7 @@ class ResearchAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Servico de pesquisa nao disponivel.",
-                error="Perplexity service not available"
+                error="Perplexity service not available",
             )
 
         await perplexity_svc.initialize()
@@ -166,7 +158,7 @@ class ResearchAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Nao encontrei resultados suficientes para esta pesquisa.",
-                error="Empty answer from search"
+                error="Empty answer from search",
             )
 
         # Format sources
@@ -188,11 +180,7 @@ class ResearchAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=response_text,
-            data={
-                "answer": answer,
-                "sources": sources,
-                "query": query
-            }
+            data={"answer": answer, "sources": sources, "query": query},
         )
 
     def get_capabilities(self) -> List[str]:
@@ -202,5 +190,5 @@ class ResearchAgent(BaseAgent):
             "news_queries",
             "deep_research",
             "source_citations",
-            "information_retrieval"
+            "information_retrieval",
         ]

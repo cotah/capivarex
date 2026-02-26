@@ -1,4 +1,5 @@
 """Voice message handler for the refactored Telegram bot."""
+
 import logging
 
 from telegram import Update
@@ -57,7 +58,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 await whisper.initialize()
             except Exception as init_err:
                 logger.error("Falha ao inicializar WhisperService: %s", init_err)
-                await update.message.reply_text("Servico de transcricao nao disponivel.")
+                await update.message.reply_text(
+                    "Servico de transcricao nao disponivel."
+                )
                 return
 
         # Transcribe
@@ -102,6 +105,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     audio_path = tts_result.get("audio_path")
                     if audio_path:
                         from agents.core import AgentResponse  # noqa: F811
+
                         result = AgentResponse(
                             status=result.status,
                             response=result.response,

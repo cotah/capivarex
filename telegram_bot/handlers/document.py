@@ -1,4 +1,5 @@
 """Document handler for the refactored Telegram bot."""
+
 import logging
 import os
 import tempfile
@@ -59,9 +60,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             if file_path.endswith(".pdf"):
                 try:
                     import PyPDF2
+
                     with open(file_path, "rb") as f:
                         reader = PyPDF2.PdfReader(f)
-                        content = "\n".join(page.extract_text() or "" for page in reader.pages)
+                        content = "\n".join(
+                            page.extract_text() or "" for page in reader.pages
+                        )
                 except ImportError:
                     content = "(PDF reading not available - PyPDF2 not installed)"
             elif doc.file_name.endswith((".txt", ".md")):

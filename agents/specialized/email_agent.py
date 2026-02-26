@@ -206,7 +206,8 @@ class EmailAgent(BaseAgent):
         # 5. Formatar notificação Telegram
         account_label = (
             self._n8n.get_account_label(email["account"])
-            if self._n8n else email["account"].capitalize()
+            if self._n8n
+            else email["account"].capitalize()
         )
         urgency_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(urgency, "📧")
 
@@ -220,13 +221,13 @@ class EmailAgent(BaseAgent):
 
         # 6. Guardar contexto para resposta futura
         context["email_pending_reply"] = {
-            "email_id":   email_id,
-            "account":    email["account"],
-            "thread_id":  email["thread_id"],
+            "email_id": email_id,
+            "account": email["account"],
+            "thread_id": email["thread_id"],
             "message_id": email["message_id"],
             "from_email": email["from_email"],
-            "subject":    email["subject"],
-            "body_text":  email["body_text"],
+            "subject": email["subject"],
+            "body_text": email["body_text"],
         }
 
         return AgentResponse(
@@ -263,7 +264,9 @@ class EmailAgent(BaseAgent):
             )
 
         account_label = account.capitalize() if account else "todas as contas"
-        title = f"📧 *Emails{' não lidos' if unread_only else ''} — {account_label}*\n\n"
+        title = (
+            f"📧 *Emails{' não lidos' if unread_only else ''} — {account_label}*\n\n"
+        )
         lines = [title]
 
         for i, email in enumerate(emails, 1):
@@ -303,7 +306,11 @@ class EmailAgent(BaseAgent):
             unread = data.get("unread", 0)
             total = data.get("total", 0)
             total_unread += unread
-            label = self._n8n.get_account_label(account) if self._n8n else account.capitalize()
+            label = (
+                self._n8n.get_account_label(account)
+                if self._n8n
+                else account.capitalize()
+            )
             lines.append(f"{icon} **{label}:** {unread} não lidos / {total} total")
 
         if total_unread > 0:
@@ -332,7 +339,9 @@ class EmailAgent(BaseAgent):
             )
 
         summary = await self._summarize_email(email, detailed=True)
-        account_label = self._n8n.get_account_label(email.get("account", "")) if self._n8n else ""
+        account_label = (
+            self._n8n.get_account_label(email.get("account", "")) if self._n8n else ""
+        )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -369,17 +378,19 @@ class EmailAgent(BaseAgent):
         # Gerar rascunho com GPT
         draft = await self._generate_reply_draft(email, instruction)
 
-        account_label = self._n8n.get_account_label(email.get("account", "")) if self._n8n else ""
+        account_label = (
+            self._n8n.get_account_label(email.get("account", "")) if self._n8n else ""
+        )
 
         # Guardar rascunho no contexto
         context["email_pending_reply"] = {
-            "email_id":   email.get("id") or email.get("email_id", ""),
-            "account":    email.get("account", ""),
-            "thread_id":  email.get("thread_id", ""),
+            "email_id": email.get("id") or email.get("email_id", ""),
+            "account": email.get("account", ""),
+            "thread_id": email.get("thread_id", ""),
             "message_id": email.get("message_id", ""),
             "from_email": email.get("from_email", ""),
-            "subject":    email.get("subject", ""),
-            "draft":      draft,
+            "subject": email.get("subject", ""),
+            "draft": draft,
         }
 
         return AgentResponse(
@@ -453,7 +464,8 @@ class EmailAgent(BaseAgent):
 
                 account_label = (
                     self._n8n.get_account_label(pending["account"])
-                    if self._n8n else pending.get("account", "").capitalize()
+                    if self._n8n
+                    else pending.get("account", "").capitalize()
                 )
 
                 return AgentResponse(
@@ -480,8 +492,8 @@ class EmailAgent(BaseAgent):
         new_instruction = msg
         email_ctx = {
             "from_email": pending.get("from_email", ""),
-            "subject":    pending.get("subject", ""),
-            "body_text":  pending.get("body_text", ""),
+            "subject": pending.get("subject", ""),
+            "body_text": pending.get("body_text", ""),
         }
         new_draft = await self._generate_reply_draft(email_ctx, new_instruction)
         pending["draft"] = new_draft
@@ -574,16 +586,31 @@ class EmailAgent(BaseAgent):
         body = (email.get("body_text") or "").lower()[:500]
 
         urgent_keywords = [
-            "urgente", "urgent", "asap", "imediato", "hoje", "agora",
-            "prazo", "deadline", "importante", "critical", "emergency"
+            "urgente",
+            "urgent",
+            "asap",
+            "imediato",
+            "hoje",
+            "agora",
+            "prazo",
+            "deadline",
+            "importante",
+            "critical",
+            "emergency",
         ]
         for kw in urgent_keywords:
             if kw in subject or kw in body:
                 return "high"
 
         low_keywords = [
-            "newsletter", "unsubscribe", "promoção", "oferta",
-            "desconto", "sale", "marketing", "noreply"
+            "newsletter",
+            "unsubscribe",
+            "promoção",
+            "oferta",
+            "desconto",
+            "sale",
+            "marketing",
+            "noreply",
         ]
         for kw in low_keywords:
             if kw in subject or kw in body:
@@ -617,35 +644,37 @@ class EmailAgent(BaseAgent):
     # DATABASE HELPERS
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def _save_email(
-        self, user_id: str, email: Dict[str, Any]
-    ) -> Optional[str]:
+    async def _save_email(self, user_id: str, email: Dict[str, Any]) -> Optional[str]:
         if not self._db:
             return None
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
                 None,
                 lambda: (
                     self._db.get_client()
                     .table("email_inbox")
-                    .upsert({
-                        "user_id":    user_id,
-                        "account":    email.get("account"),
-                        "email_id":   email.get("email_id"),
-                        "thread_id":  email.get("thread_id"),
-                        "message_id": email.get("message_id"),
-                        "from_email": email.get("from_email"),
-                        "from_name":  email.get("from_name"),
-                        "to_email":   email.get("to"),
-                        "subject":    email.get("subject"),
-                        "body_text":  (email.get("body_text") or "")[:5000],
-                        "received_at": email.get("received_at"),
-                        "read":       False,
-                        "replied":    False,
-                        "urgency":    "medium",
-                    }, on_conflict="user_id,email_id")
+                    .upsert(
+                        {
+                            "user_id": user_id,
+                            "account": email.get("account"),
+                            "email_id": email.get("email_id"),
+                            "thread_id": email.get("thread_id"),
+                            "message_id": email.get("message_id"),
+                            "from_email": email.get("from_email"),
+                            "from_name": email.get("from_name"),
+                            "to_email": email.get("to"),
+                            "subject": email.get("subject"),
+                            "body_text": (email.get("body_text") or "")[:5000],
+                            "received_at": email.get("received_at"),
+                            "read": False,
+                            "replied": False,
+                            "urgency": "medium",
+                        },
+                        on_conflict="user_id,email_id",
+                    )
                     .execute()
                 ),
             )
@@ -666,6 +695,7 @@ class EmailAgent(BaseAgent):
             return []
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             q = (
                 self._db.get_client()
@@ -698,13 +728,12 @@ class EmailAgent(BaseAgent):
                 counts[acc]["unread"] += 1
         return counts
 
-    async def _mark_replied(
-        self, email_id: Optional[str], user_id: str
-    ) -> None:
+    async def _mark_replied(self, email_id: Optional[str], user_id: str) -> None:
         if not self._db or not email_id:
             return
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
@@ -729,7 +758,9 @@ class EmailAgent(BaseAgent):
     ) -> Optional[Dict[str, Any]]:
         """Resolve referências como 'o 1', 'o primeiro', 'o do João'."""
         # Referência por número na lista
-        num_match = re.search(r"\b([1-5]|primeiro|segundo|terceiro|último)\b", msg, re.IGNORECASE)
+        num_match = re.search(
+            r"\b([1-5]|primeiro|segundo|terceiro|último)\b", msg, re.IGNORECASE
+        )
         if num_match:
             word = num_match.group(1).lower()
             idx = {"primeiro": 0, "segundo": 1, "terceiro": 2, "último": -1}.get(word)
@@ -742,13 +773,19 @@ class EmailAgent(BaseAgent):
                 return last_list[-1]
 
         # Referência por remetente
-        name_match = re.search(r"\b(?:do|da|de|from)\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)\b", msg, re.IGNORECASE)
+        name_match = re.search(
+            r"\b(?:do|da|de|from)\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)\b",
+            msg,
+            re.IGNORECASE,
+        )
         if name_match:
             name = name_match.group(1).lower()
             emails = await self._get_emails(user_id, limit=20)
             for email in emails:
-                if name in (email.get("from_name") or "").lower() or \
-                   name in (email.get("from_email") or "").lower():
+                if (
+                    name in (email.get("from_name") or "").lower()
+                    or name in (email.get("from_email") or "").lower()
+                ):
                     return email
 
         # Último email pendente de resposta
@@ -772,8 +809,7 @@ class EmailAgent(BaseAgent):
     def _extract_reply_instruction(msg: str) -> Optional[str]:
         """Extrai instrução de resposta da mensagem. Ex: 'responde dizendo que confirmo' → 'que confirmo'"""
         match = re.search(
-            r"\b(?:dizendo?|diz|saying?|que|to say)\s+(.+)$",
-            msg, re.IGNORECASE
+            r"\b(?:dizendo?|diz|saying?|que|to say)\s+(.+)$", msg, re.IGNORECASE
         )
         if match:
             return match.group(1).strip()
@@ -783,6 +819,7 @@ class EmailAgent(BaseAgent):
     def _format_time(dt_str: str) -> str:
         try:
             from datetime import datetime
+
             dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
             now = datetime.now(timezone.utc)
             diff = now - dt

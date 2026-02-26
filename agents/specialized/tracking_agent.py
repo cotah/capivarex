@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 # ─── Regex de detecção de código de rastreio ─────────────────────────────────
 #
@@ -33,28 +34,43 @@ from services import get_service
 #
 _RE_TRACKING = re.compile(
     r"\b("
-    r"[A-Z]{2}\d{9}[A-Z]{2}"             # padrão postal universal (An Post, Correios, etc.)
-    r"|1Z[A-Z0-9]{16}"                    # UPS
-    r"|TBA\d{9,}"                         # Amazon Logistics
-    r"|\d{12,22}"                         # FedEx / DHL numérico
-    r"|[A-Z]{1,3}\d{8,14}[A-Z]{0,2}"     # genérico alfanumérico
+    r"[A-Z]{2}\d{9}[A-Z]{2}"  # padrão postal universal (An Post, Correios, etc.)
+    r"|1Z[A-Z0-9]{16}"  # UPS
+    r"|TBA\d{9,}"  # Amazon Logistics
+    r"|\d{12,22}"  # FedEx / DHL numérico
+    r"|[A-Z]{1,3}\d{8,14}[A-Z]{0,2}"  # genérico alfanumérico
     r")\b",
     re.IGNORECASE,
 )
 
 # Palavras que indicam intenção de rastrear
 _TRACK_WORDS = [
-    "rastreia", "rastrear", "rastreio", "rastreamento",
-    "tracking", "track", "onde está", "onde esta",
-    "status do pacote", "status do pedido",
-    "meu pacote", "meu pedido", "minha encomenda",
-    "encomenda", "chegou", "entregue",
+    "rastreia",
+    "rastrear",
+    "rastreio",
+    "rastreamento",
+    "tracking",
+    "track",
+    "onde está",
+    "onde esta",
+    "status do pacote",
+    "status do pedido",
+    "meu pacote",
+    "meu pedido",
+    "minha encomenda",
+    "encomenda",
+    "chegou",
+    "entregue",
 ]
 
 # Palavras que indicam consulta de quota
 _QUOTA_WORDS = [
-    "quota", "cota", "crédito", "credito",
-    "quantos rastreios", "quanto resta",
+    "quota",
+    "cota",
+    "crédito",
+    "credito",
+    "quantos rastreios",
+    "quanto resta",
 ]
 
 
@@ -74,15 +90,14 @@ class TrackingAgent(BaseAgent):
             description="Rastreia encomendas de qualquer transportadora do mundo",
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        lang = get_user_lang(context)
         try:
             svc = get_service("tracking")
             if not svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço de rastreamento não disponível.",
+                    response=t("tracking_service_unavailable", lang=lang),
                     error="TrackingService unavailable",
                 )
             if not svc.is_initialized():
@@ -213,16 +228,16 @@ class TrackingAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     def _format_tracking(self, data: Dict[str, Any]) -> str:
-        emoji       = data.get("status_emoji", "📦")
-        label       = data.get("status_label", "")
-        sub         = data.get("sub_status", "")
-        number      = data.get("tracking_number", "")
-        carrier     = data.get("carrier", "").strip() or "Auto-detectada"
-        last_msg    = data.get("last_message", "")
-        last_loc    = data.get("last_location", "")
-        last_upd    = data.get("last_update", "")
-        eta         = data.get("estimated_delivery", "")
-        events      = data.get("events", [])
+        emoji = data.get("status_emoji", "📦")
+        label = data.get("status_label", "")
+        sub = data.get("sub_status", "")
+        number = data.get("tracking_number", "")
+        carrier = data.get("carrier", "").strip() or "Auto-detectada"
+        last_msg = data.get("last_message", "")
+        last_loc = data.get("last_location", "")
+        last_upd = data.get("last_update", "")
+        eta = data.get("estimated_delivery", "")
+        events = data.get("events", [])
 
         # Cabeçalho
         sub_line = f" — _{sub}_" if sub else ""
@@ -233,8 +248,8 @@ class TrackingAgent(BaseAgent):
 
         # Último evento
         if last_msg:
-            loc_part  = f" — {last_loc}" if last_loc else ""
-            date_part = f" _({last_upd})_"  if last_upd else ""
+            loc_part = f" — {last_loc}" if last_loc else ""
+            date_part = f" _({last_upd})_" if last_upd else ""
             lines.append(f"\n📍 {last_msg}{loc_part}{date_part}")
 
         # Entregue
@@ -264,14 +279,13 @@ class TrackingAgent(BaseAgent):
         match = _RE_TRACKING.search(text)
         return match.group(1).upper() if match else None
 
-    def _extract_carrier(
-        self, text: str, context: Dict[str, Any]
-    ) -> Optional[Any]:
+    def _extract_carrier(self, text: str, context: Dict[str, Any]) -> Optional[Any]:
         """Detecta transportadora mencionada no prompt ou no context."""
         if context.get("carrier"):
             return context["carrier"]
 
         from services.integrations.tracking_service import CARRIER_CODES
+
         # Testa do nome mais longo para o mais curto
         for name in sorted(CARRIER_CODES.keys(), key=len, reverse=True):
             if name in text.lower():

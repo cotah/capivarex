@@ -9,15 +9,24 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
 
 # Valid intents for vehicle commands
 VALID_INTENTS = {
-    "connect", "battery", "location", "charge_status",
-    "lock", "unlock", "start_charging", "stop_charging",
-    "summary", "odometer", "general"
+    "connect",
+    "battery",
+    "location",
+    "charge_status",
+    "lock",
+    "unlock",
+    "start_charging",
+    "stop_charging",
+    "summary",
+    "odometer",
+    "general",
 }
 
 
@@ -39,8 +48,7 @@ class CarAgent(BaseAgent):
     def __init__(self):
         """Initialise the car agent."""
         super().__init__(
-            name="car",
-            description="Controls electric vehicle via Smartcar API"
+            name="car", description="Controls electric vehicle via Smartcar API"
         )
 
     async def _get_car_service(self) -> Optional[Any]:
@@ -73,8 +81,12 @@ class CarAgent(BaseAgent):
         return None
 
     async def _save_connection(
-        self, user_id: str, vehicle_id: str,
-        access_token: str, refresh_token: str, expires_at: str,
+        self,
+        user_id: str,
+        vehicle_id: str,
+        access_token: str,
+        refresh_token: str,
+        expires_at: str,
     ) -> bool:
         """Persist Smartcar connection to DB."""
         try:
@@ -130,10 +142,10 @@ class CarAgent(BaseAgent):
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
+                    {"role": "user", "content": user_message},
                 ],
                 temperature=0.3,
-                max_tokens=20
+                max_tokens=20,
             )
 
             intent = (response.choices[0].message.content or "").strip().lower()
@@ -147,11 +159,7 @@ class CarAgent(BaseAgent):
             self.logger.warning(f"Intent analysis failed: {e}")
             return "general"
 
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Process vehicle-related queries and commands.
 
@@ -165,6 +173,7 @@ class CarAgent(BaseAgent):
         Returns:
             AgentResponse with vehicle data or command result
         """
+        lang = get_user_lang(context)
         user_id = context.get("user_id", "")
         vehicle_id = context.get("vehicle_id")
         access_token = context.get("access_token")
@@ -178,8 +187,8 @@ class CarAgent(BaseAgent):
         if not car_service:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Servico de veiculo nao disponivel.",
-                error="Car service not available"
+                response=t("car_service_unavailable", lang=lang),
+                error="Car service not available",
             )
 
         # Analyze user intent
@@ -192,30 +201,44 @@ class CarAgent(BaseAgent):
             elif intent == "battery":
                 return await self._handle_battery(car_service, vehicle_id, access_token)
             elif intent == "location":
-                return await self._handle_location(car_service, vehicle_id, access_token)
+                return await self._handle_location(
+                    car_service, vehicle_id, access_token
+                )
             elif intent == "charge_status":
-                return await self._handle_charge_status(car_service, vehicle_id, access_token)
+                return await self._handle_charge_status(
+                    car_service, vehicle_id, access_token
+                )
             elif intent == "lock":
                 return await self._handle_lock(car_service, vehicle_id, access_token)
             elif intent == "unlock":
                 return await self._handle_unlock(car_service, vehicle_id, access_token)
             elif intent == "start_charging":
-                return await self._handle_start_charging(car_service, vehicle_id, access_token)
+                return await self._handle_start_charging(
+                    car_service, vehicle_id, access_token
+                )
             elif intent == "stop_charging":
-                return await self._handle_stop_charging(car_service, vehicle_id, access_token)
+                return await self._handle_stop_charging(
+                    car_service, vehicle_id, access_token
+                )
             elif intent == "summary":
                 return await self._handle_summary(car_service, vehicle_id, access_token)
             elif intent == "odometer":
-                return await self._handle_odometer(car_service, vehicle_id, access_token)
+                return await self._handle_odometer(
+                    car_service, vehicle_id, access_token
+                )
             else:
-                return await self._handle_general(car_service, prompt, vehicle_id, access_token)
+                return await self._handle_general(
+                    car_service, prompt, vehicle_id, access_token
+                )
 
         except Exception as e:
-            self.logger.error(f"CarAgent failed for intent '{intent}': {e}", exc_info=True)
+            self.logger.error(
+                f"CarAgent failed for intent '{intent}': {e}", exc_info=True
+            )
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao processar comando do veiculo: {str(e)}",
-                error=str(e)
+                error=str(e),
             )
 
     async def _handle_no_vehicle(self, user_id: str) -> AgentResponse:
@@ -254,27 +277,24 @@ class CarAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=response,
-            data={"connect_url": connect_url, "needs_connection": True}
+            data={"connect_url": connect_url, "needs_connection": True},
         )
 
     async def _handle_battery(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle battery level query."""
         battery = await car_service.get_battery_level(vehicle_id, access_token)
 
-        if 'error' in battery:
+        if "error" in battery:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao obter nivel de bateria: {battery['error']}",
-                error=battery['error']
+                error=battery["error"],
             )
 
-        percentage = battery.get('percentage', 'N/A')
-        range_km = battery.get('range_km', 'N/A')
+        percentage = battery.get("percentage", "N/A")
+        range_km = battery.get("range_km", "N/A")
 
         # Generate contextual status
         if isinstance(percentage, (int, float)) and percentage < 20:
@@ -292,29 +312,24 @@ class CarAgent(BaseAgent):
         )
 
         return AgentResponse(
-            status=AgentStatus.SUCCESS,
-            response=response,
-            data=battery
+            status=AgentStatus.SUCCESS, response=response, data=battery
         )
 
     async def _handle_location(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle location query."""
         location = await car_service.get_location(vehicle_id, access_token)
 
-        if 'error' in location:
+        if "error" in location:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao obter localizacao: {location['error']}",
-                error=location['error']
+                error=location["error"],
             )
 
-        lat = location.get('latitude', 'N/A')
-        lon = location.get('longitude', 'N/A')
+        lat = location.get("latitude", "N/A")
+        lon = location.get("longitude", "N/A")
         maps_link = f"https://www.google.com/maps?q={lat},{lon}"
 
         response = (
@@ -326,31 +341,28 @@ class CarAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=response,
-            data={**location, "maps_link": maps_link}
+            data={**location, "maps_link": maps_link},
         )
 
     async def _handle_charge_status(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle charging status query."""
         charge = await car_service.get_charge_status(vehicle_id, access_token)
 
-        if 'error' in charge:
+        if "error" in charge:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao obter status de carregamento: {charge['error']}",
-                error=charge['error']
+                error=charge["error"],
             )
 
-        is_plugged = charge.get('is_plugged_in', False)
-        state = charge.get('state', 'UNKNOWN')
+        is_plugged = charge.get("is_plugged_in", False)
+        state = charge.get("state", "UNKNOWN")
 
-        if state == 'CHARGING':
+        if state == "CHARGING":
             status = "Carregando agora!"
-        elif state == 'FULLY_CHARGED':
+        elif state == "FULLY_CHARGED":
             status = "Totalmente carregado! Pode desconectar."
         elif is_plugged:
             status = "Conectado mas nao carregando."
@@ -364,105 +376,86 @@ class CarAgent(BaseAgent):
             f"Estado: {state}"
         )
 
-        return AgentResponse(
-            status=AgentStatus.SUCCESS,
-            response=response,
-            data=charge
-        )
+        return AgentResponse(status=AgentStatus.SUCCESS, response=response, data=charge)
 
     async def _handle_lock(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle lock command."""
         result = await car_service.lock_vehicle(vehicle_id, access_token)
 
-        if 'error' in result:
+        if "error" in result:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao trancar veiculo: {result['error']}",
-                error=result['error']
+                error=result["error"],
             )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Veiculo trancado com sucesso!\n\nSeu carro esta seguro agora.",
-            data=result
+            data=result,
         )
 
     async def _handle_unlock(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle unlock command."""
         result = await car_service.unlock_vehicle(vehicle_id, access_token)
 
-        if 'error' in result:
+        if "error" in result:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao destrancar veiculo: {result['error']}",
-                error=result['error']
+                error=result["error"],
             )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Veiculo destrancado com sucesso!\n\nVoce ja pode entrar.",
-            data=result
+            data=result,
         )
 
     async def _handle_start_charging(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle start charging command."""
         result = await car_service.start_charging(vehicle_id, access_token)
 
-        if 'error' in result:
+        if "error" in result:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao iniciar carregamento: {result['error']}",
-                error=result['error']
+                error=result["error"],
             )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Carregamento iniciado!\n\nSeu veiculo esta carregando agora.",
-            data=result
+            data=result,
         )
 
     async def _handle_stop_charging(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle stop charging command."""
         result = await car_service.stop_charging(vehicle_id, access_token)
 
-        if 'error' in result:
+        if "error" in result:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao parar carregamento: {result['error']}",
-                error=result['error']
+                error=result["error"],
             )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Carregamento parado!\n\nVoce pode desconectar o cabo agora.",
-            data=result
+            data=result,
         )
 
     async def _handle_summary(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle vehicle summary request."""
         summary = await car_service.get_vehicle_summary(vehicle_id, access_token)
@@ -470,46 +463,36 @@ class CarAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=summary if isinstance(summary, str) else str(summary),
-            data={"summary": summary}
+            data={"summary": summary},
         )
 
     async def _handle_odometer(
-        self,
-        car_service: Any,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle odometer query."""
         odometer = await car_service.get_odometer(vehicle_id, access_token)
 
-        if 'error' in odometer:
+        if "error" in odometer:
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao obter odometro: {odometer['error']}",
-                error=odometer['error']
+                error=odometer["error"],
             )
 
-        distance = odometer.get('distance_km', 'N/A')
+        distance = odometer.get("distance_km", "N/A")
 
         response = (
-            f"Odometro\n\n"
-            f"Distancia percorrida: {distance:,.0f} km"
+            f"Odometro\n\nDistancia percorrida: {distance:,.0f} km"
             if isinstance(distance, (int, float))
             else f"Odometro\n\nDistancia percorrida: {distance} km"
         )
 
         return AgentResponse(
-            status=AgentStatus.SUCCESS,
-            response=response,
-            data=odometer
+            status=AgentStatus.SUCCESS, response=response, data=odometer
         )
 
     async def _handle_general(
-        self,
-        car_service: Any,
-        user_message: str,
-        vehicle_id: str,
-        access_token: str
+        self, car_service: Any, user_message: str, vehicle_id: str, access_token: str
     ) -> AgentResponse:
         """Handle general vehicle questions using GPT with context."""
         # Gather vehicle data for context
@@ -536,7 +519,7 @@ class CarAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response="Servico de IA nao disponivel para responder sua pergunta.",
-                error="OpenAI service not available"
+                error="OpenAI service not available",
             )
 
         await openai_svc.initialize()
@@ -554,17 +537,17 @@ class CarAgent(BaseAgent):
             response_text = await openai_svc.chat_completion(
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
+                    {"role": "user", "content": user_message},
                 ],
                 model="gpt-4o-mini",
                 temperature=0.7,
-                max_tokens=500
+                max_tokens=500,
             )
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=(response_text or "").strip(),
-                data={"method": "general_ai"}
+                data={"method": "general_ai"},
             )
 
         except Exception as e:
@@ -572,7 +555,7 @@ class CarAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao processar sua pergunta: {str(e)}",
-                error=str(e)
+                error=str(e),
             )
 
     def get_capabilities(self) -> List[str]:
@@ -584,5 +567,5 @@ class CarAgent(BaseAgent):
             "lock_unlock",
             "charging_control",
             "odometer",
-            "vehicle_summary"
+            "vehicle_summary",
         ]

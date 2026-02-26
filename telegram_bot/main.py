@@ -14,7 +14,9 @@ FIXES APPLIED:
 3. Fixed event loop issue by using proper async initialization
 4. Corrected all import paths based on actual file names
 """
+
 import warnings
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", message="error reading bcrypt version")
 
@@ -99,4 +101,3 @@ def main_sync():
 if __name__ == "__main__":
     setup_logging()
     main_sync()
-

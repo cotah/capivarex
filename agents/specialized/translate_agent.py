@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional  # FIX F401: removed unused Tuple
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ def _normalize_lang(lang: str) -> str:
     """Normaliza nome de idioma para código ISO."""
     # FIX F401: removed unused LANG_ALIASES from import
     from services.business.translate_service import _normalize_lang as _nl
+
     return _nl(lang)
 
 
@@ -85,12 +87,13 @@ class TranslateAgent(BaseAgent):
         context: Dict[str, Any],
     ) -> AgentResponse:
         """Route translation request based on detected intent."""
+        lang = get_user_lang(context)
         try:
             translate_svc = get_service("translate")
             if not translate_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço de tradução não disponível.",
+                    response=t("translate_service_unavailable", lang=lang),
                     error="TranslateService unavailable",
                 )
             if not translate_svc.is_initialized():
@@ -101,9 +104,17 @@ class TranslateAgent(BaseAgent):
             detect_match = _RE_DETECT.search(prompt_stripped)
             if detect_match or any(
                 w in prompt_stripped.lower()
-                for w in ["qual idioma", "que idioma", "detect language", "que língua", "que lingua"]
+                for w in [
+                    "qual idioma",
+                    "que idioma",
+                    "detect language",
+                    "que língua",
+                    "que lingua",
+                ]
             ):
-                text_to_detect = detect_match.group(1).strip() if detect_match else prompt_stripped
+                text_to_detect = (
+                    detect_match.group(1).strip() if detect_match else prompt_stripped
+                )
                 return await self._handle_detect(translate_svc, text_to_detect)
 
             say_match = _RE_HOW_TO_SAY.search(prompt_stripped)
@@ -116,10 +127,15 @@ class TranslateAgent(BaseAgent):
             text_override = context.get("text")
             trans_match = _RE_TRANSLATE.search(prompt_stripped)
             if trans_match:
-                text = (trans_match.group(1) or text_override or "").strip().strip("'\"")
+                text = (
+                    (trans_match.group(1) or text_override or "").strip().strip("'\"")
+                )
                 lang = trans_match.group(2).strip()
                 if not text:
-                    text = self._extract_text_after_colon(prompt_stripped) or prompt_stripped
+                    text = (
+                        self._extract_text_after_colon(prompt_stripped)
+                        or prompt_stripped
+                    )
                 return await self._handle_translate(translate_svc, text, lang)
 
             if target_lang:

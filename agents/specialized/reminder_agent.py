@@ -30,14 +30,19 @@ logger = logging.getLogger(__name__)
 
 # ─── Regex de detecção de intenção ────────────────────────────────────────────
 
-_CANCEL_WORDS  = ["cancela", "cancel", "remove", "apaga", "delete"]
-_LIST_WORDS    = ["meus lembretes", "listar lembretes", "ver lembretes",
-                  "lembretes ativos", "quais lembretes"]
-_REMIND_WORDS  = ["me lembra", "lembrete", "remind", "me avisa", "me notifica"]
+_CANCEL_WORDS = ["cancela", "cancel", "remove", "apaga", "delete"]
+_LIST_WORDS = [
+    "meus lembretes",
+    "listar lembretes",
+    "ver lembretes",
+    "lembretes ativos",
+    "quais lembretes",
+]
+_REMIND_WORDS = ["me lembra", "lembrete", "remind", "me avisa", "me notifica"]
 
 # Recorrência
-_RE_DAILY   = re.compile(r"\btodo\s*dia\b|\bdiariamente\b|\bdaily\b", re.I)
-_RE_WEEKLY  = re.compile(r"\btoda\s*semana\b|\bsemanalmente\b|\bweekly\b", re.I)
+_RE_DAILY = re.compile(r"\btodo\s*dia\b|\bdiariamente\b|\bdaily\b", re.I)
+_RE_WEEKLY = re.compile(r"\btoda\s*semana\b|\bsemanalmente\b|\bweekly\b", re.I)
 _RE_MONTHLY = re.compile(r"\btodo\s*m[eê]s\b|\bmensalmente\b|\bmonthly\b", re.I)
 
 # FIX BUG 3 (regex): Aceita horário sem sufixo "h" — ex: "as 18", "às 18", "18h", "18:30"
@@ -54,12 +59,19 @@ _RE_IN_WEEKS = re.compile(r"(?:em|daqui)\s+(\d+)\s+semanas?", re.I)
 
 # Dias nomeados
 _DAY_NAMES = {
-    "segunda": 0, "segunda-feira": 0,
-    "terça": 1, "terca": 1, "terça-feira": 1,
-    "quarta": 2, "quarta-feira": 2,
-    "quinta": 3, "quinta-feira": 3,
-    "sexta": 4, "sexta-feira": 4,
-    "sábado": 5, "sabado": 5,
+    "segunda": 0,
+    "segunda-feira": 0,
+    "terça": 1,
+    "terca": 1,
+    "terça-feira": 1,
+    "quarta": 2,
+    "quarta-feira": 2,
+    "quinta": 3,
+    "quinta-feira": 3,
+    "sexta": 4,
+    "sexta-feira": 4,
+    "sábado": 5,
+    "sabado": 5,
     "domingo": 6,
 }
 
@@ -108,7 +120,11 @@ def _parse_remind_datetime(
         # Só considera válido se for um horário plausível (0–23)
         if 0 <= candidate <= 23:
             hour = candidate
-            raw_min = time_match.group(2) if time_match.lastindex and time_match.lastindex >= 2 else None
+            raw_min = (
+                time_match.group(2)
+                if time_match.lastindex and time_match.lastindex >= 2
+                else None
+            )
             minute = int(raw_min) if raw_min else 0
             minute = min(minute, 59)
         else:
@@ -177,7 +193,9 @@ def _extract_message(text: str) -> str:
     # Remove palavras de comando no início
     cleaned = re.sub(
         r"^(me\s+lembra[r]?|lembrete|me\s+avisa[r]?|me\s+notifica[r]?)\s*",
-        "", text, flags=re.I
+        "",
+        text,
+        flags=re.I,
     ).strip()
 
     # Tenta extrair após "para" ou ":"
@@ -186,8 +204,12 @@ def _extract_message(text: str) -> str:
         msg = m.group(1).strip()
         # Remove resíduos de data/hora
         msg = re.sub(r"\b(?:às?\s*)?\d{1,2}[h:]\d{0,2}\b", "", msg, flags=re.I).strip()
-        msg = re.sub(r"\b(?:amanhã|hoje|sexta|segunda|terça|quarta|quinta|sábado|domingo)\b",
-                     "", msg, flags=re.I).strip()
+        msg = re.sub(
+            r"\b(?:amanhã|hoje|sexta|segunda|terça|quarta|quinta|sábado|domingo)\b",
+            "",
+            msg,
+            flags=re.I,
+        ).strip()
         if len(msg) >= 3:
             return msg.rstrip(".,!?")
 
@@ -212,9 +234,7 @@ class ReminderAgent(BaseAgent):
             description="Cria lembretes persistentes com data/hora e recorrência",
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         try:
             svc = get_service("reminder")
             if not svc:
@@ -266,7 +286,10 @@ class ReminderAgent(BaseAgent):
                 )
 
             # ── Intent: criar ─────────────────────────────────────────────────
-            if any(w in prompt_lower for w in _REMIND_WORDS) or context.get("action") == "create":
+            if (
+                any(w in prompt_lower for w in _REMIND_WORDS)
+                or context.get("action") == "create"
+            ):
                 # Context override tem prioridade
                 if context.get("remind_at"):
                     remind_at = context["remind_at"]

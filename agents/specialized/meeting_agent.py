@@ -28,38 +28,63 @@ from services import get_service
 _RE_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}", re.IGNORECASE)
 
 # Duração: "30 minutos", "1 hora", "2h", "45min"
-_RE_DURATION = re.compile(
-    r"(\d+)\s*(hora[s]?|h\b|minuto[s]?|min\b)", re.IGNORECASE
-)
+_RE_DURATION = re.compile(r"(\d+)\s*(hora[s]?|h\b|minuto[s]?|min\b)", re.IGNORECASE)
 
 # Hora: "10h", "10:30", "às 14h30", "at 3pm", "3:00pm"
-_RE_TIME = re.compile(
-    r"\b(\d{1,2})[:h](\d{0,2})\s*(am|pm)?\b", re.IGNORECASE
-)
+_RE_TIME = re.compile(r"\b(\d{1,2})[:h](\d{0,2})\s*(am|pm)?\b", re.IGNORECASE)
 
 # Data relativa
 _RELATIVE_DAYS = {
-    "hoje": 0, "today": 0,
-    "amanhã": 1, "amanha": 1, "tomorrow": 1,
-    "depois de amanhã": 2, "depois de amanha": 2,
+    "hoje": 0,
+    "today": 0,
+    "amanhã": 1,
+    "amanha": 1,
+    "tomorrow": 1,
+    "depois de amanhã": 2,
+    "depois de amanha": 2,
 }
 
 # Dias da semana (PT + EN) → weekday index (0=segunda)
 _WEEKDAYS = {
-    "segunda": 0, "monday": 0,
-    "terça": 1, "terca": 1, "tuesday": 1,
-    "quarta": 2, "wednesday": 2,
-    "quinta": 3, "thursday": 3,
-    "sexta": 4, "friday": 4,
-    "sábado": 5, "sabado": 5, "saturday": 5,
-    "domingo": 6, "sunday": 6,
+    "segunda": 0,
+    "monday": 0,
+    "terça": 1,
+    "terca": 1,
+    "tuesday": 1,
+    "quarta": 2,
+    "wednesday": 2,
+    "quinta": 3,
+    "thursday": 3,
+    "sexta": 4,
+    "friday": 4,
+    "sábado": 5,
+    "sabado": 5,
+    "saturday": 5,
+    "domingo": 6,
+    "sunday": 6,
 }
 
 # Meses abreviados PT/EN
 _MONTHS = {
-    "jan": 1, "fev": 2, "feb": 2, "mar": 3, "abr": 4, "apr": 4,
-    "mai": 5, "may": 5, "jun": 6, "jul": 7, "ago": 8, "aug": 8,
-    "set": 9, "sep": 9, "out": 10, "oct": 10, "nov": 11, "dez": 12, "dec": 12,
+    "jan": 1,
+    "fev": 2,
+    "feb": 2,
+    "mar": 3,
+    "abr": 4,
+    "apr": 4,
+    "mai": 5,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "ago": 8,
+    "aug": 8,
+    "set": 9,
+    "sep": 9,
+    "out": 10,
+    "oct": 10,
+    "nov": 11,
+    "dez": 12,
+    "dec": 12,
 }
 
 
@@ -106,16 +131,35 @@ def _extract_title(text: str) -> Optional[str]:
     cleaned = _RE_EMAIL.sub("", cleaned)
     cleaned = re.sub(
         r"\b(hoje|amanhã?|tomorrow|monday|segunda|terça|terca|quarta|quinta|sexta|sábado?|domingo)\b",
-        "", cleaned, flags=re.IGNORECASE
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
     )
-    cleaned = re.sub(r"\b\d{1,2}[:/h]\d{0,2}\s*(am|pm)?\b", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\b\d{1,2}[:/h]\d{0,2}\s*(am|pm)?\b", "", cleaned, flags=re.IGNORECASE
+    )
     cleaned = re.sub(r"\b\d{1,2}/\d{1,2}(/\d{2,4})?\b", "", cleaned)
-    cleaned = re.sub(r"\b\d+\s*(hora[s]?|h|minuto[s]?|min)\b", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\b\d+\s*(hora[s]?|h|minuto[s]?|min)\b", "", cleaned, flags=re.IGNORECASE
+    )
 
     # Remove stop-words
     for word in [
-        "com", "with", "para", "for", "às", "as", "at", "de", "em",
-        "uma", "um", "a", "o", "e", ":",
+        "com",
+        "with",
+        "para",
+        "for",
+        "às",
+        "as",
+        "at",
+        "de",
+        "em",
+        "uma",
+        "um",
+        "a",
+        "o",
+        "e",
+        ":",
     ]:
         cleaned = re.sub(rf"\b{word}\b", " ", cleaned, flags=re.IGNORECASE)
 
@@ -181,9 +225,7 @@ def _extract_datetime(text: str) -> Optional[datetime]:
         elif ampm == "am" and hour == 12:
             hour = 0
 
-    return target_date.replace(
-        hour=hour, minute=minute, second=0, microsecond=0
-    )
+    return target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
 @register_agent("meeting")
@@ -206,9 +248,7 @@ class MeetingAgent(BaseAgent):
             description="Cria reuniões Google Meet e gerencia agenda de reuniões",
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         try:
             cal_svc = get_service("calendar")
             if not cal_svc:
@@ -248,11 +288,7 @@ class MeetingAgent(BaseAgent):
         """Cria reunião extraindo dados do prompt natural."""
 
         # Título
-        title = (
-            context.get("title")
-            or _extract_title(prompt)
-            or "Reunião"
-        )
+        title = context.get("title") or _extract_title(prompt) or "Reunião"
 
         # Data/hora
         start_dt = _extract_datetime(prompt)
@@ -294,9 +330,7 @@ class MeetingAgent(BaseAgent):
         raw_start = context.get("start_datetime")
         if isinstance(raw_start, str):
             try:
-                start_dt = datetime.fromisoformat(
-                    raw_start.replace("Z", "+00:00")
-                )
+                start_dt = datetime.fromisoformat(raw_start.replace("Z", "+00:00"))
             except ValueError:
                 start_dt = _extract_datetime(raw_start)
         elif isinstance(raw_start, datetime):
