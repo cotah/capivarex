@@ -187,7 +187,6 @@ class ChatAgent(BaseAgent):
             completion = await client.chat.completions.create(
                 model=CHAT_MODEL,
                 messages=messages,
-                temperature=0.7,
                 max_completion_tokens=2000,
             )
 
