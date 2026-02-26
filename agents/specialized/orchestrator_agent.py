@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from schemas.orchestrator import OrchestratorDecision
 from services import get_service
+from services.ai.model_config import ORCHESTRATOR_MODEL
 from services.i18n.prompts import get_orchestrator_prompt
 
 
@@ -119,7 +120,7 @@ class OrchestratorAgent(BaseAgent):
 
         try:
             response = await client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=ORCHESTRATOR_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},

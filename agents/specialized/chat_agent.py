@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.ai.model_config import CHAT_MODEL
 from services.i18n import t, get_user_lang
 
 
@@ -155,7 +156,9 @@ class ChatAgent(BaseAgent):
         # Try streaming first (preferred)
         try:
             chunks: List[str] = []
-            async for token in openai_service.stream_chat_completion(messages):
+            async for token in openai_service.stream_chat_completion(
+                messages, model=CHAT_MODEL
+            ):
                 chunks.append(token)
 
             response_text = "".join(chunks).strip()
@@ -182,7 +185,7 @@ class ChatAgent(BaseAgent):
 
         try:
             completion = await client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=CHAT_MODEL,
                 messages=messages,
                 temperature=0.7,
                 max_tokens=2000,

@@ -17,11 +17,12 @@ from typing import Dict, List, Any, AsyncGenerator
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
+from services.ai.model_config import DEFAULT_MODEL, ORCHESTRATOR_MODEL
 from services.core import (
     BaseService,
     register_service,
     retry_on_failure,
-    ServiceUnavailableError
+    ServiceUnavailableError,
 )
 
 
@@ -120,10 +121,7 @@ class OpenAIService(BaseService):
             return False
 
         try:
-            await asyncio.wait_for(
-                self.client.models.list(),
-                timeout=5.0
-            )
+            await asyncio.wait_for(self.client.models.list(), timeout=5.0)
             return True
         except asyncio.TimeoutError:
             self.logger.warning("OpenAI health check timed out")
@@ -136,10 +134,10 @@ class OpenAIService(BaseService):
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
-        model: str = "gpt-4o-mini",
+        model: str = DEFAULT_MODEL,
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Get chat completion from OpenAI.
@@ -165,7 +163,7 @@ class OpenAIService(BaseService):
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                **kwargs
+                **kwargs,
             )
 
             latency = time.time() - start_time
@@ -178,8 +176,8 @@ class OpenAIService(BaseService):
                 extra={
                     "model": model,
                     "latency_ms": latency * 1000,
-                    "tokens": response.usage.total_tokens if response.usage else None
-                }
+                    "tokens": response.usage.total_tokens if response.usage else None,
+                },
             )
 
             return content
@@ -188,18 +186,15 @@ class OpenAIService(BaseService):
             latency = time.time() - start_time
             self._track_call(latency, error=True)
 
-            self.logger.error(
-                f"Chat completion failed: {e}",
-                exc_info=True
-            )
+            self.logger.error(f"Chat completion failed: {e}", exc_info=True)
             raise
 
     async def stream_chat_completion(
         self,
         messages: List[Dict[str, str]],
-        model: str = "gpt-4o-mini",
+        model: str = DEFAULT_MODEL,
         temperature: float = 0.7,
-        max_tokens: int = 2000
+        max_tokens: int = 2000,
     ) -> AsyncGenerator[str, None]:
         """
         Stream chat completion from OpenAI.
@@ -236,7 +231,7 @@ class OpenAIService(BaseService):
 
             self.logger.debug(
                 "Streaming completion successful",
-                extra={"model": model, "latency_ms": latency * 1000}
+                extra={"model": model, "latency_ms": latency * 1000},
             )
 
         except Exception as e:
@@ -248,9 +243,7 @@ class OpenAIService(BaseService):
 
     @retry_on_failure(max_retries=2, backoff_factor=1.5)
     async def decide_next_action(
-        self,
-        history: List[Dict[str, str]],
-        user_message: str
+        self, history: List[Dict[str, str]], user_message: str
     ) -> Dict[str, Any]:
         """
         Decide next action based on user message and history.
@@ -273,7 +266,7 @@ class OpenAIService(BaseService):
 
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=ORCHESTRATOR_MODEL,
                 messages=messages,
                 response_format={"type": "json_object"},
                 temperature=0.3,
@@ -287,7 +280,7 @@ class OpenAIService(BaseService):
 
             self.logger.info(
                 f"Action decided: {decision.get('action')}",
-                extra={"decision": decision, "latency_ms": latency * 1000}
+                extra={"decision": decision, "latency_ms": latency * 1000},
             )
 
             return decision
@@ -301,7 +294,7 @@ class OpenAIService(BaseService):
             # Safe fallback
             return {
                 "action": "chat",
-                "response": "Desculpe, ocorreu um erro ao processar sua solicitação."
+                "response": "Desculpe, ocorreu um erro ao processar sua solicitação.",
             }
 
     def get_client(self) -> AsyncOpenAI:
@@ -318,21 +311,23 @@ class OpenAIService(BaseService):
 def get_client() -> AsyncOpenAI:
     """Get OpenAI client (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("openai")
     if service and isinstance(service, OpenAIService):
         if not service.is_initialized():
             import asyncio
+
             asyncio.create_task(service.initialize())
         return service.get_client()
     return None
 
 
 async def stream_chat_completion(
-    messages: List[Dict[str, str]],
-    model: str = "gpt-4o-mini"
+    messages: List[Dict[str, str]], model: str = DEFAULT_MODEL
 ) -> AsyncGenerator[str, None]:
     """Stream chat completion (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("openai")
     if service and isinstance(service, OpenAIService):
         if not service.is_initialized():
@@ -342,11 +337,11 @@ async def stream_chat_completion(
 
 
 async def decide_next_action(
-    history: List[Dict[str, str]],
-    user_message: str
+    history: List[Dict[str, str]], user_message: str
 ) -> Dict[str, Any]:
     """Decide next action (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("openai")
     if service and isinstance(service, OpenAIService):
         if not service.is_initialized():
