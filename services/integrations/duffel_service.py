@@ -150,6 +150,12 @@ class DuffelService(BaseService):
         }
 
         self.logger.info(
+            "DUFFEL DEBUG — search_flights payload: slices=%s, passengers=%d, cabin=%s",
+            [(s["origin"], s["destination"], s["departure_date"]) for s in slices],
+            len(passengers),
+            cabin_class,
+        )
+        self.logger.info(
             "Searching flights: %s → %s on %s (%s)",
             origin,
             destination,

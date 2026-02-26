@@ -91,35 +91,67 @@ class TravelAgent(BaseAgent):
         return_date = intent.get("return_date")
         cabin = intent.get("cabin_class", "economy")
         passengers_count = intent.get("passengers", 1)
+        original_prompt = intent.get("_original_prompt", "")
 
-        # Strong safeguard: only allow return_date if the user EXPLICITLY asked for round-trip
-        # GPT sometimes hallucinates a return date even for one-way queries
-        if return_date:
-            round_trip_keywords = [
-                "round trip",
-                "roundtrip",
-                "return",
-                "round-trip",
-                "ida e volta",
-                "ida y vuelta",
-                "volta",
-                "vuelta",
-                "retorno",
-                "regresso",
-                "back",
-                "hin und zurück",
-                "aller-retour",
-            ]
-            user_text_lower = intent.get("_original_prompt", "").lower()
-            user_wants_roundtrip = any(
-                kw in user_text_lower for kw in round_trip_keywords
-            )
-            if not user_wants_roundtrip:
+        # ── STRONG ONE-WAY / ROUND-TRIP DETECTION ──
+        # We check the ORIGINAL user text, not GPT's interpretation
+        round_trip_keywords = [
+            "round trip",
+            "roundtrip",
+            "round-trip",
+            "return flight",
+            "return ticket",
+            "ida e volta",
+            "ida y vuelta",
+            "volta",
+            "vuelta",
+            "retorno",
+            "regresso",
+            "hin und rück",
+            "aller-retour",
+            "two way",
+            "two-way",
+        ]
+        prompt_lower = original_prompt.lower()
+        user_wants_roundtrip = any(kw in prompt_lower for kw in round_trip_keywords)
+
+        self.logger.info(
+            "TRAVEL DEBUG — GPT parsed: origin=%s dest=%s departure=%s return_date=%s",
+            origin,
+            destination,
+            departure,
+            return_date,
+        )
+        self.logger.info(
+            "TRAVEL DEBUG — User text: '%s' | round_trip_keywords_found=%s | user_wants_roundtrip=%s",
+            original_prompt[:80],
+            [kw for kw in round_trip_keywords if kw in prompt_lower],
+            user_wants_roundtrip,
+        )
+
+        # FORCE: If user did NOT ask for round-trip, remove return_date
+        if not user_wants_roundtrip:
+            if return_date:
                 self.logger.info(
-                    "Forcing one-way: GPT returned return_date=%s but user did not ask for round-trip",
+                    "TRAVEL DEBUG — FORCING ONE-WAY: removing return_date=%s (user didn't ask for round-trip)",
                     return_date,
                 )
-                return_date = None
+            return_date = None
+
+        # FORCE: If user asked for round-trip but GPT didn't provide return_date, log warning
+        if user_wants_roundtrip and not return_date:
+            self.logger.warning(
+                "TRAVEL DEBUG — User asked for round-trip but GPT did not provide return_date!"
+            )
+
+        self.logger.info(
+            "TRAVEL DEBUG — FINAL search params: origin=%s dest=%s departure=%s return_date=%s (one-way=%s)",
+            origin,
+            destination,
+            departure,
+            return_date,
+            return_date is None,
+        )
 
         if not origin or not destination or not departure:
             msg = (
@@ -151,6 +183,11 @@ class TravelAgent(BaseAgent):
 
         offers = result.get("offers", [])
 
+        self.logger.info(
+            "TRAVEL DEBUG — Duffel returned %d offers (showing max 5)",
+            result.get("total_found", 0),
+        )
+
         if not offers:
             msg = (
                 f"No flights found from {origin} to {destination} on {departure}. "
@@ -164,15 +201,19 @@ class TravelAgent(BaseAgent):
         # Format results
         trip_type = "Round trip" if return_date else "One-way"
         trip_type_pt = "Ida e volta" if return_date else "Só ida"
-        header = (
-            f"✈️ **{trip_type}: {origin} → {destination}** | {departure}"
-            + (f" → {return_date}" if return_date else "")
-            + f"\n{result['total_found']} flights found — showing top {len(offers)} cheapest:\n\n"
-            if lang == "en"
-            else f"✈️ **{trip_type_pt}: {origin} → {destination}** | {departure}"
-            + (f" → {return_date}" if return_date else "")
-            + f"\n{result['total_found']} voos encontrados — mostrando top {len(offers)} mais baratos:\n\n"
-        )
+
+        if lang == "en":
+            header = (
+                f"✈️ **{trip_type}: {origin} → {destination}** | {departure}"
+                + (f" → {return_date}" if return_date else "")
+                + f"\n{result['total_found']} flights found — showing top {len(offers)} cheapest:\n\n"
+            )
+        else:
+            header = (
+                f"✈️ **{trip_type_pt}: {origin} → {destination}** | {departure}"
+                + (f" → {return_date}" if return_date else "")
+                + f"\n{result['total_found']} voos encontrados — mostrando top {len(offers)} mais baratos:\n\n"
+            )
 
         lines = [header]
         for i, offer in enumerate(offers, 1):
