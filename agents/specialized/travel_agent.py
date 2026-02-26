@@ -146,11 +146,11 @@ class TravelAgent(BaseAgent):
             lines.append("")
 
         footer = (
-            "\n💡 To book, you'll need passenger details (name, DOB, passport). "
-            "Tell me which option interests you!"
+            "\n💡 Click the booking link on your preferred option to book directly "
+            "with the airline. Prices shown are indicative and may vary on the airline's site."
             if lang == "en"
-            else "\n💡 Para reservar, preciso dos dados do passageiro (nome, nascimento, passaporte). "
-            "Diga-me qual opção te interessa!"
+            else "\n💡 Clique no link de reserva na opção desejada para reservar "
+            "diretamente com a companhia aérea. Preços indicativos, podem variar no site."
         )
         lines.append(footer)
 
@@ -252,9 +252,11 @@ class TravelAgent(BaseAgent):
             lines.append("")
 
         footer = (
-            "\n💡 Tell me which hotel interests you and I can get room details and rates!"
+            "\n💡 Search for these hotels on [Booking.com](https://www.booking.com) "
+            "or [Hotels.com](https://www.hotels.com) to book directly."
             if lang == "en"
-            else "\n💡 Diga-me qual hotel te interessa e posso buscar quartos e preços!"
+            else "\n💡 Pesquise esses hotéis no [Booking.com](https://www.booking.com) "
+            "ou [Hotels.com](https://www.hotels.com) para reservar diretamente."
         )
         lines.append(footer)
 
