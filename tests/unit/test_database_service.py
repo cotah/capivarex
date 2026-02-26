@@ -28,6 +28,7 @@ def _chain_result(data):
 # Initialization
 # -------------------------------------------------------------------
 
+
 class TestDatabaseInit:
     @pytest.mark.asyncio
     async def test_init_missing_key(self):
@@ -35,7 +36,11 @@ class TestDatabaseInit:
         from services.core import ServiceConfigurationError
 
         svc = DatabaseService()
-        with patch.dict("os.environ", {"SUPABASE_URL": "url", "SUPABASE_SERVICE_KEY": ""}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"SUPABASE_URL": "url", "SUPABASE_SERVICE_KEY": ""},
+            clear=False,
+        ):
             with pytest.raises(ServiceConfigurationError, match="SUPABASE_SERVICE_KEY"):
                 await svc._initialize()
 
@@ -44,13 +49,14 @@ class TestDatabaseInit:
 # get_user_by_id
 # -------------------------------------------------------------------
 
+
 class TestGetUserById:
     @pytest.mark.asyncio
     async def test_success(self):
         svc = _make_service()
         user = {"id": "u1", "full_name": "Henri"}
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([user])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [user]
         )
         result = await svc.get_user_by_id("u1")
         assert result["full_name"] == "Henri"
@@ -58,8 +64,8 @@ class TestGetUserById:
     @pytest.mark.asyncio
     async def test_not_found(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_user_by_id("missing")
         assert result is None
@@ -76,12 +82,13 @@ class TestGetUserById:
 # update_user_preferences
 # -------------------------------------------------------------------
 
+
 class TestUpdateUserPreferences:
     @pytest.mark.asyncio
     async def test_success(self):
         svc = _make_service()
-        svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-            _chain_result({"id": "u1"})
+        svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = _chain_result(
+            {"id": "u1"}
         )
         result = await svc.update_user_preferences("u1", {"locale": "pt_BR"})
         assert result is True
@@ -98,12 +105,13 @@ class TestUpdateUserPreferences:
 # Proactivity preferences
 # -------------------------------------------------------------------
 
+
 class TestProactivityPreferences:
     @pytest.mark.asyncio
     async def test_get_preferences(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"user_id": "u1", "enabled": True}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"user_id": "u1", "enabled": True}]
         )
         result = await svc.get_proactivity_preferences("u1")
         assert result["enabled"] is True
@@ -111,8 +119,8 @@ class TestProactivityPreferences:
     @pytest.mark.asyncio
     async def test_get_preferences_not_found(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_proactivity_preferences("u1")
         assert result is None
@@ -137,8 +145,8 @@ class TestProactivityPreferences:
     @pytest.mark.asyncio
     async def test_get_all_enabled(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"user_id": "u1"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"user_id": "u1"}]
         )
         result = await svc.get_all_users_with_proactivity_enabled()
         assert len(result) == 1
@@ -148,12 +156,13 @@ class TestProactivityPreferences:
 # User context
 # -------------------------------------------------------------------
 
+
 class TestUserContext:
     @pytest.mark.asyncio
     async def test_save_context_create(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
         result = await svc.save_user_context("u1", "location", {"lat": 53.3})
@@ -162,8 +171,8 @@ class TestUserContext:
     @pytest.mark.asyncio
     async def test_save_context_update(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"id": "existing"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"id": "existing"}]
         )
         svc.client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = Mock()
         result = await svc.save_user_context("u1", "location", {"lat": 53.3})
@@ -172,8 +181,8 @@ class TestUserContext:
     @pytest.mark.asyncio
     async def test_get_context_found(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"data": {"lat": 53.3}}])
+        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"data": {"lat": 53.3}}]
         )
         result = await svc.get_user_context("u1", "location")
         assert result == {"lat": 53.3}
@@ -181,8 +190,8 @@ class TestUserContext:
     @pytest.mark.asyncio
     async def test_get_context_not_found(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_user_context("u1", "location")
         assert result is None
@@ -192,33 +201,39 @@ class TestUserContext:
 # Calendar credentials
 # -------------------------------------------------------------------
 
+
 class TestCalendarCredentials:
     @pytest.mark.asyncio
     async def test_save_new(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_calendar_credentials("u1", {"token": "tok"})
         assert result is True
 
     @pytest.mark.asyncio
     async def test_get_creds(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"credentials": "encrypted_data"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"credentials": "encrypted_data"}]
         )
-        with patch("services.infrastructure.database.decrypt_token", return_value='{"token":"tok"}'):
+        with patch(
+            "services.infrastructure.database.decrypt_token",
+            return_value='{"token":"tok"}',
+        ):
             result = await svc.get_calendar_credentials("u1")
         assert result == {"token": "tok"}
 
     @pytest.mark.asyncio
     async def test_get_creds_not_found(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_calendar_credentials("u1")
         assert result is None
@@ -228,33 +243,38 @@ class TestCalendarCredentials:
 # Car connections
 # -------------------------------------------------------------------
 
+
 class TestCarConnections:
     @pytest.mark.asyncio
     async def test_save_new(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_car_connection("u1", "v1", "at", "rt", "2026-12-31")
         assert result is True
 
     @pytest.mark.asyncio
     async def test_get_connection(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"access_token": "enc_at", "refresh_token": "enc_rt"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"access_token": "enc_at", "refresh_token": "enc_rt"}]
         )
-        with patch("services.infrastructure.database.decrypt_token", side_effect=["at", "rt"]):
+        with patch(
+            "services.infrastructure.database.decrypt_token", side_effect=["at", "rt"]
+        ):
             result = await svc.get_car_connection("u1")
         assert result["access_token"] == "at"
 
     @pytest.mark.asyncio
     async def test_get_connection_none(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_car_connection("u1")
         assert result is None
@@ -264,25 +284,32 @@ class TestCarConnections:
 # SmartThings connections
 # -------------------------------------------------------------------
 
+
 class TestSmartThingsConnections:
     @pytest.mark.asyncio
     async def test_save_new(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
-            result = await svc.save_smartthings_connection("u1", "at", "rt", "2026-12-31", "app1", "loc1")
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
+            result = await svc.save_smartthings_connection(
+                "u1", "at", "rt", "2026-12-31", "app1", "loc1"
+            )
         assert result is True
 
     @pytest.mark.asyncio
     async def test_get_connection(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"access_token": "enc_at", "refresh_token": "enc_rt"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"access_token": "enc_at", "refresh_token": "enc_rt"}]
         )
-        with patch("services.infrastructure.database.decrypt_token", side_effect=["at", "rt"]):
+        with patch(
+            "services.infrastructure.database.decrypt_token", side_effect=["at", "rt"]
+        ):
             result = await svc.get_smartthings_connection("u1")
         assert result["access_token"] == "at"
 
@@ -291,33 +318,38 @@ class TestSmartThingsConnections:
 # GitHub connections
 # -------------------------------------------------------------------
 
+
 class TestGithubConnections:
     @pytest.mark.asyncio
     async def test_save_new(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_github_connection("u1", "ghuser", "gh_token")
         assert result is True
 
     @pytest.mark.asyncio
     async def test_get_connection(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"access_token": "enc", "github_username": "ghuser"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"access_token": "enc", "github_username": "ghuser"}]
         )
-        with patch("services.infrastructure.database.decrypt_token", return_value="gh_token"):
+        with patch(
+            "services.infrastructure.database.decrypt_token", return_value="gh_token"
+        ):
             result = await svc.get_github_connection("u1")
         assert result["access_token"] == "gh_token"
 
     @pytest.mark.asyncio
     async def test_get_connection_none(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_github_connection("u1")
         assert result is None
@@ -327,13 +359,14 @@ class TestGithubConnections:
 # Messages
 # -------------------------------------------------------------------
 
+
 class TestMessages:
     @pytest.mark.asyncio
     async def test_get_messages(self):
         svc = _make_service()
         msgs = [{"role": "user", "content": "hi", "created_at": "2026-01-01"}]
-        svc.client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = (
-            _chain_result(msgs)
+        svc.client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = _chain_result(
+            msgs
         )
         result = await svc.get_messages_for_conversation("conv1")
         assert len(result) == 1
@@ -341,8 +374,8 @@ class TestMessages:
     @pytest.mark.asyncio
     async def test_get_messages_empty(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_messages_for_conversation("conv1")
         assert result == []
@@ -358,6 +391,7 @@ class TestMessages:
 # -------------------------------------------------------------------
 # get_client
 # -------------------------------------------------------------------
+
 
 class TestGetClient:
     def test_returns_client(self):
@@ -377,10 +411,12 @@ class TestGetClient:
 # Health check
 # -------------------------------------------------------------------
 
+
 class TestDatabaseHealthCheck:
     @pytest.mark.asyncio
     async def test_no_client(self):
         from services.infrastructure.database import DatabaseService
+
         svc = DatabaseService()
         result = await svc._health_check()
         assert result is False
@@ -414,6 +450,7 @@ class TestDatabaseHealthCheck:
 # _initialize success and failure
 # -------------------------------------------------------------------
 
+
 class TestDatabaseInitialize:
     @pytest.mark.asyncio
     async def test_init_missing_url(self):
@@ -421,7 +458,11 @@ class TestDatabaseInitialize:
         from services.core import ServiceConfigurationError
 
         svc = DatabaseService()
-        with patch.dict("os.environ", {"SUPABASE_URL": "", "SUPABASE_SERVICE_KEY": "key"}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"SUPABASE_URL": "", "SUPABASE_SERVICE_KEY": "key"},
+            clear=False,
+        ):
             with pytest.raises(ServiceConfigurationError, match="SUPABASE_URL"):
                 await svc._initialize()
 
@@ -432,8 +473,15 @@ class TestDatabaseInitialize:
 
         svc = DatabaseService()
         mock_client = MagicMock()
-        with patch.dict("os.environ", {"SUPABASE_URL": "https://x.supabase.co", "SUPABASE_SERVICE_KEY": "key123"}, clear=False):
-            with patch("services.infrastructure.database.create_client", return_value=mock_client) as mock_create:
+        with patch.dict(
+            "os.environ",
+            {"SUPABASE_URL": "https://x.supabase.co", "SUPABASE_SERVICE_KEY": "key123"},
+            clear=False,
+        ):
+            with patch(
+                "services.infrastructure.database.create_client",
+                return_value=mock_client,
+            ) as mock_create:
                 await svc._initialize()
         mock_create.assert_called_once_with("https://x.supabase.co", "key123")
         assert svc.client is mock_client
@@ -445,15 +493,25 @@ class TestDatabaseInitialize:
         from services.core import ServiceUnavailableError
 
         svc = DatabaseService()
-        with patch.dict("os.environ", {"SUPABASE_URL": "https://x.supabase.co", "SUPABASE_SERVICE_KEY": "key123"}, clear=False):
-            with patch("services.infrastructure.database.create_client", side_effect=RuntimeError("boom")):
-                with pytest.raises(ServiceUnavailableError, match="Failed to create Supabase client"):
+        with patch.dict(
+            "os.environ",
+            {"SUPABASE_URL": "https://x.supabase.co", "SUPABASE_SERVICE_KEY": "key123"},
+            clear=False,
+        ):
+            with patch(
+                "services.infrastructure.database.create_client",
+                side_effect=RuntimeError("boom"),
+            ):
+                with pytest.raises(
+                    ServiceUnavailableError, match="Failed to create Supabase client"
+                ):
                     await svc._initialize()
 
 
 # -------------------------------------------------------------------
 # get_all_users_with_preferences
 # -------------------------------------------------------------------
+
 
 class TestGetAllUsersWithPreferences:
     @pytest.mark.asyncio
@@ -464,8 +522,8 @@ class TestGetAllUsersWithPreferences:
             {"id": "u2", "proactivity_preferences": {"enabled": False}},
             {"id": "u3", "proactivity_preferences": {}},
         ]
-        svc.client.table.return_value.select.return_value.neq.return_value.execute.return_value = (
-            _chain_result(users)
+        svc.client.table.return_value.select.return_value.neq.return_value.execute.return_value = _chain_result(
+            users
         )
         result = await svc.get_all_users_with_preferences()
         assert len(result) == 1
@@ -475,8 +533,8 @@ class TestGetAllUsersWithPreferences:
     async def test_empty_response(self):
         """Line 118: returns [] when response.data is empty."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.neq.return_value.execute.return_value = (
-            _chain_result(None)
+        svc.client.table.return_value.select.return_value.neq.return_value.execute.return_value = _chain_result(
+            None
         )
         result = await svc.get_all_users_with_preferences()
         assert result == []
@@ -504,12 +562,13 @@ class TestGetAllUsersWithPreferences:
 # get_user_by_telegram_id
 # -------------------------------------------------------------------
 
+
 class TestGetUserByTelegramId:
     @pytest.mark.asyncio
     async def test_found(self):
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"id": "u1", "telegram_chat_id": "123"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"id": "u1", "telegram_chat_id": "123"}]
         )
         result = await svc.get_user_by_telegram_id("123")
         assert result["id"] == "u1"
@@ -518,8 +577,8 @@ class TestGetUserByTelegramId:
     async def test_not_found(self):
         """Line 157: returns None when no data."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_user_by_telegram_id("unknown")
         assert result is None
@@ -546,6 +605,7 @@ class TestGetUserByTelegramId:
 # get_user_by_id – client None path
 # -------------------------------------------------------------------
 
+
 class TestGetUserByIdClientNone:
     @pytest.mark.asyncio
     async def test_client_none_triggers_initialize(self):
@@ -561,6 +621,7 @@ class TestGetUserByIdClientNone:
 # update_user_preferences – client None path
 # -------------------------------------------------------------------
 
+
 class TestUpdateUserPreferencesClientNone:
     @pytest.mark.asyncio
     async def test_client_none_triggers_initialize(self):
@@ -575,6 +636,7 @@ class TestUpdateUserPreferencesClientNone:
 # -------------------------------------------------------------------
 # Proactivity preferences – error paths and client None
 # -------------------------------------------------------------------
+
 
 class TestProactivityPreferencesErrors:
     @pytest.mark.asyncio
@@ -633,8 +695,8 @@ class TestProactivityPreferencesErrors:
     async def test_get_all_enabled_empty(self):
         """Line 280: returns [] when response.data is empty."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result(None)
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            None
         )
         result = await svc.get_all_users_with_proactivity_enabled()
         assert result == []
@@ -643,6 +705,7 @@ class TestProactivityPreferencesErrors:
 # -------------------------------------------------------------------
 # User context – error paths and client None
 # -------------------------------------------------------------------
+
 
 class TestUserContextErrors:
     @pytest.mark.asyncio
@@ -684,16 +747,19 @@ class TestUserContextErrors:
 # Car connections – error paths, update path, client None
 # -------------------------------------------------------------------
 
+
 class TestCarConnectionErrors:
     @pytest.mark.asyncio
     async def test_save_update_existing(self):
         """Line 360: update path when existing.data is truthy."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"id": "existing"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"id": "existing"}]
         )
         svc.client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_car_connection("u1", "v1", "at", "rt", "2026-12-31")
         assert result is True
 
@@ -702,7 +768,9 @@ class TestCarConnectionErrors:
         """Lines 368-370: exception returns False."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_car_connection("u1", "v1", "at", "rt", "2026-12-31")
         assert result is False
 
@@ -737,17 +805,22 @@ class TestCarConnectionErrors:
 # SmartThings connections – error paths, update path, client None
 # -------------------------------------------------------------------
 
+
 class TestSmartThingsConnectionErrors:
     @pytest.mark.asyncio
     async def test_save_update_existing(self):
         """Line 422: update path when existing.data is truthy."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"id": "existing"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"id": "existing"}]
         )
         svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
-            result = await svc.save_smartthings_connection("u1", "at", "rt", "2026-12-31", "app1", "loc1")
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
+            result = await svc.save_smartthings_connection(
+                "u1", "at", "rt", "2026-12-31", "app1", "loc1"
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -755,8 +828,12 @@ class TestSmartThingsConnectionErrors:
         """Lines 429-431: exception returns False."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
-            result = await svc.save_smartthings_connection("u1", "at", "rt", "2026-12-31", "app1", "loc1")
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
+            result = await svc.save_smartthings_connection(
+                "u1", "at", "rt", "2026-12-31", "app1", "loc1"
+            )
         assert result is False
 
     @pytest.mark.asyncio
@@ -765,15 +842,17 @@ class TestSmartThingsConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        await svc.save_smartthings_connection("u1", "at", "rt", "2026-12-31", "app1", "loc1")
+        await svc.save_smartthings_connection(
+            "u1", "at", "rt", "2026-12-31", "app1", "loc1"
+        )
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_not_found(self):
         """Line 445: returns None when response.data is empty."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            []
         )
         result = await svc.get_smartthings_connection("u1")
         assert result is None
@@ -800,16 +879,19 @@ class TestSmartThingsConnectionErrors:
 # Calendar credentials – error paths, update path, client None
 # -------------------------------------------------------------------
 
+
 class TestCalendarCredentialsErrors:
     @pytest.mark.asyncio
     async def test_save_update_existing(self):
         """Line 473: update path when existing.data is truthy."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"id": "existing"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"id": "existing"}]
         )
         svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_calendar_credentials("u1", {"token": "tok"})
         assert result is True
 
@@ -852,16 +934,19 @@ class TestCalendarCredentialsErrors:
 # GitHub connections – error paths, update path, client None
 # -------------------------------------------------------------------
 
+
 class TestGithubConnectionErrors:
     @pytest.mark.asyncio
     async def test_save_update_existing(self):
         """Line 528: update path when existing.data is truthy."""
         svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            _chain_result([{"id": "existing"}])
+        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+            [{"id": "existing"}]
         )
         svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = Mock()
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_github_connection("u1", "ghuser", "gh_token")
         assert result is True
 
@@ -870,7 +955,9 @@ class TestGithubConnectionErrors:
         """Lines 535-537: exception returns False."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        with patch("services.infrastructure.database.encrypt_token", return_value="enc"):
+        with patch(
+            "services.infrastructure.database.encrypt_token", return_value="enc"
+        ):
             result = await svc.save_github_connection("u1", "ghuser", "gh_token")
         assert result is False
 
@@ -905,20 +992,21 @@ class TestGithubConnectionErrors:
 # Messages – client None path
 # -------------------------------------------------------------------
 
+
 class TestMessagesClientNone:
     @pytest.mark.asyncio
-    async def test_client_none_triggers_initialize(self):
-        """Line 575: client None triggers initialize."""
+    async def test_client_none_returns_empty(self):
+        """get_client() raises when client is None; method catches and returns []."""
         svc = _make_service()
         svc.client = None
-        svc.initialize = AsyncMock()
-        await svc.get_messages_for_conversation("conv1")
-        svc.initialize.assert_awaited_once()
+        result = await svc.get_messages_for_conversation("conv1")
+        assert result == []
 
 
 # -------------------------------------------------------------------
 # Backward compatibility functions
 # -------------------------------------------------------------------
+
 
 class TestBackwardCompatGetDb:
     def test_get_db_returns_client(self):
@@ -968,9 +1056,7 @@ class TestBackwardCompatGetAllUsers:
         )
 
         mock_svc = _make_service()
-        mock_svc.get_all_users_with_preferences = AsyncMock(
-            return_value=[{"id": "u1"}]
-        )
+        mock_svc.get_all_users_with_preferences = AsyncMock(return_value=[{"id": "u1"}])
         with patch("services.core.get_service", return_value=mock_svc):
             result = await compat_fn()
         assert result == [{"id": "u1"}]
