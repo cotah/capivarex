@@ -92,6 +92,10 @@ class TravelAgent(BaseAgent):
         cabin = intent.get("cabin_class", "economy")
         passengers_count = intent.get("passengers", 1)
 
+        # Safeguard: only use return_date if explicitly provided and different from departure
+        if return_date and return_date == departure:
+            return_date = None
+
         if not origin or not destination or not departure:
             msg = (
                 "I need more details to search flights. Please provide:\n"
@@ -133,10 +137,16 @@ class TravelAgent(BaseAgent):
             return AgentResponse(status=AgentStatus.SUCCESS, response=msg)
 
         # Format results
+        trip_type = "Round trip" if return_date else "One-way"
+        trip_type_pt = "Ida e volta" if return_date else "Só ida"
         header = (
-            f"✈️ **{result['total_found']} flights found** — showing top {len(offers)} cheapest:\n\n"
+            f"✈️ **{trip_type}: {origin} → {destination}** | {departure}"
+            + (f" → {return_date}" if return_date else "")
+            + f"\n{result['total_found']} flights found — showing top {len(offers)} cheapest:\n\n"
             if lang == "en"
-            else f"✈️ **{result['total_found']} voos encontrados** — mostrando top {len(offers)} mais baratos:\n\n"
+            else f"✈️ **{trip_type_pt}: {origin} → {destination}** | {departure}"
+            + (f" → {return_date}" if return_date else "")
+            + f"\n{result['total_found']} voos encontrados — mostrando top {len(offers)} mais baratos:\n\n"
         )
 
         lines = [header]
@@ -296,13 +306,20 @@ class TravelAgent(BaseAgent):
 Extract travel intent from the user message and return ONLY valid JSON, no markdown.
 
 For FLIGHTS return:
-{{"type":"flight","origin":"IATA","destination":"IATA","departure_date":"YYYY-MM-DD","return_date":"YYYY-MM-DD or null","cabin_class":"economy","passengers":1}}
+{{"type":"flight","origin":"IATA","destination":"IATA","departure_date":"YYYY-MM-DD","return_date":null,"cabin_class":"economy","passengers":1}}
+
+CRITICAL RULES for return_date:
+- Set return_date to null for ONE-WAY flights (default assumption)
+- ONLY set return_date if the user EXPLICITLY mentions a return date, round trip, ida e volta, or ida y vuelta
+- Words that mean round-trip: "round trip", "return", "ida e volta", "ida y vuelta", "volta", "vuelta", "retorno"
+- If the user just says "flights from A to B on date" with NO mention of return → return_date MUST be null
+- If the user says "round trip A to B, May 1 to May 15" → return_date = "2026-05-15"
 
 For STAYS/HOTELS return:
 {{"type":"stay","location":"city name","latitude":null,"longitude":null,"check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD","rooms":1,"guests":1}}
 
-IATA codes: DUB=Dublin, LIS=Lisbon, LHR=London, CDG=Paris, JFK=New York, LAX=Los Angeles, GRU=São Paulo, etc.
-For cities, use the main airport code. If unsure, use the city 3-letter code.
+IATA codes: DUB=Dublin, LIS=Lisbon, LHR=London Heathrow, STN=London Stansted, LGW=London Gatwick, CDG=Paris, JFK=New York, LAX=Los Angeles, GRU=São Paulo, OPO=Porto, FAO=Faro, etc.
+For cities with multiple airports, use the main one.
 
 Coordinates for common cities:
 Dublin: 53.3498,-6.2603 | London: 51.5074,-0.1278 | Paris: 48.8566,2.3522
