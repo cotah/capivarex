@@ -211,6 +211,27 @@ class GitHubAgent(BaseAgent):
             return str(base / "current")
         return "/tmp/workspace/current"
 
+    @staticmethod
+    def _is_git_repo(path: str) -> bool:
+        """Check if a path exists and contains a git repository."""
+        from pathlib import Path
+
+        p = Path(path)
+        return p.exists() and (p / ".git").exists()
+
+    def _no_repo_response(self, path: str) -> AgentResponse:
+        """Return a friendly message when no repo exists at the given path."""
+        return AgentResponse(
+            status=AgentStatus.ERROR,
+            response=(
+                f"📂 Nenhum repositório Git encontrado em `{path}`.\n\n"
+                "Para começar, usa um destes comandos:\n"
+                '• "crie um repositório chamado meu-projeto"\n'
+                '• "clone https://github.com/user/repo"'
+            ),
+            error="No git repository at path",
+        )
+
     # ------------------------------------------------------------------
     # Main execute
     # ------------------------------------------------------------------
@@ -307,6 +328,9 @@ class GitHubAgent(BaseAgent):
 
         project_path = self._resolve_path(git_svc, analysis)
 
+        if not self._is_git_repo(project_path):
+            return self._no_repo_response(project_path)
+
         # FIX: commit() está correcto no service ✅
         result = git_svc.commit(project_path, commit_message)
         return AgentResponse(
@@ -324,6 +348,9 @@ class GitHubAgent(BaseAgent):
     ) -> AgentResponse:
         """Handle repository status check."""
         project_path = self._resolve_path(git_svc, analysis)
+
+        if not self._is_git_repo(project_path):
+            return self._no_repo_response(project_path)
 
         # FIX: Era get_status() → service tem status()
         result = git_svc.status(project_path)
@@ -373,6 +400,9 @@ class GitHubAgent(BaseAgent):
         """Handle commit log viewing."""
         project_path = self._resolve_path(git_svc, analysis)
 
+        if not self._is_git_repo(project_path):
+            return self._no_repo_response(project_path)
+
         # FIX: Era get_log(path, limit=5) → service tem log(path, max_count=5)
         commits = git_svc.log(project_path, max_count=5)
 
@@ -414,6 +444,9 @@ class GitHubAgent(BaseAgent):
 
         project_path = self._resolve_path(git_svc, analysis)
 
+        if not self._is_git_repo(project_path):
+            return self._no_repo_response(project_path)
+
         # FIX: create_branch() está correcto no service ✅
         result = git_svc.create_branch(project_path, branch_name)
         return AgentResponse(
@@ -438,6 +471,9 @@ class GitHubAgent(BaseAgent):
 
         project_path = self._resolve_path(git_svc, analysis)
 
+        if not self._is_git_repo(project_path):
+            return self._no_repo_response(project_path)
+
         # FIX: Era checkout_branch() → service tem checkout()
         result = git_svc.checkout(project_path, branch_name)
         return AgentResponse(
@@ -453,6 +489,9 @@ class GitHubAgent(BaseAgent):
         project_path = self._resolve_path(git_svc, analysis)
         branch_name = analysis.get("branch_name", "main")
 
+        if not self._is_git_repo(project_path):
+            return self._no_repo_response(project_path)
+
         # FIX: push() está correcto, mas branch default corrigido ✅
         result = git_svc.push(project_path, "origin", branch_name)
         return AgentResponse(
@@ -466,6 +505,9 @@ class GitHubAgent(BaseAgent):
     ) -> AgentResponse:
         """Handle pull from GitHub."""
         project_path = self._resolve_path(git_svc, analysis)
+
+        if not self._is_git_repo(project_path):
+            return self._no_repo_response(project_path)
 
         # FIX: pull() está correcto ✅
         result = git_svc.pull(project_path)
