@@ -53,6 +53,7 @@ Available agents:
 - 'restaurant': Restaurant concierge: suggest, search, filter restaurants by location, cuisine type, rating, open now, details, phone, hours, reviews.
 - 'email': Email management: read, list, summarize, reply, ignore Gmail and Hotmail/Outlook emails, unread, how many emails.
 - 'twilio': Make phone calls, call someone, dial a number, voice call via telephone.
+- 'travel': Flight search (origin, destination, dates), hotel/stay search (location, dates), travel booking, price comparison. Use for ANY query about flights, hotels, accommodation, trips, vacations, travel planning.
 
 IMPORTANT RULES:
 1. If the user wants to CREATE/SCHEDULE a calendar event → 'meeting' (not 'calendar')
@@ -65,6 +66,7 @@ IMPORTANT RULES:
 8. If the user wants to write/manage notes → 'notes' (not 'chat')
 9. If the user mentions Git/GitHub operations → 'github' (not 'dev')
 10. If the user is asking about when to leave → 'leaving_now'
+11. If the user wants to search flights, hotels, or plan travel → 'travel' (not 'chat')
 
 Respond ONLY with a JSON object:
 {"agent": "<agent_name>", "reason": "<brief explanation>"}

@@ -86,6 +86,7 @@ class CapivaraXBot:
             "restaurant",
             "email",
             "transport",
+            "travel",
             "twilio",
         ]
         for agent_name in agent_names:
@@ -143,6 +144,12 @@ class CapivaraXBot:
         if check_keywords(text, TWILIO_KEYWORDS):
             return True
         return check_keywords_with_phone(text)
+
+    def _is_travel_query(self, text: str) -> bool:
+        """Check if the text is about travel/flights/hotels (multi-language)."""
+        from services.i18n.keywords import TRAVEL_KEYWORDS
+
+        return check_keywords(text, TRAVEL_KEYWORDS)
 
     async def process_message(
         self, text: str, context: Dict[str, Any]
@@ -240,6 +247,12 @@ class CapivaraXBot:
                     "KEYWORD OVERRIDE: '%s' → twilio (was: chat)", text[:60]
                 )
                 agent_name = "twilio"
+
+            if agent_name == "chat" and self._is_travel_query(text):
+                self.logger.info(
+                    "KEYWORD OVERRIDE: '%s' → travel (was: chat)", text[:60]
+                )
+                agent_name = "travel"
 
             # ── 4. Obter e executar o agent ───────────────────────────
             agent = get_agent(agent_name)

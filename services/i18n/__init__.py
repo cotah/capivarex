@@ -16,6 +16,7 @@ try:
         VOICE_KEYWORDS,
         TWILIO_KEYWORDS,
         TRANSPORT_KEYWORDS,
+        TRAVEL_KEYWORDS,
     )
 except ImportError:
     from .strings import t, get_user_lang, SUPPORTED_LANGS, DEFAULT_LANG
@@ -24,6 +25,7 @@ except ImportError:
         VOICE_KEYWORDS,
         TWILIO_KEYWORDS,
         TRANSPORT_KEYWORDS,
+        TRAVEL_KEYWORDS,
     )
 
 __all__ = [
@@ -35,4 +37,5 @@ __all__ = [
     "VOICE_KEYWORDS",
     "TWILIO_KEYWORDS",
     "TRANSPORT_KEYWORDS",
+    "TRAVEL_KEYWORDS",
 ]

@@ -312,6 +312,77 @@ MERCADO_KEYWORDS: Dict[str, List[str]] = {
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TRAVEL / FLIGHTS / HOTELS keywords
+# ══════════════════════════════════════════════════════════════════════════════
+
+TRAVEL_KEYWORDS: Dict[str, List[str]] = {
+    "en": [
+        "flight",
+        "flights",
+        "fly",
+        "airplane",
+        "plane",
+        "airline",
+        "book flight",
+        "round trip",
+        "one way",
+        "layover",
+        "stopover",
+        "hotel",
+        "hotels",
+        "stay",
+        "accommodation",
+        "hostel",
+        "airbnb",
+        "check in",
+        "check out",
+        "booking",
+        "reservation",
+        "travel to",
+        "trip to",
+        "vacation",
+        "holiday",
+    ],
+    "pt": [
+        "voo",
+        "voos",
+        "voar",
+        "avião",
+        "aviao",
+        "companhia aérea",
+        "ida e volta",
+        "só ida",
+        "escala",
+        "hotel",
+        "hotéis",
+        "estadia",
+        "alojamento",
+        "hospedagem",
+        "reserva",
+        "reservar",
+        "viagem",
+        "viajar",
+        "férias",
+    ],
+    "es": [
+        "vuelo",
+        "vuelos",
+        "volar",
+        "avión",
+        "ida y vuelta",
+        "solo ida",
+        "alojamiento",
+        "hospedaje",
+        "reserva",
+        "reservar",
+        "viaje",
+        "viajar",
+        "vacaciones",
+    ],
+}
+
+
 def check_keywords(text: str, keyword_map: Dict[str, List[str]]) -> bool:
     """
     Check if text matches any keyword in any language.
