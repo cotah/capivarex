@@ -218,7 +218,7 @@ class TravelAgent(BaseAgent):
         lines = [header]
         for i, offer in enumerate(offers, 1):
             lines.append(f"**Option {i}:**" if lang == "en" else f"**Opção {i}:**")
-            lines.append(duffel.format_flight_offer(offer))
+            lines.append(duffel.format_flight_offer(offer, return_date=return_date))
             lines.append("")
 
         footer = (

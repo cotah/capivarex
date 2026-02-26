@@ -350,8 +350,8 @@ class DuffelService(BaseService):
         return result.get("data", [])
 
     @staticmethod
-    def format_flight_offer(offer: dict) -> str:
-        """Format a flight offer into a readable string with booking link."""
+    def format_flight_offer(offer: dict, return_date: str = None) -> str:
+        """Format a flight offer into a readable string with Google Flights booking link."""
         lines = []
         total = offer.get("total_amount", "?")
         currency = offer.get("total_currency", "")
@@ -389,11 +389,18 @@ class DuffelService(BaseService):
             if duration:
                 lines.append(f"  ⏱ Duration: {duration}")
 
-        # Google Flights link with pre-filled search
+        # Google Flights link
         if origin_code and dest_code and dep_date:
             from urllib.parse import quote
 
-            query = f"flights from {origin_code} to {dest_code} on {dep_date}"
+            if return_date:
+                # Round-trip: include return date
+                query = f"flights from {origin_code} to {dest_code} depart {dep_date} return {return_date}"
+            else:
+                # One-way: explicitly say one way
+                query = (
+                    f"one way flight from {origin_code} to {dest_code} on {dep_date}"
+                )
             booking_url = f"{_GOOGLE_FLIGHTS_BASE}?q={quote(query)}"
         else:
             booking_url = _GOOGLE_FLIGHTS_BASE
