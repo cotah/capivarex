@@ -1,13 +1,82 @@
-"""Utility for sending agent responses with file support."""
+"""
+Utility for sending agent responses with file support.
+
+FIX [2025-02] — MESSAGE TOO LONG:
+  Telegram tem limite de 4096 caracteres por mensagem.
+  DevAgent gera código longo que excede este limite.
+  ANTES: reply_text(response_text) → BadRequest: Message is too long
+  DEPOIS: Divide em chunks de 4096 chars, respeitando quebras de linha.
+"""
+
 import logging
 import os
-from typing import Union
+from typing import List, Union
 
 from telegram import Update
+from telegram.constants import MessageLimit
 
 from agents.core import AgentResponse
 
 logger = logging.getLogger("capivarex.telegram.utils.response_sender")
+
+# Telegram max message length
+_MAX_MESSAGE_LENGTH = MessageLimit.MAX_TEXT_LENGTH  # 4096
+
+
+def _split_message(text: str, max_length: int = _MAX_MESSAGE_LENGTH) -> List[str]:
+    """
+    Split a long message into chunks that fit Telegram's limit.
+
+    Tries to split at newlines first, then at spaces, then hard-cuts
+    as a last resort. Preserves code blocks when possible.
+
+    Args:
+        text: The full message text.
+        max_length: Maximum characters per chunk (default: 4096).
+
+    Returns:
+        List of message chunks, each ≤ max_length.
+    """
+    if len(text) <= max_length:
+        return [text]
+
+    chunks: List[str] = []
+    remaining = text
+
+    while remaining:
+        if len(remaining) <= max_length:
+            chunks.append(remaining)
+            break
+
+        # Try to find a good split point
+        chunk = remaining[:max_length]
+
+        # Priority 1: Split at double newline (paragraph break)
+        split_pos = chunk.rfind("\n\n")
+        if split_pos > max_length // 4:  # Don't split too early
+            chunks.append(remaining[:split_pos].rstrip())
+            remaining = remaining[split_pos:].lstrip("\n")
+            continue
+
+        # Priority 2: Split at single newline
+        split_pos = chunk.rfind("\n")
+        if split_pos > max_length // 4:
+            chunks.append(remaining[:split_pos].rstrip())
+            remaining = remaining[split_pos + 1 :]
+            continue
+
+        # Priority 3: Split at space
+        split_pos = chunk.rfind(" ")
+        if split_pos > max_length // 4:
+            chunks.append(remaining[:split_pos])
+            remaining = remaining[split_pos + 1 :]
+            continue
+
+        # Priority 4: Hard cut (last resort)
+        chunks.append(remaining[:max_length])
+        remaining = remaining[max_length:]
+
+    return [c for c in chunks if c.strip()]
 
 
 async def send_agent_response(
@@ -21,13 +90,17 @@ async def send_agent_response(
     the appropriate media type (audio, image, video). Falls back to
     plain text if no media is detected.
 
+    FIX: Long messages are automatically split into chunks of 4096
+    characters to avoid Telegram's "Message is too long" error.
+
     Args:
         update: Telegram update object.
         result: AgentResponse or plain string.
     """
     # Plain string fallback (shouldn't happen normally)
     if isinstance(result, str):
-        await update.message.reply_text(result)
+        for chunk in _split_message(result):
+            await update.message.reply_text(chunk)
         return
 
     # Check metadata for explicit type hints
@@ -79,12 +152,36 @@ async def send_agent_response(
                 return
 
         except Exception as e:
-            logger.error("Failed to send media file %s: %s", file_path, e, exc_info=True)
-            await update.message.reply_text(
-                f"{result.response}\n\n(Erro ao enviar arquivo: {e})"
+            logger.error(
+                "Failed to send media file %s: %s", file_path, e, exc_info=True
             )
+            # FIX: Split the error message too if needed
+            error_text = f"{result.response}\n\n(Erro ao enviar arquivo: {e})"
+            for chunk in _split_message(error_text):
+                await update.message.reply_text(chunk)
             return
 
-    # Default: send as text
+    # Default: send as text — FIX: split long messages
     response_text = result.response or "Concluido."
-    await update.message.reply_text(response_text)
+
+    chunks = _split_message(response_text)
+
+    if len(chunks) > 1:
+        logger.info(
+            "Splitting long response (%d chars) into %d chunks",
+            len(response_text),
+            len(chunks),
+        )
+
+    for chunk in chunks:
+        try:
+            await update.message.reply_text(chunk)
+        except Exception as e:
+            logger.error("Failed to send message chunk: %s", e)
+            # Try sending a truncated version as last resort
+            try:
+                await update.message.reply_text(
+                    chunk[:4000] + "\n\n⚠️ (mensagem truncada)"
+                )
+            except Exception:
+                logger.error("Failed to send even truncated chunk")
