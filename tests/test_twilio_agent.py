@@ -167,9 +167,7 @@ class TestExtractPhoneNumber:
     def test_multiple_numbers_returns_first(self):
         from agents.specialized.twilio_agent import _extract_phone_number
 
-        result = _extract_phone_number(
-            "liga +353894434456 ou +351912345678"
-        )
+        result = _extract_phone_number("liga +353894434456 ou +351912345678")
         assert result == "+353894434456"
 
 
@@ -356,9 +354,7 @@ class TestTwilioAgentExecuteSuccess:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.status.value == "success"
         assert "📞" in result.response
@@ -374,9 +370,7 @@ class TestTwilioAgentExecuteSuccess:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         # Verifica que todos os campos esperados estão na resposta
         assert "Para:" in result.response or "+353894434456" in result.response
@@ -391,13 +385,16 @@ class TestTwilioAgentExecuteSuccess:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            await agent.execute(
-                "liga para o +353894434456", _context("user_456")
-            )
+            await agent.execute("liga para o +353894434456", _context("user_456"))
 
         call_kwargs = twilio_svc.make_call.call_args
-        assert call_kwargs[1]["tenant_id"] == "user_456" or call_kwargs[0][0] == "user_456"
-        assert call_kwargs[1]["to_number"] == "+353894434456" or call_kwargs[0][1] == "+353894434456"
+        assert (
+            call_kwargs[1]["tenant_id"] == "user_456" or call_kwargs[0][0] == "user_456"
+        )
+        assert (
+            call_kwargs[1]["to_number"] == "+353894434456"
+            or call_kwargs[0][1] == "+353894434456"
+        )
 
     async def test_call_returns_data_with_call_sid(self):
         agent = _twilio_agent()
@@ -407,9 +404,7 @@ class TestTwilioAgentExecuteSuccess:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.data is not None
         assert "call_sid" in result.data
@@ -432,13 +427,13 @@ class TestTwilioAgentExecuteSuccess:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +351912345678", _context()
-            )
+            result = await agent.execute("liga para o +351912345678", _context())
 
         assert result.status.value == "success"
         call_kwargs = twilio_svc.make_call.call_args
-        assert call_kwargs[1].get("destination_country") == "PT" or "PT" in str(call_kwargs)
+        assert call_kwargs[1].get("destination_country") == "PT" or "PT" in str(
+            call_kwargs
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -548,9 +543,7 @@ class TestTwilioAgentLanguage:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            await agent.execute(
-                "call +14064164577 and say I will be late", _context()
-            )
+            await agent.execute("call +14064164577 and say I will be late", _context())
 
         twiml_kwargs = twilio_svc.twiml_say.call_args[1]
         assert twiml_kwargs.get("language") == "en-US"
@@ -618,7 +611,10 @@ class TestTwilioAgentHelp:
             result = await agent.execute("ajuda com chamada", _context())
 
         assert "liga para" in result.response.lower()
-        assert "chamada" in result.response.lower() or "mensagem" in result.response.lower()
+        assert (
+            "chamada" in result.response.lower()
+            or "mensagem" in result.response.lower()
+        )
 
     async def test_help_mentions_country_code(self):
         agent = _twilio_agent()
@@ -630,7 +626,11 @@ class TestTwilioAgentHelp:
         ):
             result = await agent.execute("como fazer chamada?", _context())
 
-        assert "+353" in result.response or "+351" in result.response or "+1" in result.response
+        assert (
+            "+353" in result.response
+            or "+351" in result.response
+            or "+1" in result.response
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -649,12 +649,12 @@ class TestTwilioAgentErrors:
             "agents.specialized.twilio_agent.get_service",
             return_value=None,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.status.value == "error"
-        assert "não disponível" in result.response.lower() or "TWILIO" in result.response
+        assert (
+            "não disponível" in result.response.lower() or "TWILIO" in result.response
+        )
 
     async def test_service_init_timeout(self):
         agent = _twilio_agent()
@@ -676,9 +676,7 @@ class TestTwilioAgentErrors:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.status.value == "error"
         assert "demorou" in result.response.lower() or "timeout" in result.error.lower()
@@ -695,12 +693,12 @@ class TestTwilioAgentErrors:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.status.value == "error"
-        assert "quota" in result.response.lower() or "esgotada" in result.response.lower()
+        assert (
+            "quota" in result.response.lower() or "esgotada" in result.response.lower()
+        )
 
     async def test_no_numbers_available_error(self):
         from services.core import ServiceUnavailableError
@@ -716,12 +714,13 @@ class TestTwilioAgentErrors:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.status.value == "error"
-        assert "número" in result.response.lower() or "disponível" in result.response.lower()
+        assert (
+            "número" in result.response.lower()
+            or "disponível" in result.response.lower()
+        )
 
     async def test_generic_runtime_error(self):
         agent = _twilio_agent()
@@ -733,9 +732,7 @@ class TestTwilioAgentErrors:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.status.value == "error"
         assert "Erro" in result.response or "500" in result.response
@@ -750,9 +747,7 @@ class TestTwilioAgentErrors:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para o +353894434456", _context()
-            )
+            result = await agent.execute("liga para o +353894434456", _context())
 
         assert result.status.value == "error"
         assert result.error is not None
@@ -775,7 +770,10 @@ class TestTwilioAgentMeta:
 
             agent = TwilioAgent()
             assert agent.name == "twilio"
-            assert "chamada" in agent.description.lower() or "twilio" in agent.description.lower()
+            assert (
+                "chamada" in agent.description.lower()
+                or "twilio" in agent.description.lower()
+            )
 
     def test_get_capabilities(self):
         agent = _twilio_agent()
@@ -824,9 +822,7 @@ class TestTwilioAgentEdgeCases:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga +353894434456", {"channel": "telegram"}
-            )
+            result = await agent.execute("liga +353894434456", {"channel": "telegram"})
 
         # Deve funcionar mesmo sem user_id (usa string vazia)
         assert result.status.value == "success"
@@ -857,9 +853,7 @@ class TestTwilioAgentEdgeCases:
             "agents.specialized.twilio_agent.get_service",
             return_value=twilio_svc,
         ):
-            result = await agent.execute(
-                "liga para (+353) 89-443-4456", _context()
-            )
+            result = await agent.execute("liga para (+353) 89-443-4456", _context())
 
         assert result.status.value == "success"
         call_kwargs = twilio_svc.make_call.call_args
@@ -910,8 +904,8 @@ class TestTwilioAgentRegistration:
         from agents.specialized.twilio_agent import TwilioAgent  # noqa: F401
         from agents.core import get_agent
 
-        get_agent("twilio")  # Pode ser None se registry foi limpa
-        # mas a classe deve existir
+        agent = get_agent("twilio")  # noqa: F841
+        # Pode ser None se registry foi limpa, mas a classe deve existir
         assert TwilioAgent is not None
 
     def test_agent_class_has_correct_name(self):

@@ -31,9 +31,7 @@ from services import get_service
 
 # ── Regex para extrair números de telefone ────────────────────────────────
 # Aceita: +353894434456, +351 912 345 678, +1-406-416-4577, etc.
-_PHONE_REGEX = re.compile(
-    r"\+?\d[\d\s\-\(\)]{7,18}\d"
-)
+_PHONE_REGEX = re.compile(r"\+?\d[\d\s\-\(\)]{7,18}\d")
 
 # ── Prefixos de país (para selecção de número do pool) ────────────────────
 _COUNTRY_PREFIXES = {
@@ -65,9 +63,7 @@ def _extract_phone_number(text: str) -> Optional[str]:
 
 def _detect_country(phone_number: str) -> str:
     """Detecta o país pelo prefixo do número."""
-    for prefix, country in sorted(
-        _COUNTRY_PREFIXES.items(), key=lambda x: -len(x[0])
-    ):
+    for prefix, country in sorted(_COUNTRY_PREFIXES.items(), key=lambda x: -len(x[0])):
         if phone_number.startswith(prefix):
             return country
     return "DEFAULT"
@@ -78,7 +74,7 @@ def _extract_message(text: str, phone_number: str) -> Optional[str]:
     Extrai mensagem a dizer na chamada, se o user especificou.
     Ex: "liga para +353... e diz que estou atrasado" → "estou atrasado"
     """
-
+    lower = text.lower()  # noqa: F841
 
     # Padrões: "e diz que ...", "e fala que ...", "e avisa que ...",
     # "diga que ...", "say ...", "and say ..."
@@ -120,9 +116,7 @@ class TwilioAgent(BaseAgent):
             description="Faz chamadas telefónicas via Twilio",
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """Processa pedido de chamada telefónica."""
         try:
             # Obter TwilioService
@@ -162,14 +156,16 @@ class TwilioAgent(BaseAgent):
             # Gerar TwiML
             if custom_message:
                 # Detectar idioma pela mensagem/país
-                lang = "pt-PT" if country in ("PT",) else (
-                    "pt-BR" if country in ("BR",) else (
-                        "en-IE" if country in ("IE",) else "en-US"
+                lang = (
+                    "pt-PT"
+                    if country in ("PT",)
+                    else (
+                        "pt-BR"
+                        if country in ("BR",)
+                        else ("en-IE" if country in ("IE",) else "en-US")
                     )
                 )
-                twiml = twilio_svc.twiml_say(
-                    custom_message, language=lang
-                )
+                twiml = twilio_svc.twiml_say(custom_message, language=lang)
             else:
                 # Mensagem default baseada no idioma
                 if country in ("PT", "BR"):
@@ -191,7 +187,9 @@ class TwilioAgent(BaseAgent):
             tenant_id = str(context.get("user_id", ""))
             self.logger.info(
                 "TwilioAgent: calling %s (country=%s, tenant=%s)",
-                phone_number, country, tenant_id,
+                phone_number,
+                country,
+                tenant_id,
             )
 
             result = await twilio_svc.make_call(
@@ -215,7 +213,7 @@ class TwilioAgent(BaseAgent):
             ]
 
             if custom_message:
-                lines.append(f"\n💬 Mensagem: \"{custom_message}\"")
+                lines.append(f'\n💬 Mensagem: "{custom_message}"')
 
             lines.append(f"\n🔑 ID: `{call_sid[:20]}...`")
 

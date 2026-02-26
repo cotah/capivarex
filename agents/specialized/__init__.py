@@ -1,6 +1,5 @@
 """
 Specialized agents for CapivaraX Bot.
-
 All agents are automatically registered via decorators.
 """
 
