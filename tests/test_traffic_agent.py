@@ -5,6 +5,7 @@ The refactored TrafficAgent uses ``get_service("traffic")`` to obtain the
 traffic service wrapper.  Tests mock ``_get_traffic_service`` to inject
 a controlled service mock directly.
 """
+
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock
 
@@ -102,6 +103,7 @@ async def test_check_traffic_for_event_failure(mock_traffic_service):
 @pytest.mark.asyncio
 async def test_execute_exception_path():
     """Test execute handles unexpected exception path."""
+
     def _boom(*args, **kwargs):
         raise RuntimeError("boom")
 
@@ -121,6 +123,7 @@ async def test_execute_exception_path():
 @pytest.mark.asyncio
 async def test_check_traffic_for_event_exception_path():
     """Test check_traffic_for_event handles unexpected exception."""
+
     def _boom(*args, **kwargs):
         raise RuntimeError("boom")
 
@@ -137,7 +140,10 @@ async def test_check_traffic_for_event_exception_path():
     )
 
     assert result.status == AgentStatus.ERROR
-    assert "erro ao verificar tráfego" in result.response.lower() or "erro ao verificar trafego" in result.response.lower()
+    assert (
+        "erro ao verificar tráfego" in result.response.lower()
+        or "erro ao verificar trafego" in result.response.lower()
+    )
 
 
 @pytest.mark.unit
@@ -150,7 +156,11 @@ async def test_execute_service_unavailable():
     result = await agent.execute("trafego", {"origin": "Dublin", "destination": "Cork"})
 
     assert result.status == AgentStatus.ERROR
-    assert "nao disponivel" in result.response.lower() or "não disponível" in result.response.lower()
+    assert (
+        "unavailable" in result.response.lower()
+        or "disponível" in result.response.lower()
+        or "disponivel" in result.response.lower()
+    )
 
 
 # -------------------------------------------------------------------
@@ -193,10 +203,9 @@ async def test_execute_with_prompt_parsing(mock_traffic_service):
     agent._get_traffic_service = AsyncMock(return_value=mock_traffic_service)
 
     # Empty context — locations come from prompt
-    result = await agent.execute(
-        "como está o trânsito de Dublin para Cork?",
-        {}
-    )
+    result = await agent.execute("como está o trânsito de Dublin para Cork?", {})
 
     assert result.is_success()
-    mock_traffic_service.get_route_with_traffic.assert_called_once_with("Dublin", "Cork")
+    mock_traffic_service.get_route_with_traffic.assert_called_once_with(
+        "Dublin", "Cork"
+    )

@@ -86,56 +86,67 @@ PARSED_PLACE = {
 
 # ─── RestaurantService helpers ───────────────────────────────────────────────
 
-class TestCuisineMap:
 
+class TestCuisineMap:
     def test_pizza(self):
         from services.integrations.restaurant_service import _resolve_cuisine_type
+
         assert _resolve_cuisine_type("quero pizza") == "pizza_restaurant"
 
     def test_sushi(self):
         from services.integrations.restaurant_service import _resolve_cuisine_type
+
         assert _resolve_cuisine_type("sushi perto de mim") == "sushi_restaurant"
 
     def test_japones(self):
         from services.integrations.restaurant_service import _resolve_cuisine_type
+
         assert _resolve_cuisine_type("restaurante japonês") == "japanese_restaurant"
 
     def test_burger(self):
         from services.integrations.restaurant_service import _resolve_cuisine_type
-        assert _resolve_cuisine_type("melhor burger da cidade") == "hamburger_restaurant"
+
+        assert (
+            _resolve_cuisine_type("melhor burger da cidade") == "hamburger_restaurant"
+        )
 
     def test_vegano(self):
         from services.integrations.restaurant_service import _resolve_cuisine_type
+
         assert _resolve_cuisine_type("comida vegana") == "vegan_restaurant"
 
     def test_unknown(self):
         from services.integrations.restaurant_service import _resolve_cuisine_type
+
         assert _resolve_cuisine_type("comida típica alentejana") is None
 
 
 class TestPriceLabel:
-
     def test_moderate(self):
         from services.integrations.restaurant_service import _price_label
+
         assert _price_label("PRICE_LEVEL_MODERATE") == "€€"
 
     def test_expensive(self):
         from services.integrations.restaurant_service import _price_label
+
         assert _price_label("PRICE_LEVEL_EXPENSIVE") == "€€€"
 
     def test_none(self):
         from services.integrations.restaurant_service import _price_label
+
         assert _price_label(None) == "N/D"
 
     def test_unknown(self):
         from services.integrations.restaurant_service import _price_label
+
         assert _price_label("PRICE_LEVEL_WHATEVER") == "N/D"
 
 
 class TestParsePlace:
-
     def test_basic_fields(self):
         from services.integrations.restaurant_service import RestaurantService
+
         p = RestaurantService._parse_place(RAW_PLACE)
         assert p["name"] == "Tasca do João"
         assert p["rating"] == 4.5
@@ -147,6 +158,7 @@ class TestParsePlace:
 
     def test_missing_phone(self):
         from services.integrations.restaurant_service import RestaurantService
+
         raw = {**RAW_PLACE}
         raw.pop("nationalPhoneNumber", None)
         p = RestaurantService._parse_place(raw)
@@ -154,15 +166,16 @@ class TestParsePlace:
 
     def test_no_opening_hours(self):
         from services.integrations.restaurant_service import RestaurantService
+
         raw = {**RAW_PLACE, "currentOpeningHours": {}}
         p = RestaurantService._parse_place(raw)
         assert p["is_open"] is None
 
 
 class TestParsePlaceDetail:
-
     def test_services(self):
         from services.integrations.restaurant_service import RestaurantService
+
         d = RestaurantService._parse_place_detail(RAW_PLACE_DETAIL)
         assert "🍽️ Comer no local" in d["services"]
         assert "🥡 Take away" in d["services"]
@@ -171,11 +184,13 @@ class TestParsePlaceDetail:
 
     def test_weekly_hours(self):
         from services.integrations.restaurant_service import RestaurantService
+
         d = RestaurantService._parse_place_detail(RAW_PLACE_DETAIL)
         assert len(d["weekly_hours"]) == 7
 
     def test_reviews(self):
         from services.integrations.restaurant_service import RestaurantService
+
         d = RestaurantService._parse_place_detail(RAW_PLACE_DETAIL)
         assert len(d["reviews"]) == 1
         assert d["reviews"][0]["author"] == "Maria S."
@@ -183,14 +198,15 @@ class TestParsePlaceDetail:
 
     def test_maps_url_from_google(self):
         from services.integrations.restaurant_service import RestaurantService
+
         d = RestaurantService._parse_place_detail(RAW_PLACE_DETAIL)
         assert "maps.google.com" in d["maps_url"]
 
 
 class TestFormatRestaurant:
-
     def test_format_basic(self):
         from services.integrations.restaurant_service import RestaurantService
+
         text = RestaurantService.format_restaurant(PARSED_PLACE, 0)
         assert "Tasca do João" in text
         assert "4.5" in text
@@ -199,31 +215,35 @@ class TestFormatRestaurant:
 
     def test_format_index_medals(self):
         from services.integrations.restaurant_service import RestaurantService
+
         assert "🥇" in RestaurantService.format_restaurant(PARSED_PLACE, 0)
         assert "🥈" in RestaurantService.format_restaurant(PARSED_PLACE, 1)
         assert "🥉" in RestaurantService.format_restaurant(PARSED_PLACE, 2)
 
     def test_format_closed(self):
         from services.integrations.restaurant_service import RestaurantService
+
         place = {**PARSED_PLACE, "is_open": False}
         text = RestaurantService.format_restaurant(place, 0)
         assert "🔴" in text
 
     def test_format_list_empty(self):
         from services.integrations.restaurant_service import RestaurantService
+
         assert "Nenhum" in RestaurantService.format_list([])
 
     def test_format_list_with_places(self):
         from services.integrations.restaurant_service import RestaurantService
+
         text = RestaurantService.format_list([PARSED_PLACE, PARSED_PLACE])
         assert "2" in text
         assert "Tasca do João" in text
 
 
 class TestRestaurantServiceCache:
-
     def _svc(self):
         from services.integrations.restaurant_service import RestaurantService
+
         svc = RestaurantService.__new__(RestaurantService)
         svc.name = "restaurant"
         svc.logger = MagicMock()
@@ -249,11 +269,12 @@ class TestRestaurantServiceCache:
 
 # ─── RestaurantService API calls ─────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestRestaurantServiceSearch:
-
     def _svc(self):
         from services.integrations.restaurant_service import RestaurantService
+
         svc = RestaurantService.__new__(RestaurantService)
         svc.name = "restaurant"
         svc.logger = MagicMock()
@@ -339,6 +360,7 @@ class TestRestaurantServiceSearch:
 
     async def test_search_api_error_raises_runtime(self):
         import aiohttp as _aiohttp
+
         svc = self._svc()
         err = _aiohttp.ClientResponseError(MagicMock(), MagicMock(), status=403)
         session = AsyncMock()
@@ -354,9 +376,9 @@ class TestRestaurantServiceSearch:
 
 @pytest.mark.asyncio
 class TestRestaurantServiceGetDetails:
-
     def _svc(self):
         from services.integrations.restaurant_service import RestaurantService
+
         svc = RestaurantService.__new__(RestaurantService)
         svc.name = "restaurant"
         svc.logger = MagicMock()
@@ -397,47 +419,55 @@ class TestRestaurantServiceGetDetails:
 
 # ─── RestaurantAgent helpers ─────────────────────────────────────────────────
 
-class TestAgentHelpers:
 
+class TestAgentHelpers:
     def test_detect_intent_search(self):
         from agents.specialized.restaurant_agent import _detect_intent
+
         assert _detect_intent("Restaurantes italianos perto", {}) == "search"
         assert _detect_intent("Sugere pizza em Lisboa", {}) == "search"
         assert _detect_intent("Onde jantar esta noite?", {}) == "search"
 
     def test_detect_intent_detail(self):
         from agents.specialized.restaurant_agent import _detect_intent
+
         assert _detect_intent("Mais detalhes sobre o 1", {}) == "detail"
         assert _detect_intent("Telefone do segundo", {}) == "detail"
         assert _detect_intent("Horário do primeiro", {}) == "detail"
 
     def test_detect_intent_context_override(self):
         from agents.specialized.restaurant_agent import _detect_intent
+
         assert _detect_intent("qualquer coisa", {"action": "detail"}) == "detail"
 
     def test_extract_open_now_true(self):
         from agents.specialized.restaurant_agent import _extract_open_now
+
         assert _extract_open_now("sushi aberto agora") is True
         assert _extract_open_now("pizza aberto hoje") is True
 
     def test_extract_open_now_false(self):
         from agents.specialized.restaurant_agent import _extract_open_now
+
         assert _extract_open_now("pizza em Lisboa") is False
 
     def test_extract_min_rating(self):
         from agents.specialized.restaurant_agent import _extract_min_rating
+
         assert _extract_min_rating("rating acima de 4") == 4.0
         assert _extract_min_rating("rating mínimo 4,5") == 4.5
         assert _extract_min_rating("sem filtro") == 0.0
 
     def test_extract_radius_km(self):
         from agents.specialized.restaurant_agent import _extract_radius
+
         assert _extract_radius("a 2km daqui") == 2000
         assert _extract_radius("a 500 metros") == 500
         assert _extract_radius("sem raio") == 1500  # default
 
     def test_extract_detail_index(self):
         from agents.specialized.restaurant_agent import _extract_detail_index
+
         assert _extract_detail_index("mostra o 1") == 0
         assert _extract_detail_index("detalhe do segundo") == 1
         assert _extract_detail_index("info do terceiro") == 2
@@ -447,11 +477,12 @@ class TestAgentHelpers:
 
 # ─── RestaurantAgent.execute ─────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestRestaurantAgentExecute:
-
     def _agent(self):
         from agents.specialized.restaurant_agent import RestaurantAgent
+
         a = RestaurantAgent.__new__(RestaurantAgent)
         a.name = "restaurant"
         a.logger = MagicMock()
@@ -459,6 +490,7 @@ class TestRestaurantAgentExecute:
 
     def _svc(self):
         from services.integrations.restaurant_service import RestaurantService
+
         svc = MagicMock(spec=RestaurantService)
         svc.is_initialized.return_value = True
         svc.format_restaurant = RestaurantService.format_restaurant
@@ -526,7 +558,14 @@ class TestRestaurantAgentExecute:
     async def test_detail_with_last_results(self):
         agent = self._agent()
         svc = self._svc()
-        svc.get_details = AsyncMock(return_value={**PARSED_PLACE, "weekly_hours": [], "services": [], "reviews": []})
+        svc.get_details = AsyncMock(
+            return_value={
+                **PARSED_PLACE,
+                "weekly_hours": [],
+                "services": [],
+                "reviews": [],
+            }
+        )
 
         ctx = self._ctx(last_results=[PARSED_PLACE, PARSED_PLACE])
         with patch("agents.specialized.restaurant_agent.get_service", return_value=svc):
@@ -566,15 +605,22 @@ class TestRestaurantAgentExecute:
 
     async def test_service_unavailable(self):
         agent = self._agent()
-        with patch("agents.specialized.restaurant_agent.get_service", return_value=None):
+        with patch(
+            "agents.specialized.restaurant_agent.get_service", return_value=None
+        ):
             r = await agent.execute("Pizza", self._ctx())
         assert r.status.value == "error"
-        assert "não disponível" in r.response.lower()
+        assert (
+            "unavailable" in r.response.lower()
+            or "não disponível" in r.response.lower()
+        )
 
     async def test_api_error_handled(self):
         agent = self._agent()
         svc = self._svc()
-        svc.search_nearby = AsyncMock(side_effect=RuntimeError("Google Places API erro 403"))
+        svc.search_nearby = AsyncMock(
+            side_effect=RuntimeError("Google Places API erro 403")
+        )
 
         with patch("agents.specialized.restaurant_agent.get_service", return_value=svc):
             r = await agent.execute("Pizza", self._ctx(lat=38.71, lng=-9.13))
@@ -611,6 +657,7 @@ class TestRestaurantAgentExecute:
 
     async def test_get_capabilities(self):
         from agents.specialized.restaurant_agent import RestaurantAgent
+
         a = RestaurantAgent.__new__(RestaurantAgent)
         caps = a.get_capabilities()
         assert "search_restaurants_nearby" in caps

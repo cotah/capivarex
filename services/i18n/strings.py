@@ -500,10 +500,10 @@ def get_user_lang(context: Optional[Dict[str, Any]] = None) -> str:
         if code in SUPPORTED_LANGS:
             return code
 
-    # 2. User preference from DB
+    # 2. User preference from DB (check both column names)
     prefs = context.get("user_preferences", {})
     if isinstance(prefs, dict):
-        pref_lang = prefs.get("language", "")
+        pref_lang = prefs.get("preferred_language") or prefs.get("language", "")
         if pref_lang:
             code = pref_lang[:2].lower()
             if code in SUPPORTED_LANGS:

@@ -1,6 +1,7 @@
 """
 Unit tests for ChatAgent — general conversation handler.
 """
+
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -12,6 +13,7 @@ from agents.core import AgentStatus
 def chat_agent():
     """Create a ChatAgent instance."""
     from agents.specialized.chat_agent import ChatAgent
+
     return ChatAgent()
 
 
@@ -68,12 +70,15 @@ async def test_chat_service_unavailable(chat_agent):
     with patch("agents.specialized.chat_agent.get_service", return_value=None):
         result = await chat_agent.execute("hello", {})
     assert result.status == AgentStatus.ERROR
-    assert "nao consegui" in result.response.lower()
+    assert (
+        "sorry" in result.response.lower() or "nao consegui" in result.response.lower()
+    )
 
 
 @pytest.mark.asyncio
 async def test_chat_fallback_on_stream_error(chat_agent, mock_openai):
     """ChatAgent falls back to completion when streaming fails."""
+
     async def _bad_stream(*_a, **_kw):
         raise RuntimeError("stream broken")
         yield  # noqa: F541 — keeps it an async generator

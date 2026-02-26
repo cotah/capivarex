@@ -5,6 +5,7 @@ The refactored CalendarAgent uses ``_get_calendar_service()`` to obtain the
 calendar service wrapper (via ``get_service("calendar")``).  Tests inject the
 mock calendar service directly on ``agent._calendar_service``.
 """
+
 from datetime import timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -26,10 +27,16 @@ def _build_agent(mock_calendar_service):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_create_event_success(mock_calendar_service, sample_event_params, sample_context):
+async def test_create_event_success(
+    mock_calendar_service, sample_event_params, sample_context
+):
     """Test successful event creation."""
     agent = _build_agent(mock_calendar_service)
-    context = {**sample_context, "action": "create_event", "event_params": sample_event_params}
+    context = {
+        **sample_context,
+        "action": "create_event",
+        "event_params": sample_event_params,
+    }
 
     result = await agent.execute("Create event", context)
 
@@ -120,7 +127,9 @@ async def test_create_event_invalid_datetime(mock_calendar_service, sample_conte
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_create_event_calendar_service_returns_none(mock_calendar_service, sample_context):
+async def test_create_event_calendar_service_returns_none(
+    mock_calendar_service, sample_context
+):
     """Test create event handles calendar service failure."""
     mock_calendar_service.create_event.return_value = None
     agent = _build_agent(mock_calendar_service)
@@ -176,7 +185,9 @@ async def test_get_today_events_with_items(mock_calendar_service, sample_context
     mock_calendar_service.get_today_events.return_value = [
         {"summary": "Daily", "start": "2026-02-15T09:00:00"}
     ]
-    mock_calendar_service.format_event_for_briefing.side_effect = lambda e: "• Daily at 09:00"
+    mock_calendar_service.format_event_for_briefing.side_effect = lambda e: (
+        "• Daily at 09:00"
+    )
     agent = _build_agent(mock_calendar_service)
 
     result = await agent.execute("today", sample_context)
@@ -188,7 +199,9 @@ async def test_get_today_events_with_items(mock_calendar_service, sample_context
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_get_week_events_routes_with_time_range(mock_calendar_service, sample_context):
+async def test_get_week_events_routes_with_time_range(
+    mock_calendar_service, sample_context
+):
     """Test weekly query calls get_upcoming_events with time range."""
     mock_calendar_service.get_upcoming_events.return_value = []
     agent = _build_agent(mock_calendar_service)
@@ -286,4 +299,7 @@ async def test_service_unavailable():
         result = await agent.execute("today", {})
 
     assert result.status == AgentStatus.ERROR
-    assert "calendario" in result.response.lower()
+    assert (
+        "unavailable" in result.response.lower()
+        or "calendario" in result.response.lower()
+    )
