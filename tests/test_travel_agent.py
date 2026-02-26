@@ -155,7 +155,7 @@ class TestTravelAgentFlightSearch:
                 "passengers": [],
             }
         )
-        mock_svc.format_flight_offer = lambda o: (
+        mock_svc.format_flight_offer = lambda o, **kwargs: (
             f"✈️ {o['owner']['name']} — EUR {o['total_amount']}"
         )
 
@@ -258,7 +258,7 @@ class TestTravelAgentFlightSearch:
                 "passengers": [],
             }
         )
-        mock_svc.format_flight_offer = lambda o: f"✈️ {o['owner']['name']}"
+        mock_svc.format_flight_offer = lambda o, **kwargs: f"✈️ {o['owner']['name']}"
 
         intent = {
             "type": "flight",
