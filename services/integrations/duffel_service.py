@@ -22,42 +22,7 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.duffel.com"
 
-# Direct booking URLs for major airlines
-# Users are redirected to the airline's own booking page
-AIRLINE_BOOKING_URLS: dict[str, str] = {
-    # European
-    "Ryanair": "https://www.ryanair.com/gb/en/trip/flights/select",
-    "Aer Lingus": "https://www.aerlingus.com/booking/select-flights",
-    "British Airways": "https://www.britishairways.com/travel/book/public/en_gb",
-    "easyJet": "https://www.easyjet.com/en",
-    "Vueling": "https://www.vueling.com/en",
-    "TAP Portugal": "https://www.flytap.com/en-gb/booking",
-    "TAP Air Portugal": "https://www.flytap.com/en-gb/booking",
-    "Iberia": "https://www.iberia.com/gb/en/booking/",
-    "Lufthansa": "https://www.lufthansa.com/gb/en/booking",
-    "Air France": "https://www.airfrance.co.uk/booking",
-    "KLM": "https://www.klm.co.uk/booking",
-    "Swiss International Air Lines": "https://www.swiss.com/gb/en/booking",
-    "Wizz Air": "https://wizzair.com/en-gb/booking",
-    "Norwegian": "https://www.norwegian.com/en/booking/",
-    "SAS": "https://www.flysas.com/en/booking/",
-    # Americas
-    "LATAM Airlines": "https://www.latamairlines.com/br/en/booking",
-    "GOL": "https://www.voegol.com.br/en/booking",
-    "Azul": "https://www.voeazul.com.br/en/booking",
-    "American Airlines": "https://www.aa.com/booking/find-flights",
-    "United Airlines": "https://www.united.com/en/us/book-flight",
-    "Delta Air Lines": "https://www.delta.com/flight-search/book-a-flight",
-    "JetBlue": "https://www.jetblue.com/booking/flights",
-    # Middle East / Asia
-    "Emirates": "https://www.emirates.com/english/book/",
-    "Qatar Airways": "https://www.qatarairways.com/en/booking.html",
-    "Turkish Airlines": "https://www.turkishairlines.com/en-int/flights/booking/",
-    "Etihad Airways": "https://www.etihad.com/en-gb/fly-etihad/book-a-flight",
-}
-
-# Fallback: Google Flights search
-_GOOGLE_FLIGHTS_URL = "https://www.google.com/travel/flights"
+_GOOGLE_FLIGHTS_BASE = "https://www.google.com/travel/flights"
 
 
 @register_service("duffel")
@@ -418,17 +383,15 @@ class DuffelService(BaseService):
             if duration:
                 lines.append(f"  ⏱ Duration: {duration}")
 
-        # Booking link
-        booking_url = AIRLINE_BOOKING_URLS.get(owner_name)
-        if not booking_url:
-            # Fallback to Google Flights with pre-filled search
-            booking_url = (
-                f"{_GOOGLE_FLIGHTS_URL}?q=flights+from+{origin_code}+to+{dest_code}"
-                f"+on+{dep_date}"
-                if dep_date
-                else _GOOGLE_FLIGHTS_URL
-            )
-        lines.append(f"  🔗 [Book on {owner_name}]({booking_url})")
+        # Google Flights link with pre-filled search
+        if origin_code and dest_code and dep_date:
+            from urllib.parse import quote
+
+            query = f"flights from {origin_code} to {dest_code} on {dep_date}"
+            booking_url = f"{_GOOGLE_FLIGHTS_BASE}?q={quote(query)}"
+        else:
+            booking_url = _GOOGLE_FLIGHTS_BASE
+        lines.append(f"  🔗 [Book on Google Flights]({booking_url})")
 
         return "\n".join(lines)
 
