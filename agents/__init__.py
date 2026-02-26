@@ -41,6 +41,7 @@ from .specialized import (
     SmartHomeAgent,
     GitHubAgent,
     TransportAgent,
+    TravelAgent,
 )
 
 __all__ = [
@@ -69,4 +70,5 @@ __all__ = [
     "SmartHomeAgent",
     "GitHubAgent",
     "TransportAgent",
+    "TravelAgent",
 ]
