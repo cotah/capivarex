@@ -375,8 +375,8 @@ class TestTravelAgentStaySearch:
         intent = {
             "type": "stay",
             "location": "Middle of Nowhere",
-            "latitude": 0.0,
-            "longitude": 0.0,
+            "latitude": 10.0,
+            "longitude": 10.0,
             "check_in": "2026-04-15",
             "check_out": "2026-04-18",
             "rooms": 1,
