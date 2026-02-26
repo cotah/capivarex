@@ -188,7 +188,7 @@ class ChatAgent(BaseAgent):
                 model=CHAT_MODEL,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=2000,
+                max_completion_tokens=2000,
             )
 
             content = (completion.choices[0].message.content or "").strip()

@@ -78,9 +78,7 @@ class PromptCleanerService(BaseService):
 
     async def _initialize(self) -> None:
         """Create the OpenAI async client from environment variables."""
-        api_key = self._get_config("openai_api_key") or os.environ.get(
-            "OPENAI_API_KEY"
-        )
+        api_key = self._get_config("openai_api_key") or os.environ.get("OPENAI_API_KEY")
         if api_key:
             self._openai_client = AsyncOpenAI(api_key=api_key)
             self.logger.info("OpenAI client created for prompt_cleaner")
@@ -314,9 +312,7 @@ class PromptCleanerService(BaseService):
         if not is_create_query:
             return {"prompt": user_message, "action": "calendar"}
 
-        self.logger.info(
-            "Detected event creation query", extra={"query": user_message}
-        )
+        self.logger.info("Detected event creation query", extra={"query": user_message})
 
         # Use LLM to extract event parameters
         try:
@@ -443,7 +439,7 @@ class PromptCleanerService(BaseService):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
-                max_tokens=20,
+                max_completion_tokens=20,
                 temperature=0.0,
             )
 
@@ -475,7 +471,7 @@ class PromptCleanerService(BaseService):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
-                max_tokens=10,
+                max_completion_tokens=10,
                 temperature=0.0,
             )
 
@@ -490,9 +486,7 @@ class PromptCleanerService(BaseService):
             self.logger.error("Failed to extract stock symbol: %s", exc)
             return None
 
-    async def _extract_traffic_locations(
-        self, user_message: str
-    ) -> Dict[str, str]:
+    async def _extract_traffic_locations(self, user_message: str) -> Dict[str, str]:
         """Extract origin and destination from *user_message* using GPT."""
         default_locations: Dict[str, str] = {
             "origin": "Dublin",
@@ -515,7 +509,7 @@ class PromptCleanerService(BaseService):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
-                max_tokens=30,
+                max_completion_tokens=30,
                 temperature=0.0,
             )
 

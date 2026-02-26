@@ -165,7 +165,7 @@ class GitHubAgent(BaseAgent):
                         {"role": "user", "content": user_message},
                     ],
                     temperature=0.0,
-                    max_tokens=200,
+                    max_completion_tokens=200,
                 ),
                 timeout=15,
             )

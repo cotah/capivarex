@@ -168,13 +168,21 @@ class ProactivityService(BaseService):
         calendar_service = get_service("calendar")
         calendar_breaker = self._service_breakers["calendar"]
         if active_device and "calendar:read" not in device_permissions:
-            self.logger.info(f"Calendar access denied for user {user_id}: missing calendar:read permission")
+            self.logger.info(
+                f"Calendar access denied for user {user_id}: missing calendar:read permission"
+            )
             tasks["calendar"] = self._immediate({"error": "Permission denied"})
-        elif calendar_service and calendar_service.is_initialized() and not calendar_breaker.current_state == "open":
+        elif (
+            calendar_service
+            and calendar_service.is_initialized()
+            and not calendar_breaker.current_state == "open"
+        ):
+
             @calendar_breaker
             async def protected_calendar_call():
                 """Fetch the next meeting via the calendar service (circuit-protected)."""
                 return await asyncio.to_thread(calendar_service.get_next_meeting)
+
             tasks["calendar"] = protected_calendar_call()
         else:
             error_msg = "Calendar unavailable"
@@ -185,11 +193,19 @@ class ProactivityService(BaseService):
         # Weather
         weather_service = get_service("weather")
         weather_breaker = self._service_breakers["weather"]
-        if weather_service and weather_service.is_initialized() and not weather_breaker.current_state == "open":
+        if (
+            weather_service
+            and weather_service.is_initialized()
+            and not weather_breaker.current_state == "open"
+        ):
+
             @weather_breaker
             async def protected_weather_call():
                 """Fetch current weather for *location* (circuit-protected)."""
-                return await asyncio.to_thread(weather_service.get_current_weather, location)
+                return await asyncio.to_thread(
+                    weather_service.get_current_weather, location
+                )
+
             tasks["weather"] = protected_weather_call()
         else:
             error_msg = "Weather unavailable"
@@ -200,11 +216,17 @@ class ProactivityService(BaseService):
         # Car
         car_service = get_service("car")
         car_breaker = self._service_breakers["car"]
-        if car_service and car_service.is_initialized() and not car_breaker.current_state == "open":
+        if (
+            car_service
+            and car_service.is_initialized()
+            and not car_breaker.current_state == "open"
+        ):
+
             @car_breaker
             async def protected_car_call():
                 """Fetch car battery and location status (circuit-protected)."""
                 return await self._get_car_status(user_id)
+
             tasks["car_status"] = protected_car_call()
         else:
             error_msg = "Car unavailable"
@@ -217,11 +239,19 @@ class ProactivityService(BaseService):
         # Research/News
         research_service = get_service("research")
         research_breaker = self._service_breakers["research"]
-        if research_service and research_service.is_initialized() and not research_breaker.current_state == "open":
+        if (
+            research_service
+            and research_service.is_initialized()
+            and not research_breaker.current_state == "open"
+        ):
+
             @research_breaker
             async def protected_research_call():
                 """Search for latest news headlines (circuit-protected)."""
-                return await research_service.search_news("latest technology and finance news")
+                return await research_service.search_news(
+                    "latest technology and finance news"
+                )
+
             tasks["news"] = protected_research_call()
         else:
             error_msg = "Research unavailable"
@@ -232,29 +262,34 @@ class ProactivityService(BaseService):
         # Finance
         finance_service = get_service("finance")
         finance_breaker = self._service_breakers["finance"]
-        if finance_service and finance_service.is_initialized() and not finance_breaker.current_state == "open":
+        if (
+            finance_service
+            and finance_service.is_initialized()
+            and not finance_breaker.current_state == "open"
+        ):
+
             @finance_breaker
             async def protected_finance_call():
                 """Fetch watchlist stock summaries (circuit-protected)."""
                 return await asyncio.to_thread(
                     finance_service.get_watchlist_summary, ["AAPL", "TSLA", "GOOGL"]
                 )
+
             tasks["finance_alerts"] = protected_finance_call()
         else:
             error_msg = "Finance unavailable"
             if finance_breaker.current_state == "open":
                 error_msg = "Finance service is offline (Circuit Open)"
-            tasks["finance_alerts"] = self._immediate(
-                {"error": error_msg}
-            )
+            tasks["finance_alerts"] = self._immediate({"error": error_msg})
 
         try:
             results = await asyncio.wait_for(
-                asyncio.gather(*tasks.values(), return_exceptions=True),
-                timeout=30.0
+                asyncio.gather(*tasks.values(), return_exceptions=True), timeout=30.0
             )
         except asyncio.TimeoutError:
-            self.logger.error(f"Context gathering for user {user_id} timed out after 30s.")
+            self.logger.error(
+                f"Context gathering for user {user_id} timed out after 30s."
+            )
             return {key: {"error": "Timeout"} for key in tasks.keys()}
 
         # Map context keys to their validation schemas
@@ -333,9 +368,12 @@ class ProactivityService(BaseService):
                             event_time,
                             15,
                         )
+
                     context["traffic"] = await protected_traffic_call()
             elif traffic_breaker.current_state == "open":
-                context["traffic"] = {"error": "Traffic service is offline (Circuit Open)"}
+                context["traffic"] = {
+                    "error": "Traffic service is offline (Circuit Open)"
+                }
         except pybreaker.CircuitBreakerError:
             self.logger.error("Traffic call blocked by open circuit breaker.")
             context["traffic"] = {"error": "Traffic service is offline (Circuit Open)"}
@@ -425,9 +463,7 @@ class ProactivityService(BaseService):
                 # Only flag lights when light_auto_on is enabled in preferences
                 if "switch" in capabilities and prefs.get("light_auto_on", False):
                     switch_status = (
-                        main_status.get("switch", {})
-                        .get("switch", {})
-                        .get("value")
+                        main_status.get("switch", {}).get("switch", {}).get("value")
                     )
                     if switch_status == "on":
                         issues.append(
@@ -436,15 +472,15 @@ class ProactivityService(BaseService):
                                 "device_id": device_id,
                                 "label": label,
                                 "action": "turn_off",
-                                "delay_hours": prefs.get("arrival_light_delay_hours", 0),
+                                "delay_hours": prefs.get(
+                                    "arrival_light_delay_hours", 0
+                                ),
                             }
                         )
 
                 if "lock" in capabilities:
                     lock_status = (
-                        main_status.get("lock", {})
-                        .get("lock", {})
-                        .get("value")
+                        main_status.get("lock", {}).get("lock", {}).get("value")
                     )
                     if lock_status == "unlocked":
                         issues.append(
@@ -516,15 +552,16 @@ class ProactivityService(BaseService):
         if temperature_issues:
             count = len(temperature_issues)
             labels = ", ".join(
-                [f"{i['label']} ({i.get('temperature')}deg)" for i in temperature_issues]
+                [
+                    f"{i['label']} ({i.get('temperature')}deg)"
+                    for i in temperature_issues
+                ]
             )
             messages.append(f"{count} alerta(s) de temperatura: {labels}")
 
         return "\n".join(messages)
 
-    async def analyze_context_for_insights(
-        self, context: Dict[str, Any]
-    ) -> str:
+    async def analyze_context_for_insights(self, context: Dict[str, Any]) -> str:
         """
         Use GPT-4o to analyze context and generate proactive insights.
 
@@ -537,7 +574,9 @@ class ProactivityService(BaseService):
         openai_breaker = self._service_breakers["openai"]
         if not self._openai_client or openai_breaker.current_state == "open":
             if openai_breaker.current_state == "open":
-                self.logger.warning("OpenAI circuit breaker is open. Skipping insight analysis.")
+                self.logger.warning(
+                    "OpenAI circuit breaker is open. Skipping insight analysis."
+                )
             return ""
 
         # Fetch long-term memories for richer context
@@ -585,7 +624,7 @@ class ProactivityService(BaseService):
             response = await self._openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=180,
+                max_completion_tokens=180,
                 temperature=0.2,
                 timeout=20.0,
             )
@@ -606,9 +645,7 @@ class ProactivityService(BaseService):
             self.logger.error(f"Error analyzing context for proactivity: {e}")
             return ""
 
-    async def is_notification_allowed(
-        self, user_id: str, insight: str
-    ) -> bool:
+    async def is_notification_allowed(self, user_id: str, insight: str) -> bool:
         """
         Check repetition and frequency filters.
 
@@ -656,9 +693,7 @@ class ProactivityService(BaseService):
 
         return True
 
-    async def record_notification_sent(
-        self, user_id: str, insight: str
-    ) -> None:
+    async def record_notification_sent(self, user_id: str, insight: str) -> None:
         """
         Record that a notification was sent to activate filters.
 

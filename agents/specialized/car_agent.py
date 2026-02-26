@@ -145,7 +145,7 @@ class CarAgent(BaseAgent):
                     {"role": "user", "content": user_message},
                 ],
                 temperature=0.3,
-                max_tokens=20,
+                max_completion_tokens=20,
             )
 
             intent = (response.choices[0].message.content or "").strip().lower()
