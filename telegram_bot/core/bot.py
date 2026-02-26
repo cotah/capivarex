@@ -185,6 +185,23 @@ class CapivaraXBot:
             except Exception as e:
                 self.logger.warning("Could not resolve user UUID: %s", e)
 
+        # ── 1b. Get or create conversation for memory ─────────────
+        try:
+            db_svc = get_service("database")
+            if db_svc and db_svc.is_initialized():
+                user_uuid = context.get("user_id", "")
+                if self._is_uuid(str(user_uuid)):
+                    conv_id = await db_svc.get_or_create_conversation(str(user_uuid))
+                    if conv_id:
+                        context["conversation_id"] = conv_id
+                        # Store the user message
+                        await db_svc.store_message(conv_id, "user", text)
+                        self.logger.info(
+                            "Conversation %s: stored user message", conv_id[:8]
+                        )
+        except Exception as e:
+            self.logger.warning("Could not setup conversation memory: %s", e)
+
         try:
             # ── 2. Orchestrator decide qual agent usar ────────────────
             orchestrator = self.agents.get("orchestrator")
@@ -241,6 +258,19 @@ class CapivaraXBot:
 
             self.logger.info("Executing agent: %s", agent.name)
             result = await agent.process(text, context)
+
+            # ── 5. Store bot response in conversation memory ──────────
+            try:
+                conv_id = context.get("conversation_id")
+                if conv_id and result and result.response:
+                    db_svc = get_service("database")
+                    if db_svc and db_svc.is_initialized():
+                        await db_svc.store_message(
+                            conv_id, "assistant", result.response
+                        )
+            except Exception as e:
+                self.logger.warning("Could not store bot response: %s", e)
+
             return result
 
         except Exception as e:

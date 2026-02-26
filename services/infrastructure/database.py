@@ -21,7 +21,7 @@ from services.core import (
     BaseService,
     register_service,
     ServiceConfigurationError,
-    ServiceUnavailableError
+    ServiceUnavailableError,
 )
 
 
@@ -56,13 +56,17 @@ class DatabaseService(BaseService):
             raise ServiceConfigurationError("SUPABASE_URL not found in environment")
 
         if not self.key:
-            raise ServiceConfigurationError("SUPABASE_SERVICE_KEY not found in environment")
+            raise ServiceConfigurationError(
+                "SUPABASE_SERVICE_KEY not found in environment"
+            )
 
         try:
             self.client = create_client(self.url, self.key)
             self.logger.info("Supabase client initialized successfully")
         except Exception as e:
-            raise ServiceUnavailableError(f"Failed to create Supabase client: {e}") from e
+            raise ServiceUnavailableError(
+                f"Failed to create Supabase client: {e}"
+            ) from e
 
     async def _health_check(self) -> bool:
         """Check if database connection is healthy."""
@@ -74,9 +78,9 @@ class DatabaseService(BaseService):
             await asyncio.wait_for(
                 loop.run_in_executor(
                     None,
-                    lambda: self.client.table("users").select("id").limit(1).execute()
+                    lambda: self.client.table("users").select("id").limit(1).execute(),
                 ),
-                timeout=5.0
+                timeout=5.0,
             )
             return True
         except asyncio.TimeoutError:
@@ -108,18 +112,22 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("users").select(
-                "id, email, full_name, telegram_chat_id, location_preference, proactivity_preferences"
-            ).neq(
-                "telegram_chat_id", None
-            ).execute()
+            response = (
+                self.client.table("users")
+                .select(
+                    "id, email, full_name, telegram_chat_id, location_preference, proactivity_preferences"
+                )
+                .neq("telegram_chat_id", None)
+                .execute()
+            )
 
             if not response.data:
                 return []
 
             # Filter users with proactivity enabled
             users_with_proactivity = [
-                user for user in response.data
+                user
+                for user in response.data
                 if user.get("proactivity_preferences", {}).get("enabled", False) is True
             ]
 
@@ -130,10 +138,14 @@ class DatabaseService(BaseService):
             return users_with_proactivity
 
         except Exception as e:
-            self.logger.error(f"Failed to get users with preferences: {e}", exc_info=True)
+            self.logger.error(
+                f"Failed to get users with preferences: {e}", exc_info=True
+            )
             return []
 
-    async def get_user_by_telegram_id(self, telegram_chat_id: str) -> Optional[Dict[str, Any]]:
+    async def get_user_by_telegram_id(
+        self, telegram_chat_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Get user by telegram chat ID.
 
@@ -147,9 +159,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("users").select("*").eq(
-                "telegram_chat_id", telegram_chat_id
-            ).execute()
+            response = (
+                self.client.table("users")
+                .select("*")
+                .eq("telegram_chat_id", telegram_chat_id)
+                .execute()
+            )
 
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -159,7 +174,7 @@ class DatabaseService(BaseService):
         except Exception as e:
             self.logger.error(
                 f"Failed to get user by telegram ID {telegram_chat_id}: {e}",
-                exc_info=True
+                exc_info=True,
             )
             return None
 
@@ -177,9 +192,9 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("users").select("*").eq(
-                "id", user_id
-            ).execute()
+            response = (
+                self.client.table("users").select("*").eq("id", user_id).execute()
+            )
 
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -187,16 +202,11 @@ class DatabaseService(BaseService):
             return None
 
         except Exception as e:
-            self.logger.error(
-                f"Failed to get user by ID {user_id}: {e}",
-                exc_info=True
-            )
+            self.logger.error(f"Failed to get user by ID {user_id}: {e}", exc_info=True)
             return None
 
     async def update_user_preferences(
-        self,
-        user_id: str,
-        preferences: Dict[str, Any]
+        self, user_id: str, preferences: Dict[str, Any]
     ) -> bool:
         """
         Update user preferences.
@@ -212,9 +222,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("users").update(
-                preferences
-            ).eq("id", user_id).execute()
+            response = (
+                self.client.table("users")
+                .update(preferences)
+                .eq("id", user_id)
+                .execute()
+            )
 
             success = response.data is not None
 
@@ -225,8 +238,7 @@ class DatabaseService(BaseService):
 
         except Exception as e:
             self.logger.error(
-                f"Failed to update preferences for user {user_id}: {e}",
-                exc_info=True
+                f"Failed to update preferences for user {user_id}: {e}", exc_info=True
             )
             return False
 
@@ -234,18 +246,25 @@ class DatabaseService(BaseService):
     # proactivity_preferences table
     # ------------------------------------------------------------------
 
-    async def get_proactivity_preferences(self, user_id: str) -> Optional[Dict[str, Any]]:
+    async def get_proactivity_preferences(
+        self, user_id: str
+    ) -> Optional[Dict[str, Any]]:
         """Get proactivity preferences for a user."""
         if not self.client:
             await self.initialize()
 
         try:
-            response = self.client.table("proactivity_preferences").select("*").eq(
-                "user_id", user_id
-            ).execute()
+            response = (
+                self.client.table("proactivity_preferences")
+                .select("*")
+                .eq("user_id", user_id)
+                .execute()
+            )
             return response.data[0] if response.data else None
         except Exception as e:
-            self.logger.error(f"Failed to get proactivity preferences for {user_id}: {e}")
+            self.logger.error(
+                f"Failed to get proactivity preferences for {user_id}: {e}"
+            )
             return None
 
     async def update_proactivity_preferences(self, user_id: str, enabled: bool) -> bool:
@@ -265,7 +284,9 @@ class DatabaseService(BaseService):
                 ).execute()
             return True
         except Exception as e:
-            self.logger.error(f"Failed to update proactivity preferences for {user_id}: {e}")
+            self.logger.error(
+                f"Failed to update proactivity preferences for {user_id}: {e}"
+            )
             return False
 
     async def get_all_users_with_proactivity_enabled(self) -> List[Dict[str, Any]]:
@@ -274,9 +295,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("proactivity_preferences").select(
-                "user_id, check_interval_minutes, insights_enabled"
-            ).eq("enabled", True).execute()
+            response = (
+                self.client.table("proactivity_preferences")
+                .select("user_id, check_interval_minutes, insights_enabled")
+                .eq("enabled", True)
+                .execute()
+            )
             return response.data if response.data else []
         except Exception as e:
             self.logger.error(f"Failed to get users with proactivity enabled: {e}")
@@ -294,20 +318,26 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            existing = self.client.table("user_context").select("id").eq(
-                "user_id", user_id
-            ).eq("context_type", context_type).execute()
+            existing = (
+                self.client.table("user_context")
+                .select("id")
+                .eq("user_id", user_id)
+                .eq("context_type", context_type)
+                .execute()
+            )
 
             if existing.data:
-                self.client.table("user_context").update(
-                    {"data": data}
-                ).eq("user_id", user_id).eq("context_type", context_type).execute()
+                self.client.table("user_context").update({"data": data}).eq(
+                    "user_id", user_id
+                ).eq("context_type", context_type).execute()
             else:
-                self.client.table("user_context").insert({
-                    "user_id": user_id,
-                    "context_type": context_type,
-                    "data": data,
-                }).execute()
+                self.client.table("user_context").insert(
+                    {
+                        "user_id": user_id,
+                        "context_type": context_type,
+                        "data": data,
+                    }
+                ).execute()
             return True
         except Exception as e:
             self.logger.error(f"Failed to save user context: {e}")
@@ -321,9 +351,13 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("user_context").select("data").eq(
-                "user_id", user_id
-            ).eq("context_type", context_type).execute()
+            response = (
+                self.client.table("user_context")
+                .select("data")
+                .eq("user_id", user_id)
+                .eq("context_type", context_type)
+                .execute()
+            )
             return response.data[0]["data"] if response.data else None
         except Exception as e:
             self.logger.error(f"Failed to get user context: {e}")
@@ -346,9 +380,13 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            existing = self.client.table("car_connections").select("id").eq(
-                "user_id", user_id
-            ).eq("vehicle_id", vehicle_id).execute()
+            existing = (
+                self.client.table("car_connections")
+                .select("id")
+                .eq("user_id", user_id)
+                .eq("vehicle_id", vehicle_id)
+                .execute()
+            )
 
             payload = {
                 "access_token": encrypt_token(access_token),
@@ -375,9 +413,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("car_connections").select("*").eq(
-                "user_id", user_id
-            ).execute()
+            response = (
+                self.client.table("car_connections")
+                .select("*")
+                .eq("user_id", user_id)
+                .execute()
+            )
             if not response.data:
                 return None
             connection = response.data[0]
@@ -406,9 +447,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            existing = self.client.table("smartthings_connections").select("id").eq(
-                "user_id", user_id
-            ).execute()
+            existing = (
+                self.client.table("smartthings_connections")
+                .select("id")
+                .eq("user_id", user_id)
+                .execute()
+            )
 
             payload = {
                 "access_token": encrypt_token(access_token),
@@ -438,9 +482,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            response = self.client.table("smartthings_connections").select("*").eq(
-                "user_id", user_id
-            ).execute()
+            response = (
+                self.client.table("smartthings_connections")
+                .select("*")
+                .eq("user_id", user_id)
+                .execute()
+            )
             if not response.data:
                 return None
             connection = response.data[0]
@@ -463,9 +510,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            existing = self.client.table("calendar_connections").select("id").eq(
-                "user_id", user_id
-            ).execute()
+            existing = (
+                self.client.table("calendar_connections")
+                .select("id")
+                .eq("user_id", user_id)
+                .execute()
+            )
 
             encrypted_creds = encrypt_token(_json.dumps(credentials))
 
@@ -474,26 +524,29 @@ class DatabaseService(BaseService):
                     {"credentials": encrypted_creds}
                 ).eq("user_id", user_id).execute()
             else:
-                self.client.table("calendar_connections").insert({
-                    "user_id": user_id,
-                    "credentials": encrypted_creds,
-                }).execute()
+                self.client.table("calendar_connections").insert(
+                    {
+                        "user_id": user_id,
+                        "credentials": encrypted_creds,
+                    }
+                ).execute()
             return True
         except Exception as e:
             self.logger.error(f"Failed to save calendar credentials: {e}")
             return False
 
-    async def get_calendar_credentials(
-        self, user_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_calendar_credentials(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get Google Calendar credentials for a user."""
         if not self.client:
             await self.initialize()
 
         try:
-            response = self.client.table("calendar_connections").select(
-                "credentials"
-            ).eq("user_id", user_id).execute()
+            response = (
+                self.client.table("calendar_connections")
+                .select("credentials")
+                .eq("user_id", user_id)
+                .execute()
+            )
             if not response.data:
                 return None
             raw = response.data[0]["credentials"]
@@ -515,9 +568,12 @@ class DatabaseService(BaseService):
             await self.initialize()
 
         try:
-            existing = self.client.table("github_connections").select("id").eq(
-                "user_id", user_id
-            ).execute()
+            existing = (
+                self.client.table("github_connections")
+                .select("id")
+                .eq("user_id", user_id)
+                .execute()
+            )
 
             payload = {
                 "github_username": github_username,
@@ -536,17 +592,18 @@ class DatabaseService(BaseService):
             self.logger.error(f"Failed to save github connection: {e}")
             return False
 
-    async def get_github_connection(
-        self, user_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_github_connection(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get the GitHub connection for a user."""
         if not self.client:
             await self.initialize()
 
         try:
-            response = self.client.table("github_connections").select("*").eq(
-                "user_id", user_id
-            ).execute()
+            response = (
+                self.client.table("github_connections")
+                .select("*")
+                .eq("user_id", user_id)
+                .execute()
+            )
             if not response.data:
                 return None
             connection = response.data[0]
@@ -557,36 +614,115 @@ class DatabaseService(BaseService):
             return None
 
     # ------------------------------------------------------------------
-    # Messages table (conversation history)
+    # Conversation memory
     # ------------------------------------------------------------------
 
-    async def get_messages_for_conversation(
-        self, conversation_id: str
-    ) -> List[Dict[str, Any]]:
-        """Get all messages for a conversation, ordered by date.
+    async def get_or_create_conversation(self, user_id: str) -> Optional[str]:
+        """Get the active conversation for a user, or create one.
 
-        Args:
-            conversation_id: Unique conversation identifier.
-
-        Returns:
-            List of message dicts with role, content, created_at.
+        Uses a single active conversation per user (no multi-conversation yet).
+        Returns the conversation UUID or None on failure.
         """
-        if not self.client:
-            await self.initialize()
-
         try:
-            response = (
-                self.client.table("messages")
-                .select("role, content, created_at")
-                .eq("conversation_id", conversation_id)
-                .order("created_at", desc=False)
+            client = self.get_client()
+
+            # Try to find existing conversation for this user
+            result = (
+                client.table("conversations")
+                .select("id")
+                .eq("user_id", user_id)
+                .order("updated_at", desc=True)
+                .limit(1)
                 .execute()
             )
-            return response.data if response.data else []
-        except Exception as e:
-            self.logger.error(
-                f"Failed to get messages for conversation {conversation_id}: {e}"
+
+            if result.data:
+                return result.data[0]["id"]
+
+            # No conversation exists — create one
+            new_conv = (
+                client.table("conversations")
+                .insert({"user_id": user_id, "title": "Telegram Chat"})
+                .execute()
             )
+
+            if new_conv.data:
+                self.logger.info("Created new conversation for user %s", user_id)
+                return new_conv.data[0]["id"]
+
+            return None
+
+        except Exception as e:
+            self.logger.warning("get_or_create_conversation failed: %s", e)
+            return None
+
+    async def store_message(
+        self, conversation_id: str, role: str, content: str
+    ) -> bool:
+        """Store a message in the messages table.
+
+        Args:
+            conversation_id: UUID of the conversation
+            role: 'user' or 'assistant'
+            content: Message text
+
+        Returns:
+            True if stored successfully
+        """
+        try:
+            client = self.get_client()
+
+            client.table("messages").insert(
+                {
+                    "conversation_id": conversation_id,
+                    "role": role,
+                    "content": content,
+                }
+            ).execute()
+
+            # Touch updated_at on the conversation
+            client.table("conversations").update({"updated_at": "now()"}).eq(
+                "id", conversation_id
+            ).execute()
+
+            return True
+
+        except Exception as e:
+            self.logger.warning("store_message failed: %s", e)
+            return False
+
+    async def get_messages_for_conversation(
+        self, conversation_id: str, limit: int = 20
+    ) -> list:
+        """Fetch recent messages for a conversation.
+
+        Args:
+            conversation_id: UUID of the conversation
+            limit: Max messages to return (default 20 = 10 exchanges)
+
+        Returns:
+            List of message dicts with role and content
+        """
+        try:
+            client = self.get_client()
+
+            result = (
+                client.table("messages")
+                .select("role, content")
+                .eq("conversation_id", conversation_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+
+            if result.data:
+                # Reverse so oldest first (chronological order)
+                return list(reversed(result.data))
+
+            return []
+
+        except Exception as e:
+            self.logger.warning("get_messages_for_conversation failed: %s", e)
             return []
 
 
@@ -594,10 +730,12 @@ class DatabaseService(BaseService):
 def get_db() -> Client:
     """Get Supabase client (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("database")
     if service and isinstance(service, DatabaseService):
         if not service.is_initialized():
             import asyncio
+
             asyncio.create_task(service.initialize())
         return service.get_client()
     return None
@@ -610,6 +748,7 @@ get_supabase_client = get_db
 async def get_all_users_with_preferences() -> List[Dict[str, Any]]:
     """Get all users with preferences (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("database")
     if service and isinstance(service, DatabaseService):
         if not service.is_initialized():
