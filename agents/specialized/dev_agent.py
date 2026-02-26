@@ -4,18 +4,21 @@ Refactored to use intent classification with Anthropic/OpenAI dual-backend
 and robust error handling.
 
 FIXES [2025-02]:
-  FIX 1 (TIMEOUT): Anthropic demora 3-4 minutos para código longo.
-    ANTES: await anthropic_svc.generate_code(prompt) → sem timeout → Railway
-           mata a conexão HTTP antes de responder.
-    DEPOIS: asyncio.wait_for(..., timeout=90) → fallback para OpenAI se >90s.
+FIX 1 (TIMEOUT): Anthropic demora 3-4 minutos para código longo.
+  ANTES: await anthropic_svc.generate_code(prompt) → sem timeout → Railway mata a conexão HTTP antes de responder.
+  DEPOIS: asyncio.wait_for(..., timeout=30) → fallback para OpenAI se >30s.
 
-  FIX 2 (HELP FALSO): "Fetch JS" e "cria função Python" retornam help.
-    CAUSA: GPT-4o-mini classifica "fetch" como 'help' às vezes.
-    DEPOIS: Se a query contém palavras de geração de código (cria, gera, escreve,
-            fetch, function, etc.) força intent='generate_code', ignorando o LLM.
+FIX 2 (HELP FALSO): "Fetch JS" e "cria função Python" retornam help.
+  CAUSA: GPT-4o-mini classifica "fetch" como 'help' às vezes.
+  DEPOIS: Se a query contém palavras de geração de código (cria, gera, escreve, fetch, function, etc.)
+  força intent='generate_code', ignorando o LLM.
 
-  FIX 3 (RESPOSTA VAZIA): Se Anthropic e OpenAI falharem, resposta clara ao
-           utilizador em vez de string vazia.
+FIX 3 (RESPOSTA VAZIA): Se Anthropic e OpenAI falharem, resposta clara ao utilizador em vez de string vazia.
+
+FIX 4 (SEM RESPOSTA NO TELEGRAM): Anthropic 90s + OpenAI 60s = 150s total.
+  Telegram connection morre antes da resposta. User não recebe NADA.
+  DEPOIS: Global timeout de 45s no execute(). Redução de timeouts individuais.
+  Timeout na inicialização dos serviços. Resposta garantida em ≤45s.
 """
 
 import asyncio
@@ -66,6 +69,28 @@ _FORCE_GENERATE_WORDS = {
     "graphql",
     "lambda",
     "decorator",
+    "programa",
+    "programe",
+    "desenvolve",
+    "desenvolva",
+    "python",
+    "javascript",
+    "typescript",
+    "java",
+    "html",
+    "css",
+    "react",
+    "fastapi",
+    "django",
+    "flask",
+    "node",
+    "fibonacci",
+    "algoritmo",
+    "algorithm",
+    "sort",
+    "loop",
+    "calcular",
+    "calculate",
 }
 
 _SYSTEM_PROMPTS: Dict[str, str] = {
@@ -97,10 +122,11 @@ _SYSTEM_PROMPTS: Dict[str, str] = {
     ),
 }
 
-# Timeout em segundos para chamadas ao Anthropic (Claude gera código longo)
-_ANTHROPIC_TIMEOUT_SECONDS = 90
-# Timeout para OpenAI (mais rápido por padrão)
-_OPENAI_TIMEOUT_SECONDS = 60
+# FIX 4: Timeouts reduzidos para garantir resposta rápida
+_ANTHROPIC_TIMEOUT_SECONDS = 30
+_OPENAI_TIMEOUT_SECONDS = 25
+_INIT_TIMEOUT_SECONDS = 10
+_GLOBAL_TIMEOUT_SECONDS = 45
 
 
 @register_agent("dev")
@@ -114,6 +140,9 @@ class DevAgent(BaseAgent):
     - Code review
     - Debugging assistance
     - Performance optimization
+
+    FIX 4: Global timeout of 45s ensures the user ALWAYS gets a response,
+    even if both AI backends are slow or down.
     """
 
     def __init__(self):
@@ -169,7 +198,20 @@ class DevAgent(BaseAgent):
 
         try:
             if not openai_svc.is_initialized():
-                await openai_svc.initialize()
+                # FIX 4: Timeout na inicialização
+                try:
+                    await asyncio.wait_for(
+                        openai_svc.initialize(), timeout=_INIT_TIMEOUT_SECONDS
+                    )
+                except asyncio.TimeoutError:
+                    self.logger.warning("DevAgent: OpenAI init timed out for intent")
+                    return {
+                        "intent": "generate_code",
+                        "language": None,
+                        "code": None,
+                        "description": None,
+                    }
+
             client = openai_svc.get_client()
             if not client:
                 return {
@@ -201,14 +243,17 @@ class DevAgent(BaseAgent):
                 "Return ONLY the JSON object, no other text."
             )
 
-            response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message},
-                ],
-                temperature=0.0,
-                max_tokens=200,
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.0,
+                    max_tokens=200,
+                ),
+                timeout=15,  # 15s max para classificação
             )
 
             result_text = (response.choices[0].message.content or "").strip()
@@ -262,8 +307,8 @@ class DevAgent(BaseAgent):
         """
         Try to generate a response using Anthropic (Claude).
 
-        FIX 1: Agora com timeout de 90s. Se Claude demorar mais do que isso,
-        retorna None e o caller faz fallback para OpenAI.
+        FIX 1: Timeout de 30s (era 90s).
+        FIX 4: Timeout de 10s na inicialização.
         """
         try:
             anthropic_svc = get_service("anthropic")
@@ -272,9 +317,19 @@ class DevAgent(BaseAgent):
                 return None
 
             if not anthropic_svc.is_initialized():
-                await anthropic_svc.initialize()
+                # FIX 4: Timeout na inicialização
+                try:
+                    await asyncio.wait_for(
+                        anthropic_svc.initialize(), timeout=_INIT_TIMEOUT_SECONDS
+                    )
+                except asyncio.TimeoutError:
+                    self.logger.warning(
+                        "DevAgent: Anthropic init timed out after %ds",
+                        _INIT_TIMEOUT_SECONDS,
+                    )
+                    return None
 
-            # FIX 1: Wrap com timeout para não bloquear o event loop indefinidamente
+            # FIX 1: Wrap com timeout reduzido
             if hasattr(anthropic_svc, "generate_code"):
                 self.logger.info(
                     "DevAgent: Calling Anthropic generate_code (timeout=%ds)",
@@ -349,7 +404,17 @@ class DevAgent(BaseAgent):
                 return None
 
             if not openai_svc.is_initialized():
-                await openai_svc.initialize()
+                # FIX 4: Timeout na inicialização
+                try:
+                    await asyncio.wait_for(
+                        openai_svc.initialize(), timeout=_INIT_TIMEOUT_SECONDS
+                    )
+                except asyncio.TimeoutError:
+                    self.logger.warning(
+                        "DevAgent: OpenAI init timed out after %ds",
+                        _INIT_TIMEOUT_SECONDS,
+                    )
+                    return None
 
             self.logger.info("DevAgent: Calling OpenAI chat_completion")
             messages = [
@@ -357,7 +422,6 @@ class DevAgent(BaseAgent):
                 {"role": "user", "content": prompt},
             ]
 
-            # FIX 1: timeout também para OpenAI
             try:
                 text = await asyncio.wait_for(
                     openai_svc.chat_completion(
@@ -395,11 +459,40 @@ class DevAgent(BaseAgent):
         return text
 
     # ------------------------------------------------------------------
-    # Main execute
+    # Main execute — FIX 4: Global timeout wrapper
     # ------------------------------------------------------------------
-
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
-        """Process a development/programming command."""
+        """
+        Process a development/programming command.
+
+        FIX 4: Wrapped in global timeout of 45s to guarantee a response
+        is always sent back to the user, even if AI backends are slow.
+        """
+        try:
+            return await asyncio.wait_for(
+                self._execute_inner(prompt, context),
+                timeout=_GLOBAL_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            self.logger.error(
+                "DevAgent: GLOBAL TIMEOUT after %ds for prompt: %s",
+                _GLOBAL_TIMEOUT_SECONDS,
+                prompt[:80],
+            )
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=(
+                    "⚠️ O pedido de código demorou demais (>45s).\n"
+                    "Os serviços de IA estão lentos no momento.\n"
+                    "Tenta novamente em alguns instantes."
+                ),
+                error=f"Global timeout ({_GLOBAL_TIMEOUT_SECONDS}s)",
+            )
+
+    async def _execute_inner(
+        self, prompt: str, context: Dict[str, Any]
+    ) -> AgentResponse:
+        """Internal execute logic (called within global timeout)."""
         dev_prompt = str(context.get("prompt") or prompt).strip()
         if not dev_prompt:
             return AgentResponse(

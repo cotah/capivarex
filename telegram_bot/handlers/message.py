@@ -1,6 +1,19 @@
-"""Message handler for the refactored Telegram bot."""
+"""
+Message handler for the refactored Telegram bot.
 
+FIX [2025-02] — DEV AGENT SEM RESPOSTA:
+  Problema: DevAgent levava 90s (Anthropic) + 60s (OpenAI) = 150s.
+  Telegram connection morre em ~60s. User não recebia NADA.
+
+  Correções neste arquivo:
+  1. Typing indicator ("digitando...") antes de processar — feedback imediato
+  2. Global safety timeout de 55s — garante SEMPRE uma resposta ao user
+  3. Logging melhorado com duração da execução
+"""
+
+import asyncio
 import logging
+import time
 from typing import Dict, Any
 
 from telegram import Update
@@ -12,6 +25,10 @@ from utils.request_processor import RequestProcessor
 
 logger = logging.getLogger("capivarex.telegram.handlers.message")
 
+# Timeout máximo para process_message — deve ser menor que o timeout HTTP
+# do Telegram (que é ~60s). 55s dá margem para enviar a resposta de erro.
+_MESSAGE_TIMEOUT_SECONDS = 55
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -22,6 +39,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     Enriches the context with GPS coordinates from Supabase when available,
     so that agents like TransportAgent can use them automatically.
+
+    FIX: Envia typing indicator e aplica timeout global de 55s para
+    garantir que o user SEMPRE recebe uma resposta.
 
     Args:
         update: Telegram update object.
@@ -74,5 +94,49 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         len(text),
     )
 
-    result = await bot.process_message(text, user_context)
+    # ── FIX: Typing indicator — feedback imediato ao user ───────────────
+    try:
+        await update.message.chat.send_action("typing")
+    except Exception:
+        pass  # Não bloquear se typing falhar
+
+    # ── FIX: Global safety timeout — SEMPRE responde ────────────────────
+    start_time = time.monotonic()
+    try:
+        result = await asyncio.wait_for(
+            bot.process_message(text, user_context),
+            timeout=_MESSAGE_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        elapsed = time.monotonic() - start_time
+        logger.error(
+            "GLOBAL TIMEOUT after %.1fs for message from user %s: %s",
+            elapsed,
+            user_context["user_id"],
+            text[:80],
+        )
+        await update.message.reply_text(
+            "⚠️ O processamento demorou demais e foi interrompido.\n"
+            "Tenta novamente — se persistir, pode ser lentidão nos "
+            "serviços de IA externos."
+        )
+        return
+    except Exception as e:
+        elapsed = time.monotonic() - start_time
+        logger.error(
+            "Unhandled error after %.1fs processing message: %s",
+            elapsed,
+            e,
+            exc_info=True,
+        )
+        await update.message.reply_text(f"⚠️ Erro inesperado ao processar mensagem: {e}")
+        return
+
+    elapsed = time.monotonic() - start_time
+    logger.info(
+        "Message processed in %.1fs for user %s",
+        elapsed,
+        user_context["user_id"],
+    )
+
     await send_agent_response(update, result)
