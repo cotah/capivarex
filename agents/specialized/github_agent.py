@@ -284,7 +284,7 @@ class GitHubAgent(BaseAgent):
     async def _handle_create_repo(
         self, git_svc: Any, analysis: Dict[str, Any]
     ) -> AgentResponse:
-        """Handle repository creation."""
+        """Handle repository creation — creates on GitHub.com AND locally."""
         repo_name = analysis.get("repo_name")
         if not repo_name:
             return AgentResponse(
@@ -295,20 +295,110 @@ class GitHubAgent(BaseAgent):
                 ),
             )
 
-        base = getattr(git_svc, "base_workspace", None)
-        if base:
-            project_path = str(base / repo_name)
-        else:
-            project_path = f"/tmp/workspace/{repo_name}"
+        # Clean repo name (remove brackets, extra spaces)
+        repo_name = repo_name.strip().strip("[]").strip()
 
-        # FIX: init_repo() está correcto no service ✅
-        result = git_svc.init_repo(project_path)
+        # ── 1. Criar no GitHub.com via API ───────────────────────────
+        github_token = getattr(git_svc, "github_token", None)
+        github_url = None
+        clone_url = None
+        github_created = False
+
+        if github_token:
+            try:
+                import aiohttp
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "https://api.github.com/user/repos",
+                        headers={
+                            "Authorization": f"token {github_token}",
+                            "Accept": "application/vnd.github.v3+json",
+                        },
+                        json={
+                            "name": repo_name,
+                            "private": False,
+                            "auto_init": True,  # Cria com README
+                        },
+                        timeout=aiohttp.ClientTimeout(total=15),
+                    ) as resp:
+                        data = await resp.json()
+
+                        if resp.status == 201:
+                            github_url = data.get("html_url", "")
+                            clone_url = data.get("clone_url", "")
+                            github_created = True
+                            self.logger.info("GitHub repo created: %s", github_url)
+                        elif resp.status == 422:
+                            # Repo já existe
+                            errors = data.get("errors", [])
+                            if (
+                                errors
+                                and errors[0].get("message")
+                                == "name already exists on this account"
+                            ):
+                                return AgentResponse(
+                                    status=AgentStatus.ERROR,
+                                    response=(
+                                        f"⚠️ O repositório **{repo_name}** já existe na tua conta GitHub.\n"
+                                        "Escolhe outro nome ou usa 'clone' para clonar o existente."
+                                    ),
+                                )
+                            msg = data.get("message", "")
+                            return AgentResponse(
+                                status=AgentStatus.ERROR,
+                                response=f"⚠️ GitHub recusou: {msg}",
+                            )
+                        else:
+                            self.logger.warning("GitHub API %d: %s", resp.status, data)
+            except Exception as e:
+                self.logger.warning("GitHub API create failed: %s", e)
+                # Continua — cria só local
+
+        # ── 2. Clonar localmente (se criou no GitHub) ────────────────
+        base = getattr(git_svc, "base_workspace", None)
+        local_path = str(base / repo_name) if base else f"/tmp/workspace/{repo_name}"
+
+        if github_created and clone_url:
+            try:
+                result = git_svc.clone(clone_url, local_path)
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=(
+                        f"✅ Repositório **{repo_name}** criado com sucesso!\n\n"
+                        f"🐙 GitHub: {github_url}\n"
+                        f"📂 Local: `{result['path']}`\n\n"
+                        "O repositório já está pronto para uso com push/pull."
+                    ),
+                    data={"github_url": github_url, "path": result["path"]},
+                )
+            except Exception as e:
+                # Criou no GitHub mas falhou clone local — ainda OK
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=(
+                        f"✅ Repositório **{repo_name}** criado no GitHub!\n\n"
+                        f"🐙 GitHub: {github_url}\n\n"
+                        f"⚠️ Clone local falhou ({e}), mas o repo está no GitHub."
+                    ),
+                    data={"github_url": github_url},
+                )
+
+        # ── 3. Fallback: só local (se não tem token) ─────────────────
+        result = git_svc.init_repo(local_path)
+        response_text = (
+            f"✅ Repositório **{repo_name}** criado localmente!\n"
+            f"📂 Caminho: `{result['path']}`"
+        )
+        if not github_token:
+            response_text += (
+                "\n\n⚠️ GITHUB_TOKEN não configurado — repo criado apenas localmente."
+                "\nPara criar no GitHub.com, configure a variável GITHUB_TOKEN."
+            )
+
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=(
-                f"✅ Repositório **{repo_name}** criado com sucesso!\n"
-                f"📂 Caminho: `{result['path']}`"
-            ),
+            response=response_text,
             data=result,
         )
 
