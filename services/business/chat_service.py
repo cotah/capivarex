@@ -69,51 +69,33 @@ class ChatService:
     async def _handle_search(
         self, user_message: str, decision: Dict, history: List[Dict]
     ) -> str:
-        """Busca via SearchAgent (Serper API).
-
-        Fallback para Perplexity se SearchService não estiver disponível.
-        """
+        """Busca via SearchAgent (Serper API)."""
         query = decision.get("query", user_message)
         await self._send_system(f"Pesquisando sobre: {query}...")
 
-        # ── Tentar Serper (SearchAgent) primeiro ──────────────────────
         try:
             search_agent = get_agent("search")
-            if search_agent:
-                context = {
-                    "query": query,
-                    "user_id": getattr(self, "user_id", None),
-                }
-                result = await search_agent.execute(query, context)
-                if result and result.status.value == "success" and result.response:
-                    # Envia resposta formatada pelo SearchAgent
-                    for char in result.response:
-                        await self.ws.send_json({"type": "token", "content": char})
-                    return result.response
-        except Exception as e:
-            logger.warning("SearchAgent failed, falling back to Perplexity: %s", e)
+            if not search_agent:
+                return (
+                    "Serviço de busca não disponível. "
+                    "Configure a SERPER_API_KEY no .env."
+                )
 
-        # ── Fallback: Perplexity (pesquisa sintetizada) ───────────────
-        try:
-            perplexity_svc = get_service("perplexity")
-            if perplexity_svc:
-                search_results = await perplexity_svc.search(query)
-            else:
-                search_results = {"answer": "", "sources": []}
+            context = {
+                "query": query,
+                "user_id": getattr(self, "_user_id", None),
+            }
+            result = await search_agent.execute(query, context)
 
-            search_answer = search_results.get("answer", "")
-            sources = search_results.get("sources", [])
-            context_prompt = (
-                f"Com base nos seguintes resultados de pesquisa, responda a pergunta "
-                f"original do usuario de forma clara e completa.\n\n"
-                f"Pergunta do Usuario: {user_message}\n\n"
-                f"Resultados da Pesquisa:\n{search_answer}\n\n"
-                f"Fontes: {', '.join(sources[:5]) if sources else 'N/A'}"
-            )
-            messages_with_context = history + [{"role": "user", "content": context_prompt}]
-            return await self._stream_openai(messages_with_context)
+            if result and result.response:
+                for char in result.response:
+                    await self.ws.send_json({"type": "token", "content": char})
+                return result.response
+
+            return "Não encontrei resultados para essa busca."
+
         except Exception as e:
-            logger.error("Search fallback also failed: %s", e)
+            logger.error("SearchAgent error: %s", e, exc_info=True)
             return f"Erro na pesquisa: {e}"
 
     async def _handle_dev(

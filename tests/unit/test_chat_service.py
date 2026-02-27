@@ -78,7 +78,7 @@ class TestChatServiceDispatch:
 class TestHandleSearch:
     @pytest.mark.asyncio
     async def test_search_success_serper(self):
-        """Serper (SearchAgent) returns a result — no Perplexity fallback needed."""
+        """SearchAgent (Serper) returns a result successfully."""
         svc, ws = _make_service()
 
         from agents.core import AgentResponse, AgentStatus
@@ -99,55 +99,53 @@ class TestHandleSearch:
         assert "Serper result text" in result
 
     @pytest.mark.asyncio
-    async def test_search_fallback_perplexity(self):
-        """When SearchAgent fails, falls back to Perplexity."""
+    async def test_search_no_agent_returns_config_msg(self):
+        """When SearchAgent is not available, returns config message."""
         svc, ws = _make_service()
 
-        mock_perplexity = Mock()
-        mock_perplexity.search = AsyncMock(
-            return_value={"answer": "AI is cool", "sources": ["src1"]}
-        )
-
-        async def _stream(msgs):
-            for tok in ["Result", " text"]:
-                yield tok
-
-        mock_openai = Mock()
-        mock_openai.stream_chat_completion = _stream
-        svc._openai_svc = mock_openai
-
-        with (
-            patch(
-                "services.business.chat_service.get_agent", return_value=None
-            ),
-            patch(
-                "services.business.chat_service.get_service",
-                side_effect=lambda name: mock_perplexity
-                if name == "perplexity"
-                else None,
-            ),
-        ):
-            result = await svc._handle_search("what is AI", {"query": "AI"}, [])
-
-        assert result == "Result text"
-
-    @pytest.mark.asyncio
-    async def test_search_no_perplexity(self):
-        """Search works even when both Serper and Perplexity are unavailable."""
-        svc, ws = _make_service()
-
-        async def _stream(msgs):
-            yield "fallback"
-
-        svc._openai_svc = Mock()
-        svc._openai_svc.stream_chat_completion = _stream
-
-        with (
-            patch("services.business.chat_service.get_agent", return_value=None),
-            patch("services.business.chat_service.get_service", return_value=None),
+        with patch(
+            "services.business.chat_service.get_agent", return_value=None
         ):
             result = await svc._handle_search("query", {}, [])
-        assert "fallback" in result
+
+        assert "SERPER_API_KEY" in result
+
+    @pytest.mark.asyncio
+    async def test_search_empty_result(self):
+        """When SearchAgent returns no response, returns fallback message."""
+        svc, ws = _make_service()
+
+        from agents.core import AgentResponse, AgentStatus
+
+        mock_agent = AsyncMock()
+        mock_agent.execute = AsyncMock(
+            return_value=AgentResponse(
+                status=AgentStatus.ERROR,
+                response="",
+            )
+        )
+
+        with patch(
+            "services.business.chat_service.get_agent", return_value=mock_agent
+        ):
+            result = await svc._handle_search("query", {}, [])
+
+        assert "resultados" in result.lower() or "busca" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_search_exception_returns_error(self):
+        """When SearchAgent raises, returns error message."""
+        svc, ws = _make_service()
+
+        mock_agent = AsyncMock()
+        mock_agent.execute = AsyncMock(side_effect=RuntimeError("Serper down"))
+
+        with patch(
+            "services.business.chat_service.get_agent", return_value=mock_agent
+        ):
+            result = await svc._handle_search("query", {}, [])
+
+        assert "Erro" in result
 
 
 # -------------------------------------------------------------------
