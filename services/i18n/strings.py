@@ -354,6 +354,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "❌ Erro ao ajustar temperatura de {label}.",
         "es": "❌ Error al ajustar temperatura de {label}.",
     },
+    "smarthome_status_label": {
+        "en": "📊 Status: {label}\n\nState: {state}",
+        "pt": "📊 Status: {label}\n\nEstado: {state}",
+        "es": "📊 Estado: {label}\n\nEstado: {state}",
+    },
     "smarthome_status_on": {
         "en": "On ✅",
         "pt": "Ligado ✅",
@@ -363,6 +368,21 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "en": "Off ⭕",
         "pt": "Desligado ⭕",
         "es": "Apagado ⭕",
+    },
+    "smarthome_temperature_label": {
+        "en": "\nTemperature: {value}°C",
+        "pt": "\nTemperatura: {value}°C",
+        "es": "\nTemperatura: {value}°C",
+    },
+    "smarthome_humidity_label": {
+        "en": "\nHumidity: {value}%",
+        "pt": "\nUmidade: {value}%",
+        "es": "\nHumedad: {value}%",
+    },
+    "smarthome_brightness_label": {
+        "en": "\nBrightness: {value}%",
+        "pt": "\nBrilho: {value}%",
+        "es": "\nBrillo: {value}%",
     },
     "smarthome_ai_unavailable": {
         "en": "AI service unavailable to answer your question.",

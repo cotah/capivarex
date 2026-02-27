@@ -413,7 +413,9 @@ class SmartHomeAgent(BaseAgent):
         else:
             state_text = switch_state
 
-        response = f"📊 Status: {label}\n\n" f"Estado: {state_text}"
+        response = t(
+            "smarthome_status_label", lang=lang, label=label, state=state_text
+        )
 
         # Add temperature if available
         temp = (
@@ -422,7 +424,7 @@ class SmartHomeAgent(BaseAgent):
             .get("value")
         )
         if temp is not None:
-            response += f"\nTemperatura: {temp}°C"
+            response += t("smarthome_temperature_label", lang=lang, value=temp)
 
         # Add humidity if available
         humidity = (
@@ -431,12 +433,12 @@ class SmartHomeAgent(BaseAgent):
             .get("value")
         )
         if humidity is not None:
-            response += f"\nHumidity: {humidity}%"
+            response += t("smarthome_humidity_label", lang=lang, value=humidity)
 
         # Add brightness if available
         level = main_comp.get("switchLevel", {}).get("level", {}).get("value")
         if level is not None:
-            response += f"\nBrightness: {level}%"
+            response += t("smarthome_brightness_label", lang=lang, value=level)
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
