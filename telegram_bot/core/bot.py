@@ -284,6 +284,20 @@ class CapivaraXBot:
             except Exception as e:
                 self.logger.warning("Could not store bot response: %s", e)
 
+            # ── 6. Background: extract personal info if shared ────────
+            user_uuid = str(context.get("user_id", ""))
+            if user_uuid and self._is_uuid(user_uuid):
+                try:
+                    from services.business.user_profile_service import (
+                        extract_and_save_personal_info,
+                    )
+
+                    asyncio.create_task(
+                        extract_and_save_personal_info(user_uuid, text)
+                    )
+                except Exception as e:
+                    self.logger.debug("Could not schedule info extraction: %s", e)
+
             return result
 
         except Exception as e:

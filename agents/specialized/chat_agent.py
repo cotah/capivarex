@@ -10,7 +10,9 @@ from typing import Any, Dict, List, Optional
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
 from services.ai.model_config import CHAT_MODEL
+from services.business.user_profile_service import build_user_profile_prompt
 from services.i18n import t, get_user_lang
+from services.i18n.prompts import get_chat_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -135,12 +137,24 @@ class ChatAgent(BaseAgent):
             AgentResponse with chat reply
         """
         conversation_id = context.get("conversation_id")
+        lang = get_user_lang(context)
+        user_id = context.get("user_id", "")
 
         # Get history via cache-aside pattern
         history = await self._get_history_with_cache(conversation_id, context)
 
+        # Build system prompt with user profile injected
+        base_prompt = get_chat_prompt(lang=lang)
+        user_profile = ""
+        if user_id:
+            try:
+                user_profile = await build_user_profile_prompt(str(user_id))
+            except Exception as e:
+                self.logger.debug(f"Could not load user profile: {e}")
+        system_prompt = base_prompt + user_profile
+
         # Build message list
-        messages = self._build_messages(prompt, history)
+        messages = self._build_messages(prompt, history, system_prompt)
 
         # Get OpenAI service
         openai_service = get_service("openai")
@@ -217,18 +231,25 @@ class ChatAgent(BaseAgent):
                 error=str(e),
             )
 
-    def _build_messages(self, prompt: str, history: Any) -> List[Dict[str, str]]:
+    def _build_messages(
+        self, prompt: str, history: Any, system_prompt: str = ""
+    ) -> List[Dict[str, str]]:
         """
         Build message list from history.
 
         Args:
             prompt: Current user prompt
             history: Conversation history list
+            system_prompt: System prompt to prepend (includes user profile)
 
         Returns:
             List of message dicts
         """
         messages: List[Dict[str, str]] = []
+
+        # Add system prompt with user profile
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
 
         # Add history if available
         if isinstance(history, list):
@@ -239,7 +260,11 @@ class ChatAgent(BaseAgent):
                 role = item.get("role")
                 content = item.get("content")
 
-                if role in {"system", "user", "assistant"} and content is not None:
+                # Skip system messages from history (we already added ours)
+                if role == "system":
+                    continue
+
+                if role in {"user", "assistant"} and content is not None:
                     messages.append({"role": role, "content": str(content)})
 
         # Add current prompt
