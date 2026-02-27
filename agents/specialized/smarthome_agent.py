@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.integrations.smartthings_oauth import get_smartthings_token_manager
 
 
 logger = logging.getLogger(__name__)
@@ -214,8 +215,15 @@ class SmartHomeAgent(BaseAgent):
         Returns:
             AgentResponse with device data or command result
         """
-        access_token = context.get("smartthings_access_token") or context.get(
-            "access_token"
+        # Get a valid token via the OAuth2 token manager (auto-refreshes)
+        token_manager = get_smartthings_token_manager()
+        access_token = await token_manager.get_valid_token()
+
+        # Allow explicit context override (e.g. per-user OAuth connection)
+        access_token = (
+            context.get("smartthings_access_token")
+            or context.get("access_token")
+            or access_token
         )
 
         # Get SmartThings service
@@ -227,8 +235,8 @@ class SmartHomeAgent(BaseAgent):
                 error="SmartThings service not available",
             )
 
-        # Check if service has a token (either stored or from context)
-        if not smartthings.access_token and not access_token:
+        # Check if we have any token at all
+        if not access_token and not smartthings.access_token:
             import os
             from urllib.parse import urlencode
 
