@@ -1,251 +1,192 @@
-# SuperBot God - Your Proactive AI Assistant
+# Capivarex — Your Proactive AI Life Assistant
 
-[![Status](https://img.shields.io/badge/status-in%20development-blue)](https://github.com/your-username/superbot-god)
-[![Version](https://img.shields.io/badge/version-3.0-green)](https://github.com/your-username/superbot-god)
-[![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![Framework](https://img.shields.io/badge/framework-FastAPI-green.svg)](https://fastapi.tiangolo.com/)
-
-**SuperBot God** is a "Jarvis-like" proactive AI assistant designed to integrate multiple services and provide contextual briefings across various interfaces. This project aims to create an intelligent companion that can manage your daily tasks, from scheduling meetings to controlling your smart home.
-
----
+Capivarex is a "Jarvis-like" proactive AI assistant that integrates multiple services and provides contextual, intelligent assistance across various interfaces. It manages your daily life — from scheduling meetings and booking flights to controlling your smart home and making phone calls.
 
 ## 🚀 Features
 
-- **Proactive Assistance:** Initiates conversations and provides briefings based on your context (agenda, traffic, weather).
-- **Multi-Interface:** Works seamlessly across Telegram, a WebApp (PWA), and is designed for future smartwatch and physical device integrations.
-- **Multi-Agent System:** A sophisticated orchestrator routes user requests to specialized agents for handling different tasks.
-- **Integrated Services:** Connects to a wide range of services to provide a holistic experience.
+### Core
+- **Multi-Agent System**: Sophisticated orchestrator routes requests to 12+ specialized AI agents
+- **Proactive Assistance**: Initiates conversations and provides briefings based on your context
+- **Multi-Language**: Full i18n support for English, Portuguese, and Spanish
+- **Persistent Memory**: Remembers your name, preferences, and personal info across all conversations
+- **Multi-Interface**: Telegram Bot, REST API, WebSocket — designed for future WebApp (PWA) and smartwatch
 
-### ✅ Implemented Services
+### ✅ Implemented Agents & Services
 
-- **Google Calendar:** Read and create events in your calendar.
-- **Smartcar:** Connect to your electric vehicle to monitor battery, location, and control charging/locks.
-- **Weather:** Get real-time weather forecasts for any location.
-- **Finance:** Fetch real-time stock quotes.
-- **AI-Powered Media:**
-    - **Chat:** Conversational AI powered by OpenAI's GPT-4.
-    - **Research:** Web search capabilities via Perplexity AI.
-    - **Development:** Code generation and explanation with Anthropic's Claude.
-    - **Image Generation:** Create images from text prompts using Google's Gemini.
-    - **Video Generation:** Generate videos from text with Google Gemini Veo 3.1.
-    - **Text-to-Speech:** Convert text into natural-sounding speech with ElevenLabs.
+| Agent | Description | Integration |
+|-------|-------------|-------------|
+| 💬 **Chat** | Conversational AI | OpenAI GPT-4.1-mini / GPT-5-mini |
+| 📅 **Calendar** | Read/create events, scheduling | Google Calendar API |
+| 🏠 **SmartHome** | Control lights, sensors, locks | SmartThings OAuth2 (auto-refresh) |
+| ✈️ **Travel** | Flight search with booking links | Duffel API + Google Flights |
+| 🏨 **Hotels** | Hotel search with pre-filled links | Booking.com |
+| 🚗 **Car** | EV battery, location, charging, locks | Smartcar API |
+| 🌤 **Weather** | Real-time forecasts | OpenWeatherMap |
+| 💰 **Finance** | Real-time stock quotes | Finance APIs |
+| 🔍 **Research** | Web search & synthesis | Perplexity AI |
+| 💻 **Dev** | Code generation & explanation | Anthropic Claude |
+| 🐙 **GitHub** | Create repos, manage code | GitHub API |
+| 📞 **Twilio** | Make phone calls via Telegram | Twilio API |
+| 🖼 **Image** | Generate images from text | Google Gemini |
+| 🎬 **Video** | Generate videos from text | Google Gemini Veo 3.1 |
+| 🗣 **Voice** | Text-to-speech | ElevenLabs |
+| 🚌 **Transport** | Public transport info | Transport APIs |
 
-### ⏳ Planned Integrations
-
-- **Google Maps Traffic:** Real-time traffic information and proactive alerts.
-- **Smart Home:** Control smart devices (lights, thermostats, locks) via Seam API and Alexa.
-- **Virtual Avatar:** A D-ID powered virtual avatar for the web interface.
-
----
+### ⏳ Planned
+- **Google Maps Traffic**: Real-time traffic alerts
+- **Spotify**: Music control
+- **Gmail**: Email management
+- **WhatsApp Business**: Messaging
+- **Virtual Avatar**: D-ID powered web avatar
+- **WebApp (PWA)**: Full dashboard with settings
 
 ## 🔧 Tech Stack
 
-- **Backend:** Python 3.11 with FastAPI
-- **Database:** Supabase (PostgreSQL)
-- **Cache:** Upstash Redis
-- **Authentication:** JWT (JSON Web Tokens)
-- **Primary AI:** OpenAI GPT-4
-- **Interfaces:** Telegram Bot, WebSockets
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Python 3.11, FastAPI |
+| **Database** | Supabase (PostgreSQL) |
+| **Cache** | Upstash Redis |
+| **Auth** | JWT (JSON Web Tokens) |
+| **AI Models** | OpenAI GPT-4.1-mini/GPT-5-mini, Anthropic Claude, Perplexity, Google Gemini |
+| **Interfaces** | Telegram Bot, REST API, WebSockets |
+| **Deploy** | Railway |
+| **CI/Testing** | pytest (1700+ tests, ~79% coverage), ruff |
 
----
-
-## Arquitetura do Sistema
-
-The diagram below shows how a request flows through the system — from the
-entry point (API or Telegram) all the way to the final response.
+## 🏗 Architecture
 
 ```mermaid
 flowchart LR
-    A["Entrada\n(API / Telegram Bot)"]
-    B["Gateway\n(RequestProcessor)"]
-    C["OrchestratorAgent"]
-    D["Agente Especializado"]
-    E["Servico de Infra"]
-    F["Resposta"]
-
-    A --> B --> C --> D --> E --> F
+    A["Entry Point\n(API / Telegram Bot)"] --> B["Gateway\n(RequestProcessor)"]
+    B --> C["OrchestratorAgent"]
+    C --> D["Specialized Agent"]
+    D --> E["Infrastructure Service"]
+    E --> F["Response"]
 ```
 
-### Componentes Principais
+### Directory Structure
 
-| Camada | Diretorio | Responsabilidade |
-|--------|-----------|------------------|
-| **API** | `api/` | Endpoints REST e WebSocket (FastAPI). Recebe requisicoes HTTP, autentica via JWT e delega ao pipeline. |
-| **Telegram Bot** | `telegram_bot/` | Interface Telegram. Converte mensagens do Telegram em chamadas ao pipeline. |
-| **Gateway** | `utils/request_processor.py` | Gera `request_id`, aplica rate limiting, resolve `UserContext` e `TenantContext`, e enriquece o structlog. |
-| **Orchestrator** | `agents/specialized/orchestrator_agent.py` | Analisa a intencao do usuario e decide qual agente especializado deve processar a requisicao. |
-| **Agentes Especializados** | `agents/specialized/` | Um agente por dominio (calendar, car, chat, dev, finance, image, research, traffic, video, voice, weather). Cada um encapsula a logica de negocio do seu dominio. |
-| **Servicos de Negocio** | `services/business/` | Logica transversal: `ChatService` (orquestracao WebSocket), `ProactivityService` (insights proativos), `PromptCleaner`, `ResearchService`. |
-| **Servicos de Infraestrutura** | `services/infrastructure/` | Database (Supabase), Redis, Git, FileManager, CodeExecutor, NotificationService. |
-| **Servicos de Integracao** | `services/integrations/` | Wrappers para APIs externas: Google Calendar, Smartcar, Weather, Finance, SmartThings, Traffic. |
-| **Servicos de IA** | `services/ai/` | OpenAI, Anthropic (Claude), Perplexity, ElevenLabs. |
-| **Servicos de Midia** | `services/media/` | Image, Video, Whisper (transcricao). |
-| **Autofix** | `autofix/` | Sistema autonomo de triage, criacao de tickets e patches para bugs em producao. |
-| **Worker** | `worker.py` | Processamento assincrono de tarefas pesadas via arq + Redis. |
+| Layer | Directory | Responsibility |
+|-------|-----------|---------------|
+| API | `api/` | REST endpoints & WebSocket (FastAPI), JWT auth |
+| Telegram Bot | `telegram_bot/` | Telegram interface, message handlers |
+| Gateway | `utils/request_processor.py` | Request ID, rate limiting, user context |
+| Orchestrator | `agents/specialized/orchestrator_agent.py` | Intent analysis, agent routing |
+| Specialized Agents | `agents/specialized/` | One agent per domain (calendar, car, chat, dev, etc.) |
+| Business Services | `services/business/` | ChatService, ProactivityService, UserProfileService, PromptCleaner |
+| Infrastructure | `services/infrastructure/` | Database (Supabase), Redis, Git, FileManager, Notifications |
+| Integrations | `services/integrations/` | Google Calendar, Smartcar, Weather, SmartThings, Duffel, Traffic |
+| AI Services | `services/ai/` | OpenAI, Anthropic (Claude), Perplexity, ElevenLabs |
+| Media Services | `services/media/` | Image, Video, Whisper (transcription) |
+| i18n | `services/i18n/` | Internationalization (EN/PT/ES) |
+| Autofix | `autofix/` | Autonomous bug triage and patching |
+| Worker | `worker.py` | Async task processing via arq + Redis |
 
-### Padroes Arquiteturais
+### Architectural Patterns
+- **Service Registry** — All services register via `@register_service` and are accessed by `get_service(name)`
+- **Agent Registry** — Agents register via `@register_agent` and are accessed by `get_agent(name)`
+- **Circuit Breaker** — External integrations protected by `pybreaker`
+- **Strategy Pattern** — Dictionary-based dispatch in ChatService and autofix
+- **RequestProcessor** — Unified gateway for rate limiting, context, and observability
 
-- **Service Registry** — Todos os servicos registram-se via `@register_service` e sao acessados por `get_service(name)`.
-- **Agent Registry** — Agentes registram-se via `@register_agent` e sao acessados por `get_agent(name)`.
-- **Circuit Breaker** — Cada integracao externa e protegida por `pybreaker` para evitar falhas em cascata.
-- **Strategy Pattern** — Dispatch baseado em dicionario no `ChatService` e no `autofix/core.py`.
-- **RequestProcessor** — Gateway unificado que centraliza rate limiting, contexto e observabilidade.
-
----
-
-## Getting Started
-
-Follow these instructions to get the project up and running on your local machine.
+## 🚀 Getting Started
 
 ### Prerequisites
-
 - Python 3.11+
-- A Supabase account for the database.
-- An Upstash account for Redis.
-- API keys for the various services (OpenAI, Google, Perplexity, etc.).
+- Supabase account
+- Upstash Redis account
+- API keys for services (OpenAI, Google, Perplexity, etc.)
 
 ### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/cotah/bot_GOD.git
-    cd bot_GOD
-    ```
+```bash
+# Clone the repository
+git clone https://github.com/cotah/capivarex.git
+cd capivarex
 
-2.  **Create and activate a virtual environment:**
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
-    ```
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-3.  **Install the dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+# Install dependencies
+pip install -r requirements.txt
 
-4.  **Configure environment variables:**
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys
 
-    Copy the `.env.example` file to `.env` and fill in your real API keys:
+# Configure Google credentials
+cp credentials.example.json credentials.json
+cp service_account.example.json service_account.json
+# Edit JSON files with your Google Cloud Console credentials
+```
 
-    ```bash
-    cp .env.example .env
-    ```
-
-    Edit the `.env` file and replace all placeholder values with your actual credentials.
-
-5.  **Configure Google credentials:**
-
-    Copy the example credential files and fill in your real values:
-
-    ```bash
-    cp credentials.example.json credentials.json
-    cp service_account.example.json service_account.json
-    ```
-
-    Edit the JSON files with your credentials from the Google Cloud Console.
-
-    **IMPORTANT:** Never commit `.env`, `credentials.json`, or `service_account.json` to Git. They are already listed in `.gitignore`.
+> ⚠️ **Never commit** `.env`, `credentials.json`, or `service_account.json` to Git.
 
 ### Running with Docker (Recommended)
 
-1.  Make sure Docker Desktop is running.
-2.  Run the startup script:
-
-    ```bash
-    ./start_all.sh
-    ```
-
-    This builds the images and starts the API, the arq worker, and Redis via Docker Compose.
-
-    The API will be available at `http://localhost:8000` and docs at `http://localhost:8000/docs`.
-
-### Running with Docker (Production)
-
-For production deployments using gunicorn with multiple workers:
-
 ```bash
-docker-compose -f docker-compose.prod.yml up --build -d
+./start_all.sh
 ```
+API available at `http://localhost:8000` — docs at `http://localhost:8000/docs`.
 
 ### Running without Docker
 
-1.  **Start the backend server:**
+```bash
+# API server
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
-    ```bash
-    uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-    ```
+# Telegram bot
+python telegram_bot/main.py
 
-2.  **Start the Telegram bot:**
+# Background worker (optional, requires Redis)
+arq worker.WorkerSettings
+```
 
-    ```bash
-    python telegram_bot/main.py
-    ```
+### Running Tests
 
-3.  **Start the background task worker (optional):**
-
-    ```bash
-    arq worker.WorkerSettings
-    ```
-
-    Requires a Redis instance and the `REDIS_URL` environment variable.
-
----
+```bash
+pytest tests/ -v
+```
 
 ## 🔒 Security
 
-### JWT Secret Key
-
-All API authentication is protected by a JWT secret key configured in `JWT_SECRET_KEY`.
-
-**Generating a secure key:**
+### JWT Authentication
+All API endpoints are protected by JWT. Generate a secure key:
 ```bash
 python -c "import secrets; print(secrets.token_hex(64))"
 ```
 
-**Key rotation** is required in the following situations:
-- Key accidentally exposed (commit, log, message)
-- Suspected unauthorized API access
-- Team member with production access leaves
-- Periodic security rotation (every 90 days recommended)
-
-> ⚠️ Rotating the key **immediately invalidates all active sessions**. All logged-in users will need to sign in again.
-
-For the complete rotation procedure, including a zero-downtime grace-period strategy, see [`docs/JWT_ROTATION.md`](docs/JWT_ROTATION.md).
+Rotate the key if: exposed in a commit/log, suspected unauthorized access, team member leaves, or every 90 days. See `docs/JWT_ROTATION.md` for zero-downtime rotation.
 
 ### Environment Variables
+All credentials stored via environment variables. For production, use a secret manager (AWS Secrets Manager, GCP Secret Manager, Doppler).
 
-Never commit real credentials. The `.env.example` file contains only placeholder values. The real `.env` file is in `.gitignore`.
+| Variable | Description |
+|----------|-------------|
+| `JWT_SECRET_KEY` | Signs/verifies JWT tokens (≥ 32 bytes random) |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic Claude API key |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key |
+| `REDIS_URL` | Upstash Redis URL |
+| `SMARTTHINGS_CLIENT_ID` | SmartThings OAuth2 client ID |
+| `SMARTTHINGS_CLIENT_SECRET` | SmartThings OAuth2 client secret |
+| `DUFFEL_ACCESS_TOKEN` | Duffel API token (flights) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 
-| Variable | Description | Required |
-|---|---|---|
-| `JWT_SECRET_KEY` | Signs/verifies all JWT tokens — must be ≥ 32 bytes random | ✅ |
-| `JWT_ALGORITHM` | JWT signing algorithm (default: `HS256`) | ✅ |
-| `JWT_EXPIRATION_MINUTES` | Token lifetime in minutes (default: `60`) | ✅ |
-
-For production deployments, store secrets in a secret manager (AWS Secrets Manager, GCP Secret Manager, Doppler) rather than plain `.env` files.
-
----
+See `.env.example` for the full list.
 
 ## 🤝 Contributing
 
-Contributions are welcome! If you have ideas for new features, integrations, or improvements, feel free to open an issue or submit a pull request. Please make sure to follow the existing code style and add tests for any new functionality.
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
-
----
+Please follow the existing code style and add tests for new functionality.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
-
----
-
-## 📧 Contact
-
-Your Name - your.email@example.com
-
-Project Link: [https://github.com/cotah/bot_GOD](https://github.com/cotah/bot_GOD)
+MIT License — see [LICENSE](LICENSE) for details.
