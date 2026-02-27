@@ -40,6 +40,8 @@ def register_all_agents() -> None:
     from .specialized.traffic_agent import TrafficAgent  # noqa: F401
     from .specialized.translate_agent import TranslateAgent  # noqa: F401
     from .specialized.transport_agent import TransportAgent  # noqa: F401
+    from .specialized.travel_agent import TravelAgent  # noqa: F401
+    from .specialized.twilio_agent import TwilioAgent  # noqa: F401
     from .specialized.video_agent import VideoAgent  # noqa: F401
     from .specialized.voice_agent import VoiceAgent  # noqa: F401
     from .specialized.weather_agent import WeatherAgent  # noqa: F401
