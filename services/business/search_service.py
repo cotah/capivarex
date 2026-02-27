@@ -135,6 +135,7 @@ class SearchService(BaseService):
         self,
         query: str,
         country: str = "ie",
+        location: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Busca lugares físicos — retorna nome, endereço, telefone, rating, horário.
@@ -146,8 +147,9 @@ class SearchService(BaseService):
           - Base do Concierge de Restaurantes e Presentes
 
         Args:
-            query:   Termo de busca (ex: "italian restaurant Dublin city centre")
-            country: Código do país
+            query:    Termo de busca (ex: "italian restaurant Dublin city centre")
+            country:  Código do país
+            location: Coordenadas GPS "lat,lng" ou nome de cidade
 
         Returns:
             Dict com:
@@ -159,10 +161,11 @@ class SearchService(BaseService):
         if not self.is_initialized():
             await self.initialize()
 
-        resp = await self._client.post(
-            "/places",
-            json={"q": query, "gl": country},
-        )
+        payload: Dict[str, Any] = {"q": query, "gl": country}
+        if location:
+            payload["location"] = location
+
+        resp = await self._client.post("/places", json=payload)
         self._raise_for_status(resp, query)
         data = resp.json()
         return self._parse_places(data)
@@ -203,13 +206,15 @@ class SearchService(BaseService):
         self,
         query: str,
         country: str = "ie",
+        location: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Busca produtos com preço — ideal para sugestões de presentes.
 
         Args:
-            query:   Produto a buscar (ex: "livro ficção científica", "headphones")
-            country: Código do país
+            query:    Produto a buscar (ex: "livro ficção científica", "headphones")
+            country:  Código do país
+            location: Coordenadas GPS "lat,lng" ou nome de cidade
 
         Returns:
             Dict com:
@@ -218,10 +223,11 @@ class SearchService(BaseService):
         if not self.is_initialized():
             await self.initialize()
 
-        resp = await self._client.post(
-            "/shopping",
-            json={"q": query, "gl": country},
-        )
+        payload: Dict[str, Any] = {"q": query, "gl": country}
+        if location:
+            payload["location"] = location
+
+        resp = await self._client.post("/shopping", json=payload)
         self._raise_for_status(resp, query)
         data = resp.json()
         return self._parse_shopping(data)

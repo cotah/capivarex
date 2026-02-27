@@ -543,7 +543,7 @@ class TestSearchAgentIntents:
         ):
             r = await search_agent.execute("restaurante perto", {})
         assert not r.is_success()
-        assert "não encontrei" in r.response.lower()
+        assert "no places found" in r.response.lower() or "não encontrei" in r.response.lower()
 
     @pytest.mark.asyncio
     async def test_empty_query_returns_help(self, search_agent, mock_svc):
@@ -670,7 +670,7 @@ class TestSearchAgentImages:
         ):
             r = await search_agent.execute("imagens de xyzabc", {})
         assert not r.is_success()
-        assert "não encontrei" in r.response.lower()
+        assert "no images found" in r.response.lower() or "não encontrei" in r.response.lower()
 
     @pytest.mark.asyncio
     async def test_images_response_has_source(self, search_agent, mock_svc):

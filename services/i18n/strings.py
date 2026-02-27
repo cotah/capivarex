@@ -425,6 +425,86 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "O que devo buscar? Tente: *Busca restaurantes italianos em Dublin*",
         "es": "¿Qué debo buscar? Intenta: *Busca restaurantes italianos en Dublín*",
     },
+    "search_places_header": {
+        "en": "📍 **Places found for: _{query}_**",
+        "pt": "📍 **Lugares encontrados para: _{query}_**",
+        "es": "📍 **Lugares encontrados para: _{query}_**",
+    },
+    "search_shopping_header": {
+        "en": "🛍️ **Products found for: _{query}_**",
+        "pt": "🛍️ **Produtos encontrados para: _{query}_**",
+        "es": "🛍️ **Productos encontrados para: _{query}_**",
+    },
+    "search_news_header": {
+        "en": "📰 **News about: _{query}_**",
+        "pt": "📰 **Notícias sobre: _{query}_**",
+        "es": "📰 **Noticias sobre: _{query}_**",
+    },
+    "search_general_header": {
+        "en": "🔍 **Results for: _{query}_**",
+        "pt": "🔍 **Resultados para: _{query}_**",
+        "es": "🔍 **Resultados para: _{query}_**",
+    },
+    "search_images_header": {
+        "en": "🖼️ **Images found for: _{query}_**",
+        "pt": "🖼️ **Imagens encontradas para: _{query}_**",
+        "es": "🖼️ **Imágenes encontradas para: _{query}_**",
+    },
+    "search_no_places": {
+        "en": "No places found for: *{query}*",
+        "pt": "Não encontrei nenhum lugar para: *{query}*",
+        "es": "No encontré ningún lugar para: *{query}*",
+    },
+    "search_no_products": {
+        "en": "No products found for: *{query}*",
+        "pt": "Não encontrei produtos para: *{query}*",
+        "es": "No encontré productos para: *{query}*",
+    },
+    "search_no_news": {
+        "en": "No recent news found about: *{query}*",
+        "pt": "Não encontrei notícias recentes sobre: *{query}*",
+        "es": "No encontré noticias recientes sobre: *{query}*",
+    },
+    "search_no_results": {
+        "en": "No results found for: *{query}*",
+        "pt": "Não encontrei resultados para: *{query}*",
+        "es": "No encontré resultados para: *{query}*",
+    },
+    "search_no_images": {
+        "en": "No images found for: *{query}*",
+        "pt": "Não encontrei imagens para: *{query}*",
+        "es": "No encontré imágenes para: *{query}*",
+    },
+    "search_service_unavailable": {
+        "en": "Search service not available.\nSet the `SERPER_API_KEY` in `.env`.\nFree signup: https://serper.dev",
+        "pt": "Serviço de busca não disponível.\nConfigure a `SERPER_API_KEY` no `.env`.\nCadastro gratuito: https://serper.dev",
+        "es": "Servicio de búsqueda no disponible.\nConfigure la `SERPER_API_KEY` en `.env`.\nRegistro gratuito: https://serper.dev",
+    },
+    "search_not_configured": {
+        "en": "⚙️ Search service not configured.\nAdd the `SERPER_API_KEY` to `.env`.\nFree signup: https://serper.dev",
+        "pt": "⚙️ Serviço de busca não configurado.\nAdicione a `SERPER_API_KEY` no `.env`.\nCadastro gratuito: https://serper.dev",
+        "es": "⚙️ Servicio de búsqueda no configurado.\nAñada la `SERPER_API_KEY` al `.env`.\nRegistro gratuito: https://serper.dev",
+    },
+    "search_quota_exceeded": {
+        "en": "⚠️ Serper search quota reached (2,500/month on free plan).\nCheck at serper.dev → Usage.",
+        "pt": "⚠️ Limite de buscas Serper atingido (2.500/mês no plano free).\nVerifique em serper.dev → Usage.",
+        "es": "⚠️ Cuota de búsquedas Serper agotada (2.500/mes en plan gratuito).\nVerifique en serper.dev → Usage.",
+    },
+    "search_error": {
+        "en": "Search error: {error}",
+        "pt": "Erro na busca: {error}",
+        "es": "Error en la búsqueda: {error}",
+    },
+    "search_unexpected_error": {
+        "en": "Unexpected search error. Please try again.",
+        "pt": "Erro inesperado na busca. Tente novamente.",
+        "es": "Error inesperado en la búsqueda. Intente de nuevo.",
+    },
+    "search_reviews": {
+        "en": "{count} reviews",
+        "pt": "{count} avaliações",
+        "es": "{count} reseñas",
+    },
     # ══════════════════════════════════════════════════════════════════════════
     # RESTAURANT AGENT
     # ══════════════════════════════════════════════════════════════════════════
