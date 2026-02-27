@@ -67,7 +67,7 @@ async def test_smarthome_list_devices(smarthome_agent):
     ):
         result = await smarthome_agent.execute(
             "quais dispositivos estão ligados?",
-            {"user_id": "user_test", "access_token": "st_token_123"},
+            {"user_id": "user_test", "access_token": "st_token_123", "lang": "pt"},
         )
     assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
     assert result.response
@@ -83,7 +83,7 @@ async def test_smarthome_turn_on_lights(smarthome_agent):
     ):
         result = await smarthome_agent.execute(
             "acenda as luzes da sala",
-            {"user_id": "user_test", "access_token": "st_token_123"},
+            {"user_id": "user_test", "access_token": "st_token_123", "lang": "pt"},
         )
     assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
     assert result.response
@@ -98,7 +98,24 @@ async def test_smarthome_turn_off_command(smarthome_agent):
         patch("agents.specialized.smarthome_agent.get_service", return_value=st_svc),
     ):
         result = await smarthome_agent.execute(
-            "apague as luzes", {"user_id": "user_test", "access_token": "st_token_123"}
+            "apague as luzes",
+            {"user_id": "user_test", "access_token": "st_token_123", "lang": "pt"},
+        )
+    assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
+    assert result.response
+
+
+@pytest.mark.asyncio
+async def test_smarthome_english_response(smarthome_agent):
+    """SmartHomeAgent responds in English when user lang is en."""
+    st_svc = _make_smartthings_svc()
+    with (
+        patch(_TM_PATH, return_value=_mock_token_manager()),
+        patch("agents.specialized.smarthome_agent.get_service", return_value=st_svc),
+    ):
+        result = await smarthome_agent.execute(
+            "turn the bedroom light off",
+            {"user_id": "user_test", "access_token": "st_token_123", "lang": "en"},
         )
     assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
     assert result.response
@@ -126,6 +143,20 @@ async def test_smarthome_service_unavailable(smarthome_agent):
             "acenda as luzes", {"user_id": "user_test"}
         )
     assert result.status == AgentStatus.ERROR
+
+
+@pytest.mark.asyncio
+async def test_smarthome_service_unavailable_english(smarthome_agent):
+    """SmartHomeAgent returns English error when lang=en and service unavailable."""
+    with (
+        patch(_TM_PATH, return_value=_mock_token_manager()),
+        patch("agents.specialized.smarthome_agent.get_service", return_value=None),
+    ):
+        result = await smarthome_agent.execute(
+            "turn the lights on", {"user_id": "user_test", "lang": "en"}
+        )
+    assert result.status == AgentStatus.ERROR
+    assert "unavailable" in result.response.lower()
 
 
 @pytest.mark.asyncio

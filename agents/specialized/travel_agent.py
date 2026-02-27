@@ -115,14 +115,14 @@ class TravelAgent(BaseAgent):
         prompt_lower = original_prompt.lower()
         user_wants_roundtrip = any(kw in prompt_lower for kw in round_trip_keywords)
 
-        self.logger.info(
+        self.logger.debug(
             "TRAVEL DEBUG — GPT parsed: origin=%s dest=%s departure=%s return_date=%s",
             origin,
             destination,
             departure,
             return_date,
         )
-        self.logger.info(
+        self.logger.debug(
             "TRAVEL DEBUG — User text: '%s' | round_trip_keywords_found=%s | user_wants_roundtrip=%s",
             original_prompt[:80],
             [kw for kw in round_trip_keywords if kw in prompt_lower],
@@ -144,7 +144,7 @@ class TravelAgent(BaseAgent):
                 "TRAVEL DEBUG — User asked for round-trip but GPT did not provide return_date!"
             )
 
-        self.logger.info(
+        self.logger.debug(
             "TRAVEL DEBUG — FINAL search params: origin=%s dest=%s departure=%s return_date=%s (one-way=%s)",
             origin,
             destination,
@@ -183,7 +183,7 @@ class TravelAgent(BaseAgent):
 
         offers = result.get("offers", [])
 
-        self.logger.info(
+        self.logger.debug(
             "TRAVEL DEBUG — Duffel returned %d offers (showing max 5)",
             result.get("total_found", 0),
         )

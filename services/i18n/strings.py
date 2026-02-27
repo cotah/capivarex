@@ -223,9 +223,161 @@ STRINGS: Dict[str, Dict[str, str]] = {
     # SMARTHOME AGENT
     # ══════════════════════════════════════════════════════════════════════════
     "smarthome_service_unavailable": {
-        "en": "Smart home service unavailable.",
-        "pt": "Serviço de casa inteligente não disponível.",
-        "es": "Servicio de casa inteligente no disponible.",
+        "en": "Smart home service unavailable. Check the configuration.",
+        "pt": "Serviço SmartThings não disponível. Verifique a configuração.",
+        "es": "Servicio de casa inteligente no disponible. Verifica la configuración.",
+    },
+    "smarthome_not_connected": {
+        "en": "🏠 SmartThings not connected\n\n"
+        "Click the link below to connect your Samsung/SmartThings account:\n\n"
+        "🔗 {url}\n\n"
+        "After authorizing, your devices will become available.",
+        "pt": "🏠 SmartThings não conectado\n\n"
+        "Clica no link abaixo para ligar a tua conta Samsung/SmartThings:\n\n"
+        "🔗 {url}\n\n"
+        "Após autorizar, os teus dispositivos ficarão disponíveis.",
+        "es": "🏠 SmartThings no conectado\n\n"
+        "Haz clic en el enlace para conectar tu cuenta Samsung/SmartThings:\n\n"
+        "🔗 {url}\n\n"
+        "Después de autorizar, tus dispositivos estarán disponibles.",
+    },
+    "smarthome_not_connected_no_config": {
+        "en": "🏠 SmartThings not connected\n\n"
+        "Configure SMARTTHINGS_CLIENT_ID and SMARTTHINGS_REDIRECT_URI on Railway.",
+        "pt": "🏠 SmartThings não conectado\n\n"
+        "Configura SMARTTHINGS_CLIENT_ID e SMARTTHINGS_REDIRECT_URI no Railway.",
+        "es": "🏠 SmartThings no conectado\n\n"
+        "Configura SMARTTHINGS_CLIENT_ID y SMARTTHINGS_REDIRECT_URI en Railway.",
+    },
+    "smarthome_no_devices": {
+        "en": "No devices found on your SmartThings account.",
+        "pt": "Nenhum dispositivo encontrado na sua conta SmartThings.",
+        "es": "No se encontraron dispositivos en tu cuenta SmartThings.",
+    },
+    "smarthome_devices_header": {
+        "en": "🏠 Your SmartThings Devices\n",
+        "pt": "🏠 Seus Dispositivos SmartThings\n",
+        "es": "🏠 Tus Dispositivos SmartThings\n",
+    },
+    "smarthome_devices_total": {
+        "en": "\nTotal: {count} devices",
+        "pt": "\nTotal: {count} dispositivos",
+        "es": "\nTotal: {count} dispositivos",
+    },
+    "smarthome_device_unnamed": {
+        "en": "Unnamed",
+        "pt": "Sem nome",
+        "es": "Sin nombre",
+    },
+    "smarthome_device_unknown_type": {
+        "en": "Unknown",
+        "pt": "Desconhecido",
+        "es": "Desconocido",
+    },
+    "smarthome_device_not_found": {
+        "en": "Device '{name}' not found.\nSay 'list devices' to see all available.",
+        "pt": "Não encontrei o dispositivo '{name}'.\nDiga 'listar dispositivos' para ver todos os disponíveis.",
+        "es": "No encontré el dispositivo '{name}'.\nDi 'listar dispositivos' para ver todos los disponibles.",
+    },
+    "smarthome_lock_not_found": {
+        "en": "Lock not found. Say 'list devices' to see all available.",
+        "pt": "Não encontrei a fechadura. Diga 'listar dispositivos' para ver todos.",
+        "es": "No encontré la cerradura. Di 'listar dispositivos' para ver todos.",
+    },
+    "smarthome_thermostat_not_found": {
+        "en": "Thermostat not found. Say 'list devices' to see all available.",
+        "pt": "Não encontrei o termostato. Diga 'listar dispositivos' para ver todos.",
+        "es": "No encontré el termostato. Di 'listar dispositivos' para ver todos.",
+    },
+    "smarthome_turned_on": {
+        "en": "✅ {label} turned on!",
+        "pt": "✅ {label} ligado!",
+        "es": "✅ {label} encendido!",
+    },
+    "smarthome_turned_on_brightness": {
+        "en": "💡 {label} turned on with brightness at {brightness}%!",
+        "pt": "💡 {label} ligado com brilho em {brightness}%!",
+        "es": "💡 {label} encendido con brillo al {brightness}%!",
+    },
+    "smarthome_turn_on_error": {
+        "en": "❌ Error turning on {label}.",
+        "pt": "❌ Erro ao ligar {label}.",
+        "es": "❌ Error al encender {label}.",
+    },
+    "smarthome_turned_off": {
+        "en": "⭕ {label} turned off!",
+        "pt": "⭕ {label} desligado!",
+        "es": "⭕ {label} apagado!",
+    },
+    "smarthome_turn_off_error": {
+        "en": "❌ Error turning off {label}.",
+        "pt": "❌ Erro ao desligar {label}.",
+        "es": "❌ Error al apagar {label}.",
+    },
+    "smarthome_brightness_set": {
+        "en": "💡 {label} brightness set to {brightness}%!",
+        "pt": "💡 Brilho de {label} ajustado para {brightness}%!",
+        "es": "💡 Brillo de {label} ajustado al {brightness}%!",
+    },
+    "smarthome_brightness_error": {
+        "en": "❌ Error adjusting brightness of {label}.",
+        "pt": "❌ Erro ao ajustar brilho de {label}.",
+        "es": "❌ Error al ajustar brillo de {label}.",
+    },
+    "smarthome_locked": {
+        "en": "🔒 {label} locked!",
+        "pt": "🔒 {label} trancado!",
+        "es": "🔒 {label} bloqueado!",
+    },
+    "smarthome_lock_error": {
+        "en": "❌ Error locking {label}.",
+        "pt": "❌ Erro ao trancar {label}.",
+        "es": "❌ Error al bloquear {label}.",
+    },
+    "smarthome_unlocked": {
+        "en": "🔓 {label} unlocked!",
+        "pt": "🔓 {label} destrancado!",
+        "es": "🔓 {label} desbloqueado!",
+    },
+    "smarthome_unlock_error": {
+        "en": "❌ Error unlocking {label}.",
+        "pt": "❌ Erro ao destrancar {label}.",
+        "es": "❌ Error al desbloquear {label}.",
+    },
+    "smarthome_thermostat_set": {
+        "en": "🌡️ {label} set to {temperature}°C!",
+        "pt": "🌡️ {label} ajustado para {temperature}°C!",
+        "es": "🌡️ {label} ajustado a {temperature}°C!",
+    },
+    "smarthome_thermostat_error": {
+        "en": "❌ Error adjusting temperature of {label}.",
+        "pt": "❌ Erro ao ajustar temperatura de {label}.",
+        "es": "❌ Error al ajustar temperatura de {label}.",
+    },
+    "smarthome_status_on": {
+        "en": "On ✅",
+        "pt": "Ligado ✅",
+        "es": "Encendido ✅",
+    },
+    "smarthome_status_off": {
+        "en": "Off ⭕",
+        "pt": "Desligado ⭕",
+        "es": "Apagado ⭕",
+    },
+    "smarthome_ai_unavailable": {
+        "en": "AI service unavailable to answer your question.",
+        "pt": "Serviço de IA não disponível para responder sua pergunta.",
+        "es": "Servicio de IA no disponible para responder tu pregunta.",
+    },
+    "smarthome_general_error": {
+        "en": "Error processing your question: {error}",
+        "pt": "Erro ao processar sua pergunta: {error}",
+        "es": "Error al procesar tu pregunta: {error}",
+    },
+    "smarthome_command_error": {
+        "en": "Error processing smart home command: {error}",
+        "pt": "Erro ao processar comando de casa inteligente: {error}",
+        "es": "Error al procesar comando de casa inteligente: {error}",
     },
     # ══════════════════════════════════════════════════════════════════════════
     # RESEARCH AGENT
