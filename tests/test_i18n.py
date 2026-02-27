@@ -113,6 +113,24 @@ def test_get_user_lang_preferences():
     assert get_user_lang(ctx) == "es"
 
 
+def test_get_user_lang_preferred_language():
+    """preferred_language column name (alternative to language)."""
+    ctx = {"user_preferences": {"preferred_language": "pt"}}
+    assert get_user_lang(ctx) == "pt"
+
+
+def test_get_user_lang_prefs_not_dict():
+    """user_preferences that isn't a dict should not crash."""
+    ctx = {"user_preferences": "pt"}
+    assert get_user_lang(ctx) == "en"
+
+
+def test_get_user_lang_prefs_unsupported():
+    """Unsupported language in preferences falls back."""
+    ctx = {"user_preferences": {"language": "ja"}}
+    assert get_user_lang(ctx) == "en"
+
+
 def test_get_user_lang_priority():
     """Explicit lang > preferences > telegram."""
     ctx = {
@@ -314,3 +332,71 @@ def test_service_unavailable_strings_for_all_agents():
         if key not in STRINGS:
             missing.append(key)
     assert not missing, f"Missing service_unavailable strings: {missing}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HOTEL / TRAVEL I18N STRINGS
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_get_chat_prompt_pt():
+    result = get_chat_prompt("pt")
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_get_chat_prompt_none_fallback():
+    result = get_chat_prompt(None)
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_models_schemas_import():
+    """Ensure models/schemas.py can be imported successfully."""
+    from models.schemas import UserBase
+
+    u = UserBase(email="a@b.com")
+    assert u.email == "a@b.com"
+
+
+def test_hotel_need_location_all_langs():
+    for lang in SUPPORTED_LANGS:
+        result = t("hotel_need_location", lang=lang)
+        assert "hotel" in result.lower() or "hotéis" in result.lower() or "hoteles" in result.lower()
+
+
+def test_hotel_need_dates_all_langs():
+    for lang in SUPPORTED_LANGS:
+        result = t("hotel_need_dates", lang=lang)
+        assert "check-in" in result.lower() or "check_in" in result.lower()
+
+
+def test_hotel_search_result_en():
+    result = t(
+        "hotel_search_result",
+        lang="en",
+        city="Dublin",
+        checkin="April 15",
+        checkout="April 18",
+        adults=2,
+        rooms=1,
+        url="https://www.booking.com/searchresults.html?ss=Dublin",
+    )
+    assert "Dublin" in result
+    assert "April 15" in result
+    assert "Booking.com" in result
+
+
+def test_hotel_search_result_pt():
+    result = t(
+        "hotel_search_result",
+        lang="pt",
+        city="Lisboa",
+        checkin="15 de abril",
+        checkout="18 de abril",
+        adults=2,
+        rooms=1,
+        url="https://www.booking.com/searchresults.html?ss=Lisboa",
+    )
+    assert "Lisboa" in result
+    assert "Booking.com" in result

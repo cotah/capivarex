@@ -318,6 +318,43 @@ class TestTravelAgentFlightSearch:
                 call_args = mock_svc.search_flights.call_args
                 assert len(call_args.kwargs.get("passengers", [])) == 3
 
+    @pytest.mark.asyncio
+    async def test_force_one_way_removes_return_date(self):
+        """GPT gives return_date but user didn't ask for round-trip → force one-way."""
+        agent = _make_travel_agent()
+        mock_svc = _mock_duffel()
+        mock_svc.search_flights = AsyncMock(
+            return_value={
+                "offer_request_id": "orq_5",
+                "total_found": 0,
+                "offers": [],
+                "passengers": [],
+            }
+        )
+
+        # GPT wrongly sets return_date, but user text has no round-trip keywords
+        intent = {
+            "type": "flight",
+            "origin": "DUB",
+            "destination": "LHR",
+            "departure_date": "2026-04-15",
+            "return_date": "2026-04-22",
+            "cabin_class": "economy",
+            "passengers": 1,
+            "_original_prompt": "fly Dublin to London April 15",
+        }
+
+        with patch(
+            "agents.specialized.travel_agent.get_service", return_value=mock_svc
+        ):
+            with patch.object(
+                agent, "_parse_intent", new_callable=AsyncMock, return_value=intent
+            ):
+                await agent.execute("fly Dublin to London April 15", {})
+                call_args = mock_svc.search_flights.call_args
+                # return_date should have been forced to None
+                assert call_args.kwargs.get("return_date") is None
+
 
 # ------------------------------------------------------------------- #
 # Stay search                                                           #
@@ -326,34 +363,21 @@ class TestTravelAgentFlightSearch:
 
 class TestTravelAgentStaySearch:
     @pytest.mark.asyncio
-    async def test_stay_search_success(self):
+    async def test_stay_search_booking_url(self):
+        """Stay search returns Booking.com pre-filled URL."""
         agent = _make_travel_agent()
         mock_svc = _mock_duffel()
-        mock_svc.search_stays = AsyncMock(
-            return_value=[
-                {
-                    "id": "sr_1",
-                    "cheapest_rate_total_amount": "120.00",
-                    "cheapest_rate_total_currency": "EUR",
-                    "accommodation": {
-                        "name": "Grand Hotel",
-                        "rating": 4,
-                        "review_score": 8.5,
-                    },
-                },
-            ]
+        mock_svc.build_booking_url = MagicMock(
+            return_value="https://www.booking.com/searchresults.html?ss=Dublin&checkin=2026-04-15&checkout=2026-04-18&group_adults=2&no_rooms=1&group_children=0"
         )
-        mock_svc.format_stay_result = lambda r: f"🏨 {r['accommodation']['name']}"
 
         intent = {
             "type": "stay",
             "location": "Dublin",
-            "latitude": 53.35,
-            "longitude": -6.26,
             "check_in": "2026-04-15",
             "check_out": "2026-04-18",
             "rooms": 1,
-            "guests": 1,
+            "guests": 2,
         }
 
         with patch(
@@ -363,24 +387,29 @@ class TestTravelAgentStaySearch:
                 agent, "_parse_intent", new_callable=AsyncMock, return_value=intent
             ):
                 result = await agent.execute("hotel in Dublin April 15-18", {})
-                assert "Grand Hotel" in result.response
-                assert result.data["results"][0]["name"] == "Grand Hotel"
+                assert result.status.value == "success"
+                assert "booking.com" in result.response.lower()
+                assert "Dublin" in result.response
+                assert result.data["booking_url"].startswith("https://www.booking.com")
+                assert result.data["city"] == "Dublin"
+                mock_svc.build_booking_url.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_stay_search_no_results(self):
+    async def test_stay_search_data_fields(self):
+        """Stay search result data contains all expected fields."""
         agent = _make_travel_agent()
         mock_svc = _mock_duffel()
-        mock_svc.search_stays = AsyncMock(return_value=[])
+        mock_svc.build_booking_url = MagicMock(
+            return_value="https://www.booking.com/searchresults.html?ss=Paris"
+        )
 
         intent = {
             "type": "stay",
-            "location": "Middle of Nowhere",
-            "latitude": 10.0,
-            "longitude": 10.0,
-            "check_in": "2026-04-15",
-            "check_out": "2026-04-18",
-            "rooms": 1,
-            "guests": 1,
+            "location": "Paris",
+            "check_in": "2026-05-01",
+            "check_out": "2026-05-05",
+            "rooms": 2,
+            "guests": 3,
         }
 
         with patch(
@@ -389,10 +418,43 @@ class TestTravelAgentStaySearch:
             with patch.object(
                 agent, "_parse_intent", new_callable=AsyncMock, return_value=intent
             ):
-                result = await agent.execute("hotel in nowhere", {})
-                assert (
-                    "No accommodation" in result.response or "Nenhum" in result.response
-                )
+                result = await agent.execute("hotel in Paris May 1-5", {})
+                assert result.data["city"] == "Paris"
+                assert result.data["check_in"] == "2026-05-01"
+                assert result.data["check_out"] == "2026-05-05"
+                assert result.data["adults"] == 3
+                assert result.data["rooms"] == 2
+
+    @pytest.mark.asyncio
+    async def test_stay_search_pt(self):
+        """Stay search responds in Portuguese."""
+        agent = _make_travel_agent()
+        mock_svc = _mock_duffel()
+        mock_svc.build_booking_url = MagicMock(
+            return_value="https://www.booking.com/searchresults.html?ss=Lisboa"
+        )
+
+        intent = {
+            "type": "stay",
+            "location": "Lisboa",
+            "check_in": "2026-04-15",
+            "check_out": "2026-04-18",
+            "rooms": 1,
+            "guests": 2,
+        }
+
+        with patch(
+            "agents.specialized.travel_agent.get_service", return_value=mock_svc
+        ):
+            with patch.object(
+                agent, "_parse_intent", new_callable=AsyncMock, return_value=intent
+            ):
+                with patch(
+                    "agents.specialized.travel_agent.get_user_lang", return_value="pt"
+                ):
+                    result = await agent.execute("hotel em Lisboa", {})
+                    assert "Booking.com" in result.response
+                    assert "Lisboa" in result.response
 
     @pytest.mark.asyncio
     async def test_stay_missing_dates(self):
@@ -402,8 +464,6 @@ class TestTravelAgentStaySearch:
         intent = {
             "type": "stay",
             "location": "Dublin",
-            "latitude": 53.35,
-            "longitude": -6.26,
             "check_in": "",
             "check_out": "",
             "rooms": 1,
@@ -419,47 +479,18 @@ class TestTravelAgentStaySearch:
                 result = await agent.execute("hotel in Dublin", {})
                 assert (
                     "check-in" in result.response.lower()
-                    or "check_in" in result.response.lower()
+                    or "dates" in result.response.lower()
                     or "datas" in result.response.lower()
                 )
 
     @pytest.mark.asyncio
-    async def test_stay_no_coords_uses_context_gps(self):
-        agent = _make_travel_agent()
-        mock_svc = _mock_duffel()
-        mock_svc.search_stays = AsyncMock(return_value=[])
-
-        intent = {
-            "type": "stay",
-            "location": "here",
-            "latitude": None,
-            "longitude": None,
-            "check_in": "2026-04-15",
-            "check_out": "2026-04-18",
-            "rooms": 1,
-            "guests": 1,
-        }
-        context = {"latitude": 53.35, "longitude": -6.26}
-
-        with patch(
-            "agents.specialized.travel_agent.get_service", return_value=mock_svc
-        ):
-            with patch.object(
-                agent, "_parse_intent", new_callable=AsyncMock, return_value=intent
-            ):
-                await agent.execute("hotel near me", context)
-                mock_svc.search_stays.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_stay_no_coords_no_gps(self):
+    async def test_stay_no_location(self):
         agent = _make_travel_agent()
         mock_svc = _mock_duffel()
 
         intent = {
             "type": "stay",
             "location": "",
-            "latitude": None,
-            "longitude": None,
             "check_in": "2026-04-15",
             "check_out": "2026-04-18",
             "rooms": 1,
@@ -474,7 +505,9 @@ class TestTravelAgentStaySearch:
             ):
                 result = await agent.execute("hotel somewhere", {})
                 assert (
-                    "location" in result.response.lower()
+                    "city" in result.response.lower()
+                    or "location" in result.response.lower()
+                    or "cidade" in result.response.lower()
                     or "localização" in result.response.lower()
                 )
 
@@ -512,15 +545,14 @@ class TestTravelAgentErrors:
 
     @pytest.mark.asyncio
     async def test_stay_search_exception(self):
+        """build_booking_url raising should be caught by the global handler."""
         agent = _make_travel_agent()
         mock_svc = _mock_duffel()
-        mock_svc.search_stays = AsyncMock(side_effect=Exception("timeout"))
+        mock_svc.build_booking_url = MagicMock(side_effect=Exception("url error"))
 
         intent = {
             "type": "stay",
             "location": "Dublin",
-            "latitude": 53.35,
-            "longitude": -6.26,
             "check_in": "2026-04-15",
             "check_out": "2026-04-18",
             "rooms": 1,

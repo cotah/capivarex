@@ -497,6 +497,51 @@ class TestFormatFlightOffer:
         assert "EasyJet" in text
 
 
+class TestBuildBookingUrl:
+    def test_basic_url(self):
+        from services.integrations.duffel_service import DuffelService
+
+        url = DuffelService.build_booking_url(
+            city="Dublin",
+            checkin="2026-04-15",
+            checkout="2026-04-18",
+        )
+        assert url.startswith("https://www.booking.com/searchresults.html?")
+        assert "ss=Dublin" in url
+        assert "checkin=2026-04-15" in url
+        assert "checkout=2026-04-18" in url
+        assert "group_adults=2" in url
+        assert "no_rooms=1" in url
+        assert "group_children=0" in url
+
+    def test_custom_params(self):
+        from services.integrations.duffel_service import DuffelService
+
+        url = DuffelService.build_booking_url(
+            city="São Paulo",
+            checkin="2026-05-01",
+            checkout="2026-05-05",
+            adults=3,
+            rooms=2,
+            children=1,
+        )
+        assert "group_adults=3" in url
+        assert "no_rooms=2" in url
+        assert "group_children=1" in url
+        # City with special chars should be URL-encoded
+        assert "S%C3%A3o+Paulo" in url or "S%C3%A3o%20Paulo" in url
+
+    def test_city_with_spaces(self):
+        from services.integrations.duffel_service import DuffelService
+
+        url = DuffelService.build_booking_url(
+            city="New York",
+            checkin="2026-06-01",
+            checkout="2026-06-05",
+        )
+        assert "ss=New+York" in url or "ss=New%20York" in url
+
+
 class TestFormatStayResult:
     def test_basic(self):
         from services.integrations.duffel_service import DuffelService

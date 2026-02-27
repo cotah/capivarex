@@ -422,3 +422,43 @@ class DuffelService(BaseService):
         review_text = f" | Score: {review}/10" if review else ""
 
         return f"🏨 **{name}** {stars}{review_text}\n   From {currency} {price}"
+
+    # ================================================================== #
+    #  Booking.com fallback link                                           #
+    # ================================================================== #
+
+    @staticmethod
+    def build_booking_url(
+        city: str,
+        checkin: str,
+        checkout: str,
+        adults: int = 2,
+        rooms: int = 1,
+        children: int = 0,
+    ) -> str:
+        """Build a pre-filled Booking.com search URL.
+
+        Args:
+            city: City name (e.g. "Dublin").
+            checkin: Check-in date "YYYY-MM-DD".
+            checkout: Check-out date "YYYY-MM-DD".
+            adults: Number of adults (default 2).
+            rooms: Number of rooms (default 1).
+            children: Number of children (default 0).
+
+        Returns:
+            Fully-formed Booking.com search URL.
+        """
+        from urllib.parse import quote_plus
+
+        base = "https://www.booking.com/searchresults.html"
+        params = {
+            "ss": city,
+            "checkin": checkin,
+            "checkout": checkout,
+            "group_adults": str(adults),
+            "no_rooms": str(rooms),
+            "group_children": str(children),
+        }
+        query = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
+        return f"{base}?{query}"

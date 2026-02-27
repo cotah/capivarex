@@ -543,6 +543,42 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "Necesito tu ubicación de origen. ¿Dónde estás?",
     },
     # ══════════════════════════════════════════════════════════════════════════
+    # TRAVEL AGENT (hotel/stay search)
+    # ══════════════════════════════════════════════════════════════════════════
+    "hotel_need_location": {
+        "en": "🏨 I need a city or location to search for hotels.\n\n"
+        'Example: "Hotel in Paris from April 15 to April 18"',
+        "pt": "🏨 Preciso de uma cidade ou localização para buscar hotéis.\n\n"
+        'Exemplo: "Hotel em Paris de 15 a 18 de abril"',
+        "es": "🏨 Necesito una ciudad o ubicación para buscar hoteles.\n\n"
+        'Ejemplo: "Hotel en París del 15 al 18 de abril"',
+    },
+    "hotel_need_dates": {
+        "en": "🏨 I need check-in and check-out dates to search for hotels.\n\n"
+        'Example: "Hotel in Dublin from March 20 for 3 nights"',
+        "pt": "🏨 Preciso das datas de check-in e check-out para buscar hotéis.\n\n"
+        'Exemplo: "Hotel em Dublin a partir de 20 de março por 3 noites"',
+        "es": "🏨 Necesito las fechas de check-in y check-out para buscar hoteles.\n\n"
+        'Ejemplo: "Hotel en Dublín desde el 20 de marzo por 3 noches"',
+    },
+    "hotel_search_result": {
+        "en": "🏨 **Hotels in {city}**\n"
+        "📅 {checkin} → {checkout} | 👥 {adults} adult(s) | 🛏️ {rooms} room(s)\n\n"
+        "🔗 [Search on Booking.com]({url})\n\n"
+        "Click the link above to see available hotels with prices and reviews. "
+        "You can filter by stars, price range, and amenities on Booking.com.",
+        "pt": "🏨 **Hotéis em {city}**\n"
+        "📅 {checkin} → {checkout} | 👥 {adults} adulto(s) | 🛏️ {rooms} quarto(s)\n\n"
+        "🔗 [Pesquisar no Booking.com]({url})\n\n"
+        "Clique no link acima para ver hotéis disponíveis com preços e avaliações. "
+        "Pode filtrar por estrelas, faixa de preço e comodidades no Booking.com.",
+        "es": "🏨 **Hoteles en {city}**\n"
+        "📅 {checkin} → {checkout} | 👥 {adults} adulto(s) | 🛏️ {rooms} habitación(es)\n\n"
+        "🔗 [Buscar en Booking.com]({url})\n\n"
+        "Haz clic en el enlace para ver hoteles disponibles con precios y reseñas. "
+        "Puedes filtrar por estrellas, rango de precios y comodidades en Booking.com.",
+    },
+    # ══════════════════════════════════════════════════════════════════════════
     # EMAIL AGENT
     # ══════════════════════════════════════════════════════════════════════════
     "email_service_unavailable": {

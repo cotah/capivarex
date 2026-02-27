@@ -257,98 +257,61 @@ class TravelAgent(BaseAgent):
         check_in = intent.get("check_in", "")
         check_out = intent.get("check_out", "")
         location_name = intent.get("location", "")
-        lat = intent.get("latitude")
-        lng = intent.get("longitude")
         rooms = intent.get("rooms", 1)
-        guests_count = intent.get("guests", 1)
+        guests_count = intent.get("guests", 2)
 
-        # If no coordinates, try to use user's GPS or geocode
-        if not lat or not lng:
-            # Try user GPS from context
-            lat = context.get("latitude")
-            lng = context.get("longitude")
-
-            if not lat or not lng:
-                msg = (
-                    "I need a location with coordinates to search stays. "
-                    "Please include a city name or share your GPS location.\n\n"
-                    'Example: "Find hotel in Paris from April 15 to April 18"'
-                    if lang == "en"
-                    else "Preciso de uma localização com coordenadas para buscar estadias. "
-                    "Por favor inclua o nome da cidade ou compartilhe sua localização GPS.\n\n"
-                    'Exemplo: "Encontrar hotel em Paris de 15 a 18 de abril"'
-                )
-                return AgentResponse(status=AgentStatus.SUCCESS, response=msg)
+        if not location_name:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t("hotel_need_location", lang=lang),
+            )
 
         if not check_in or not check_out:
-            msg = (
-                "I need check-in and check-out dates to search. "
-                'Example: "Hotel in Dublin from March 20 to March 23"'
-                if lang == "en"
-                else "Preciso das datas de check-in e check-out. "
-                'Exemplo: "Hotel em Dublin de 20 a 23 de março"'
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t("hotel_need_dates", lang=lang),
             )
-            return AgentResponse(status=AgentStatus.SUCCESS, response=msg)
 
-        guests = [{"type": "adult"} for _ in range(guests_count)]
-
-        results = await duffel.search_stays(
-            latitude=float(lat),
-            longitude=float(lng),
-            check_in=check_in,
-            check_out=check_out,
-            guests=guests,
+        # Build Booking.com pre-filled link
+        booking_url = duffel.build_booking_url(
+            city=location_name,
+            checkin=check_in,
+            checkout=check_out,
+            adults=guests_count,
             rooms=rooms,
-            max_results=5,
         )
 
-        if not results:
-            msg = (
-                f"No accommodation found near {location_name or 'your location'} "
-                f"for {check_in} to {check_out}. Try expanding dates or location."
-                if lang == "en"
-                else f"Nenhum alojamento encontrado perto de {location_name or 'sua localização'} "
-                f"para {check_in} a {check_out}. Tente expandir datas ou localização."
-            )
-            return AgentResponse(status=AgentStatus.SUCCESS, response=msg)
+        # Format human-friendly dates
+        try:
+            ci = datetime.strptime(check_in, "%Y-%m-%d")
+            co = datetime.strptime(check_out, "%Y-%m-%d")
+            checkin_fmt = ci.strftime("%B %d")
+            checkout_fmt = co.strftime("%B %d")
+        except ValueError:
+            checkin_fmt = check_in
+            checkout_fmt = check_out
 
-        # Format results
-        location_label = location_name or f"{lat},{lng}"
-        header = (
-            f"🏨 **{len(results)} stays found near {location_label}:**\n"
-            f"📅 {check_in} → {check_out}\n\n"
-            if lang == "en"
-            else f"🏨 **{len(results)} estadias encontradas perto de {location_label}:**\n"
-            f"📅 {check_in} → {check_out}\n\n"
+        response = t(
+            "hotel_search_result",
+            lang=lang,
+            city=location_name,
+            checkin=checkin_fmt,
+            checkout=checkout_fmt,
+            adults=guests_count,
+            rooms=rooms,
+            url=booking_url,
         )
-
-        lines = [header]
-        for i, result in enumerate(results, 1):
-            lines.append(f"**{i}.** {duffel.format_stay_result(result)}")
-            lines.append("")
-
-        footer = (
-            "\n💡 Search for these hotels on [Booking.com](https://www.booking.com) "
-            "or [Hotels.com](https://www.hotels.com) to book directly."
-            if lang == "en"
-            else "\n💡 Pesquise esses hotéis no [Booking.com](https://www.booking.com) "
-            "ou [Hotels.com](https://www.hotels.com) para reservar diretamente."
-        )
-        lines.append(footer)
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response="\n".join(lines),
+            response=response,
             data={
-                "results": [
-                    {
-                        "id": r.get("id"),
-                        "name": r.get("accommodation", {}).get("name"),
-                        "price": r.get("cheapest_rate_total_amount"),
-                        "currency": r.get("cheapest_rate_total_currency"),
-                    }
-                    for r in results
-                ]
+                "booking_url": booking_url,
+                "city": location_name,
+                "check_in": check_in,
+                "check_out": check_out,
+                "adults": guests_count,
+                "rooms": rooms,
             },
         )
 
