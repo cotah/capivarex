@@ -53,6 +53,7 @@ ALLOWED_AGENTS = {
     "restaurant",
     "email",
     "transport",  # Transporte público (autocarro, DART, Luas, comboio)
+    "travel",  # FIX: Viagens/voos via Duffel (estava no schema mas faltava aqui)
     "twilio",  # FIX: Phone calls via Twilio (credenciais configuradas)
 }
 
