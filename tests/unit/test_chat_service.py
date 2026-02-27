@@ -25,6 +25,7 @@ def _make_service(ws=None, user_id="u1", user_plan="basic"):
 # Dispatch routing
 # -------------------------------------------------------------------
 
+
 class TestChatServiceDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_known_action(self):
@@ -54,8 +55,17 @@ class TestChatServiceDispatch:
         """Every action in _ACTION_HANDLERS maps to a callable."""
         svc, _ = _make_service()
         expected = {
-            "search", "dev", "image", "video", "voice",
-            "finance", "calendar", "weather", "traffic", "car", "chat",
+            "search",
+            "dev",
+            "image",
+            "video",
+            "voice",
+            "finance",
+            "calendar",
+            "weather",
+            "traffic",
+            "car",
+            "chat",
         }
         assert set(svc._ACTION_HANDLERS.keys()) == expected
 
@@ -64,10 +74,35 @@ class TestChatServiceDispatch:
 # Handler: search
 # -------------------------------------------------------------------
 
+
 class TestHandleSearch:
     @pytest.mark.asyncio
-    async def test_search_success(self):
+    async def test_search_success_serper(self):
+        """Serper (SearchAgent) returns a result — no Perplexity fallback needed."""
         svc, ws = _make_service()
+
+        from agents.core import AgentResponse, AgentStatus
+
+        mock_agent = AsyncMock()
+        mock_agent.execute = AsyncMock(
+            return_value=AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="Serper result text",
+            )
+        )
+
+        with patch(
+            "services.business.chat_service.get_agent", return_value=mock_agent
+        ):
+            result = await svc._handle_search("what is AI", {"query": "AI"}, [])
+
+        assert "Serper result text" in result
+
+    @pytest.mark.asyncio
+    async def test_search_fallback_perplexity(self):
+        """When SearchAgent fails, falls back to Perplexity."""
+        svc, ws = _make_service()
+
         mock_perplexity = Mock()
         mock_perplexity.search = AsyncMock(
             return_value={"answer": "AI is cool", "sources": ["src1"]}
@@ -81,9 +116,16 @@ class TestHandleSearch:
         mock_openai.stream_chat_completion = _stream
         svc._openai_svc = mock_openai
 
-        with patch(
-            "services.business.chat_service.get_service",
-            side_effect=lambda name: mock_perplexity if name == "perplexity" else None,
+        with (
+            patch(
+                "services.business.chat_service.get_agent", return_value=None
+            ),
+            patch(
+                "services.business.chat_service.get_service",
+                side_effect=lambda name: mock_perplexity
+                if name == "perplexity"
+                else None,
+            ),
         ):
             result = await svc._handle_search("what is AI", {"query": "AI"}, [])
 
@@ -91,7 +133,7 @@ class TestHandleSearch:
 
     @pytest.mark.asyncio
     async def test_search_no_perplexity(self):
-        """Search works even when perplexity is unavailable."""
+        """Search works even when both Serper and Perplexity are unavailable."""
         svc, ws = _make_service()
 
         async def _stream(msgs):
@@ -100,7 +142,10 @@ class TestHandleSearch:
         svc._openai_svc = Mock()
         svc._openai_svc.stream_chat_completion = _stream
 
-        with patch("services.business.chat_service.get_service", return_value=None):
+        with (
+            patch("services.business.chat_service.get_agent", return_value=None),
+            patch("services.business.chat_service.get_service", return_value=None),
+        ):
             result = await svc._handle_search("query", {}, [])
         assert "fallback" in result
 
@@ -108,6 +153,7 @@ class TestHandleSearch:
 # -------------------------------------------------------------------
 # Handler: dev
 # -------------------------------------------------------------------
+
 
 class TestHandleDev:
     @pytest.mark.asyncio
@@ -147,16 +193,24 @@ class TestHandleDev:
 # Handler: finance
 # -------------------------------------------------------------------
 
+
 class TestHandleFinance:
     @pytest.mark.asyncio
     async def test_finance_success(self):
         svc, ws = _make_service()
         mock_fin = Mock()
-        mock_fin.get_quote = AsyncMock(return_value={
-            "name": "Apple", "symbol": "AAPL", "price": 150.0,
-            "currency": "USD", "change": 2.5, "percent_change": 1.5,
-            "high": 152.0, "low": 148.0,
-        })
+        mock_fin.get_quote = AsyncMock(
+            return_value={
+                "name": "Apple",
+                "symbol": "AAPL",
+                "price": 150.0,
+                "currency": "USD",
+                "change": 2.5,
+                "percent_change": 1.5,
+                "high": 152.0,
+                "low": 148.0,
+            }
+        )
         with patch("services.business.chat_service.get_service", return_value=mock_fin):
             result = await svc._handle_finance("cotacao", {"symbol": "AAPL"}, [])
         assert "AAPL" in result
@@ -174,16 +228,28 @@ class TestHandleFinance:
 # Handler: weather
 # -------------------------------------------------------------------
 
+
 class TestHandleWeather:
     @pytest.mark.asyncio
     async def test_weather_success(self):
         svc, ws = _make_service()
         mock_weather = Mock()
-        mock_weather.get_forecast = AsyncMock(return_value={
-            "location": {"name": "Dublin", "region": "Leinster"},
-            "forecast": [{"condition": "Cloudy", "max_temp_c": 12, "min_temp_c": 5, "chance_of_rain": 60}],
-        })
-        with patch("services.business.chat_service.get_service", return_value=mock_weather):
+        mock_weather.get_forecast = AsyncMock(
+            return_value={
+                "location": {"name": "Dublin", "region": "Leinster"},
+                "forecast": [
+                    {
+                        "condition": "Cloudy",
+                        "max_temp_c": 12,
+                        "min_temp_c": 5,
+                        "chance_of_rain": 60,
+                    }
+                ],
+            }
+        )
+        with patch(
+            "services.business.chat_service.get_service", return_value=mock_weather
+        ):
             result = await svc._handle_weather("tempo", {"location": "Dublin"}, [])
         assert "Dublin" in result
         assert "Cloudy" in result
@@ -192,8 +258,12 @@ class TestHandleWeather:
     async def test_weather_no_forecast(self):
         svc, ws = _make_service()
         mock_weather = Mock()
-        mock_weather.get_forecast = AsyncMock(return_value={"location": {}, "forecast": []})
-        with patch("services.business.chat_service.get_service", return_value=mock_weather):
+        mock_weather.get_forecast = AsyncMock(
+            return_value={"location": {}, "forecast": []}
+        )
+        with patch(
+            "services.business.chat_service.get_service", return_value=mock_weather
+        ):
             result = await svc._handle_weather("tempo", {}, [])
         assert "Nao foi possivel" in result
 
@@ -201,6 +271,7 @@ class TestHandleWeather:
 # -------------------------------------------------------------------
 # Handler: chat
 # -------------------------------------------------------------------
+
 
 class TestHandleChat:
     @pytest.mark.asyncio
@@ -227,14 +298,19 @@ class TestHandleChat:
 # Handler: traffic
 # -------------------------------------------------------------------
 
+
 class TestHandleTraffic:
     @pytest.mark.asyncio
     async def test_traffic_success(self):
         svc, ws = _make_service()
         mock_traffic = Mock()
         mock_traffic.get_traffic_summary = AsyncMock(return_value="30 min de viagem")
-        with patch("services.business.chat_service.get_service", return_value=mock_traffic):
-            result = await svc._handle_traffic("trafego", {"origin": "A", "destination": "B"}, [])
+        with patch(
+            "services.business.chat_service.get_service", return_value=mock_traffic
+        ):
+            result = await svc._handle_traffic(
+                "trafego", {"origin": "A", "destination": "B"}, []
+            )
         assert result == "30 min de viagem"
 
     @pytest.mark.asyncio
@@ -248,6 +324,7 @@ class TestHandleTraffic:
 # -------------------------------------------------------------------
 # Handler: voice
 # -------------------------------------------------------------------
+
 
 class TestHandleVoice:
     @pytest.mark.asyncio
@@ -274,6 +351,7 @@ class TestHandleVoice:
 # Handler: image
 # -------------------------------------------------------------------
 
+
 class TestHandleImage:
     @pytest.mark.asyncio
     async def test_image_success(self):
@@ -282,7 +360,9 @@ class TestHandleImage:
         mock_image.generate_image = AsyncMock(
             return_value={"success": True, "image_path": "/img/cat.png"}
         )
-        with patch("services.business.chat_service.get_service", return_value=mock_image):
+        with patch(
+            "services.business.chat_service.get_service", return_value=mock_image
+        ):
             result = await svc._handle_image("gere gato", {"description": "gato"}, [])
         assert "cat.png" in result
 
@@ -293,7 +373,9 @@ class TestHandleImage:
         mock_image.generate_image = AsyncMock(
             return_value={"success": False, "error": "quota exceeded"}
         )
-        with patch("services.business.chat_service.get_service", return_value=mock_image):
+        with patch(
+            "services.business.chat_service.get_service", return_value=mock_image
+        ):
             result = await svc._handle_image("gere", {}, [])
         assert result == ""
 
@@ -302,16 +384,24 @@ class TestHandleImage:
 # Handler: video
 # -------------------------------------------------------------------
 
+
 class TestHandleVideo:
     @pytest.mark.asyncio
     async def test_video_success(self):
         svc, ws = _make_service()
         mock_video = AsyncMock()
-        mock_video.generate_text_to_video = AsyncMock(return_value={
-            "success": True, "video_url": "https://vid.io/v.mp4",
-            "model_used": "veo3", "duration": 5, "ratio": "16:9",
-        })
-        with patch("services.business.chat_service.get_service", return_value=mock_video):
+        mock_video.generate_text_to_video = AsyncMock(
+            return_value={
+                "success": True,
+                "video_url": "https://vid.io/v.mp4",
+                "model_used": "veo3",
+                "duration": 5,
+                "ratio": "16:9",
+            }
+        )
+        with patch(
+            "services.business.chat_service.get_service", return_value=mock_video
+        ):
             result = await svc._handle_video("gere video", {"prompt": "ondas"}, [])
         assert "vid.io" in result
 
@@ -327,19 +417,24 @@ class TestHandleVideo:
 # Handler: calendar
 # -------------------------------------------------------------------
 
+
 class TestHandleCalendar:
     @pytest.mark.asyncio
     async def test_calendar_success_with_events(self):
         svc, ws = _make_service()
         mock_agent = AsyncMock()
         mock_resp = Mock()
-        mock_resp.to_dict = Mock(return_value={
-            "status": "success",
-            "response": "Seus eventos:",
-            "data": {"events": [
-                {"summary": "Meeting", "start": "2026-02-15T15:00:00"},
-            ]},
-        })
+        mock_resp.to_dict = Mock(
+            return_value={
+                "status": "success",
+                "response": "Seus eventos:",
+                "data": {
+                    "events": [
+                        {"summary": "Meeting", "start": "2026-02-15T15:00:00"},
+                    ]
+                },
+            }
+        )
         mock_agent.process = AsyncMock(return_value=mock_resp)
 
         with patch("services.business.chat_service.get_agent", return_value=mock_agent):
@@ -358,14 +453,19 @@ class TestHandleCalendar:
 # Handler: car
 # -------------------------------------------------------------------
 
+
 class TestHandleCar:
     @pytest.mark.asyncio
     async def test_car_success(self):
         svc, ws = _make_service()
         mock_vdb = AsyncMock()
-        mock_vdb.get_primary_vehicle = AsyncMock(return_value={
-            "vehicle_id": "v1", "access_token": "tok", "refresh_token": "rtok",
-        })
+        mock_vdb.get_primary_vehicle = AsyncMock(
+            return_value={
+                "vehicle_id": "v1",
+                "access_token": "tok",
+                "refresh_token": "rtok",
+            }
+        )
         mock_vdb.is_token_expired = AsyncMock(return_value=False)
 
         mock_car_agent = AsyncMock()
@@ -377,7 +477,9 @@ class TestHandleCar:
             return mock_vdb if name == "vehicle_db" else None
 
         with patch("services.business.chat_service.get_service", side_effect=_get_svc):
-            with patch("services.business.chat_service.get_agent", return_value=mock_car_agent):
+            with patch(
+                "services.business.chat_service.get_agent", return_value=mock_car_agent
+            ):
                 result = await svc._handle_car("bateria", {"query": "bateria"}, [])
         assert "Battery: 80%" in result
 
@@ -386,12 +488,15 @@ class TestHandleCar:
 # Helpers
 # -------------------------------------------------------------------
 
+
 class TestHelpers:
     @pytest.mark.asyncio
     async def test_send_system(self):
         svc, ws = _make_service()
         await svc._send_system("loading...")
-        ws.send_json.assert_called_once_with({"type": "system", "content": "loading..."})
+        ws.send_json.assert_called_once_with(
+            {"type": "system", "content": "loading..."}
+        )
 
     @pytest.mark.asyncio
     async def test_send_error(self):
@@ -428,5 +533,7 @@ class TestHelpers:
 
         svc._openai_svc = Mock()
         svc._openai_svc.stream_chat_completion = _stream
-        result = await svc._handle_fallback("msg", {}, [{"role": "user", "content": "msg"}])
+        result = await svc._handle_fallback(
+            "msg", {}, [{"role": "user", "content": "msg"}]
+        )
         assert result == "fallback"

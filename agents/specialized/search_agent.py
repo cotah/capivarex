@@ -102,12 +102,31 @@ _NEWS_KEYWORDS = [
 ]
 
 
+# Palavras que indicam busca de IMAGENS
+_IMAGE_SEARCH_KEYWORDS = [
+    "imagem",
+    "imagens",
+    "foto",
+    "fotos",
+    "picture",
+    "pictures",
+    "image",
+    "images",
+    "photo",
+    "photos",
+    "visual",
+    "ver como é",
+    "como parece",
+    "aparência",
+]
+
+
 def _detect_search_type(prompt: str) -> str:
     """
     Detecta o tipo de busca pelo conteúdo do prompt.
 
     Returns:
-        "places" | "shopping" | "news" | "general"
+        "places" | "shopping" | "news" | "images" | "general"
     """
     text = prompt.lower()
     words = set(re.findall(r"\w+", text))
@@ -121,6 +140,9 @@ def _detect_search_type(prompt: str) -> str:
 
     if any(kw in text for kw in _NEWS_KEYWORDS):
         return "news"
+
+    if any(kw in text if " " in kw else kw in words for kw in _IMAGE_SEARCH_KEYWORDS):
+        return "images"
 
     return "general"
 
@@ -205,6 +227,9 @@ class SearchAgent(BaseAgent):
 
             if search_type == "news":
                 return await self._handle_news(svc, query, num_results, country)
+
+            if search_type == "images":
+                return await self._handle_images(svc, query, country)
 
             # general
             return await self._handle_general(svc, query, num_results, country)
@@ -323,6 +348,24 @@ class SearchAgent(BaseAgent):
             )
 
         response = self._format_general(query, data)
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response=response,
+            data=data,
+        )
+
+    async def _handle_images(
+        self, svc: Any, query: str, country: str
+    ) -> AgentResponse:
+        data = await svc.search_images(query, country=country)
+        images = data.get("images", [])
+        if not images:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=f"Não encontrei imagens para: *{query}*",
+                error="No images found",
+            )
+        response = self._format_images(query, images)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=response,
@@ -455,12 +498,28 @@ class SearchAgent(BaseAgent):
 
         return "\n".join(lines).strip()
 
+    @staticmethod
+    def _format_images(query: str, images: List[Dict]) -> str:
+        lines = [f"🖼️ **Imagens encontradas para: _{query}_**\n"]
+        for i, img in enumerate(images[:5], 1):
+            title = img.get("title", "")
+            link = img.get("link", "")
+            source = img.get("source", "")
+            lines.append(f"**{i}. {title}**")
+            if source:
+                lines.append(f"  📷 {source}")
+            if link:
+                lines.append(f"  🔗 {link}")
+            lines.append("")
+        return "\n".join(lines).strip()
+
     def get_capabilities(self) -> List[str]:
         return [
             "web_search",
             "places_search",
             "shopping_search",
             "news_search",
+            "image_search",
             "price_lookup",
             "business_finder",
             "product_finder",

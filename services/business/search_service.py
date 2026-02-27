@@ -226,6 +226,44 @@ class SearchService(BaseService):
         data = resp.json()
         return self._parse_shopping(data)
 
+    async def search_images(
+        self,
+        query: str,
+        num_results: int = 5,
+        country: str = "ie",
+    ) -> Dict[str, Any]:
+        """
+        Busca imagens — retorna links, título e dimensões.
+
+        Ideal para:
+        - "Fotos de Dublin"
+        - "Imagens de capivara"
+        - Complementar respostas com visual
+
+        Args:
+            query: Termo de busca
+            num_results: Número de imagens (máx 10)
+            country: Código do país
+
+        Returns:
+            Dict com:
+            - images: lista de {title, link, source, thumbnail, width, height}
+        """
+        if not self.is_initialized():
+            await self.initialize()
+
+        resp = await self._client.post(
+            "/images",
+            json={
+                "q": query,
+                "num": min(num_results, 10),
+                "gl": country,
+            },
+        )
+        self._raise_for_status(resp, query)
+        data = resp.json()
+        return self._parse_images(data)
+
     # ──────────────────────────────────────────────────────────────────────────
     # PRIVATE — parsers
     # ──────────────────────────────────────────────────────────────────────────
@@ -254,10 +292,10 @@ class SearchService(BaseService):
         results = [
             {
                 "position": r.get("position", i + 1),
-                "title":    r.get("title", ""),
-                "link":     r.get("link", ""),
-                "snippet":  r.get("snippet", ""),
-                "date":     r.get("date", ""),
+                "title": r.get("title", ""),
+                "link": r.get("link", ""),
+                "snippet": r.get("snippet", ""),
+                "date": r.get("date", ""),
             }
             for i, r in enumerate(organic)
         ]
@@ -267,9 +305,9 @@ class SearchService(BaseService):
         if "answerBox" in data:
             ab = data["answerBox"]
             answer_box = {
-                "title":   ab.get("title", ""),
-                "answer":  ab.get("answer") or ab.get("snippet", ""),
-                "link":    ab.get("link", ""),
+                "title": ab.get("title", ""),
+                "answer": ab.get("answer") or ab.get("snippet", ""),
+                "link": ab.get("link", ""),
             }
 
         # Knowledge graph (info estruturada, ex: dados de uma empresa)
@@ -277,16 +315,16 @@ class SearchService(BaseService):
         if "knowledgeGraph" in data:
             kg = data["knowledgeGraph"]
             knowledge_graph = {
-                "title":       kg.get("title", ""),
-                "type":        kg.get("type", ""),
+                "title": kg.get("title", ""),
+                "type": kg.get("type", ""),
                 "description": kg.get("description", ""),
-                "website":     kg.get("website", ""),
+                "website": kg.get("website", ""),
             }
 
         return {
-            "results":         results,
-            "total_results":   len(results),
-            "answer_box":      answer_box,
+            "results": results,
+            "total_results": len(results),
+            "answer_box": answer_box,
             "knowledge_graph": knowledge_graph,
         }
 
@@ -300,25 +338,27 @@ class SearchService(BaseService):
             hours_raw = p.get("openingHours", [])
             hours = hours_raw if isinstance(hours_raw, list) else []
 
-            places.append({
-                "title":       p.get("title", ""),
-                "address":     p.get("address", ""),
-                "phone":       p.get("phoneNumber", ""),
-                "rating":      p.get("rating"),
-                "reviews":     p.get("ratingCount"),
-                "type":        p.get("type", ""),
-                "website":     p.get("website", ""),
-                "hours":       hours,
-                "open_now":    p.get("openState", ""),
-                "coordinates": {
-                    "lat": p.get("latitude"),
-                    "lng": p.get("longitude"),
-                },
-                "thumbnail":   p.get("thumbnailUrl", ""),
-            })
+            places.append(
+                {
+                    "title": p.get("title", ""),
+                    "address": p.get("address", ""),
+                    "phone": p.get("phoneNumber", ""),
+                    "rating": p.get("rating"),
+                    "reviews": p.get("ratingCount"),
+                    "type": p.get("type", ""),
+                    "website": p.get("website", ""),
+                    "hours": hours,
+                    "open_now": p.get("openState", ""),
+                    "coordinates": {
+                        "lat": p.get("latitude"),
+                        "lng": p.get("longitude"),
+                    },
+                    "thumbnail": p.get("thumbnailUrl", ""),
+                }
+            )
 
         return {
-            "places":       places,
+            "places": places,
             "total_places": len(places),
         }
 
@@ -328,17 +368,17 @@ class SearchService(BaseService):
         raw_news = data.get("news", [])
         news = [
             {
-                "title":   n.get("title", ""),
-                "link":    n.get("link", ""),
+                "title": n.get("title", ""),
+                "link": n.get("link", ""),
                 "snippet": n.get("snippet", ""),
-                "source":  n.get("source", ""),
-                "date":    n.get("date", ""),
-                "image":   n.get("imageUrl", ""),
+                "source": n.get("source", ""),
+                "date": n.get("date", ""),
+                "image": n.get("imageUrl", ""),
             }
             for n in raw_news
         ]
         return {
-            "news":       news,
+            "news": news,
             "total_news": len(news),
         }
 
@@ -348,18 +388,39 @@ class SearchService(BaseService):
         raw_products = data.get("shopping", [])
         products = [
             {
-                "title":    p.get("title", ""),
-                "price":    p.get("price", ""),
-                "source":   p.get("source", ""),
-                "link":     p.get("link", ""),
-                "rating":   p.get("rating"),
-                "reviews":  p.get("ratingCount"),
+                "title": p.get("title", ""),
+                "price": p.get("price", ""),
+                "source": p.get("source", ""),
+                "link": p.get("link", ""),
+                "rating": p.get("rating"),
+                "reviews": p.get("ratingCount"),
                 "delivery": p.get("delivery", ""),
-                "image":    p.get("imageUrl", ""),
+                "image": p.get("imageUrl", ""),
             }
             for p in raw_products
         ]
         return {
-            "products":       products,
+            "products": products,
             "total_products": len(products),
+        }
+
+    @staticmethod
+    def _parse_images(data: Dict) -> Dict[str, Any]:
+        """Parseia resultados de busca de imagens."""
+        raw_images = data.get("images", [])
+        images = [
+            {
+                "title": img.get("title", ""),
+                "link": img.get("imageUrl", ""),
+                "source": img.get("source", ""),
+                "source_url": img.get("link", ""),
+                "thumbnail": img.get("thumbnailUrl", ""),
+                "width": img.get("imageWidth"),
+                "height": img.get("imageHeight"),
+            }
+            for img in raw_images
+        ]
+        return {
+            "images": images,
+            "total_images": len(images),
         }

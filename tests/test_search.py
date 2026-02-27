@@ -118,6 +118,23 @@ def _serper_shopping_response(n=3) -> Dict:
     }
 
 
+def _serper_images_response(n=3) -> Dict:
+    return {
+        "images": [
+            {
+                "title": f"Image {i + 1}",
+                "imageUrl": f"https://img{i}.example.com/full.jpg",
+                "source": f"Source Site {i + 1}",
+                "link": f"https://source{i}.com/page",
+                "thumbnailUrl": f"https://img{i}.example.com/thumb.jpg",
+                "imageWidth": 1920,
+                "imageHeight": 1080,
+            }
+            for i in range(n)
+        ]
+    }
+
+
 def _mock_http_response(data: Dict, status_code: int = 200) -> MagicMock:
     resp = MagicMock(spec=httpx.Response)
     resp.status_code = status_code
@@ -235,6 +252,23 @@ def mock_svc():
                 },
             ],
             "total_products": 1,
+        }
+    )
+
+    svc.search_images = AsyncMock(
+        return_value={
+            "images": [
+                {
+                    "title": "Capybara photo",
+                    "link": "https://img.example.com/capybara.jpg",
+                    "source": "Wikipedia",
+                    "source_url": "https://en.wikipedia.org/wiki/Capybara",
+                    "thumbnail": "https://img.example.com/capybara_thumb.jpg",
+                    "width": 1920,
+                    "height": 1080,
+                },
+            ],
+            "total_images": 1,
         }
     )
 
@@ -564,3 +598,84 @@ class TestSearchAgentErrors:
         assert "places_search" in caps
         assert "shopping_search" in caps
         assert "business_finder" in caps
+        assert "image_search" in caps
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. SearchService — search_images()
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestSearchServiceImages:
+    @pytest.mark.asyncio
+    async def test_search_images_returns_images(self, search_service):
+        search_service._client.post = AsyncMock(
+            return_value=_mock_http_response(_serper_images_response(3))
+        )
+        result = await search_service.search_images("capybara")
+        assert len(result["images"]) == 3
+        assert result["images"][0]["title"] == "Image 1"
+        assert result["images"][0]["link"] == "https://img0.example.com/full.jpg"
+        assert result["images"][0]["source"] == "Source Site 1"
+        assert result["total_images"] == 3
+
+    @pytest.mark.asyncio
+    async def test_search_images_empty(self, search_service):
+        search_service._client.post = AsyncMock(
+            return_value=_mock_http_response({"images": []})
+        )
+        result = await search_service.search_images("xyz nada")
+        assert result["images"] == []
+        assert result["total_images"] == 0
+
+    @pytest.mark.asyncio
+    async def test_search_images_passes_country(self, search_service):
+        search_service._client.post = AsyncMock(
+            return_value=_mock_http_response(_serper_images_response(1))
+        )
+        await search_service.search_images("capybara", country="br")
+        call_json = search_service._client.post.call_args.kwargs.get("json", {})
+        assert call_json.get("gl") == "br"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. SearchAgent — image intent e resposta
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestSearchAgentImages:
+    def test_detect_images_intent(self):
+        from agents.specialized.search_agent import _detect_search_type
+
+        assert _detect_search_type("imagens de capivara") == "images"
+        assert _detect_search_type("foto de Dublin Castle") == "images"
+        assert _detect_search_type("pictures of Ireland") == "images"
+        assert _detect_search_type("ver como é uma capivara") == "images"
+
+    @pytest.mark.asyncio
+    async def test_images_intent_calls_search_images(self, search_agent, mock_svc):
+        with patch(
+            "agents.specialized.search_agent.get_service", return_value=mock_svc
+        ):
+            r = await search_agent.execute("imagens de capivara", {})
+        assert r.is_success()
+        mock_svc.search_images.assert_called_once()
+        assert "Capybara photo" in r.response
+
+    @pytest.mark.asyncio
+    async def test_images_empty_returns_error(self, search_agent, mock_svc):
+        mock_svc.search_images.return_value = {"images": [], "total_images": 0}
+        with patch(
+            "agents.specialized.search_agent.get_service", return_value=mock_svc
+        ):
+            r = await search_agent.execute("imagens de xyzabc", {})
+        assert not r.is_success()
+        assert "não encontrei" in r.response.lower()
+
+    @pytest.mark.asyncio
+    async def test_images_response_has_source(self, search_agent, mock_svc):
+        with patch(
+            "agents.specialized.search_agent.get_service", return_value=mock_svc
+        ):
+            r = await search_agent.execute("fotos de capivara", {})
+        assert "Wikipedia" in r.response

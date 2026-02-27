@@ -67,6 +67,9 @@ IMPORTANT RULES:
 9. If the user mentions Git/GitHub operations → 'github' (not 'dev')
 10. If the user is asking about when to leave → 'leaving_now'
 11. If the user wants to search flights, hotels, or plan travel → 'travel' (not 'chat')
+12. If the user wants to find specific products, prices, places, stores, or restaurants → 'search' (not 'research')
+13. If the user wants analysis, synthesis, explanation, or deep research about a topic → 'research' (not 'search')
+14. If the user asks "how much does X cost" or "where can I buy X" → 'search' (not 'research')
 
 Respond ONLY with a JSON object:
 {"agent": "<agent_name>", "reason": "<brief explanation>"}

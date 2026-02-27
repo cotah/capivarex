@@ -151,6 +151,39 @@ class CapivaraXBot:
 
         return check_keywords(text, TRAVEL_KEYWORDS)
 
+    def _is_search_query(self, text: str) -> bool:
+        """Check if the text is clearly a search/shopping/places query."""
+        _SEARCH_KEYWORDS = [
+            # Preço/compra (PT)
+            "quanto custa",
+            "qual o preço",
+            "preço de",
+            "preço do",
+            "preço da",
+            "onde comprar",
+            "onde encontrar",
+            "onde achar",
+            # Preço/compra (EN)
+            "how much",
+            "price of",
+            "where to buy",
+            "where can i buy",
+            # Lugares
+            "perto de mim",
+            "near me",
+            "nearby",
+            "open now",
+            "aberto agora",
+            "aberta agora",
+            # Shopping
+            "mais barato",
+            "cheapest",
+            "best deal",
+            "melhor preço",
+        ]
+        lower = text.lower()
+        return any(kw in lower for kw in _SEARCH_KEYWORDS)
+
     async def process_message(
         self, text: str, context: Dict[str, Any]
     ) -> "AgentResponse":
@@ -253,6 +286,12 @@ class CapivaraXBot:
                     "KEYWORD OVERRIDE: '%s' → travel (was: chat)", text[:60]
                 )
                 agent_name = "travel"
+
+            if agent_name == "chat" and self._is_search_query(text):
+                self.logger.info(
+                    "KEYWORD OVERRIDE: '%s' → search (was: chat)", text[:60]
+                )
+                agent_name = "search"
 
             # ── 4. Obter e executar o agent ───────────────────────────
             agent = get_agent(agent_name)
