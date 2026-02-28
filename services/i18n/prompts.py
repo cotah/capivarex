@@ -52,6 +52,7 @@ Available agents:
 - 'notes': Personal notepad: write, save, list, search, pin, delete notes.
 - 'restaurant': Restaurant concierge: suggest, search, filter restaurants by location, cuisine type, rating, open now, details, phone, hours, reviews.
 - 'email': Email management: read, list, summarize, reply, ignore Gmail and Hotmail/Outlook emails, unread, how many emails.
+- 'music': Search songs, artists, albums on Spotify, top tracks of an artist, music recommendations, playlists. Use for ANY query about music, songs, singers, bands, albums, playlists, or Spotify.
 - 'twilio': Make phone calls, call someone, dial a number, voice call via telephone.
 - 'travel': Flight search (origin, destination, dates), hotel/stay search (location, dates), travel booking, price comparison. Use for ANY query about flights, hotels, accommodation, trips, vacations, travel planning.
 
@@ -67,6 +68,7 @@ IMPORTANT RULES:
 9. If the user mentions Git/GitHub operations → 'github' (not 'dev')
 10. If the user is asking about when to leave → 'leaving_now'
 11. If the user wants to search flights, hotels, or plan travel → 'travel' (not 'chat')
+15. If the user asks about music, songs, artists, albums, playlists, or Spotify → 'music' (not 'chat')
 12. If the user wants to find specific products, prices, places, stores, or restaurants → 'search' (not 'research')
 13. If the user wants analysis, synthesis, explanation, or deep research about a topic → 'research' (not 'search')
 14. If the user asks "how much does X cost" or "where can I buy X" → 'search' (not 'research')
