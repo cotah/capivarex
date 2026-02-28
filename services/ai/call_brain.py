@@ -9,7 +9,7 @@ Responsibilities:
 3. Generate conversational responses during the call
 4. Detect when objective is complete or call should end
 
-Uses GPT-4.1-mini via OpenAI async API (same as rest of project).
+Uses GPT-4.1 via OpenAI async API (configurable via CALL_BRAIN_MODEL env var).
 
 Usage:
     from services.ai.call_brain import CallBrain
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 # -- Configuration ------------------------------------------------------------
 
-_MODEL = os.getenv("CALL_BRAIN_MODEL", "gpt-4.1-mini")
+_MODEL = os.getenv("CALL_BRAIN_MODEL", "gpt-4.1")
 _MAX_TOKENS = int(os.getenv("CALL_BRAIN_MAX_TOKENS", "200"))
 _TEMPERATURE = float(os.getenv("CALL_BRAIN_TEMPERATURE", "0.7"))
 

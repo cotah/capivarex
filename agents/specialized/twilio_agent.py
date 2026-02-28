@@ -78,6 +78,29 @@ def _detect_country(phone_number: str) -> str:
     return "DEFAULT"
 
 
+def _resolve_user_name(context: Dict[str, Any]) -> str:
+    """
+    Resolve the user's real name from context.
+
+    Checks multiple sources (REST API UserContext, direct key, Telegram username)
+    to ensure the bot says "calling on behalf of Henrique" instead of "User".
+    """
+    # 1. REST API — UserContext with full_name
+    user_obj = context.get("user")
+    if isinstance(user_obj, dict) and user_obj.get("full_name"):
+        return user_obj["full_name"]
+
+    # 2. Direct key (set by some callers)
+    if context.get("user_name"):
+        return context["user_name"]
+
+    # 3. Telegram username
+    if context.get("username"):
+        return context["username"]
+
+    return "User"
+
+
 def _extract_message(text: str, phone_number: str) -> Optional[str]:
     """
     Extrai mensagem a dizer na chamada, se o user especificou.
@@ -241,7 +264,7 @@ class TwilioAgent(BaseAgent):
         from services.ai.call_brain import CallBrain
         from services.business.call_session import register_pending_call
 
-        user_name = context.get("user_name", "User")
+        user_name = _resolve_user_name(context)
         chat_id = context.get("chat_id", 0)
         user_id = context.get("user_id", 0)
         country = _detect_country(phone_number)
