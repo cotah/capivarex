@@ -452,7 +452,7 @@ class TestDeepgramStreaming:
     async def test_open_deepgram_stream_connect_error(
         self,
     ):
-        """Connection error returns None gracefully."""
+        """Connection error on both attempts returns None."""
         with patch.dict(
             os.environ,
             {"DEEPGRAM_API_KEY": "fake_key"},
@@ -683,9 +683,7 @@ class TestDeepgramStreaming:
             "encoding=mulaw",
             "sample_rate=8000",
             "channels=1",
-            "smart_format=true",
             "punctuate=true",
-            "numerals=true",
             "endpointing=300",
             "interim_results=false",
             "utterance_end_ms=1500",
@@ -700,6 +698,81 @@ class TestDeepgramStreaming:
         assert "model=nova-3" in url
         assert "language=pt-BR" in url
         assert "endpointing=300" in url
+        # smart_format and numerals removed
+        assert "smart_format" not in url
+        assert "numerals" not in url
+
+    @pytest.mark.asyncio
+    async def test_open_deepgram_stream_invalid_status_fallback(
+        self,
+    ):
+        """InvalidStatus triggers fallback with minimal params."""
+        from websockets.datastructures import Headers
+        from websockets.exceptions import InvalidStatus
+        from websockets.http11 import Response
+
+        mock_ws = AsyncMock()
+        resp_400 = Response(
+            400, "Bad Request", Headers(), b""
+        )
+        exc = InvalidStatus(resp_400)
+
+        # First call raises 400, fallback succeeds
+        mock_connect = AsyncMock(
+            side_effect=[exc, mock_ws]
+        )
+
+        with patch.dict(
+            os.environ,
+            {"DEEPGRAM_API_KEY": "fake_key"},
+        ):
+            with patch(
+                "api.routes.twilio_stream"
+                ".websockets.connect",
+                mock_connect,
+            ):
+                result = await _open_deepgram_stream("pt")
+                assert result is mock_ws
+                assert mock_connect.call_count == 2
+
+                # Fallback URL should NOT have endpointing
+                # or utterance_end_ms
+                fallback_url = mock_connect.call_args_list[
+                    1
+                ][0][0]
+                assert "endpointing" not in fallback_url
+                assert (
+                    "utterance_end_ms" not in fallback_url
+                )
+
+    @pytest.mark.asyncio
+    async def test_open_deepgram_stream_both_attempts_fail(
+        self,
+    ):
+        """Both primary and fallback fail returns None."""
+        from websockets.datastructures import Headers
+        from websockets.exceptions import InvalidStatus
+        from websockets.http11 import Response
+
+        resp_400 = Response(
+            400, "Bad Request", Headers(), b""
+        )
+        exc = InvalidStatus(resp_400)
+
+        mock_connect = AsyncMock(side_effect=[exc, exc])
+
+        with patch.dict(
+            os.environ,
+            {"DEEPGRAM_API_KEY": "fake_key"},
+        ):
+            with patch(
+                "api.routes.twilio_stream"
+                ".websockets.connect",
+                mock_connect,
+            ):
+                result = await _open_deepgram_stream("pt")
+                assert result is None
+                assert mock_connect.call_count == 2
 
 
 # -- _send_telegram_report tests --------------------------------------

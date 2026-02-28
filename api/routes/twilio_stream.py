@@ -241,9 +241,7 @@ async def _open_deepgram_stream(language: str):
         "encoding=mulaw",
         "sample_rate=8000",
         "channels=1",
-        "smart_format=true",
         "punctuate=true",
-        "numerals=true",
         "endpointing=300",
         "interim_results=false",
         "utterance_end_ms=1500",
@@ -251,13 +249,12 @@ async def _open_deepgram_stream(language: str):
     ])
 
     url = f"wss://api.deepgram.com/v1/listen?{params}"
+    headers = {"Authorization": f"Token {api_key}"}
 
     try:
         ws = await websockets.connect(
             url,
-            additional_headers={
-                "Authorization": f"Token {api_key}",
-            },
+            additional_headers=headers,
             ping_interval=5,
             ping_timeout=20,
         )
@@ -266,12 +263,60 @@ async def _open_deepgram_stream(language: str):
             dg_language,
         )
         return ws
+    except websockets.exceptions.InvalidStatus as e:
+        logger.error(
+            "Deepgram streaming rejected (HTTP %s): %s",
+            e.response.status_code,
+            str(e)[:200],
+        )
     except Exception as e:
         logger.error(
             "Failed to connect to Deepgram streaming: %s",
             e,
         )
-        return None
+
+    # ── Fallback: retry with minimal params ──────────────
+    logger.info("Retrying Deepgram with minimal params...")
+    fallback_params = "&".join([
+        "model=nova-3",
+        f"language={dg_language}",
+        "encoding=mulaw",
+        "sample_rate=8000",
+        "channels=1",
+        "punctuate=true",
+        "interim_results=false",
+        "vad_events=true",
+    ])
+    fallback_url = (
+        f"wss://api.deepgram.com/v1/listen?{fallback_params}"
+    )
+
+    try:
+        ws = await websockets.connect(
+            fallback_url,
+            additional_headers=headers,
+            ping_interval=5,
+            ping_timeout=20,
+        )
+        logger.info(
+            "Deepgram streaming connected via fallback "
+            "(lang=%s)",
+            dg_language,
+        )
+        return ws
+    except websockets.exceptions.InvalidStatus as e:
+        logger.error(
+            "Deepgram fallback also rejected (HTTP %s): %s",
+            e.response.status_code,
+            str(e)[:200],
+        )
+    except Exception as e:
+        logger.error(
+            "Deepgram fallback connection failed: %s",
+            e,
+        )
+
+    return None
 
 
 async def _listen_deepgram(
