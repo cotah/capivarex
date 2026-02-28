@@ -40,6 +40,134 @@ _AUDIO_TMP = Path(tempfile.gettempdir()) / "superbot_audio"
 _AUDIO_TMP.mkdir(parents=True, exist_ok=True)
 
 
+@router.get("/ws/deepgram-test")
+async def deepgram_test():
+    """Temporary diagnostic: test Deepgram streaming connection."""
+    api_key = os.getenv("DEEPGRAM_API_KEY", "")
+    results = []
+
+    configs = [
+        (
+            "minimal",
+            "encoding=mulaw&sample_rate=8000&channels=1",
+        ),
+        (
+            "with_model",
+            "model=nova-3&encoding=mulaw"
+            "&sample_rate=8000&channels=1",
+        ),
+        (
+            "with_lang",
+            "model=nova-3&language=pt-BR&encoding=mulaw"
+            "&sample_rate=8000&channels=1",
+        ),
+        (
+            "full",
+            "model=nova-3&language=pt-BR&encoding=mulaw"
+            "&sample_rate=8000&channels=1&punctuate=true"
+            "&endpointing=300&interim_results=false"
+            "&utterance_end_ms=1500&vad_events=true",
+        ),
+    ]
+
+    for name, params in configs:
+        url = f"wss://api.deepgram.com/v1/listen?{params}"
+        try:
+            ws = await websockets.connect(
+                url,
+                additional_headers={
+                    "Authorization": f"Token {api_key}"
+                },
+                ping_interval=5,
+                open_timeout=10,
+            )
+            await ws.close()
+            results.append(
+                {"test": name, "status": "OK"}
+            )
+        except Exception as e:
+            error_info = {
+                "test": name,
+                "error": str(e)[:200],
+            }
+            resp = getattr(e, "response", None)
+            if resp:
+                error_info["status_code"] = getattr(
+                    resp, "status_code", None
+                )
+                body = getattr(resp, "body", None)
+                if body:
+                    error_info["body"] = body.decode(
+                        "utf-8", errors="replace"
+                    )[:500]
+                hdrs = getattr(resp, "headers", None)
+                if hdrs:
+                    if hasattr(hdrs, "raw_items"):
+                        error_info["response_headers"] = {
+                            k: v
+                            for k, v in list(
+                                hdrs.raw_items()
+                            )[:10]
+                        }
+                    else:
+                        error_info["response_headers"] = (
+                            str(hdrs)[:300]
+                        )
+            results.append(error_info)
+
+    # Also test with extra_headers (alt param name)
+    try:
+        url = (
+            "wss://api.deepgram.com/v1/listen"
+            "?encoding=mulaw&sample_rate=8000&channels=1"
+        )
+        ws = await websockets.connect(
+            url,
+            extra_headers={
+                "Authorization": f"Token {api_key}"
+            },
+            ping_interval=5,
+            open_timeout=10,
+        )
+        await ws.close()
+        results.append(
+            {"test": "extra_headers_param", "status": "OK"}
+        )
+    except TypeError:
+        results.append(
+            {
+                "test": "extra_headers_param",
+                "error": "TypeError — extra_headers not "
+                "supported in this version",
+            }
+        )
+    except Exception as e:
+        resp = getattr(e, "response", None)
+        body = ""
+        if resp:
+            b = getattr(resp, "body", None)
+            if b:
+                body = b.decode(
+                    "utf-8", errors="replace"
+                )[:500]
+        results.append(
+            {
+                "test": "extra_headers_param",
+                "error": str(e)[:200],
+                "body": body,
+            }
+        )
+
+    return {
+        "websockets_version": websockets.__version__,
+        "api_key_set": bool(api_key),
+        "api_key_prefix": (
+            api_key[:8] + "..." if api_key else "none"
+        ),
+        "results": results,
+    }
+
+
 @router.websocket("/ws/twilio-stream")
 async def twilio_media_stream(websocket: WebSocket):
     """
