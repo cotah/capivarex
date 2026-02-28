@@ -323,23 +323,28 @@ class TestSpotifyGetById:
     async def test_get_artist_top_tracks(
         self, spotify_service
     ):
+        """Top tracks now uses search with artist: prefix."""
         api_resp = {
-            "tracks": [
-                {
-                    "id": "t1",
-                    "name": "Hit",
-                    "artists": [{"name": "Band"}],
-                    "album": {
-                        "name": "Al",
-                        "images": [],
-                    },
-                    "duration_ms": 180000,
-                    "popularity": 90,
-                    "preview_url": None,
-                    "external_urls": {"spotify": "url"},
-                    "uri": "spotify:track:t1",
-                }
-            ]
+            "tracks": {
+                "items": [
+                    {
+                        "id": "t1",
+                        "name": "Hit",
+                        "artists": [{"name": "Band"}],
+                        "album": {
+                            "name": "Al",
+                            "images": [],
+                        },
+                        "duration_ms": 180000,
+                        "popularity": 90,
+                        "preview_url": None,
+                        "external_urls": {
+                            "spotify": "url"
+                        },
+                        "uri": "spotify:track:t1",
+                    }
+                ]
+            }
         }
 
         mock_resp = MagicMock()
@@ -351,11 +356,18 @@ class TestSpotifyGetById:
 
         results = (
             await spotify_service.get_artist_top_tracks(
-                "a1"
+                "Band"
             )
         )
         assert len(results) == 1
         assert results[0]["name"] == "Hit"
+        # Verify it searched with artist: prefix
+        call_kwargs = (
+            spotify_service._http.get.call_args
+        )
+        params = call_kwargs.kwargs.get("params", {})
+        assert params["q"] == "artist:Band"
+        assert params["type"] == "track"
 
 
 class TestRecommendations:
@@ -363,23 +375,28 @@ class TestRecommendations:
     async def test_recommendations_with_genre(
         self, spotify_service
     ):
+        """Recommendations with genre uses search."""
         api_resp = {
-            "tracks": [
-                {
-                    "id": "r1",
-                    "name": "Rec Song",
-                    "artists": [{"name": "DJ"}],
-                    "album": {
-                        "name": "Mix",
-                        "images": [],
-                    },
-                    "duration_ms": 200000,
-                    "popularity": 60,
-                    "preview_url": None,
-                    "external_urls": {"spotify": "url"},
-                    "uri": "spotify:track:r1",
-                }
-            ]
+            "tracks": {
+                "items": [
+                    {
+                        "id": "r1",
+                        "name": "Rec Song",
+                        "artists": [{"name": "DJ"}],
+                        "album": {
+                            "name": "Mix",
+                            "images": [],
+                        },
+                        "duration_ms": 200000,
+                        "popularity": 60,
+                        "preview_url": None,
+                        "external_urls": {
+                            "spotify": "url"
+                        },
+                        "uri": "spotify:track:r1",
+                    }
+                ]
+            }
         }
 
         mock_resp = MagicMock()
@@ -396,12 +413,66 @@ class TestRecommendations:
         )
         assert len(results) == 1
         assert results[0]["name"] == "Rec Song"
+        # Verify it searched with genre: prefix
+        call_kwargs = (
+            spotify_service._http.get.call_args
+        )
+        params = call_kwargs.kwargs.get("params", {})
+        assert params["q"] == "genre:rock"
 
     @pytest.mark.asyncio
-    async def test_recommendations_default_genres(
+    async def test_recommendations_with_artist(
         self, spotify_service
     ):
-        api_resp = {"tracks": []}
+        """Recommendations with artist seeds."""
+        api_resp = {
+            "tracks": {
+                "items": [
+                    {
+                        "id": "r2",
+                        "name": "Artist Rec",
+                        "artists": [{"name": "DJ"}],
+                        "album": {
+                            "name": "Mix",
+                            "images": [],
+                        },
+                        "duration_ms": 200000,
+                        "popularity": 50,
+                        "preview_url": None,
+                        "external_urls": {
+                            "spotify": "url"
+                        },
+                        "uri": "spotify:track:r2",
+                    }
+                ]
+            }
+        }
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = api_resp
+        mock_resp.raise_for_status = MagicMock()
+        spotify_service._http.get = AsyncMock(
+            return_value=mock_resp
+        )
+
+        results = (
+            await spotify_service.get_recommendations(
+                seed_artists=["Eminem"]
+            )
+        )
+        assert len(results) == 1
+        call_kwargs = (
+            spotify_service._http.get.call_args
+        )
+        params = call_kwargs.kwargs.get("params", {})
+        assert params["q"] == "Eminem"
+
+    @pytest.mark.asyncio
+    async def test_recommendations_default(
+        self, spotify_service
+    ):
+        """Default recommendations search genre:pop."""
+        api_resp = {"tracks": {"items": []}}
         mock_resp = MagicMock()
         mock_resp.json.return_value = api_resp
         mock_resp.raise_for_status = MagicMock()
@@ -413,12 +484,12 @@ class TestRecommendations:
             await spotify_service.get_recommendations()
         )
         assert results == []
-        # Should have used default genres
+        # Should have used genre:pop default
         call_kwargs = (
             spotify_service._http.get.call_args
         )
         params = call_kwargs.kwargs.get("params", {})
-        assert "seed_genres" in params
+        assert params["q"] == "genre:pop"
 
 
 class TestFormatting:

@@ -374,21 +374,7 @@ class TestMusicAgentExecution:
     async def test_artist_top_tracks(
         self, music_agent, mock_spotify, sample_track
     ):
-        """Top tracks action finds artist then tracks."""
-        mock_spotify.search_artists = AsyncMock(
-            return_value=[
-                {
-                    "id": "a1",
-                    "name": "Eminem",
-                    "genres": "hip-hop",
-                    "popularity": 95,
-                    "followers": 70000000,
-                    "image": "",
-                    "spotify_url": "url",
-                    "uri": "uri",
-                }
-            ]
-        )
+        """Top tracks uses search-based method."""
         mock_spotify.get_artist_top_tracks = AsyncMock(
             return_value=[sample_track]
         )
@@ -433,6 +419,10 @@ class TestMusicAgentExecution:
 
         assert result.status == AgentStatus.SUCCESS
         assert "Eminem" in result.response
+        # Verify it called with artist name, not ID
+        mock_spotify.get_artist_top_tracks.assert_called_once_with(
+            "Eminem"
+        )
 
 
 class TestCapabilities:

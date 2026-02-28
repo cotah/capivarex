@@ -354,34 +354,26 @@ class MusicAgent(BaseAgent):
     async def _artist_top_tracks(
         self, spotify, artist_name: str
     ) -> AgentResponse:
-        # First find the artist to get ID
-        artists = await spotify.search_artists(
-            artist_name, limit=1
+        tracks = await spotify.get_artist_top_tracks(
+            artist_name
         )
-        if not artists:
+        if not tracks:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=(
-                    f'Artista "{artist_name}" '
-                    f"nao encontrado."
+                    f'Nenhuma musica encontrada '
+                    f'para "{artist_name}".'
                 ),
                 data={"tracks": []},
             )
-        artist = artists[0]
-        tracks = await spotify.get_artist_top_tracks(
-            artist["id"]
-        )
         header = (
-            f"*Top musicas de {artist['name']}:*\n\n"
+            f"*Top musicas de {artist_name}:*\n\n"
         )
         text = header + _format_tracks_response(tracks)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
-            data={
-                "artist": artist,
-                "tracks": tracks,
-            },
+            data={"tracks": tracks},
         )
 
     async def _recommendations(
@@ -410,18 +402,36 @@ class MusicAgent(BaseAgent):
     async def _list_genres(
         self, spotify
     ) -> AgentResponse:
-        genres = await spotify.get_available_genres()
-        if not genres:
-            return AgentResponse(
-                status=AgentStatus.SUCCESS,
-                response=(
-                    "Nao foi possivel obter os generos."
-                ),
-                data={"genres": []},
-            )
+        # Static list — /recommendations/available-genre-seeds
+        # returns 404 with Client Credentials flow.
+        genres = [
+            "acoustic", "afrobeat", "alt-rock",
+            "alternative", "ambient", "anime", "blues",
+            "bossa-nova", "brazil", "breakbeat",
+            "british", "chill", "classical", "club",
+            "comedy", "country", "dance", "deep-house",
+            "disco", "drum-and-bass", "dub", "dubstep",
+            "edm", "electro", "electronic", "emo",
+            "folk", "funk", "garage", "gospel",
+            "goth", "grindcore", "groove", "grunge",
+            "guitar", "happy", "hard-rock", "hardcore",
+            "hardstyle", "heavy-metal", "hip-hop",
+            "house", "indie", "indie-pop", "industrial",
+            "j-pop", "j-rock", "jazz", "k-pop",
+            "latin", "latino", "metal", "mpb",
+            "new-age", "opera", "pagode", "party",
+            "piano", "pop", "pop-film", "punk",
+            "punk-rock", "r-n-b", "rainy-day", "reggae",
+            "reggaeton", "rock", "rock-n-roll",
+            "romance", "sad", "samba", "sertanejo",
+            "show-tunes", "ska", "sleep", "soul",
+            "soundtracks", "spanish", "study",
+            "synth-pop", "tango", "techno", "trance",
+            "trip-hop", "world-music",
+        ]
         text = (
             "*Generos disponiveis no Spotify:*\n\n"
-            + ", ".join(genres[:50])
+            + ", ".join(genres)
         )
         return AgentResponse(
             status=AgentStatus.SUCCESS,

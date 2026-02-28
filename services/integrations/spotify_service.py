@@ -206,16 +206,23 @@ class SpotifyService(BaseService):
         return self._format_artist(data)
 
     async def get_artist_top_tracks(
-        self, artist_id: str, market: str = "BR"
+        self,
+        artist_name: str,
+        limit: int = 10,
+        market: str = "BR",
     ) -> List[Dict]:
-        data = await self._api_get(
-            f"artists/{artist_id}/top-tracks",
-            params={"market": market},
+        """Get top tracks for an artist via search.
+
+        The /artists/{id}/top-tracks endpoint returns 403
+        with Client Credentials flow, so we use search
+        with ``artist:`` prefix instead.
+        """
+        return await self.search(
+            query=f"artist:{artist_name}",
+            search_type="track",
+            limit=limit,
+            market=market,
         )
-        return [
-            self._format_track(t)
-            for t in data.get("tracks", [])
-        ]
 
     async def get_album(self, album_id: str) -> Dict:
         data = await self._api_get(f"albums/{album_id}")
@@ -225,45 +232,42 @@ class SpotifyService(BaseService):
 
     async def get_recommendations(
         self,
-        seed_artists: Optional[List[str]] = None,
-        seed_tracks: Optional[List[str]] = None,
         seed_genres: Optional[List[str]] = None,
+        seed_artists: Optional[List[str]] = None,
         limit: int = 5,
+        market: str = "BR",
     ) -> List[Dict]:
-        params: Dict[str, Any] = {"limit": limit}
-        if seed_artists:
-            params["seed_artists"] = ",".join(
-                seed_artists[:5]
-            )
-        if seed_tracks:
-            params["seed_tracks"] = ",".join(
-                seed_tracks[:5]
-            )
+        """Get music recommendations via search.
+
+        The /recommendations endpoint returns 404
+        with Client Credentials flow, so we simulate
+        it with creative Spotify search queries.
+        """
         if seed_genres:
-            params["seed_genres"] = ",".join(
-                seed_genres[:5]
+            genre = seed_genres[0]
+            return await self.search(
+                query=f"genre:{genre}",
+                search_type="track",
+                limit=limit,
+                market=market,
             )
 
-        if not any(
-            [seed_artists, seed_tracks, seed_genres]
-        ):
-            params["seed_genres"] = "pop,rock,hip-hop"
+        if seed_artists:
+            artist = seed_artists[0]
+            return await self.search(
+                query=artist,
+                search_type="track",
+                limit=limit,
+                market=market,
+            )
 
-        data = await self._api_get(
-            "recommendations", params=params
+        # Default: popular tracks
+        return await self.search(
+            query="genre:pop",
+            search_type="track",
+            limit=limit,
+            market=market,
         )
-        return [
-            self._format_track(t)
-            for t in data.get("tracks", [])
-        ]
-
-    # ── Available Genres ──────────────────────────────
-
-    async def get_available_genres(self) -> List[str]:
-        data = await self._api_get(
-            "recommendations/available-genre-seeds"
-        )
-        return data.get("genres", [])
 
     # ── Formatting Helpers ────────────────────────────
 

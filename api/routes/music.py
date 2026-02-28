@@ -107,9 +107,14 @@ async def get_artist(artist_id: str):
         )
 
 
-@router.get("/artist/{artist_id}/top-tracks")
-async def get_artist_top_tracks(artist_id: str):
-    """Get artist's top tracks."""
+@router.get("/artist/top-tracks")
+async def get_artist_top_tracks(
+    name: str = Query(
+        ..., description="Artist name"
+    ),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """Get top tracks for an artist (search-based)."""
     spotify = _get_spotify()
 
     if not spotify.is_initialized():
@@ -117,13 +122,13 @@ async def get_artist_top_tracks(artist_id: str):
 
     try:
         tracks = await spotify.get_artist_top_tracks(
-            artist_id
+            name, limit=limit
         )
-        return {"tracks": tracks}
+        return {"tracks": tracks, "artist": name}
     except Exception as e:
         logger.error(
             "Failed to get top tracks for %s: %s",
-            artist_id,
+            name,
             e,
         )
         raise HTTPException(
@@ -138,9 +143,13 @@ async def get_recommendations(
         None,
         description="Comma-separated genre seeds",
     ),
+    artists: str = Query(
+        None,
+        description="Comma-separated artist names",
+    ),
     limit: int = Query(5, ge=1, le=20),
 ):
-    """Get music recommendations."""
+    """Get music recommendations (search-based)."""
     spotify = _get_spotify()
 
     if not spotify.is_initialized():
@@ -150,8 +159,13 @@ async def get_recommendations(
         seed_genres = (
             genres.split(",") if genres else None
         )
+        seed_artists = (
+            artists.split(",") if artists else None
+        )
         results = await spotify.get_recommendations(
-            seed_genres=seed_genres, limit=limit
+            seed_genres=seed_genres,
+            seed_artists=seed_artists,
+            limit=limit,
         )
         return {"recommendations": results}
     except Exception as e:
