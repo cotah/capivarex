@@ -36,6 +36,7 @@ ALLOWED_AGENTS = Literal[
     "transport",
     "travel",
     "twilio",
+    "music",
 ]
 
 
