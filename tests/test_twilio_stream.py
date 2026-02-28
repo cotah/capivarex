@@ -343,7 +343,7 @@ class TestRunSTTDeepgram:
 
 
 class TestDeepgramStreaming:
-    """Tests for Deepgram streaming integration."""
+    """Tests for Deepgram SDK streaming integration."""
 
     @pytest.mark.asyncio
     async def test_open_deepgram_stream_no_api_key(self):
@@ -390,11 +390,12 @@ class TestDeepgramStreaming:
         await _process_turn_streaming(
             mock_ws, session, "MZ_test", ""
         )
-        # Should not add any turns
         assert len(session.conversation) == 0
 
     @pytest.mark.asyncio
-    async def test_process_turn_streaming_calls_brain(self):
+    async def test_process_turn_streaming_calls_brain(
+        self,
+    ):
         """Transcript triggers Brain -> TTS pipeline."""
         from services.ai.call_brain import (
             BrainResponse,
@@ -440,7 +441,6 @@ class TestDeepgramStreaming:
                     "Olá",
                 )
 
-        # user + assistant turns
         assert len(session.conversation) == 2
         assert session.conversation[0].content == "Olá"
         assert (
@@ -452,17 +452,25 @@ class TestDeepgramStreaming:
     async def test_open_deepgram_stream_connect_error(
         self,
     ):
-        """Connection error on both attempts returns None."""
+        """SDK connect error on both attempts returns None."""
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(
+            side_effect=Exception("Connection refused")
+        )
+
+        mock_client = MagicMock()
+        mock_client.listen.v1.connect.return_value = (
+            mock_ctx
+        )
+
         with patch.dict(
             os.environ,
             {"DEEPGRAM_API_KEY": "fake_key"},
         ):
             with patch(
                 "api.routes.twilio_stream"
-                ".websockets.connect",
-                side_effect=Exception(
-                    "Connection refused"
-                ),
+                ".AsyncDeepgramClient",
+                return_value=mock_client,
             ):
                 result = await _open_deepgram_stream(
                     "en"
@@ -471,31 +479,96 @@ class TestDeepgramStreaming:
 
     @pytest.mark.asyncio
     async def test_open_deepgram_stream_success(self):
-        """Successfully connects to Deepgram."""
-        mock_ws = AsyncMock()
+        """Successfully connects via Deepgram SDK."""
+        mock_conn = AsyncMock()
+
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(
+            return_value=mock_conn
+        )
+
+        mock_client = MagicMock()
+        mock_client.listen.v1.connect.return_value = (
+            mock_ctx
+        )
 
         with patch.dict(
             os.environ,
             {"DEEPGRAM_API_KEY": "fake_key"},
         ):
-            mock_connect = AsyncMock(
-                return_value=mock_ws
-            )
             with patch(
                 "api.routes.twilio_stream"
-                ".websockets.connect",
-                mock_connect,
+                ".AsyncDeepgramClient",
+                return_value=mock_client,
             ):
                 result = await _open_deepgram_stream(
                     "pt"
                 )
-                assert result is mock_ws
+                assert result is mock_conn
+                # _dg_ctx stored for cleanup
+                assert result._dg_ctx is mock_ctx
+
+    @pytest.mark.asyncio
+    async def test_open_deepgram_stream_fallback(self):
+        """Primary fails, fallback succeeds."""
+        mock_conn = AsyncMock()
+
+        mock_ctx_fail = AsyncMock()
+        mock_ctx_fail.__aenter__ = AsyncMock(
+            side_effect=Exception("400 Bad Request")
+        )
+
+        mock_ctx_ok = AsyncMock()
+        mock_ctx_ok.__aenter__ = AsyncMock(
+            return_value=mock_conn
+        )
+
+        mock_client = MagicMock()
+        mock_client.listen.v1.connect.side_effect = [
+            mock_ctx_fail,
+            mock_ctx_ok,
+        ]
+
+        with patch.dict(
+            os.environ,
+            {"DEEPGRAM_API_KEY": "fake_key"},
+        ):
+            with patch(
+                "api.routes.twilio_stream"
+                ".AsyncDeepgramClient",
+                return_value=mock_client,
+            ):
+                result = await _open_deepgram_stream(
+                    "pt"
+                )
+                assert result is mock_conn
+                # Called twice (primary + fallback)
+                assert (
+                    mock_client.listen.v1.connect
+                    .call_count
+                    == 2
+                )
+                # Fallback should NOT have endpointing
+                fallback_kwargs = (
+                    mock_client.listen.v1.connect
+                    .call_args_list[1].kwargs
+                )
+                assert (
+                    "endpointing" not in fallback_kwargs
+                )
+                assert (
+                    "utterance_end_ms"
+                    not in fallback_kwargs
+                )
 
     @pytest.mark.asyncio
     async def test_listen_deepgram_final_transcript(self):
         """Final transcript triggers processing."""
         from api.routes.twilio_stream import (
             _listen_deepgram,
+        )
+        from deepgram.listen.v1.types.listen_v1results import (
+            ListenV1Results,
         )
         from services.ai.call_brain import (
             BrainResponse,
@@ -515,24 +588,39 @@ class TestDeepgramStreaming:
             telegram_user_id=1,
         )
 
-        # Mock Deepgram message
-        dg_message = json.dumps({
-            "type": "Results",
-            "channel": {
+        # Build a typed SDK result object
+        dg_result = ListenV1Results(
+            type="Results",
+            channel_index=[0, 1],
+            duration=1.0,
+            start=0.0,
+            is_final=True,
+            speech_final=True,
+            channel={
                 "alternatives": [
-                    {"transcript": "Hello there"}
+                    {
+                        "transcript": "Hello there",
+                        "confidence": 0.99,
+                        "words": [],
+                    }
                 ]
             },
-            "is_final": True,
-            "speech_final": True,
-        })
+            metadata={
+                "request_id": "test",
+                "model_info": {
+                    "name": "nova-3",
+                    "version": "1",
+                    "arch": "nova",
+                },
+                "model_uuid": "test",
+            },
+        )
 
-        # Async generator to mock Deepgram WebSocket
         async def _dg_iter():
-            yield dg_message
+            yield dg_result
 
-        mock_dg_ws = MagicMock()
-        mock_dg_ws.__aiter__ = lambda s: _dg_iter()
+        mock_conn = MagicMock()
+        mock_conn.__aiter__ = lambda s: _dg_iter()
 
         mock_twilio_ws = AsyncMock()
         lock = asyncio.Lock()
@@ -556,7 +644,7 @@ class TestDeepgramStreaming:
                 return_value=0.5,
             ):
                 await _listen_deepgram(
-                    deepgram_ws=mock_dg_ws,
+                    deepgram_conn=mock_conn,
                     twilio_ws=mock_twilio_ws,
                     session=session,
                     stream_sid="MZ_test",
@@ -578,6 +666,9 @@ class TestDeepgramStreaming:
         from api.routes.twilio_stream import (
             _listen_deepgram,
         )
+        from deepgram.listen.v1.types.listen_v1results import (
+            ListenV1Results,
+        )
         from services.business.call_session import (
             CallSession,
         )
@@ -592,27 +683,44 @@ class TestDeepgramStreaming:
             telegram_user_id=1,
         )
 
-        # Empty transcript
-        dg_message = json.dumps({
-            "type": "Results",
-            "channel": {
-                "alternatives": [{"transcript": ""}]
+        dg_result = ListenV1Results(
+            type="Results",
+            channel_index=[0, 1],
+            duration=1.0,
+            start=0.0,
+            is_final=True,
+            speech_final=True,
+            channel={
+                "alternatives": [
+                    {
+                        "transcript": "",
+                        "confidence": 0.0,
+                        "words": [],
+                    }
+                ]
             },
-            "is_final": True,
-            "speech_final": True,
-        })
+            metadata={
+                "request_id": "test",
+                "model_info": {
+                    "name": "nova-3",
+                    "version": "1",
+                    "arch": "nova",
+                },
+                "model_uuid": "test",
+            },
+        )
 
         async def _dg_iter():
-            yield dg_message
+            yield dg_result
 
-        mock_dg_ws = MagicMock()
-        mock_dg_ws.__aiter__ = lambda s: _dg_iter()
+        mock_conn = MagicMock()
+        mock_conn.__aiter__ = lambda s: _dg_iter()
 
         mock_twilio_ws = AsyncMock()
         lock = asyncio.Lock()
 
         await _listen_deepgram(
-            deepgram_ws=mock_dg_ws,
+            deepgram_conn=mock_conn,
             twilio_ws=mock_twilio_ws,
             session=session,
             stream_sid="MZ_test",
@@ -623,9 +731,18 @@ class TestDeepgramStreaming:
 
     @pytest.mark.asyncio
     async def test_listen_deepgram_metadata_event(self):
-        """Metadata events are handled without error."""
+        """Non-Results events are handled without error."""
         from api.routes.twilio_stream import (
             _listen_deepgram,
+        )
+        from deepgram.listen.v1.types.listen_v1metadata import (
+            ListenV1Metadata,
+        )
+        from deepgram.listen.v1.types.listen_v1speech_started import (
+            ListenV1SpeechStarted,
+        )
+        from deepgram.listen.v1.types.listen_v1utterance_end import (
+            ListenV1UtteranceEnd,
         )
         from services.business.call_session import (
             CallSession,
@@ -641,125 +758,61 @@ class TestDeepgramStreaming:
             telegram_user_id=1,
         )
 
-        dg_messages = [
-            json.dumps({
-                "type": "Metadata",
-                "request_id": "abc123",
-            }),
-            json.dumps({
-                "type": "SpeechStarted",
-            }),
-            json.dumps({
-                "type": "UtteranceEnd",
-            }),
+        events = [
+            ListenV1Metadata(
+                type="Metadata",
+                transaction_key="k",
+                request_id="abc123",
+                sha256="sha",
+                created="now",
+                duration=0.0,
+                channels=1,
+            ),
+            ListenV1SpeechStarted(
+                type="SpeechStarted",
+                channel=[0],
+                timestamp=0.0,
+            ),
+            ListenV1UtteranceEnd(
+                type="UtteranceEnd",
+                channel=[0],
+                last_word_end=1.0,
+            ),
         ]
 
         async def _dg_iter():
-            for msg in dg_messages:
-                yield msg
+            for evt in events:
+                yield evt
 
-        mock_dg_ws = MagicMock()
-        mock_dg_ws.__aiter__ = lambda s: _dg_iter()
+        mock_conn = MagicMock()
+        mock_conn.__aiter__ = lambda s: _dg_iter()
 
         mock_twilio_ws = AsyncMock()
         lock = asyncio.Lock()
 
         await _listen_deepgram(
-            deepgram_ws=mock_dg_ws,
+            deepgram_conn=mock_conn,
             twilio_ws=mock_twilio_ws,
             session=session,
             stream_sid="MZ_test",
             processing_lock=lock,
         )
 
-        # No conversation turns from metadata events
+        # No conversation turns from non-Results events
         assert len(session.conversation) == 0
 
-    def test_deepgram_url_format(self):
-        """Verify Deepgram streaming URL format."""
-        params = "&".join([
-            "model=nova-3",
-            "language=pt-BR",
-            "encoding=mulaw",
-            "sample_rate=8000",
-            "channels=1",
-            "punctuate=true",
-            "endpointing=300",
-            "interim_results=false",
-            "utterance_end_ms=1500",
-            "vad_events=true",
-        ])
-        url = (
-            f"wss://api.deepgram.com/v1/listen?{params}"
-        )
-
-        assert "encoding=mulaw" in url
-        assert "sample_rate=8000" in url
-        assert "model=nova-3" in url
-        assert "language=pt-BR" in url
-        assert "endpointing=300" in url
-        # smart_format and numerals removed
-        assert "smart_format" not in url
-        assert "numerals" not in url
-
     @pytest.mark.asyncio
-    async def test_open_deepgram_stream_invalid_status_fallback(
-        self,
-    ):
-        """InvalidStatus triggers fallback with minimal params."""
-        from websockets.datastructures import Headers
-        from websockets.exceptions import InvalidStatus
-        from websockets.http11 import Response
-
-        mock_ws = AsyncMock()
-        resp_400 = Response(
-            400, "Bad Request", Headers(), b""
-        )
-        exc = InvalidStatus(resp_400)
-
-        # First call raises 400, fallback succeeds
-        mock_connect = AsyncMock(
-            side_effect=[exc, mock_ws]
-        )
-
-        with patch.dict(
-            os.environ,
-            {"DEEPGRAM_API_KEY": "fake_key"},
-        ):
-            with patch(
-                "api.routes.twilio_stream"
-                ".websockets.connect",
-                mock_connect,
-            ):
-                result = await _open_deepgram_stream("pt")
-                assert result is mock_ws
-                assert mock_connect.call_count == 2
-
-                # Fallback URL should NOT have endpointing
-                # or utterance_end_ms
-                fallback_url = mock_connect.call_args_list[
-                    1
-                ][0][0]
-                assert "endpointing" not in fallback_url
-                assert (
-                    "utterance_end_ms" not in fallback_url
-                )
-
-    @pytest.mark.asyncio
-    async def test_open_deepgram_stream_both_attempts_fail(
-        self,
-    ):
+    async def test_open_deepgram_stream_both_fail(self):
         """Both primary and fallback fail returns None."""
-        from websockets.datastructures import Headers
-        from websockets.exceptions import InvalidStatus
-        from websockets.http11 import Response
-
-        resp_400 = Response(
-            400, "Bad Request", Headers(), b""
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(
+            side_effect=Exception("bad")
         )
-        exc = InvalidStatus(resp_400)
 
-        mock_connect = AsyncMock(side_effect=[exc, exc])
+        mock_client = MagicMock()
+        mock_client.listen.v1.connect.return_value = (
+            mock_ctx
+        )
 
         with patch.dict(
             os.environ,
@@ -767,12 +820,13 @@ class TestDeepgramStreaming:
         ):
             with patch(
                 "api.routes.twilio_stream"
-                ".websockets.connect",
-                mock_connect,
+                ".AsyncDeepgramClient",
+                return_value=mock_client,
             ):
-                result = await _open_deepgram_stream("pt")
+                result = await _open_deepgram_stream(
+                    "pt"
+                )
                 assert result is None
-                assert mock_connect.call_count == 2
 
 
 # -- _send_telegram_report tests --------------------------------------

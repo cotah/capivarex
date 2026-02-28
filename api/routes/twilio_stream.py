@@ -28,7 +28,16 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-import websockets
+from deepgram import AsyncDeepgramClient
+from deepgram.listen.v1.types.listen_v1results import (
+    ListenV1Results,
+)
+from deepgram.listen.v1.types.listen_v1speech_started import (
+    ListenV1SpeechStarted,
+)
+from deepgram.listen.v1.types.listen_v1utterance_end import (
+    ListenV1UtteranceEnd,
+)
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
@@ -53,11 +62,11 @@ async def twilio_media_stream(websocket: WebSocket):
     session = None
     stream_sid: Optional[str] = None
     call_sid: Optional[str] = None
-    deepgram_ws = None
+    deepgram_conn = None
     deepgram_task = None
 
-    # Transcript accumulator — Deepgram sends partial results,
-    # we only act on is_final=True with speech_final=True
+    # Deepgram sends partial results; we only act on
+    # is_final=True with speech_final=True
     processing_lock = asyncio.Lock()
     is_speaking = False
 
@@ -110,12 +119,14 @@ async def twilio_media_stream(websocket: WebSocket):
                     )
                     break
 
-                # Open Deepgram streaming WebSocket
-                deepgram_ws = await _open_deepgram_stream(
-                    session.language,
+                # Open Deepgram streaming via SDK
+                deepgram_conn = (
+                    await _open_deepgram_stream(
+                        session.language,
+                    )
                 )
 
-                if deepgram_ws is None:
+                if deepgram_conn is None:
                     logger.error(
                         "Failed to open Deepgram stream "
                         "— closing call"
@@ -128,7 +139,7 @@ async def twilio_media_stream(websocket: WebSocket):
                 # Background task: listen for transcripts
                 deepgram_task = asyncio.create_task(
                     _listen_deepgram(
-                        deepgram_ws=deepgram_ws,
+                        deepgram_conn=deepgram_conn,
                         twilio_ws=websocket,
                         session=session,
                         stream_sid=stream_sid,
@@ -145,7 +156,10 @@ async def twilio_media_stream(websocket: WebSocket):
 
             # ── MEDIA ─────────────────────────────────────
             elif event == "media":
-                if session is None or deepgram_ws is None:
+                if (
+                    session is None
+                    or deepgram_conn is None
+                ):
                     continue
 
                 # Don't forward while bot is speaking (echo)
@@ -159,7 +173,9 @@ async def twilio_media_stream(websocket: WebSocket):
                 if payload:
                     audio_bytes = base64.b64decode(payload)
                     try:
-                        await deepgram_ws.send(audio_bytes)
+                        await deepgram_conn.send_media(
+                            audio_bytes
+                        )
                     except Exception as e:
                         logger.warning(
                             "Failed to send to Deepgram: %s",
@@ -183,12 +199,21 @@ async def twilio_media_stream(websocket: WebSocket):
         if session:
             session.mark_failed(f"WebSocket error: {e}")
     finally:
-        # Cleanup
-        if deepgram_ws:
+        # Cleanup Deepgram SDK connection
+        if deepgram_conn:
             try:
-                await deepgram_ws.close()
+                await deepgram_conn.send_close_stream()
             except Exception:
                 pass
+            # Exit the SDK context manager
+            ctx = getattr(
+                deepgram_conn, "_dg_ctx", None
+            )
+            if ctx:
+                try:
+                    await ctx.__aexit__(None, None, None)
+                except Exception:
+                    pass
         if deepgram_task:
             deepgram_task.cancel()
             try:
@@ -209,16 +234,16 @@ async def twilio_media_stream(websocket: WebSocket):
 
 async def _open_deepgram_stream(language: str):
     """
-    Open a WebSocket connection to Deepgram's streaming API.
+    Open a streaming connection to Deepgram via the official SDK.
 
-    Configures for Twilio's audio format: mulaw, 8000 Hz, mono.
-    Deepgram handles endpointing (detects when person stops).
+    Uses AsyncDeepgramClient with ``listen.v1.connect()``
+    configured for Twilio's audio format: mulaw, 8 kHz, mono.
 
     Args:
         language: Language code (pt, en, es)
 
     Returns:
-        WebSocket connection or None on failure
+        AsyncV1SocketClient connection or None on failure
     """
     api_key = os.getenv("DEEPGRAM_API_KEY")
     if not api_key:
@@ -234,93 +259,67 @@ async def _open_deepgram_stream(language: str):
     }
     dg_language = lang_map.get(language, "pt-BR")
 
-    # Build Deepgram streaming URL with params
-    params = "&".join([
-        "model=nova-3",
-        f"language={dg_language}",
-        "encoding=mulaw",
-        "sample_rate=8000",
-        "channels=1",
-        "punctuate=true",
-        "endpointing=300",
-        "interim_results=false",
-        "utterance_end_ms=1500",
-        "vad_events=true",
-    ])
+    client = AsyncDeepgramClient(api_key=api_key)
 
-    url = f"wss://api.deepgram.com/v1/listen?{params}"
-    headers = {"Authorization": f"Token {api_key}"}
-
+    # Primary attempt with full params
     try:
-        ws = await websockets.connect(
-            url,
-            additional_headers=headers,
-            ping_interval=5,
-            ping_timeout=20,
+        ctx = client.listen.v1.connect(
+            model="nova-3",
+            language=dg_language,
+            encoding="mulaw",
+            sample_rate="8000",
+            channels="1",
+            punctuate="true",
+            endpointing="300",
+            interim_results="false",
+            utterance_end_ms="1500",
+            vad_events="true",
         )
+        conn = await ctx.__aenter__()
+        # Keep reference so caller can manage cleanup
+        conn._dg_ctx = ctx  # noqa: SLF001
         logger.info(
-            "Deepgram streaming connected (lang=%s)",
+            "Deepgram SDK streaming connected (lang=%s)",
             dg_language,
         )
-        return ws
-    except websockets.exceptions.InvalidStatus as e:
-        logger.error(
-            "Deepgram streaming rejected (HTTP %s): %s",
-            e.response.status_code,
-            str(e)[:200],
-        )
+        return conn
     except Exception as e:
         logger.error(
-            "Failed to connect to Deepgram streaming: %s",
-            e,
+            "Deepgram SDK connection failed: %s", e
         )
 
-    # ── Fallback: retry with minimal params ──────────────
-    logger.info("Retrying Deepgram with minimal params...")
-    fallback_params = "&".join([
-        "model=nova-3",
-        f"language={dg_language}",
-        "encoding=mulaw",
-        "sample_rate=8000",
-        "channels=1",
-        "punctuate=true",
-        "interim_results=false",
-        "vad_events=true",
-    ])
-    fallback_url = (
-        f"wss://api.deepgram.com/v1/listen?{fallback_params}"
+    # Fallback: minimal params (no endpointing/utterance)
+    logger.info(
+        "Retrying Deepgram SDK with minimal params..."
     )
-
     try:
-        ws = await websockets.connect(
-            fallback_url,
-            additional_headers=headers,
-            ping_interval=5,
-            ping_timeout=20,
+        ctx = client.listen.v1.connect(
+            model="nova-3",
+            language=dg_language,
+            encoding="mulaw",
+            sample_rate="8000",
+            channels="1",
+            punctuate="true",
+            interim_results="false",
+            vad_events="true",
         )
+        conn = await ctx.__aenter__()
+        conn._dg_ctx = ctx  # noqa: SLF001
         logger.info(
-            "Deepgram streaming connected via fallback "
-            "(lang=%s)",
+            "Deepgram SDK fallback connected (lang=%s)",
             dg_language,
         )
-        return ws
-    except websockets.exceptions.InvalidStatus as e:
-        logger.error(
-            "Deepgram fallback also rejected (HTTP %s): %s",
-            e.response.status_code,
-            str(e)[:200],
-        )
+        return conn
     except Exception as e:
         logger.error(
-            "Deepgram fallback connection failed: %s",
-            e,
+            "Deepgram SDK fallback failed: %s", e
         )
 
     return None
 
 
 async def _listen_deepgram(
-    deepgram_ws,
+    deepgram_conn,
     twilio_ws: WebSocket,
     session,
     stream_sid: str,
@@ -329,43 +328,38 @@ async def _listen_deepgram(
     """
     Background task: listen for Deepgram transcript events.
 
+    Uses the SDK's typed response objects (``ListenV1Results``,
+    ``ListenV1SpeechStarted``, ``ListenV1UtteranceEnd``).
+
     When a final transcript arrives (person stopped talking),
     process it through GPT -> TTS -> Twilio.
-
-    Runs until the Deepgram WebSocket closes or an error.
     """
     try:
-        async for message in deepgram_ws:
-            data = json.loads(message)
-            msg_type = data.get("type", "")
-
+        async for message in deepgram_conn:
             # ── Final transcript ─────────────────────────
-            if msg_type == "Results":
-                channel = data.get("channel", {})
-                alternatives = channel.get(
-                    "alternatives", [{}]
-                )
+            if isinstance(message, ListenV1Results):
+                alts = message.channel.alternatives
                 transcript = (
-                    alternatives[0]
-                    .get("transcript", "")
-                    .strip()
-                )
-                is_final = data.get("is_final", False)
-                speech_final = data.get(
-                    "speech_final", False
+                    alts[0].transcript.strip()
+                    if alts
+                    else ""
                 )
 
                 if not transcript:
                     continue
 
-                if is_final and speech_final:
+                if (
+                    message.is_final
+                    and message.speech_final
+                ):
                     logger.info(
-                        'Session %s Deepgram final: "%s"',
+                        'Session %s Deepgram final: '
+                        '"%s"',
                         session.session_id[:8],
                         transcript[:100],
                     )
 
-                    # Process turn (lock prevents overlap)
+                    # Process turn (lock stops overlap)
                     async with processing_lock:
                         await _process_turn_streaming(
                             twilio_ws=twilio_ws,
@@ -382,23 +376,27 @@ async def _listen_deepgram(
                             )
                             return
 
-            # ── Utterance end (backup) ────────────────────
-            elif msg_type == "UtteranceEnd":
+            # ── Utterance end ─────────────────────────────
+            elif isinstance(
+                message, ListenV1UtteranceEnd
+            ):
                 logger.debug("Deepgram UtteranceEnd event")
 
             # ── Speech started ────────────────────────────
-            elif msg_type == "SpeechStarted":
+            elif isinstance(
+                message, ListenV1SpeechStarted
+            ):
                 logger.debug("Deepgram: speech started")
 
             # ── Metadata / other ──────────────────────────
-            elif msg_type == "Metadata":
+            else:
                 logger.debug(
-                    "Deepgram metadata: %s",
-                    data.get("request_id", ""),
+                    "Deepgram event: %s",
+                    type(message).__name__,
                 )
 
-    except websockets.exceptions.ConnectionClosed:
-        logger.info("Deepgram stream closed")
+    except asyncio.CancelledError:
+        logger.info("Deepgram listener cancelled")
     except Exception as e:
         logger.error(
             "Deepgram listener error: %s",
