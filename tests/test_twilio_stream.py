@@ -525,9 +525,9 @@ class TestDeepgramStreaming:
                 call_url = mock_connect.call_args[0][0]
                 assert "language=en-US" in call_url
                 assert "endpointing=300" in call_url
-                assert "utterance_end_ms=1500" in call_url
                 assert "vad_events=true" in call_url
                 assert "sample_rate=8000" in call_url
+                assert "utterance_end_ms" not in call_url
 
     @pytest.mark.asyncio
     async def test_open_deepgram_stream_auth_header(self):
