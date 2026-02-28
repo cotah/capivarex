@@ -34,9 +34,9 @@ from services import get_service
 logger = logging.getLogger(__name__)
 
 # ── Intelligent calls (Media Streams) ────────────────────────────────────
-# When BACKEND_URL is set, calls use the real-time AI conversation pipeline.
-# When not set, falls back to static TwiML <Say>.
-BACKEND_URL = os.getenv("BACKEND_URL", "")
+# When set, calls use the real-time AI conversation pipeline.
+# TWILIO_STREAM_BASE_URL takes priority; BACKEND_URL is the fallback.
+BACKEND_URL = os.getenv("TWILIO_STREAM_BASE_URL", os.getenv("BACKEND_URL", ""))
 
 # ── Regex para extrair números de telefone ────────────────────────────────
 # Aceita: +353894434456, +351 912 345 678, +1-406-416-4577, etc.
