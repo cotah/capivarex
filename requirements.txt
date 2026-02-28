@@ -68,6 +68,7 @@ sentry-sdk==2.53.0
 
 # Audio Processing
 pydub>=0.25.1
+deepgram-sdk>=3.0.0
 
 # PDF Processing
 PyPDF2>=3.0.0

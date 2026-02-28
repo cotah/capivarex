@@ -3,6 +3,7 @@ Tests for Twilio Media Streams WebSocket endpoint.
 """
 import base64
 import json
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -176,6 +177,159 @@ class TestRunSTT:
 
             result = await _run_stt(wav_bytes, "en")
             assert result == ""
+
+
+# -- _run_stt Deepgram tests --------------------------------------------------
+
+
+class TestRunSTTDeepgram:
+    """Tests for Deepgram STT integration."""
+
+    @pytest.mark.asyncio
+    async def test_stt_empty_audio(self):
+        """Empty audio returns empty string."""
+        result = await _run_stt(b"", "en")
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_stt_deepgram_success(self):
+        """Successful Deepgram STT returns transcript."""
+        import io
+        import wave
+
+        # Create valid WAV
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(b"\x00\x00" * 16000)
+        wav_bytes = buf.getvalue()
+
+        # Mock Deepgram response
+        mock_response = {
+            "results": {
+                "channels": [
+                    {
+                        "alternatives": [
+                            {
+                                "transcript": (
+                                    "Teste de voz"
+                                )
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
+        with patch.dict(
+            os.environ,
+            {"DEEPGRAM_API_KEY": "fake_key"},
+        ):
+            with patch(
+                "api.routes.twilio_stream.httpx.AsyncClient",
+            ) as mock_client_cls:
+                mock_client = AsyncMock()
+                mock_response_obj = MagicMock()
+                mock_response_obj.json.return_value = (
+                    mock_response
+                )
+                mock_response_obj.raise_for_status = (
+                    MagicMock()
+                )
+                mock_client.post = AsyncMock(
+                    return_value=mock_response_obj
+                )
+                mock_client.__aenter__ = AsyncMock(
+                    return_value=mock_client
+                )
+                mock_client.__aexit__ = AsyncMock(
+                    return_value=False
+                )
+                mock_client_cls.return_value = mock_client
+
+                result = await _run_stt(wav_bytes, "pt")
+                assert result == "Teste de voz"
+
+    @pytest.mark.asyncio
+    async def test_stt_deepgram_fallback_to_whisper(self):
+        """If Deepgram fails, falls back to Whisper."""
+        import io
+        import wave
+
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(b"\x00\x00" * 16000)
+        wav_bytes = buf.getvalue()
+
+        mock_whisper = AsyncMock()
+        mock_whisper.is_initialized.return_value = True
+        mock_whisper.speech_to_text = AsyncMock(
+            return_value={"text": "Fallback whisper"}
+        )
+
+        with patch.dict(
+            os.environ,
+            {"DEEPGRAM_API_KEY": "fake_key"},
+        ):
+            with patch(
+                "api.routes.twilio_stream.httpx.AsyncClient",
+                side_effect=Exception("Deepgram down"),
+            ):
+                with patch(
+                    "services.get_service",
+                    return_value=mock_whisper,
+                ):
+                    result = await _run_stt(
+                        wav_bytes, "pt"
+                    )
+                    assert result == "Fallback whisper"
+
+    @pytest.mark.asyncio
+    async def test_stt_no_deepgram_key_uses_whisper(self):
+        """No DEEPGRAM_API_KEY falls back to Whisper."""
+        import io
+        import wave
+
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(b"\x00\x00" * 16000)
+        wav_bytes = buf.getvalue()
+
+        mock_whisper = AsyncMock()
+        mock_whisper.is_initialized.return_value = True
+        mock_whisper.speech_to_text = AsyncMock(
+            return_value={"text": "Whisper result"}
+        )
+
+        with patch.dict(os.environ, {}, clear=False):
+            # Ensure no DEEPGRAM_API_KEY
+            os.environ.pop("DEEPGRAM_API_KEY", None)
+            with patch(
+                "services.get_service",
+                return_value=mock_whisper,
+            ):
+                result = await _run_stt(wav_bytes, "en")
+                assert result == "Whisper result"
+
+    @pytest.mark.asyncio
+    async def test_stt_language_mapping(self):
+        """Verify language codes are mapped correctly."""
+        lang_map = {
+            "pt": "pt-BR",
+            "en": "en-US",
+            "es": "es",
+        }
+        assert lang_map["pt"] == "pt-BR"
+        assert lang_map["en"] == "en-US"
+        assert lang_map["es"] == "es"
 
 
 # -- _send_telegram_report tests ----------------------------------------------

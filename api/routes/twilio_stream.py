@@ -24,12 +24,14 @@ import asyncio
 import base64
 import json
 import logging
+import os
 import tempfile
 import time
 import uuid
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
@@ -371,14 +373,16 @@ async def _end_call(
 
 async def _run_stt(wav_bytes: bytes, language: str) -> str:
     """
-    Run Whisper STT on WAV audio bytes.
+    Run Deepgram STT on WAV audio bytes.
 
-    Saves to temp file (Whisper API requires a file), transcribes,
-    deletes.
+    Deepgram is optimized for phone audio and supports mulaw natively.
+    Uses the pre-recorded (sync) API for simplicity.
+
+    Falls back to Whisper if Deepgram is unavailable.
 
     Args:
         wav_bytes: WAV audio file bytes
-        language: Language hint for Whisper
+        language: Language hint (pt, en, es)
 
     Returns:
         Transcribed text (empty string on failure)
@@ -386,13 +390,76 @@ async def _run_stt(wav_bytes: bytes, language: str) -> str:
     if not wav_bytes:
         return ""
 
+    # Map our language codes to Deepgram's
+    lang_map = {
+        "pt": "pt-BR",  # Brazilian Portuguese
+        "en": "en-US",
+        "es": "es",
+    }
+    dg_language = lang_map.get(language, "pt-BR")
+
+    # ── Try Deepgram first ────────────────────────────────────────
+    deepgram_key = os.getenv("DEEPGRAM_API_KEY")
+    if deepgram_key:
+        try:
+            url = "https://api.deepgram.com/v1/listen"
+            headers = {
+                "Authorization": f"Token {deepgram_key}",
+                "Content-Type": "audio/wav",
+            }
+            params = {
+                "model": "nova-3",
+                "language": dg_language,
+                "smart_format": "true",
+                "punctuate": "true",
+                "numerals": "true",
+                "endpointing": "300",
+            }
+
+            async with httpx.AsyncClient(
+                timeout=10.0,
+            ) as client:
+                response = await client.post(
+                    url,
+                    headers=headers,
+                    params=params,
+                    content=wav_bytes,
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                transcript = (
+                    data.get("results", {})
+                    .get("channels", [{}])[0]
+                    .get("alternatives", [{}])[0]
+                    .get("transcript", "")
+                    .strip()
+                )
+
+                logger.info(
+                    "Deepgram STT: '%s' (lang=%s, %d bytes)",
+                    transcript[:100],
+                    dg_language,
+                    len(wav_bytes),
+                )
+                return transcript
+
+        except Exception as e:
+            logger.warning(
+                "Deepgram STT failed, falling back to "
+                "Whisper: %s",
+                e,
+            )
+
+    # ── Fallback: Whisper ─────────────────────────────────────────
     try:
         from services import get_service
 
         whisper_svc = get_service("whisper")
         if not whisper_svc:
             logger.error(
-                "WhisperService not available for STT"
+                "Neither Deepgram nor Whisper available "
+                "for STT"
             )
             return ""
 
@@ -404,20 +471,21 @@ async def _run_stt(wav_bytes: bytes, language: str) -> str:
 
         try:
             filepath.write_bytes(wav_bytes)
-
             result = await whisper_svc.speech_to_text(
                 audio_file_path=str(filepath),
                 language=language,
             )
-
             return result.get("text", "").strip()
-
         finally:
             if filepath.exists():
                 filepath.unlink()
 
     except Exception as e:
-        logger.error("STT failed: %s", e, exc_info=True)
+        logger.error(
+            "Whisper STT fallback also failed: %s",
+            e,
+            exc_info=True,
+        )
         return ""
 
 
@@ -564,8 +632,6 @@ async def _send_telegram_report(session):
     except Exception as e:
         logger.error("Failed to generate report: %s", e, exc_info=True)
         return
-
-    import os
 
     from telegram import Bot as TelegramBot
 
