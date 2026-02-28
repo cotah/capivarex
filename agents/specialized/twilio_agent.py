@@ -23,11 +23,20 @@ Depende de:
 """
 
 import asyncio
+import logging
+import os
 import re
 from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+
+logger = logging.getLogger(__name__)
+
+# ── Intelligent calls (Media Streams) ────────────────────────────────────
+# When BACKEND_URL is set, calls use the real-time AI conversation pipeline.
+# When not set, falls back to static TwiML <Say>.
+BACKEND_URL = os.getenv("BACKEND_URL", "")
 
 # ── Regex para extrair números de telefone ────────────────────────────────
 # Aceita: +353894434456, +351 912 345 678, +1-406-416-4577, etc.
@@ -147,80 +156,9 @@ class TwilioAgent(BaseAgent):
             if not phone_number:
                 return self._handle_help()
 
-            # Detectar país
-            country = _detect_country(phone_number)
-
-            # Extrair mensagem personalizada (se houver)
-            custom_message = _extract_message(prompt, phone_number)
-
-            # Gerar TwiML
-            if custom_message:
-                # Detectar idioma pela mensagem/país
-                lang = (
-                    "pt-PT"
-                    if country in ("PT",)
-                    else (
-                        "pt-BR"
-                        if country in ("BR",)
-                        else ("en-IE" if country in ("IE",) else "en-US")
-                    )
-                )
-                twiml = twilio_svc.twiml_say(custom_message, language=lang)
-            else:
-                # Mensagem default baseada no idioma
-                if country in ("PT", "BR"):
-                    twiml = twilio_svc.twiml_say(
-                        "Olá! Esta é uma chamada automática do Capivarex. "
-                        "O utilizador pediu para entrar em contacto consigo. "
-                        "Por favor, aguarde enquanto tentamos conectar.",
-                        language="pt-PT" if country == "PT" else "pt-BR",
-                    )
-                else:
-                    twiml = twilio_svc.twiml_say(
-                        "Hello! This is an automated call from Capivarex. "
-                        "The user asked to get in touch with you. "
-                        "Please hold while we try to connect.",
-                        language="en-US",
-                    )
-
-            # Fazer chamada
-            tenant_id = str(context.get("user_id", ""))
-            self.logger.info(
-                "TwilioAgent: calling %s (country=%s, tenant=%s)",
-                phone_number,
-                country,
-                tenant_id,
-            )
-
-            result = await twilio_svc.make_call(
-                tenant_id=tenant_id,
-                to_number=phone_number,
-                twiml_or_url=twiml,
-                destination_country=country,
-            )
-
-            # Formatar resposta
-            call_sid = result.get("call_sid", "?")
-            from_number = result.get("from_number", "?")
-            status = result.get("status", "initiated")
-
-            lines = [
-                "📞 **Chamada iniciada!**\n",
-                f"📱 Para: `{phone_number}`",
-                f"📲 De: `{from_number}`",
-                f"🌍 País: {country}",
-                f"📊 Status: {status}",
-            ]
-
-            if custom_message:
-                lines.append(f'\n💬 Mensagem: "{custom_message}"')
-
-            lines.append(f"\n🔑 ID: `{call_sid[:20]}...`")
-
-            return AgentResponse(
-                status=AgentStatus.SUCCESS,
-                response="\n".join(lines),
-                data=result,
+            # Route: intelligent (Media Streams) or static (TwiML <Say>)
+            return await self._execute_call(
+                twilio_svc, phone_number, prompt, context
             )
 
         except Exception as e:
@@ -252,6 +190,220 @@ class TwilioAgent(BaseAgent):
                 response=f"📞 Erro ao fazer chamada: {error_msg}",
                 error=error_msg,
             )
+
+    # ------------------------------------------------------------------
+    # Call routing — intelligent vs static
+    # ------------------------------------------------------------------
+
+    async def _execute_call(
+        self,
+        twilio_svc,
+        phone_number: str,
+        prompt: str,
+        context: Dict[str, Any],
+    ) -> AgentResponse:
+        """Execute a phone call — intelligent (Media Streams) or static (fallback)."""
+        if BACKEND_URL:
+            try:
+                return await self._execute_intelligent_call(
+                    twilio_svc, phone_number, prompt, context
+                )
+            except Exception as e:
+                logger.warning(
+                    "Intelligent call failed, falling back to static: %s", e
+                )
+
+        return await self._execute_static_call(
+            twilio_svc, phone_number, prompt, context
+        )
+
+    # ------------------------------------------------------------------
+    # Intelligent call (Media Streams + real-time AI conversation)
+    # ------------------------------------------------------------------
+
+    async def _execute_intelligent_call(
+        self,
+        twilio_svc,
+        phone_number: str,
+        prompt: str,
+        context: Dict[str, Any],
+    ) -> AgentResponse:
+        """
+        Make an intelligent AI call using Twilio Media Streams.
+
+        Pipeline:
+        1. Extract call plan via CallBrain (objective, language, greeting)
+        2. Register pending call session (in-memory, for WebSocket to pick up)
+        3. Generate TwiML with <Connect><Stream> (points to our WebSocket)
+        4. Make the call via Twilio API
+        5. Return confirmation (WebSocket handler takes over from here)
+        """
+        from services.ai.call_brain import CallBrain
+        from services.business.call_session import register_pending_call
+
+        user_name = context.get("user_name", "User")
+        chat_id = context.get("chat_id", 0)
+        user_id = context.get("user_id", 0)
+        country = _detect_country(phone_number)
+
+        # 1. Extract call plan
+        brain = CallBrain()
+        plan = await brain.extract_call_plan(
+            user_prompt=prompt,
+            user_name=user_name,
+        )
+
+        logger.info(
+            "Call plan: objective=%s language=%s greeting=%s",
+            plan.objective[:80],
+            plan.language,
+            plan.greeting[:50] if plan.greeting else "(auto)",
+        )
+
+        # 2. Register pending call
+        session_id = register_pending_call(
+            objective=plan.objective,
+            user_name=user_name,
+            language=plan.language,
+            phone_number=phone_number,
+            telegram_chat_id=chat_id,
+            telegram_user_id=user_id,
+            extra_context=plan.key_details,
+            greeting=plan.greeting,
+        )
+
+        # 3. Generate TwiML with Media Stream
+        ws_url = BACKEND_URL.replace("https://", "wss://").replace(
+            "http://", "ws://"
+        )
+        stream_url = f"{ws_url}/ws/twilio-stream"
+
+        twiml = twilio_svc.twiml_media_stream(
+            stream_url=stream_url,
+            session_id=session_id,
+        )
+
+        # 4. Make the call
+        tenant_id = str(user_id) if user_id else ""
+        result = await twilio_svc.make_call(
+            tenant_id=tenant_id,
+            to_number=phone_number,
+            twiml_or_url=twiml,
+            destination_country=country,
+        )
+
+        call_sid = result.get("call_sid", "unknown")
+
+        logger.info(
+            "Intelligent call initiated: session=%s call_sid=%s -> %s",
+            session_id[:8],
+            call_sid,
+            phone_number,
+        )
+
+        # 5. Return confirmation
+        lines = [
+            "📞 **Chamada inteligente iniciada!**\n",
+            f"📱 Para: `{phone_number}`",
+            f"🎯 Objetivo: {plan.objective}",
+            f"🌍 Idioma: {plan.language.upper()}",
+            "⏳ O bot vai conduzir a conversa e reportar quando terminar.",
+        ]
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={
+                **result,
+                "mode": "intelligent",
+                "session_id": session_id,
+                "objective": plan.objective,
+                "language": plan.language,
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # Static call (original TwiML <Say> behavior — fallback)
+    # ------------------------------------------------------------------
+
+    async def _execute_static_call(
+        self,
+        twilio_svc,
+        phone_number: str,
+        prompt: str,
+        context: Dict[str, Any],
+    ) -> AgentResponse:
+        """Original static call logic — TwiML <Say> with a fixed message."""
+        country = _detect_country(phone_number)
+        custom_message = _extract_message(prompt, phone_number)
+
+        # Gerar TwiML
+        if custom_message:
+            lang = (
+                "pt-PT"
+                if country in ("PT",)
+                else (
+                    "pt-BR"
+                    if country in ("BR",)
+                    else ("en-IE" if country in ("IE",) else "en-US")
+                )
+            )
+            twiml = twilio_svc.twiml_say(custom_message, language=lang)
+        else:
+            if country in ("PT", "BR"):
+                twiml = twilio_svc.twiml_say(
+                    "Olá! Esta é uma chamada automática do Capivarex. "
+                    "O utilizador pediu para entrar em contacto consigo. "
+                    "Por favor, aguarde enquanto tentamos conectar.",
+                    language="pt-PT" if country == "PT" else "pt-BR",
+                )
+            else:
+                twiml = twilio_svc.twiml_say(
+                    "Hello! This is an automated call from Capivarex. "
+                    "The user asked to get in touch with you. "
+                    "Please hold while we try to connect.",
+                    language="en-US",
+                )
+
+        # Fazer chamada
+        tenant_id = str(context.get("user_id", ""))
+        self.logger.info(
+            "TwilioAgent: calling %s (country=%s, tenant=%s)",
+            phone_number,
+            country,
+            tenant_id,
+        )
+
+        result = await twilio_svc.make_call(
+            tenant_id=tenant_id,
+            to_number=phone_number,
+            twiml_or_url=twiml,
+            destination_country=country,
+        )
+
+        # Formatar resposta
+        call_sid = result.get("call_sid", "?")
+        from_number = result.get("from_number", "?")
+        status = result.get("status", "initiated")
+
+        lines = [
+            "📞 **Chamada iniciada!**\n",
+            f"📱 Para: `{phone_number}`",
+            f"📲 De: `{from_number}`",
+            f"🌍 País: {country}",
+            f"📊 Status: {status}",
+        ]
+
+        if custom_message:
+            lines.append(f'\n💬 Mensagem: "{custom_message}"')
+
+        lines.append(f"\n🔑 ID: `{call_sid[:20]}...`")
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={**result, "mode": "static"},
+        )
 
     def _handle_help(self) -> AgentResponse:
         """Retorna instruções de uso."""

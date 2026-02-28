@@ -47,20 +47,20 @@ load_dotenv()
 
 PHONE_POOL: List[Dict[str, Any]] = [
     {
-        "id":       "us_1",
-        "number":   "+14064164577",
-        "country":  "US",
-        "region":   ["US", "CA", "BR", "DEFAULT"],  # países que atende bem
-        "active":   True,
-        "label":    "US Montana",
+        "id": "us_1",
+        "number": "+14064164577",
+        "country": "US",
+        "region": ["US", "CA", "BR", "DEFAULT"],  # países que atende bem
+        "active": True,
+        "label": "US Montana",
     },
     {
-        "id":       "ie_1",
-        "number":   None,            # ← preencher quando bundle aprovado
-        "country":  "IE",
-        "region":   ["IE", "PT", "GB", "ES", "FR", "DE"],  # Europa
-        "active":   False,           # ← mudar para True quando tiver número
-        "label":    "Ireland (pending)",
+        "id": "ie_1",
+        "number": None,  # ← preencher quando bundle aprovado
+        "country": "IE",
+        "region": ["IE", "PT", "GB", "ES", "FR", "DE"],  # Europa
+        "active": False,  # ← mudar para True quando tiver número
+        "label": "Ireland (pending)",
     },
 ]
 
@@ -137,6 +137,7 @@ class TwilioService(BaseService):
             )
 
         from services.core import get_service
+
         self._db = get_service("database")
         if self._db and not self._db.is_initialized():
             await self._db.initialize()
@@ -153,7 +154,8 @@ class TwilioService(BaseService):
         pending = [n for n in PHONE_POOL if not n["active"]]
         self.logger.info(
             "TwilioService initialized. Pool: %d activo(s), %d pendente(s)",
-            len(active), len(pending),
+            len(active),
+            len(pending),
         )
         if pending:
             for p in pending:
@@ -204,6 +206,7 @@ class TwilioService(BaseService):
         # 1. Verifica e consome quota
         if self._quota_svc:
             from services.business.quota_service import QuotaExceededError
+
             try:
                 await self._quota_svc.check_and_consume(
                     tenant_id, "twilio_mins", estimated_duration_mins
@@ -262,7 +265,10 @@ class TwilioService(BaseService):
 
             self.logger.info(
                 "Call initiated: %s → %s (tenant=%s sid=%s)",
-                from_number, to_number, tenant_id, call_sid,
+                from_number,
+                to_number,
+                tenant_id,
+                call_sid,
             )
             return result
 
@@ -291,7 +297,9 @@ class TwilioService(BaseService):
             ) as resp:
                 data = await resp.json()
                 if resp.status != 200:
-                    raise RuntimeError(f"Twilio erro {resp.status}: {data.get('message')}")
+                    raise RuntimeError(
+                        f"Twilio erro {resp.status}: {data.get('message')}"
+                    )
 
         return {
             "call_sid": call_sid,
@@ -420,10 +428,9 @@ class TwilioService(BaseService):
         """
         # Candidatos: activos, com número, não em uso
         candidates = [
-            n for n in PHONE_POOL
-            if n["active"]
-            and n["number"]
-            and not self._pool_state.get(n["id"], False)
+            n
+            for n in PHONE_POOL
+            if n["active"] and n["number"] and not self._pool_state.get(n["id"], False)
         ]
 
         if not candidates:
@@ -435,7 +442,9 @@ class TwilioService(BaseService):
         chosen = regional[0] if regional else candidates[0]
 
         self._pool_state[chosen["id"]] = True
-        self.logger.debug("Number acquired: %s for country %s", chosen["number"], country)
+        self.logger.debug(
+            "Number acquired: %s for country %s", chosen["number"], country
+        )
         return chosen
 
     def _release_number(self, number_id: str) -> None:
@@ -471,12 +480,7 @@ class TwilioService(BaseService):
         try:
             await self._loop().run_in_executor(
                 None,
-                lambda: (
-                    self._client()
-                    .table(CALLS_TABLE)
-                    .insert(call_data)
-                    .execute()
-                ),
+                lambda: self._client().table(CALLS_TABLE).insert(call_data).execute(),
             )
         except Exception as e:
             self.logger.warning("Erro ao log chamada: %s", e)
@@ -508,6 +512,34 @@ class TwilioService(BaseService):
         )
 
     @staticmethod
+    def twiml_media_stream(stream_url: str, session_id: str) -> str:
+        """
+        Generate TwiML to connect a call to a Media Stream (WebSocket).
+
+        Used for intelligent AI calls where we need bidirectional audio.
+        The stream_url points to our /ws/twilio-stream WebSocket endpoint.
+        The session_id is passed as a custom parameter so the WebSocket handler
+        knows which CallSession to load.
+
+        Args:
+            stream_url: WebSocket URL (wss://capivarex.up.railway.app/ws/twilio-stream)
+            session_id: Call session ID (from register_pending_call)
+
+        Returns:
+            TwiML XML string
+        """
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            "<Response>"
+            "<Connect>"
+            f'<Stream url="{stream_url}">'
+            f'<Parameter name="session_id" value="{session_id}"/>'
+            "</Stream>"
+            "</Connect>"
+            "</Response>"
+        )
+
+    @staticmethod
     def twiml_restaurant_reservation(
         restaurant_name: str,
         party_size: int,
@@ -533,7 +565,9 @@ class TwilioService(BaseService):
                 f"O nome da reserva é {client_name}. "
                 f"Podem confirmar por favor?"
             )
-            voice = "Polly.Ines-Neural" if language == "pt-PT" else "Polly.Camila-Neural"
+            voice = (
+                "Polly.Ines-Neural" if language == "pt-PT" else "Polly.Camila-Neural"
+            )
         else:
             msg = (
                 f"Hello! I'm calling to make a reservation. "
