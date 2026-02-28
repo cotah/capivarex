@@ -13,6 +13,7 @@ from api.routes.twilio_stream import (
     _load_session,
     _open_deepgram_stream,
     _process_turn_streaming,
+    _redact_error,
     _run_stt,
     _send_error_and_close,
     _send_telegram_report,
@@ -107,9 +108,12 @@ class TestRunSTT:
             return_value={"text": "Hello world"}
         )
 
-        with patch(
-            "services.get_service",
-            return_value=mock_whisper,
+        with (
+            patch.dict(os.environ, {"DEEPGRAM_API_KEY": ""}),
+            patch(
+                "services.get_service",
+                return_value=mock_whisper,
+            ),
         ):
             import io
             import wave
@@ -137,9 +141,12 @@ class TestRunSTT:
             return_value={"text": "Initialized"}
         )
 
-        with patch(
-            "services.get_service",
-            return_value=mock_whisper,
+        with (
+            patch.dict(os.environ, {"DEEPGRAM_API_KEY": ""}),
+            patch(
+                "services.get_service",
+                return_value=mock_whisper,
+            ),
         ):
             import io
             import wave
@@ -165,9 +172,12 @@ class TestRunSTT:
             side_effect=RuntimeError("API error")
         )
 
-        with patch(
-            "services.get_service",
-            return_value=mock_whisper,
+        with (
+            patch.dict(os.environ, {"DEEPGRAM_API_KEY": ""}),
+            patch(
+                "services.get_service",
+                return_value=mock_whisper,
+            ),
         ):
             import io
             import wave
@@ -827,6 +837,37 @@ class TestDeepgramStreaming:
                     "pt"
                 )
                 assert result is None
+
+
+# -- _redact_error tests -----------------------------------------------
+
+
+class TestRedactError:
+    """Tests for API key redaction in error messages."""
+
+    def test_redacts_authorization_header(self):
+        """Authorization header is redacted."""
+        err = Exception(
+            "Failed: Authorization: Token sk-abc123"
+        )
+        result = _redact_error(err)
+        assert "sk-abc123" not in result
+        assert "[REDACTED]" in result
+
+    def test_redacts_token_prefix(self):
+        """Token prefix is redacted."""
+        err = Exception(
+            "WS error Token my_secret_key stuff"
+        )
+        result = _redact_error(err)
+        assert "my_secret_key" not in result
+        assert "[REDACTED]" in result
+
+    def test_no_sensitive_data_passes_through(self):
+        """Non-sensitive errors pass through unchanged."""
+        err = Exception("Connection refused")
+        result = _redact_error(err)
+        assert result == "Connection refused"
 
 
 # -- _send_telegram_report tests --------------------------------------

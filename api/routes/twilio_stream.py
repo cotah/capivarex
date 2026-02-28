@@ -232,6 +232,22 @@ async def twilio_media_stream(websocket: WebSocket):
 # =================================================================
 
 
+def _redact_error(error: Exception) -> str:
+    """Redact API keys / tokens from SDK error messages."""
+    msg = str(error)
+    if "Authorization" in msg:
+        msg = (
+            msg.split("Authorization")[0]
+            + "Authorization: [REDACTED]..."
+        )
+    elif "Token " in msg:
+        msg = (
+            msg.split("Token ")[0]
+            + "Token [REDACTED]..."
+        )
+    return msg
+
+
 async def _open_deepgram_stream(language: str):
     """
     Open a streaming connection to Deepgram via the official SDK.
@@ -285,7 +301,8 @@ async def _open_deepgram_stream(language: str):
         return conn
     except Exception as e:
         logger.error(
-            "Deepgram SDK connection failed: %s", e
+            "Deepgram SDK connection failed: %s",
+            _redact_error(e),
         )
 
     # Fallback: minimal params (no endpointing/utterance)
@@ -312,7 +329,8 @@ async def _open_deepgram_stream(language: str):
         return conn
     except Exception as e:
         logger.error(
-            "Deepgram SDK fallback failed: %s", e
+            "Deepgram SDK fallback failed: %s",
+            _redact_error(e),
         )
 
     return None
@@ -635,7 +653,6 @@ async def _run_stt(wav_bytes: bytes, language: str) -> str:
                 "smart_format": "true",
                 "punctuate": "true",
                 "numerals": "true",
-                "endpointing": "300",
             }
 
             async with httpx.AsyncClient(
