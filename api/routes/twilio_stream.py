@@ -3,21 +3,17 @@ api/routes/twilio_stream.py
 =============================
 WebSocket endpoint for Twilio Media Streams.
 
-Receives real-time audio from phone calls, processes through
-STT -> GPT -> TTS pipeline, and sends audio responses back.
+Architecture:
+  Twilio <-> This Handler <-> Deepgram (streaming STT)
+                  |
+            CallBrain (GPT) -> ElevenLabs (TTS)
+                  |
+            Response audio -> Twilio
 
-Protocol (Twilio Media Streams):
-- Twilio sends JSON messages over WebSocket
-- Events: "connected", "start", "media", "stop"
-- Audio format: mulaw, 8000 Hz, mono, base64-encoded
-- We send back: {"event":"media","streamSid":"...","media":{"payload":"base64..."}}
-
-Lifecycle:
-    1. Twilio opens WebSocket after person answers
-    2. "connected" -> log
-    3. "start" -> get session_id from params, load CallSession, send greeting
-    4. "media" -> accumulate audio, VAD, when silence -> process pipeline
-    5. "stop" -> finalize session, send report to Telegram
+Audio flow (ZERO conversion for STT):
+  Twilio sends mulaw 8kHz -> forward raw bytes to Deepgram WebSocket
+  Deepgram transcribes in real-time -> sends final transcript on speech end
+  -> GPT generates response -> ElevenLabs TTS -> mulaw chunks -> Twilio
 """
 
 import asyncio
@@ -32,13 +28,14 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
+import websockets
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["twilio-stream"])
 
-# Temp directory for Whisper audio files
+# Temp directory for audio files (only used for Whisper fallback)
 _AUDIO_TMP = Path(tempfile.gettempdir()) / "superbot_audio"
 _AUDIO_TMP.mkdir(parents=True, exist_ok=True)
 
@@ -49,26 +46,34 @@ async def twilio_media_stream(websocket: WebSocket):
     Main WebSocket handler for Twilio Media Streams.
 
     Each connection = one phone call.
+    Uses Deepgram streaming for real-time STT with minimum latency.
     """
     await websocket.accept()
 
     session = None
     stream_sid: Optional[str] = None
     call_sid: Optional[str] = None
+    deepgram_ws = None
+    deepgram_task = None
+
+    # Transcript accumulator — Deepgram sends partial results,
+    # we only act on is_final=True with speech_final=True
+    processing_lock = asyncio.Lock()
+    is_speaking = False
 
     try:
         async for raw_message in websocket.iter_text():
             data = json.loads(raw_message)
             event = data.get("event")
 
-            # -- CONNECTED ------------------------------------------------
+            # ── CONNECTED ────────────────────────────────
             if event == "connected":
                 logger.info(
                     "Twilio stream connected (protocol: %s)",
                     data.get("protocol"),
                 )
 
-            # -- START ----------------------------------------------------
+            # ── START ─────────────────────────────────────
             elif event == "start":
                 start_data = data.get("start", {})
                 stream_sid = start_data.get("streamSid")
@@ -77,7 +82,9 @@ async def twilio_media_stream(websocket: WebSocket):
                 custom_params = start_data.get(
                     "customParameters", {}
                 )
-                session_id = custom_params.get("session_id", "")
+                session_id = custom_params.get(
+                    "session_id", ""
+                )
 
                 logger.info(
                     "Call started: call_sid=%s stream_sid=%s "
@@ -87,13 +94,14 @@ async def twilio_media_stream(websocket: WebSocket):
                     session_id[:8] if session_id else "none",
                 )
 
+                # Load session
                 session = await _load_session(
                     session_id, call_sid, stream_sid
                 )
 
                 if session is None:
                     logger.error(
-                        "No session found for session_id=%s "
+                        "No session for session_id=%s "
                         "— closing",
                         session_id[:8],
                     )
@@ -102,68 +110,332 @@ async def twilio_media_stream(websocket: WebSocket):
                     )
                     break
 
+                # Open Deepgram streaming WebSocket
+                deepgram_ws = await _open_deepgram_stream(
+                    session.language,
+                )
+
+                if deepgram_ws is None:
+                    logger.error(
+                        "Failed to open Deepgram stream "
+                        "— closing call"
+                    )
+                    await _send_error_and_close(
+                        websocket, stream_sid
+                    )
+                    break
+
+                # Background task: listen for transcripts
+                deepgram_task = asyncio.create_task(
+                    _listen_deepgram(
+                        deepgram_ws=deepgram_ws,
+                        twilio_ws=websocket,
+                        session=session,
+                        stream_sid=stream_sid,
+                        processing_lock=processing_lock,
+                    )
+                )
+
+                # Send greeting
+                is_speaking = True
                 await _send_greeting(
                     websocket, session, stream_sid
                 )
+                is_speaking = False
 
-            # -- MEDIA ----------------------------------------------------
+            # ── MEDIA ─────────────────────────────────────
             elif event == "media":
-                if session is None:
+                if session is None or deepgram_ws is None:
                     continue
 
+                # Don't forward while bot is speaking (echo)
+                if is_speaking:
+                    continue
+
+                # Forward raw mulaw directly — NO conversion!
                 payload = (
                     data.get("media", {}).get("payload", "")
                 )
-                if not payload:
-                    continue
-
-                audio_bytes = base64.b64decode(payload)
-                session.add_audio_chunk(audio_bytes)
-
-                if session.should_process():
-                    await _process_turn(
-                        websocket, session, stream_sid
-                    )
-
-                    if session.should_end_call():
-                        await _end_call(
-                            websocket, session, stream_sid
+                if payload:
+                    audio_bytes = base64.b64decode(payload)
+                    try:
+                        await deepgram_ws.send(audio_bytes)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to send to Deepgram: %s",
+                            e,
                         )
-                        break
 
-            # -- STOP -----------------------------------------------------
+            # ── STOP ──────────────────────────────────────
             elif event == "stop":
                 logger.info("Call stopped: %s", call_sid)
-                if session:
-                    if session.result.value == "unknown":
-                        session.mark_hangup()
-                    session.finalize()
-                    await _send_telegram_report(session)
                 break
 
     except WebSocketDisconnect:
         logger.info(
-            "Twilio stream disconnected: call_sid=%s", call_sid
+            "Twilio stream disconnected: call_sid=%s",
+            call_sid,
         )
-        if session:
-            if session.result.value == "unknown":
-                session.mark_hangup()
-            session.finalize()
-            await _send_telegram_report(session)
-
     except Exception as e:
         logger.error(
             "Twilio stream error: %s", e, exc_info=True
         )
         if session:
             session.mark_failed(f"WebSocket error: {e}")
+    finally:
+        # Cleanup
+        if deepgram_ws:
+            try:
+                await deepgram_ws.close()
+            except Exception:
+                pass
+        if deepgram_task:
+            deepgram_task.cancel()
+            try:
+                await deepgram_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        if session:
+            if session.result.value == "unknown":
+                session.mark_hangup()
             session.finalize()
             await _send_telegram_report(session)
 
 
-# =====================================================================
-# INTERNAL FUNCTIONS
-# =====================================================================
+# =================================================================
+# DEEPGRAM STREAMING
+# =================================================================
+
+
+async def _open_deepgram_stream(language: str):
+    """
+    Open a WebSocket connection to Deepgram's streaming API.
+
+    Configures for Twilio's audio format: mulaw, 8000 Hz, mono.
+    Deepgram handles endpointing (detects when person stops).
+
+    Args:
+        language: Language code (pt, en, es)
+
+    Returns:
+        WebSocket connection or None on failure
+    """
+    api_key = os.getenv("DEEPGRAM_API_KEY")
+    if not api_key:
+        logger.error(
+            "DEEPGRAM_API_KEY not set — cannot open stream"
+        )
+        return None
+
+    lang_map = {
+        "pt": "pt-BR",
+        "en": "en-US",
+        "es": "es",
+    }
+    dg_language = lang_map.get(language, "pt-BR")
+
+    # Build Deepgram streaming URL with params
+    params = "&".join([
+        "model=nova-3",
+        f"language={dg_language}",
+        "encoding=mulaw",
+        "sample_rate=8000",
+        "channels=1",
+        "smart_format=true",
+        "punctuate=true",
+        "numerals=true",
+        "endpointing=300",
+        "interim_results=false",
+        "utterance_end_ms=1500",
+        "vad_events=true",
+    ])
+
+    url = f"wss://api.deepgram.com/v1/listen?{params}"
+
+    try:
+        ws = await websockets.connect(
+            url,
+            additional_headers={
+                "Authorization": f"Token {api_key}",
+            },
+            ping_interval=5,
+            ping_timeout=20,
+        )
+        logger.info(
+            "Deepgram streaming connected (lang=%s)",
+            dg_language,
+        )
+        return ws
+    except Exception as e:
+        logger.error(
+            "Failed to connect to Deepgram streaming: %s",
+            e,
+        )
+        return None
+
+
+async def _listen_deepgram(
+    deepgram_ws,
+    twilio_ws: WebSocket,
+    session,
+    stream_sid: str,
+    processing_lock: asyncio.Lock,
+):
+    """
+    Background task: listen for Deepgram transcript events.
+
+    When a final transcript arrives (person stopped talking),
+    process it through GPT -> TTS -> Twilio.
+
+    Runs until the Deepgram WebSocket closes or an error.
+    """
+    try:
+        async for message in deepgram_ws:
+            data = json.loads(message)
+            msg_type = data.get("type", "")
+
+            # ── Final transcript ─────────────────────────
+            if msg_type == "Results":
+                channel = data.get("channel", {})
+                alternatives = channel.get(
+                    "alternatives", [{}]
+                )
+                transcript = (
+                    alternatives[0]
+                    .get("transcript", "")
+                    .strip()
+                )
+                is_final = data.get("is_final", False)
+                speech_final = data.get(
+                    "speech_final", False
+                )
+
+                if not transcript:
+                    continue
+
+                if is_final and speech_final:
+                    logger.info(
+                        'Session %s Deepgram final: "%s"',
+                        session.session_id[:8],
+                        transcript[:100],
+                    )
+
+                    # Process turn (lock prevents overlap)
+                    async with processing_lock:
+                        await _process_turn_streaming(
+                            twilio_ws=twilio_ws,
+                            session=session,
+                            stream_sid=stream_sid,
+                            transcript=transcript,
+                        )
+
+                        if session.should_end_call():
+                            await _end_call(
+                                twilio_ws,
+                                session,
+                                stream_sid,
+                            )
+                            return
+
+            # ── Utterance end (backup) ────────────────────
+            elif msg_type == "UtteranceEnd":
+                logger.debug("Deepgram UtteranceEnd event")
+
+            # ── Speech started ────────────────────────────
+            elif msg_type == "SpeechStarted":
+                logger.debug("Deepgram: speech started")
+
+            # ── Metadata / other ──────────────────────────
+            elif msg_type == "Metadata":
+                logger.debug(
+                    "Deepgram metadata: %s",
+                    data.get("request_id", ""),
+                )
+
+    except websockets.exceptions.ConnectionClosed:
+        logger.info("Deepgram stream closed")
+    except Exception as e:
+        logger.error(
+            "Deepgram listener error: %s",
+            e,
+            exc_info=True,
+        )
+
+
+async def _process_turn_streaming(
+    twilio_ws: WebSocket,
+    session,
+    stream_sid: str,
+    transcript: str,
+):
+    """
+    Process a conversation turn from streaming transcript.
+
+    Replaces the old _process_turn() — no WAV conversion
+    or batch STT. Just: transcript -> GPT -> TTS -> Twilio.
+    """
+    from services.ai.call_brain import CallBrain
+    from services.business.call_session import CallStatus
+
+    if not transcript:
+        return
+
+    session.status = CallStatus.PROCESSING
+    session.add_user_turn(transcript)
+
+    # ── GPT Brain ────────────────────────────────────────
+    brain = CallBrain()
+    brain_resp = await brain.generate_response(
+        objective=session.objective,
+        user_name=session.user_name,
+        language=session.language,
+        key_details=session.extra_context,
+        extra_context="",
+        conversation_history=(
+            session.get_conversation_history()[:-1]
+        ),
+        latest_speech=transcript,
+    )
+
+    session.record_llm_latency(brain_resp.latency_s)
+
+    logger.info(
+        'Session %s Brain (%.2fs): "%s" '
+        "| complete=%s end=%s",
+        session.session_id[:8],
+        brain_resp.latency_s,
+        brain_resp.text[:100],
+        brain_resp.objective_complete,
+        brain_resp.should_end_call,
+    )
+
+    # ── TTS + Send ───────────────────────────────────────
+    if brain_resp.text:
+        session.status = CallStatus.SPEAKING
+        audio_duration = await _text_to_twilio_audio(
+            twilio_ws,
+            stream_sid,
+            brain_resp.text,
+            session.language,
+        )
+        session.add_assistant_turn(
+            brain_resp.text,
+            audio_duration_s=audio_duration,
+        )
+
+    # ── Update state ─────────────────────────────────────
+    if brain_resp.objective_complete:
+        session.mark_objective_complete(brain_resp.text)
+
+    if brain_resp.should_end_call:
+        return
+
+    session.status = CallStatus.LISTENING
+
+
+# =================================================================
+# INTERNAL FUNCTIONS (unchanged)
+# =================================================================
 
 
 async def _load_session(
@@ -236,99 +508,6 @@ async def _send_greeting(
     )
 
 
-async def _process_turn(
-    websocket: WebSocket, session, stream_sid: str
-):
-    """
-    Full pipeline for one conversation turn:
-    1. Get accumulated audio -> WAV
-    2. STT (Whisper) -> text
-    3. Brain (GPT) -> response text
-    4. TTS (ElevenLabs) -> audio
-    5. Send audio back to Twilio
-    """
-    from services.ai.call_brain import CallBrain
-    from services.business.call_session import CallStatus
-
-    session.status = CallStatus.PROCESSING
-
-    # -- 1. Get audio -------------------------------------------------
-    wav_bytes = session.get_audio_for_processing()
-    if not wav_bytes:
-        session.status = CallStatus.LISTENING
-        return
-
-    # -- 2. STT (Whisper) ---------------------------------------------
-    stt_start = time.time()
-    transcript = await _run_stt(wav_bytes, session.language)
-    stt_latency = time.time() - stt_start
-    session.record_stt_latency(stt_latency)
-
-    if not transcript or transcript.strip() == "":
-        logger.info(
-            "Session %s: empty transcript, resuming listening",
-            session.session_id[:8],
-        )
-        session.status = CallStatus.LISTENING
-        return
-
-    logger.info(
-        'Session %s STT (%.2fs): "%s"',
-        session.session_id[:8],
-        stt_latency,
-        transcript[:100],
-    )
-
-    session.add_user_turn(transcript)
-
-    # -- 3. Brain (GPT) -----------------------------------------------
-    brain = CallBrain()
-    brain_resp = await brain.generate_response(
-        objective=session.objective,
-        user_name=session.user_name,
-        language=session.language,
-        key_details=session.extra_context,
-        extra_context="",
-        conversation_history=(
-            session.get_conversation_history()[:-1]
-        ),
-        latest_speech=transcript,
-    )
-
-    session.record_llm_latency(brain_resp.latency_s)
-
-    logger.info(
-        'Session %s Brain (%.2fs): "%s" | complete=%s end=%s',
-        session.session_id[:8],
-        brain_resp.latency_s,
-        brain_resp.text[:100],
-        brain_resp.objective_complete,
-        brain_resp.should_end_call,
-    )
-
-    # -- 4. TTS (ElevenLabs) + Send -----------------------------------
-    if brain_resp.text:
-        session.status = CallStatus.SPEAKING
-        audio_duration = await _text_to_twilio_audio(
-            websocket,
-            stream_sid,
-            brain_resp.text,
-            session.language,
-        )
-        session.add_assistant_turn(
-            brain_resp.text, audio_duration_s=audio_duration
-        )
-
-    # -- 5. Update session state --------------------------------------
-    if brain_resp.objective_complete:
-        session.mark_objective_complete(brain_resp.text)
-
-    if brain_resp.should_end_call:
-        return
-
-    session.status = CallStatus.LISTENING
-
-
 async def _end_call(
     websocket: WebSocket, session, stream_sid: str
 ):
@@ -366,17 +545,17 @@ async def _end_call(
     )
 
 
-# =====================================================================
+# =================================================================
 # STT / TTS / TWILIO AUDIO HELPERS
-# =====================================================================
+# =================================================================
 
 
 async def _run_stt(wav_bytes: bytes, language: str) -> str:
     """
-    Run Deepgram STT on WAV audio bytes.
+    Run Deepgram STT on WAV audio bytes (batch fallback).
 
-    Deepgram is optimized for phone audio and supports mulaw natively.
-    Uses the pre-recorded (sync) API for simplicity.
+    NOT used in the main streaming path — kept as fallback
+    for cases where streaming is unavailable.
 
     Falls back to Whisper if Deepgram is unavailable.
 
@@ -398,7 +577,7 @@ async def _run_stt(wav_bytes: bytes, language: str) -> str:
     }
     dg_language = lang_map.get(language, "pt-BR")
 
-    # ── Try Deepgram first ────────────────────────────────────────
+    # ── Try Deepgram first ───────────────────────────────
     deepgram_key = os.getenv("DEEPGRAM_API_KEY")
     if deepgram_key:
         try:
@@ -451,7 +630,7 @@ async def _run_stt(wav_bytes: bytes, language: str) -> str:
                 e,
             )
 
-    # ── Fallback: Whisper ─────────────────────────────────────────
+    # ── Fallback: Whisper ────────────────────────────────
     try:
         from services import get_service
 
@@ -608,21 +787,24 @@ async def _send_telegram_report(session):
     """
     Send call report back to the user's Telegram chat.
 
-    Uses python-telegram-bot directly (lightweight, no bot framework needed).
+    Uses python-telegram-bot directly (lightweight).
 
     Guards:
-    - None session or missing chat_id → log and return
-    - Tries Markdown first, falls back to plain text on parse error
-    - Logs the full report as last resort if send fails entirely
+    - None session or missing chat_id -> log and return
+    - Tries Markdown first, falls back to plain text
+    - Logs the full report as last resort if send fails
     """
     if session is None:
-        logger.warning("_send_telegram_report called with None session")
+        logger.warning(
+            "_send_telegram_report called with None session"
+        )
         return
 
     chat_id = getattr(session, "telegram_chat_id", 0)
     if not chat_id:
         logger.warning(
-            "Cannot send report: no telegram_chat_id on session %s",
+            "Cannot send report: no telegram_chat_id "
+            "on session %s",
             getattr(session, "session_id", "?"),
         )
         return
@@ -630,48 +812,68 @@ async def _send_telegram_report(session):
     try:
         report = session.generate_report()
     except Exception as e:
-        logger.error("Failed to generate report: %s", e, exc_info=True)
+        logger.error(
+            "Failed to generate report: %s",
+            e,
+            exc_info=True,
+        )
         return
 
     from telegram import Bot as TelegramBot
 
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
-        logger.warning("Cannot send report: no TELEGRAM_BOT_TOKEN")
+        logger.warning(
+            "Cannot send report: no TELEGRAM_BOT_TOKEN"
+        )
         logger.info("Call report (not sent):\n%s", report)
         return
 
     try:
         tg_bot = TelegramBot(token=token)
     except Exception as e:
-        logger.error("Failed to create Telegram bot: %s", e)
+        logger.error(
+            "Failed to create Telegram bot: %s", e
+        )
         logger.info("Call report (not sent):\n%s", report)
         return
 
-    # Try Markdown first, fall back to plain text on parse error
+    # Try Markdown first, fall back to plain text
     try:
         await tg_bot.send_message(
             chat_id=chat_id,
             text=report,
             parse_mode="Markdown",
         )
-        logger.info("Report sent to Telegram chat %s", chat_id)
+        logger.info(
+            "Report sent to Telegram chat %s", chat_id
+        )
         return
     except Exception as md_err:
         logger.warning(
-            "Markdown send failed (%s), retrying as plain text",
+            "Markdown send failed (%s), "
+            "retrying as plain text",
             md_err,
         )
 
     # Fallback: strip markdown and send as plain text
     try:
-        plain = report.replace("*", "").replace("`", "").replace("_", "")
-        await tg_bot.send_message(chat_id=chat_id, text=plain)
+        plain = (
+            report.replace("*", "")
+            .replace("`", "")
+            .replace("_", "")
+        )
+        await tg_bot.send_message(
+            chat_id=chat_id, text=plain
+        )
         logger.info(
-            "Report sent (plain text) to Telegram chat %s", chat_id
+            "Report sent (plain text) to Telegram chat %s",
+            chat_id,
         )
     except Exception as e:
         logger.error(
-            "Failed to send Telegram report: %s", e, exc_info=True
+            "Failed to send Telegram report: %s",
+            e,
+            exc_info=True,
         )
         logger.info("Call report (not sent):\n%s", report)

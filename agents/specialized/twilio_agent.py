@@ -265,8 +265,36 @@ class TwilioAgent(BaseAgent):
         from services.business.call_session import register_pending_call
 
         user_name = _resolve_user_name(context)
+
+        # Fallback: fetch name from Supabase if unresolved
         chat_id = context.get("chat_id", 0)
         user_id = context.get("user_id", 0)
+        if user_name == "User":
+            try:
+                db_svc = get_service("database")
+                if db_svc:
+                    tg_chat_id = (
+                        context.get("chat_id")
+                        or context.get("telegram_chat_id")
+                    )
+                    if tg_chat_id:
+                        user_data = (
+                            await db_svc.get_user_by_telegram_id(
+                                str(tg_chat_id)
+                            )
+                        )
+                        if user_data and user_data.get(
+                            "full_name"
+                        ):
+                            user_name = user_data[
+                                "full_name"
+                            ]
+            except Exception as e:
+                logger.warning(
+                    "Could not fetch user name from DB: %s",
+                    e,
+                )
+
         country = _detect_country(phone_number)
 
         # 1. Extract call plan
