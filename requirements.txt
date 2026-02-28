@@ -66,5 +66,9 @@ rich==14.3.2
 loguru==0.7.2
 sentry-sdk==2.53.0
 
+# Audio Processing
+pydub>=0.25.1
+audioop-lts>=0.2.1
+
 # PDF Processing
 PyPDF2>=3.0.0
