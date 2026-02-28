@@ -259,7 +259,7 @@ class NotesAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "Não percebi o que queres fazer. Exemplos:\n"
+                    "Não entendi o que você quer fazer. Exemplos:\n"
                     "• *Anota: ligar ao dentista*\n"
                     "• *Minhas notas*\n"
                     "• *Busca nota sobre seguro*\n"
@@ -276,7 +276,7 @@ class NotesAgent(BaseAgent):
             self.logger.error("NotesAgent error: %s", e, exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Erro ao processar nota. Tenta novamente.",
+                response="Erro ao processar nota. Tente novamente.",
                 error=str(e),
             )
 
@@ -308,12 +308,12 @@ class NotesAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=(
-                    "📭 Não tens notas guardadas.\n\n"
-                    "_Tenta: 'Anota que tenho de ligar ao dentista'_"
+                    "📭 Você não tem notas salvas.\n\n"
+                    "_Tente: 'Anota que tenho de ligar ao dentista'_"
                 ),
                 data={"notes": []},
             )
-        lines = [f"📓 **As tuas notas ({len(notes)}):**\n"]
+        lines = [f"📓 **Suas notas ({len(notes)}):**\n"]
         for note in notes:
             short = svc.short_id(note["id"])
             pin_icon = "📌 " if note.get("pinned") else ""

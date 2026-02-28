@@ -50,7 +50,7 @@ class TestExtractCallPlan:
             "objective": "Reserve a table for 2 people at 8pm",
             "language": "pt",
             "greeting": (
-                "Boa noite! Estou a ligar em nome de Henrique "
+                "Boa noite! Estou ligando em nome de Henrique "
                 "para fazer uma reserva."
             ),
             "key_details": "2 people, 8pm, name Henrique",
@@ -294,12 +294,12 @@ class TestGenerateGreeting:
             user_name="Henrique",
             language="pt",
             custom_greeting=(
-                "Boa noite! Estou a ligar em nome de Henrique."
+                "Boa noite! Estou ligando em nome de Henrique."
             ),
         )
 
         assert resp.text == (
-            "Boa noite! Estou a ligar em nome de Henrique."
+            "Boa noite! Estou ligando em nome de Henrique."
         )
         assert resp.latency_s == 0.0
 

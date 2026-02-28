@@ -340,8 +340,8 @@ class GitHubAgent(BaseAgent):
                                 return AgentResponse(
                                     status=AgentStatus.ERROR,
                                     response=(
-                                        f"⚠️ O repositório **{repo_name}** já existe na tua conta GitHub.\n"
-                                        "Escolhe outro nome ou usa 'clone' para clonar o existente."
+                                        f"⚠️ O repositório **{repo_name}** já existe na sua conta GitHub.\n"
+                                        "Escolha outro nome ou use 'clone' para clonar o existente."
                                     ),
                                 )
                             msg = data.get("message", "")
@@ -476,7 +476,7 @@ class GitHubAgent(BaseAgent):
                     lines.append(f"  ❓ `{f}`")
 
             total = len(staged) + len(modified) + len(untracked)
-            lines.append(f"\n📈 Total: {total} ficheiro(s) com mudanças")
+            lines.append(f"\n📈 Total: {total} arquivo(s) com mudanças")
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,

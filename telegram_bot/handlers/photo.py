@@ -87,5 +87,5 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         logger.error("Error processing photo: %s", e, exc_info=True)
         await update.message.reply_text(
-            "❌ Erro ao processar a imagem. Tenta novamente com uma foto mais nítida."
+            "❌ Erro ao processar a imagem. Tente novamente com uma foto mais nítida."
         )

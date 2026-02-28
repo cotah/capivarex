@@ -87,7 +87,7 @@ Extract the following information and respond in JSON only (no markdown, no back
 {{
     "objective": "Clear, specific description of what the call should accomplish",
     "language": "Language code for the call: pt, en, or es (detect from the user's message)",
-    "greeting": "Natural opening line in the detected language (e.g., 'Boa noite! Estou a ligar em nome de...')",
+    "greeting": "Natural opening line in the detected language (e.g., 'Boa noite! Estou ligando em nome de...')",
     "key_details": "Important details: times, dates, number of people, names, addresses, etc.",
     "extra_context": "Any other useful context for the conversation"
 }}
@@ -133,7 +133,7 @@ Only add tags when truly appropriate. Don't rush to end the call.\
 """
 
 _LANGUAGE_NAMES = {
-    "pt": "Portuguese",
+    "pt": "Brazilian Portuguese",
     "en": "English",
     "es": "Spanish",
 }
@@ -556,13 +556,13 @@ class CallBrain:
 # -- Fallbacks ----------------------------------------------------------------
 
 _FALLBACK_RESPONSES = {
-    "pt": "Desculpe, pode repetir por favor?",
+    "pt": "Desculpa, pode repetir por favor?",
     "en": "Sorry, could you repeat that please?",
     "es": "Disculpe, \u00bfpuede repetir por favor?",
 }
 
 _GREETING_FALLBACKS = {
-    "pt": "Boa noite! Estou a ligar em nome de {user_name}.",
+    "pt": "Boa noite! Estou ligando em nome de {user_name}.",
     "en": "Hello! I'm calling on behalf of {user_name}.",
     "es": "\u00a1Buenas noches! Llamo en nombre de {user_name}.",
 }

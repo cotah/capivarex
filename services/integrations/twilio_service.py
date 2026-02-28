@@ -492,8 +492,8 @@ class TwilioService(BaseService):
     @staticmethod
     def twiml_say(
         message: str,
-        language: str = "pt-PT",
-        voice: str = "Polly.Ines-Neural",
+        language: str = "pt-BR",
+        voice: str = "Polly.Camila-Neural",
     ) -> str:
         """
         Gera TwiML para dizer uma mensagem.
@@ -545,7 +545,7 @@ class TwilioService(BaseService):
         party_size: int,
         date_time: str,
         client_name: str,
-        language: str = "pt-PT",
+        language: str = "pt-BR",
     ) -> str:
         """
         TwiML para reserva de restaurante — o bot diz a mensagem de reserva.
@@ -559,15 +559,13 @@ class TwilioService(BaseService):
         """
         if language.startswith("pt"):
             msg = (
-                f"Olá, bom dia! Estou a ligar para fazer uma reserva. "
+                f"Olá, bom dia! Estou ligando para fazer uma reserva. "
                 f"Gostaria de reservar uma mesa para {party_size} pessoas "
                 f"para {date_time}. "
                 f"O nome da reserva é {client_name}. "
                 f"Podem confirmar por favor?"
             )
-            voice = (
-                "Polly.Ines-Neural" if language == "pt-PT" else "Polly.Camila-Neural"
-            )
+            voice = "Polly.Camila-Neural"
         else:
             msg = (
                 f"Hello! I'm calling to make a reservation. "

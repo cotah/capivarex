@@ -41,7 +41,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "error_unexpected": {
         "en": "Unexpected error. Please try again.",
-        "pt": "Erro inesperado. Tenta novamente.",
+        "pt": "Erro inesperado. Tente novamente.",
         "es": "Error inesperado. Intenta de nuevo.",
     },
     "agent_unavailable": {
@@ -56,12 +56,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "user_not_identified": {
         "en": "User not identified.",
-        "pt": "Utilizador não identificado.",
+        "pt": "Usuário não identificado.",
         "es": "Usuario no identificado.",
     },
     "quota_exceeded_generic": {
         "en": "Quota exceeded for {feature}. Check your plan or wait for renewal.",
-        "pt": "Quota esgotada para {feature}. Verifica o teu plano ou aguarda a renovação.",
+        "pt": "Quota esgotada para {feature}. Verifique seu plano ou aguarde a renovação.",
         "es": "Cuota agotada para {feature}. Verifica tu plan o espera la renovación.",
     },
     # ══════════════════════════════════════════════════════════════════════════
@@ -84,7 +84,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "tts_quota_exceeded": {
         "en": "Voice quota reached. Try again later.",
-        "pt": "Quota de voz atingida. Tenta mais tarde.",
+        "pt": "Quota de voz atingida. Tente mais tarde.",
         "es": "Cuota de voz alcanzada. Intenta más tarde.",
     },
     "tts_invalid_key": {
@@ -99,7 +99,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "stt_no_audio": {
         "en": "No audio file provided.",
-        "pt": "Nenhum ficheiro de áudio fornecido.",
+        "pt": "Nenhum arquivo de áudio fornecido.",
         "es": "No se proporcionó archivo de audio.",
     },
     "stt_error": {
@@ -112,7 +112,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     # ══════════════════════════════════════════════════════════════════════════
     "twilio_quota_exceeded": {
         "en": "📞 Call quota exhausted. Check your plan or wait for renewal.",
-        "pt": "📞 Quota de chamadas esgotada. Verifica o teu plano ou aguarda a renovação.",
+        "pt": "📞 Quota de chamadas esgotada. Verifique seu plano ou aguarde a renovação.",
         "es": "📞 Cuota de llamadas agotada. Verifica tu plan o espera la renovación.",
     },
     "twilio_call_success": {
@@ -122,7 +122,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "twilio_no_phone": {
         "en": "I didn't detect a phone number. Try: 'call +1234567890'",
-        "pt": "Não detectei um número de telefone. Tenta: 'liga para +351912345678'",
+        "pt": "Não detectei um número de telefone. Tente: 'liga para +351912345678'",
         "es": "No detecté un número de teléfono. Intenta: 'llama al +34612345678'",
     },
     "twilio_error": {
@@ -233,9 +233,9 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "🔗 {url}\n\n"
         "After authorizing, your devices will become available.",
         "pt": "🏠 SmartThings não conectado\n\n"
-        "Clica no link abaixo para ligar a tua conta Samsung/SmartThings:\n\n"
+        "Clique no link abaixo para conectar sua conta Samsung/SmartThings:\n\n"
         "🔗 {url}\n\n"
-        "Após autorizar, os teus dispositivos ficarão disponíveis.",
+        "Após autorizar, seus dispositivos ficarão disponíveis.",
         "es": "🏠 SmartThings no conectado\n\n"
         "Haz clic en el enlace para conectar tu cuenta Samsung/SmartThings:\n\n"
         "🔗 {url}\n\n"
@@ -245,7 +245,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "en": "🏠 SmartThings not connected\n\n"
         "Configure SMARTTHINGS_CLIENT_ID and SMARTTHINGS_REDIRECT_URI on Railway.",
         "pt": "🏠 SmartThings não conectado\n\n"
-        "Configura SMARTTHINGS_CLIENT_ID e SMARTTHINGS_REDIRECT_URI no Railway.",
+        "Configure SMARTTHINGS_CLIENT_ID e SMARTTHINGS_REDIRECT_URI no Railway.",
         "es": "🏠 SmartThings no conectado\n\n"
         "Configura SMARTTHINGS_CLIENT_ID y SMARTTHINGS_REDIRECT_URI en Railway.",
     },
@@ -519,11 +519,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "• 'Restaurant details #2'\n"
         "• 'Save restaurant #1 as favorite'\n"
         "• 'Show my favorite restaurants'",
-        "pt": "Não percebi o pedido. Exemplos:\n"
+        "pt": "Não entendi o pedido. Exemplos:\n"
         "• 'Busca restaurantes italianos perto de mim'\n"
         "• 'Detalhes do restaurante #2'\n"
-        "• 'Guardar restaurante #1 como favorito'\n"
-        "• 'Mostra os meus restaurantes favoritos'",
+        "• 'Salvar restaurante #1 como favorito'\n"
+        "• 'Mostre meus restaurantes favoritos'",
         "es": "No entendí la solicitud. Ejemplos:\n"
         "• 'Busca restaurantes italianos cerca de mí'\n"
         "• 'Detalles del restaurante #2'\n"
@@ -547,12 +547,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "restaurant_search_first": {
         "en": "Search for restaurants first so I can save one.",
-        "pt": "Faz primeiro uma pesquisa para eu poder guardar.",
+        "pt": "Faça primeiro uma pesquisa para eu poder salvar.",
         "es": "Haz primero una búsqueda para que pueda guardar.",
     },
     "restaurant_no_favorites": {
         "en": "You don't have any favorite restaurants yet.",
-        "pt": "Ainda não tens restaurantes favoritos.",
+        "pt": "Você ainda não tem restaurantes favoritos.",
         "es": "Aún no tienes restaurantes favoritos.",
     },
     "restaurant_saved_favorite": {
@@ -569,9 +569,9 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "• 'Show my notes'\n"
         "• 'Search notes about project'\n"
         "• 'Delete note #3'",
-        "pt": "Não percebi o que queres fazer. Exemplos:\n"
+        "pt": "Não entendi o que você quer fazer. Exemplos:\n"
         "• 'Anota: comprar leite'\n"
-        "• 'Mostra as minhas notas'\n"
+        "• 'Mostre minhas notas'\n"
         "• 'Busca notas sobre projeto'\n"
         "• 'Apaga a nota #3'",
         "es": "No entendí qué quieres hacer con las notas. Ejemplos:\n"

@@ -64,7 +64,7 @@ def _mock_twilio_service(
     svc.twiml_say = MagicMock(
         side_effect=lambda msg, **kw: (
             f'<?xml version="1.0"?><Response>'
-            f'<Say language="{kw.get("language", "pt-PT")}">{msg}</Say>'
+            f'<Say language="{kw.get("language", "pt-BR")}">{msg}</Say>'
             f"</Response>"
         )
     )
@@ -518,7 +518,7 @@ class TestTwilioAgentLanguage:
             )
 
         twiml_kwargs = twilio_svc.twiml_say.call_args[1]
-        assert twiml_kwargs.get("language") == "pt-PT"
+        assert twiml_kwargs.get("language") == "pt-BR"
 
     async def test_br_country_uses_brazilian(self):
         agent = _twilio_agent()
@@ -564,7 +564,7 @@ class TestTwilioAgentLanguage:
         assert "Hello" in default_msg or "automated" in default_msg.lower()
 
     async def test_pt_default_message_in_portuguese(self):
-        """PT sem custom message deve gerar TwiML em pt-PT."""
+        """PT sem custom message deve gerar TwiML em pt-BR."""
         agent = _twilio_agent()
         twilio_svc = _mock_twilio_service()
 

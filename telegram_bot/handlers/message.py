@@ -118,7 +118,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         await update.message.reply_text(
             "⚠️ O processamento demorou demais e foi interrompido.\n"
-            "Tenta novamente — se persistir, pode ser lentidão nos "
+            "Tente novamente — se persistir, pode ser lentidão nos "
             "serviços de IA externos."
         )
         return

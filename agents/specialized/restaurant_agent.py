@@ -317,8 +317,8 @@ class RestaurantAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "Não percebi o pedido. Exemplos:\n"
-                    "• *Sugere um restaurante italiano em Dublin*\n"
+                    "Não entendi o pedido. Exemplos:\n"
+                    "• *Sugira um restaurante italiano em Dublin*\n"
                     "• *Sushi perto de mim aberto agora*\n"
                     "• *Mais detalhes sobre o 2*"
                 ),

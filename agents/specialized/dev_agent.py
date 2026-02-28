@@ -484,7 +484,7 @@ class DevAgent(BaseAgent):
                 response=(
                     "⚠️ O pedido de código demorou demais (>45s).\n"
                     "Os serviços de IA estão lentos no momento.\n"
-                    "Tenta novamente em alguns instantes."
+                    "Tente novamente em alguns instantes."
                 ),
                 error=f"Global timeout ({_GLOBAL_TIMEOUT_SECONDS}s)",
             )
@@ -542,7 +542,7 @@ class DevAgent(BaseAgent):
                 response=(
                     "⚠️ Não foi possível gerar o código no momento.\n"
                     "Os serviços de IA (Anthropic e OpenAI) não responderam a tempo.\n"
-                    "Tenta novamente em alguns instantes."
+                    "Tente novamente em alguns instantes."
                 ),
                 error="No AI response (both Anthropic and OpenAI failed or timed out)",
             )
@@ -560,7 +560,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível explicar o código no momento. Tenta novamente.",
+                response="⚠️ Não foi possível explicar o código no momento. Tente novamente.",
                 error="No AI response",
             )
         return AgentResponse(
@@ -577,7 +577,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível fazer o code review no momento. Tenta novamente.",
+                response="⚠️ Não foi possível fazer o code review no momento. Tente novamente.",
                 error="No AI response",
             )
         return AgentResponse(
@@ -594,7 +594,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível ajudar com debugging no momento. Tenta novamente.",
+                response="⚠️ Não foi possível ajudar com debugging no momento. Tente novamente.",
                 error="No AI response",
             )
         return AgentResponse(
@@ -611,7 +611,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível otimizar o código no momento. Tenta novamente.",
+                response="⚠️ Não foi possível otimizar o código no momento. Tente novamente.",
                 error="No AI response",
             )
         return AgentResponse(

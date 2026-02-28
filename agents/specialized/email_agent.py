@@ -298,7 +298,7 @@ class EmailAgent(BaseAgent):
     ) -> AgentResponse:
         counts = await self._get_counts(user_id)
 
-        lines = ["📊 *Os teus emails*\n"]
+        lines = ["📊 *Seus emails*\n"]
         total_unread = 0
 
         for account, data in counts.items():
@@ -477,7 +477,7 @@ class EmailAgent(BaseAgent):
                 self.logger.error("Erro ao enviar reply: %s", e)
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    message=f"❌ Erro ao enviar: {e}\nTenta novamente.",
+                    message=f"❌ Erro ao enviar: {e}\nTente novamente.",
                 )
 
         # Check for ignore intent within confirmation flow
@@ -622,7 +622,7 @@ class EmailAgent(BaseAgent):
         self, email: Dict[str, Any], instruction: Optional[str] = None
     ) -> str:
         if not self._ai:
-            return f"Obrigado pelo teu email sobre '{email.get('subject', '')}'. Fico a aguardar."
+            return f"Obrigado pelo seu email sobre '{email.get('subject', '')}'. Fico aguardando."
 
         prompt = (
             f"Gera uma resposta profissional e natural em português para este email.\n"
@@ -638,7 +638,7 @@ class EmailAgent(BaseAgent):
             return response.strip()
         except Exception as e:
             self.logger.warning("Erro ao gerar rascunho: %s", e)
-            return "Obrigado pela tua mensagem. Irei responder em breve."
+            return "Obrigado pela sua mensagem. Irei responder em breve."
 
     # ──────────────────────────────────────────────────────────────────────────
     # DATABASE HELPERS

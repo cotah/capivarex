@@ -243,7 +243,7 @@ class LeavingNowAgent(BaseAgent):
                 status=AgentStatus.SUCCESS,
                 response=(
                     "📅 Não encontrei nenhum evento próximo com localização definida.\n"
-                    "Certifica-te de que os teus eventos do Google Calendar "
+                    "Verifique se seus eventos do Google Calendar "
                     "têm o campo *Local* preenchido."
                 ),
                 data={"event": None},

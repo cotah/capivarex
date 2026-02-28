@@ -33,13 +33,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 
 ALL_RESOURCES = [
-    "gpt_tokens", "image_gen", "video_gen",
-    "twilio_mins", "elevenlabs_chars",
-    "google_places", "maps_reqs", "search_reqs",
-    "weather_reqs", "crypto_reqs", "youtube_reqs",
-    "translate_reqs", "tracking_reqs", "perplexity_reqs",
-    "smartcar_reqs", "mercado_scans",
-    "reminders", "notes",
+    "gpt_tokens",
+    "image_gen",
+    "video_gen",
+    "twilio_mins",
+    "elevenlabs_chars",
+    "google_places",
+    "maps_reqs",
+    "search_reqs",
+    "weather_reqs",
+    "crypto_reqs",
+    "youtube_reqs",
+    "translate_reqs",
+    "tracking_reqs",
+    "perplexity_reqs",
+    "smartcar_reqs",
+    "mercado_scans",
+    "reminders",
+    "notes",
 ]
 
 FREE_BLOCKED = ["twilio_mins", "elevenlabs_chars", "video_gen", "smartcar_reqs"]
@@ -47,6 +58,7 @@ FREE_BLOCKED = ["twilio_mins", "elevenlabs_chars", "video_gen", "smartcar_reqs"]
 
 def _quota_svc(plan="me", used=0):
     from services.business.quota_service import QuotaService
+
     svc = QuotaService.__new__(QuotaService)
     svc.name = "quota"
     svc.logger = MagicMock()
@@ -62,6 +74,7 @@ def _quota_svc(plan="me", used=0):
 
 def _twilio_svc(quota_svc=None):
     from services.integrations.twilio_service import TwilioService, PHONE_POOL
+
     svc = TwilioService.__new__(TwilioService)
     svc.name = "twilio"
     svc.logger = MagicMock()
@@ -95,6 +108,7 @@ def _reset_phone_pool():
     """Reset PHONE_POOL global state after each test to avoid mutation leaks."""
     from services.integrations.twilio_service import PHONE_POOL
     import copy
+
     original = copy.deepcopy(PHONE_POOL)
     yield
     for i, entry in enumerate(original):
@@ -103,14 +117,16 @@ def _reset_phone_pool():
 
 # ─── PLANS estrutura ─────────────────────────────────────────────────────────
 
-class TestPlansStructure:
 
+class TestPlansStructure:
     def test_three_plans_exist(self):
         from services.business.quota_service import PLANS
+
         assert set(PLANS.keys()) == {"free", "me", "everywhere"}
 
     def test_all_18_resources_in_every_plan(self):
         from services.business.quota_service import PLANS
+
         for plan_name, plan in PLANS.items():
             for res in ALL_RESOURCES:
                 assert res in plan["quotas"], (
@@ -119,35 +135,36 @@ class TestPlansStructure:
 
     def test_everywhere_always_gte_me(self):
         from services.business.quota_service import PLANS
+
         for res in ALL_RESOURCES:
-            assert (
-                PLANS["everywhere"]["quotas"][res]
-                >= PLANS["me"]["quotas"][res]
-            ), f"everywhere[{res}] < me[{res}]"
+            assert PLANS["everywhere"]["quotas"][res] >= PLANS["me"]["quotas"][res], (
+                f"everywhere[{res}] < me[{res}]"
+            )
 
     def test_me_always_gte_free(self):
         from services.business.quota_service import PLANS
+
         for res in ALL_RESOURCES:
-            assert (
-                PLANS["me"]["quotas"][res]
-                >= PLANS["free"]["quotas"][res]
-            ), f"me[{res}] < free[{res}]"
+            assert PLANS["me"]["quotas"][res] >= PLANS["free"]["quotas"][res], (
+                f"me[{res}] < free[{res}]"
+            )
 
     def test_free_blocked_resources_are_zero(self):
         from services.business.quota_service import PLANS
+
         for res in FREE_BLOCKED:
-            assert PLANS["free"]["quotas"][res] == 0, (
-                f"free[{res}] deveria ser 0"
-            )
+            assert PLANS["free"]["quotas"][res] == 0, f"free[{res}] deveria ser 0"
 
     def test_prices_correct(self):
         from services.business.quota_service import PLANS
+
         assert PLANS["free"]["price_eur"] == 0.0
         assert PLANS["me"]["price_eur"] == 9.99
         assert PLANS["everywhere"]["price_eur"] == 29.99
 
     def test_display_names(self):
         from services.business.quota_service import PLANS
+
         assert PLANS["free"]["display_name"] == "Free"
         assert PLANS["me"]["display_name"] == "Me"
         assert PLANS["everywhere"]["display_name"] == "Everywhere"
@@ -155,52 +172,60 @@ class TestPlansStructure:
 
 # ─── CUMULATIVE vs STOCK ─────────────────────────────────────────────────────
 
-class TestResourceClassification:
 
+class TestResourceClassification:
     def test_stock_resources(self):
         from services.business.quota_service import STOCK_RESOURCES
+
         assert "reminders" in STOCK_RESOURCES
         assert "notes" in STOCK_RESOURCES
 
     def test_cumulative_resources_count(self):
         from services.business.quota_service import CUMULATIVE_RESOURCES
+
         # 18 total - 2 stock = 16 cumulativos
         assert len(CUMULATIVE_RESOURCES) == 16
 
     def test_twilio_is_cumulative(self):
         from services.business.quota_service import CUMULATIVE_RESOURCES
+
         assert "twilio_mins" in CUMULATIVE_RESOURCES
 
     def test_gpt_is_cumulative(self):
         from services.business.quota_service import CUMULATIVE_RESOURCES
+
         assert "gpt_tokens" in CUMULATIVE_RESOURCES
 
     def test_notes_not_cumulative(self):
         from services.business.quota_service import CUMULATIVE_RESOURCES
+
         assert "notes" not in CUMULATIVE_RESOURCES
 
 
 # ─── RESOURCE_ICONS ──────────────────────────────────────────────────────────
 
-class TestResourceIcons:
 
+class TestResourceIcons:
     def test_all_resources_have_icons(self):
         from services.business.quota_service import RESOURCE_ICONS
+
         for res in ALL_RESOURCES:
             assert res in RESOURCE_ICONS, f"'{res}' sem ícone"
 
     def test_icons_not_empty(self):
         from services.business.quota_service import RESOURCE_ICONS
+
         for res, icon in RESOURCE_ICONS.items():
             assert len(icon) > 2, f"Ícone de '{res}' parece vazio"
 
 
 # ─── _usage_dict e _progress_bar ─────────────────────────────────────────────
 
-class TestStaticHelpers:
 
+class TestStaticHelpers:
     def test_usage_dict_normal(self):
         from services.business.quota_service import QuotaService
+
         d = QuotaService._usage_dict("twilio_mins", 10, 60, "me")
         assert d["used"] == 10
         assert d["limit"] == 60
@@ -210,12 +235,14 @@ class TestStaticHelpers:
 
     def test_usage_dict_exhausted(self):
         from services.business.quota_service import QuotaService
+
         d = QuotaService._usage_dict("twilio_mins", 60, 60, "me")
         assert d["remaining"] == 0
         assert d["exhausted"] is True
 
     def test_usage_dict_zero_limit(self):
         from services.business.quota_service import QuotaService
+
         d = QuotaService._usage_dict("twilio_mins", 0, 0, "free")
         assert d["remaining"] == 0
         assert d["percent"] == 100.0
@@ -223,38 +250,56 @@ class TestStaticHelpers:
 
     def test_progress_bar_empty(self):
         from services.business.quota_service import QuotaService
+
         bar = QuotaService._progress_bar(0)
         assert "░" in bar
         assert "█" not in bar
 
     def test_progress_bar_full(self):
         from services.business.quota_service import QuotaService
+
         bar = QuotaService._progress_bar(100)
         assert "█" in bar
         assert "░" not in bar
 
     def test_progress_bar_half(self):
         from services.business.quota_service import QuotaService
+
         bar = QuotaService._progress_bar(50)
         assert "█" in bar
         assert "░" in bar
 
     def test_next_reset_date_format(self):
         from services.business.quota_service import QuotaService
+
         date = QuotaService._next_reset_date()
         assert "de" in date
-        assert any(m in date for m in [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-        ])
+        assert any(
+            m in date
+            for m in [
+                "Janeiro",
+                "Fevereiro",
+                "Março",
+                "Abril",
+                "Maio",
+                "Junho",
+                "Julho",
+                "Agosto",
+                "Setembro",
+                "Outubro",
+                "Novembro",
+                "Dezembro",
+            ]
+        )
 
 
 # ─── QuotaExceededError ──────────────────────────────────────────────────────
 
-class TestQuotaExceededError:
 
+class TestQuotaExceededError:
     def test_fields(self):
         from services.business.quota_service import QuotaExceededError
+
         e = QuotaExceededError("twilio_mins", 15, 15, "me")
         assert e.resource == "twilio_mins"
         assert e.used == 15
@@ -263,6 +308,7 @@ class TestQuotaExceededError:
 
     def test_message_has_plan_and_resource_icon(self):
         from services.business.quota_service import QuotaExceededError
+
         e = QuotaExceededError("twilio_mins", 15, 15, "me")
         msg = str(e)
         assert "me" in msg
@@ -271,15 +317,16 @@ class TestQuotaExceededError:
 
     def test_is_exception(self):
         from services.business.quota_service import QuotaExceededError
+
         e = QuotaExceededError("notes", 100, 100, "me")
         assert isinstance(e, Exception)
 
 
 # ─── QuotaService async ──────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestQuotaServiceCheck:
-
     async def test_check_has_quota(self):
         svc = _quota_svc(plan="me", used=5)
         assert await svc.check("t1", "twilio_mins", 1) is True
@@ -290,6 +337,7 @@ class TestQuotaServiceCheck:
 
     async def test_check_no_quota_exceeded(self):
         from services.business.quota_service import PLANS
+
         limit = PLANS["me"]["quotas"]["twilio_mins"]
         svc = _quota_svc(plan="me", used=limit)
         assert await svc.check("t1", "twilio_mins", 1) is False
@@ -309,7 +357,6 @@ class TestQuotaServiceCheck:
 
 @pytest.mark.asyncio
 class TestQuotaServiceConsume:
-
     async def test_consume_calls_increment_and_log(self):
         svc = _quota_svc(plan="me", used=5)
         await svc.consume("t1", "google_places", 1)
@@ -331,7 +378,6 @@ class TestQuotaServiceConsume:
 
 @pytest.mark.asyncio
 class TestQuotaServiceCheckAndConsume:
-
     async def test_success(self):
         svc = _quota_svc(plan="me", used=5)
         result = await svc.check_and_consume("t1", "twilio_mins", 1)
@@ -340,6 +386,7 @@ class TestQuotaServiceCheckAndConsume:
 
     async def test_raises_when_zero_limit(self):
         from services.business.quota_service import QuotaExceededError
+
         svc = _quota_svc(plan="free", used=0)
         with pytest.raises(QuotaExceededError) as exc:
             await svc.check_and_consume("t1", "twilio_mins", 1)
@@ -348,6 +395,7 @@ class TestQuotaServiceCheckAndConsume:
 
     async def test_raises_when_exceeded(self):
         from services.business.quota_service import PLANS, QuotaExceededError
+
         limit = PLANS["me"]["quotas"]["google_places"]
         svc = _quota_svc(plan="me", used=limit)
         with pytest.raises(QuotaExceededError):
@@ -355,6 +403,7 @@ class TestQuotaServiceCheckAndConsume:
 
     async def test_does_not_consume_when_exceeded(self):
         from services.business.quota_service import PLANS, QuotaExceededError
+
         limit = PLANS["me"]["quotas"]["twilio_mins"]
         svc = _quota_svc(plan="me", used=limit)
         with pytest.raises(QuotaExceededError):
@@ -363,12 +412,14 @@ class TestQuotaServiceCheckAndConsume:
 
     async def test_smartcar_free_blocked(self):
         from services.business.quota_service import QuotaExceededError
+
         svc = _quota_svc(plan="free", used=0)
         with pytest.raises(QuotaExceededError):
             await svc.check_and_consume("t1", "smartcar_reqs", 1)
 
     async def test_video_gen_free_blocked(self):
         from services.business.quota_service import QuotaExceededError
+
         svc = _quota_svc(plan="free", used=0)
         with pytest.raises(QuotaExceededError):
             await svc.check_and_consume("t1", "video_gen", 1)
@@ -376,15 +427,17 @@ class TestQuotaServiceCheckAndConsume:
 
 @pytest.mark.asyncio
 class TestQuotaServiceSummary:
-
     async def _make_summary_svc(self, plan="me"):
         from services.business.quota_service import PLANS, QuotaService
+
         svc = _quota_svc(plan=plan, used=0)
 
         async def mock_get_usage(tenant_id, resource=None):
             quotas = PLANS[plan]["quotas"]
             if resource:
-                return QuotaService._usage_dict(resource, 0, quotas.get(resource, 0), plan)
+                return QuotaService._usage_dict(
+                    resource, 0, quotas.get(resource, 0), plan
+                )
             return {
                 "plan": plan,
                 "resources": {
@@ -399,9 +452,16 @@ class TestQuotaServiceSummary:
     async def test_summary_has_required_fields(self):
         svc = await self._make_summary_svc("me")
         summary = await svc.get_summary("t1")
-        for field in ["plan", "plan_display", "price_eur", "resources",
-                      "exhausted_resources", "low_resources",
-                      "reset_date", "upgrade_available"]:
+        for field in [
+            "plan",
+            "plan_display",
+            "price_eur",
+            "resources",
+            "exhausted_resources",
+            "low_resources",
+            "reset_date",
+            "upgrade_available",
+        ]:
             assert field in summary
 
     async def test_summary_everywhere_no_upgrade(self):
@@ -453,9 +513,9 @@ class TestQuotaServiceSummary:
 
 # ─── requires_quota decorator ────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestRequiresQuotaDecorator:
-
     async def test_passes_when_quota_ok(self):
         from services.business.quota_service import requires_quota
 
@@ -522,16 +582,18 @@ class TestRequiresQuotaDecorator:
 
 # ─── TwilioService pool ──────────────────────────────────────────────────────
 
-class TestTwilioPool:
 
+class TestTwilioPool:
     def test_us_number_active(self):
         from services.integrations.twilio_service import PHONE_POOL
+
         us = next(n for n in PHONE_POOL if n["id"] == "us_1")
         assert us["active"] is True
         assert us["number"] == "+14064164577"
 
     def test_ie_slot_pending(self):
         from services.integrations.twilio_service import PHONE_POOL
+
         ie = next(n for n in PHONE_POOL if n["id"] == "ie_1")
         assert ie["active"] is False
         assert ie["number"] is None
@@ -562,6 +624,7 @@ class TestTwilioPool:
 
     def test_add_ireland_number_activates(self):
         from services.integrations.twilio_service import PHONE_POOL
+
         svc = _twilio_svc()
         svc.add_ireland_number("+353539407368")
         ie = next(n for n in PHONE_POOL if n["id"] == "ie_1")
@@ -586,9 +649,9 @@ class TestTwilioPool:
 
 # ─── TwilioService.make_call ─────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestTwilioMakeCall:
-
     async def test_make_call_success(self):
         svc = _twilio_svc()
         with patch("aiohttp.ClientSession", return_value=_twilio_http_mock(201)):
@@ -604,8 +667,7 @@ class TestTwilioMakeCall:
         svc = _twilio_svc()
         with patch("aiohttp.ClientSession", return_value=_twilio_http_mock(201)):
             result = await svc.make_call(
-                "t1", "+351910000001",
-                "https://myapp.com/twiml/reserve"
+                "t1", "+351910000001", "https://myapp.com/twiml/reserve"
             )
         assert result["call_sid"] == "CAtest123"
 
@@ -624,6 +686,7 @@ class TestTwilioMakeCall:
 
     async def test_make_call_quota_exceeded(self):
         from services.business.quota_service import QuotaExceededError
+
         quota_mock = AsyncMock()
         quota_mock.check_and_consume = AsyncMock(
             side_effect=QuotaExceededError("twilio_mins", 15, 15, "me")
@@ -634,6 +697,7 @@ class TestTwilioMakeCall:
 
     async def test_make_call_no_numbers_raises(self):
         from services.core import ServiceUnavailableError
+
         svc = _twilio_svc()
         for k in svc._pool_state:
             svc._pool_state[k] = True
@@ -645,8 +709,7 @@ class TestTwilioMakeCall:
         svc.add_ireland_number("+353539407368")
         with patch("aiohttp.ClientSession", return_value=_twilio_http_mock(201)):
             result = await svc.make_call(
-                "t1", "+351910000001", "<Response/>",
-                destination_country="PT"
+                "t1", "+351910000001", "<Response/>", destination_country="PT"
             )
         assert result["from_number"] == "+353539407368"
 
@@ -655,8 +718,7 @@ class TestTwilioMakeCall:
         # IE ainda pendente (default)
         with patch("aiohttp.ClientSession", return_value=_twilio_http_mock(201)):
             result = await svc.make_call(
-                "t1", "+351910000001", "<Response/>",
-                destination_country="PT"
+                "t1", "+351910000001", "<Response/>", destination_country="PT"
             )
         assert result["from_number"] == "+14064164577"
 
@@ -664,18 +726,25 @@ class TestTwilioMakeCall:
         svc = _twilio_svc()
         with patch("aiohttp.ClientSession", return_value=_twilio_http_mock(201)):
             result = await svc.make_call("t1", "+351910000001", "<Response/>")
-        for field in ["call_sid", "status", "from_number", "to_number",
-                      "tenant_id", "created_at"]:
+        for field in [
+            "call_sid",
+            "status",
+            "from_number",
+            "to_number",
+            "tenant_id",
+            "created_at",
+        ]:
             assert field in result
 
 
 # ─── TwilioService.get_call_status e hangup ──────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestTwilioCallOps:
-
     def _svc(self):
         from services.integrations.twilio_service import TwilioService
+
         svc = TwilioService.__new__(TwilioService)
         svc.name = "twilio"
         svc.logger = MagicMock()
@@ -689,10 +758,15 @@ class TestTwilioCallOps:
         svc = self._svc()
         resp = AsyncMock()
         resp.status = 200
-        resp.json = AsyncMock(return_value={
-            "sid": "CAtest123", "status": "completed",
-            "duration": "90", "price": "-0.015", "price_unit": "USD",
-        })
+        resp.json = AsyncMock(
+            return_value={
+                "sid": "CAtest123",
+                "status": "completed",
+                "duration": "90",
+                "price": "-0.015",
+                "price_unit": "USD",
+            }
+        )
         resp.__aenter__ = AsyncMock(return_value=resp)
         resp.__aexit__ = AsyncMock(return_value=False)
         session = AsyncMock()
@@ -738,10 +812,11 @@ class TestTwilioCallOps:
 
 # ─── TwiML helpers ───────────────────────────────────────────────────────────
 
-class TestTwiML:
 
+class TestTwiML:
     def test_twiml_say_has_xml_header(self):
         from services.integrations.twilio_service import TwilioService
+
         xml = TwilioService.twiml_say("Olá!")
         assert "<?xml" in xml
         assert "<Response>" in xml
@@ -750,27 +825,33 @@ class TestTwiML:
 
     def test_twiml_say_default_portuguese(self):
         from services.integrations.twilio_service import TwilioService
+
         xml = TwilioService.twiml_say("Olá!")
-        assert "pt-PT" in xml
-        assert "Ines" in xml
+        assert "pt-BR" in xml
+        assert "Camila" in xml
 
     def test_twiml_say_custom_language(self):
         from services.integrations.twilio_service import TwilioService
-        xml = TwilioService.twiml_say("Hello!", language="en-US", voice="Polly.Joanna-Neural")
+
+        xml = TwilioService.twiml_say(
+            "Hello!", language="en-US", voice="Polly.Joanna-Neural"
+        )
         assert "en-US" in xml
         assert "Joanna" in xml
 
     def test_twiml_reservation_pt_has_client_name(self):
         from services.integrations.twilio_service import TwilioService
+
         xml = TwilioService.twiml_restaurant_reservation(
             "Tasca do João", 2, "sábado às 20h", "Henrique"
         )
         assert "Henrique" in xml
         assert "2" in xml
-        assert "pt-PT" in xml
+        assert "pt-BR" in xml
 
     def test_twiml_reservation_en_has_client_name(self):
         from services.integrations.twilio_service import TwilioService
+
         xml = TwilioService.twiml_restaurant_reservation(
             "The Pub", 4, "Saturday at 8pm", "John", language="en-US"
         )
@@ -781,6 +862,7 @@ class TestTwiML:
     def test_twiml_reservation_is_valid_xml(self):
         import xml.etree.ElementTree as ET
         from services.integrations.twilio_service import TwilioService
+
         xml = TwilioService.twiml_restaurant_reservation(
             "Restaurante X", 2, "amanhã às 19h", "Ana"
         )
@@ -790,22 +872,26 @@ class TestTwiML:
 
 # ─── Supplementary: _best_number, _utcnow, init, health, context, log ──────
 
+
 class TestBestNumber:
     """Tests for module-level _best_number helper."""
 
     def test_regional_match(self):
         from services.integrations.twilio_service import _best_number
+
         result = _best_number("US")
         assert result is not None
         assert result["country"] == "US"
 
     def test_fallback_when_no_regional(self):
         from services.integrations.twilio_service import _best_number
+
         result = _best_number("JP")
         assert result is not None  # US como fallback
 
     def test_no_available_numbers(self):
         from services.integrations.twilio_service import PHONE_POOL, _best_number
+
         orig_states = [(n["active"], n["number"]) for n in PHONE_POOL]
         for n in PHONE_POOL:
             n["active"] = False
@@ -818,6 +904,7 @@ class TestBestNumber:
 
     def test_default_country(self):
         from services.integrations.twilio_service import _best_number
+
         result = _best_number("")
         assert result is not None
 
@@ -828,26 +915,29 @@ class TestUtcnowHelpers:
     def test_twilio_utcnow(self):
         from services.integrations.twilio_service import _utcnow
         from datetime import timezone
+
         dt = _utcnow()
         assert dt.tzinfo == timezone.utc
 
     def test_quota_utcnow(self):
         from services.business.quota_service import _utcnow
         from datetime import timezone
+
         dt = _utcnow()
         assert dt.tzinfo == timezone.utc
 
     def test_month_start(self):
         from services.business.quota_service import _month_start
+
         ms = _month_start()
         assert "T00:00:00" in ms
 
 
 @pytest.mark.asyncio
 class TestTwilioInit:
-
     async def test_initialize_sets_credentials(self):
         from services.integrations.twilio_service import TwilioService
+
         svc = TwilioService.__new__(TwilioService)
         svc.name = "twilio"
         svc.logger = MagicMock()
@@ -859,13 +949,20 @@ class TestTwilioInit:
         quota_mock = MagicMock()
         quota_mock.is_initialized.return_value = True
 
-        with patch.dict("os.environ", {
-            "TWILIO_ACCOUNT_SID": "ACtest",
-            "TWILIO_AUTH_TOKEN": "tok",
-            "TWILIO_WEBHOOK_BASE_URL": "https://x.com",
-        }), patch("services.core.get_service", side_effect=lambda n: {
-            "database": db_mock, "quota": quota_mock
-        }.get(n)):
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "TWILIO_ACCOUNT_SID": "ACtest",
+                    "TWILIO_AUTH_TOKEN": "tok",
+                    "TWILIO_WEBHOOK_BASE_URL": "https://x.com",
+                },
+            ),
+            patch(
+                "services.core.get_service",
+                side_effect=lambda n: {"database": db_mock, "quota": quota_mock}.get(n),
+            ),
+        ):
             await svc._initialize()
 
         assert svc._account_sid == "ACtest"
@@ -876,14 +973,17 @@ class TestTwilioInit:
     async def test_initialize_missing_creds_raises(self):
         from services.integrations.twilio_service import TwilioService
         from services.core import ServiceUnavailableError
+
         svc = TwilioService.__new__(TwilioService)
         svc.name = "twilio"
         svc.logger = MagicMock()
         svc._initialized = False
         svc._pool_state = {}
 
-        with patch.dict("os.environ", {}, clear=True), \
-             patch("services.core.get_service", return_value=None):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch("services.core.get_service", return_value=None),
+        ):
             with pytest.raises(ServiceUnavailableError):
                 await svc._initialize()
 
@@ -896,7 +996,6 @@ class TestTwilioInit:
 
 @pytest.mark.asyncio
 class TestTwilioNumberContext:
-
     async def test_number_context_acquires_and_releases(self):
         svc = _twilio_svc()
         async with svc.number_context("US") as num:
@@ -906,6 +1005,7 @@ class TestTwilioNumberContext:
 
     async def test_number_context_raises_when_empty(self):
         from services.core import ServiceUnavailableError
+
         svc = _twilio_svc()
         for k in svc._pool_state:
             svc._pool_state[k] = True
@@ -916,9 +1016,9 @@ class TestTwilioNumberContext:
 
 @pytest.mark.asyncio
 class TestTwilioLogCall:
-
     async def test_log_call_no_client(self):
         from services.integrations.twilio_service import TwilioService
+
         svc = TwilioService.__new__(TwilioService)
         svc.name = "twilio"
         svc.logger = MagicMock()
@@ -930,11 +1030,14 @@ class TestTwilioLogCall:
 
     async def test_log_call_exception_warns(self):
         from services.integrations.twilio_service import TwilioService
+
         svc = TwilioService.__new__(TwilioService)
         svc.name = "twilio"
         svc.logger = MagicMock()
         db_mock = MagicMock()
-        db_mock.get_client.return_value.table.return_value.insert.side_effect = Exception("db fail")
+        db_mock.get_client.return_value.table.return_value.insert.side_effect = (
+            Exception("db fail")
+        )
         svc._db = db_mock
         svc._initialized = True
         svc._pool_state = {}
@@ -943,10 +1046,10 @@ class TestTwilioLogCall:
 
 
 class TestQuotaInit:
-
     @pytest.mark.asyncio
     async def test_initialize_with_db_and_redis(self):
         from services.business.quota_service import QuotaService
+
         svc = QuotaService.__new__(QuotaService)
         svc.name = "quota"
         svc.logger = MagicMock()
@@ -957,9 +1060,10 @@ class TestQuotaInit:
         redis_mock = MagicMock()
         redis_mock.is_initialized.return_value = True
 
-        with patch("services.core.get_service", side_effect=lambda n: {
-            "database": db_mock, "redis": redis_mock
-        }.get(n)):
+        with patch(
+            "services.core.get_service",
+            side_effect=lambda n: {"database": db_mock, "redis": redis_mock}.get(n),
+        ):
             await svc._initialize()
 
         assert svc._db == db_mock
@@ -968,6 +1072,7 @@ class TestQuotaInit:
     @pytest.mark.asyncio
     async def test_initialize_redis_failure(self):
         from services.business.quota_service import QuotaService
+
         svc = QuotaService.__new__(QuotaService)
         svc.name = "quota"
         svc.logger = MagicMock()
@@ -978,9 +1083,10 @@ class TestQuotaInit:
         redis_mock = MagicMock()
         redis_mock.is_initialized.side_effect = Exception("redis down")
 
-        with patch("services.core.get_service", side_effect=lambda n: {
-            "database": db_mock, "redis": redis_mock
-        }.get(n)):
+        with patch(
+            "services.core.get_service",
+            side_effect=lambda n: {"database": db_mock, "redis": redis_mock}.get(n),
+        ):
             await svc._initialize()
 
         assert svc._db == db_mock

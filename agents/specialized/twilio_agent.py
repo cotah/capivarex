@@ -158,7 +158,7 @@ class TwilioAgent(BaseAgent):
                     status=AgentStatus.ERROR,
                     response=(
                         "📞 Serviço de chamadas não disponível.\n"
-                        "Verifica se TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN "
+                        "Verifique se TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN "
                         "estão configurados."
                     ),
                     error="TwilioService not registered",
@@ -170,7 +170,7 @@ class TwilioAgent(BaseAgent):
                 except asyncio.TimeoutError:
                     return AgentResponse(
                         status=AgentStatus.ERROR,
-                        response="📞 Serviço de chamadas demorou a inicializar. Tenta novamente.",
+                        response="📞 Serviço de chamadas demorou a inicializar. Tente novamente.",
                         error="Twilio init timeout",
                     )
 
@@ -194,7 +194,7 @@ class TwilioAgent(BaseAgent):
                     status=AgentStatus.ERROR,
                     response=(
                         "📞 Quota de chamadas esgotada.\n"
-                        "Verifica o teu plano ou aguarda a renovação."
+                        "Verifique seu plano ou aguarde a renovação."
                     ),
                     error=error_msg,
                 )
@@ -203,7 +203,7 @@ class TwilioAgent(BaseAgent):
                     status=AgentStatus.ERROR,
                     response=(
                         "📞 Nenhum número disponível para chamadas neste momento.\n"
-                        "Tenta novamente em alguns minutos."
+                        "Tente novamente em alguns minutos."
                     ),
                     error=error_msg,
                 )
@@ -363,22 +363,18 @@ class TwilioAgent(BaseAgent):
         # Gerar TwiML
         if custom_message:
             lang = (
-                "pt-PT"
-                if country in ("PT",)
-                else (
-                    "pt-BR"
-                    if country in ("BR",)
-                    else ("en-IE" if country in ("IE",) else "en-US")
-                )
+                "pt-BR"
+                if country in ("PT", "BR")
+                else ("en-IE" if country in ("IE",) else "en-US")
             )
             twiml = twilio_svc.twiml_say(custom_message, language=lang)
         else:
             if country in ("PT", "BR"):
                 twiml = twilio_svc.twiml_say(
                     "Olá! Esta é uma chamada automática do Capivarex. "
-                    "O utilizador pediu para entrar em contacto consigo. "
+                    "O usuário pediu para entrar em contato com você. "
                     "Por favor, aguarde enquanto tentamos conectar.",
-                    language="pt-PT" if country == "PT" else "pt-BR",
+                    language="pt-BR",
                 )
             else:
                 twiml = twilio_svc.twiml_say(
@@ -433,7 +429,7 @@ class TwilioAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=(
-                "📞 **Chamadas Telefónicas — Como Usar**\n\n"
+                "📞 **Chamadas Telefônicas — Como Usar**\n\n"
                 "**Chamada simples:**\n"
                 '• "liga para o +353894434456"\n'
                 '• "chama o +351912345678"\n\n'
@@ -441,7 +437,7 @@ class TwilioAgent(BaseAgent):
                 '• "liga para +353... e diz que estou atrasado"\n'
                 '• "chama +351... e avisa que a reunião mudou para as 15h"\n\n'
                 "**Importante:**\n"
-                "• Inclui o código do país (+353, +351, +1, etc.)\n"
+                "• Inclua o código do país (+353, +351, +1, etc.)\n"
                 "• A chamada é feita pelo sistema Twilio\n"
                 "• O destinatário ouve a mensagem por voz"
             ),

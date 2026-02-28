@@ -289,7 +289,7 @@ class WeatherAgent(BaseAgent):
                         "• *Clima em Dublin*\n"
                         "• *Previsão para São Paulo essa semana*\n"
                         "• *Vai chover amanhã em Lisboa?*\n\n"
-                        "💡 Ou envia a tua localização GPS pelo Telegram."
+                        "💡 Ou envie sua localização GPS pelo Telegram."
                     ),
                     error="No location provided",
                 )

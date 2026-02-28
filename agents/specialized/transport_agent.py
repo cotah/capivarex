@@ -150,8 +150,8 @@ class TransportAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=(
-                        "📍 Preciso da tua localização para encontrar transportes próximos.\n\n"
-                        "Envia a tua localização pelo Telegram: **📎 → Localização**"
+                        "📍 Preciso da sua localização para encontrar transportes próximos.\n\n"
+                        "Envie sua localização pelo Telegram: **📎 → Localização**"
                     ),
                     data={"needs_location": True},
                 )
@@ -197,7 +197,7 @@ class TransportAgent(BaseAgent):
                     response=(
                         f"🚌 Não encontrei transportes próximos"
                         f"{f' para {destination}' if destination else ''}.\n\n"
-                        "Verifica se há paragens de autocarro, DART ou Luas perto de ti."
+                        "Verifique se há paradas de ônibus, DART ou Luas perto de você."
                     ),
                 )
 

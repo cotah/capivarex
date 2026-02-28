@@ -575,7 +575,7 @@ class MercadoService(BaseService):
             return {"mensagem": "\n".join(linhas), "total": total_geral}
         except Exception as e:
             self.logger.error("Erro no relatório mensal: %s", e, exc_info=True)
-            return {"mensagem": "❌ Erro ao gerar relatório. Tenta novamente."}
+            return {"mensagem": "❌ Erro ao gerar relatório. Tente novamente."}
 
     async def comparar_produto(self, produto: str, chat_id: str) -> Dict[str, Any]:
         """Compara preços de um produto entre mercados."""

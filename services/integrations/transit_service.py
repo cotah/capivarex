@@ -216,7 +216,7 @@ class TransitService(BaseService):
                         "RAIL",
                     ],
                 },
-                "languageCode": "pt-PT",
+                "languageCode": "pt-BR",
                 "units": "METRIC",
             }
 

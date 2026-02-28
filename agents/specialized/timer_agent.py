@@ -151,7 +151,7 @@ class TimerAgent(BaseAgent):
                             response=(
                                 "⚠️ O serviço de timer está temporariamente indisponível "
                                 "(problema de conexão com o banco de dados Redis).\n"
-                                "Tenta novamente em alguns instantes."
+                                "Tente novamente em alguns instantes."
                             ),
                             error=f"Redis init failed: {init_err}",
                         )
@@ -246,7 +246,7 @@ class TimerAgent(BaseAgent):
             elif "duration" in err_lower or "seconds" in err_lower:
                 msg = "Duração inválida. Exemplo: *Marque 10 minutos* ou *Timer de 2 horas*."
             else:
-                msg = "Erro ao configurar o timer. Tenta novamente."
+                msg = "Erro ao configurar o timer. Tente novamente."
 
             return AgentResponse(status=AgentStatus.ERROR, response=msg, error=str(e))
 
