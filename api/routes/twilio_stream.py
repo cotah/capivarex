@@ -540,39 +540,72 @@ async def _send_telegram_report(session):
     """
     Send call report back to the user's Telegram chat.
 
-    Uses python-telegram-bot directly as a lightweight fallback.
+    Uses python-telegram-bot directly (lightweight, no bot framework needed).
+
+    Guards:
+    - None session or missing chat_id → log and return
+    - Tries Markdown first, falls back to plain text on parse error
+    - Logs the full report as last resort if send fails entirely
     """
+    if session is None:
+        logger.warning("_send_telegram_report called with None session")
+        return
+
+    chat_id = getattr(session, "telegram_chat_id", 0)
+    if not chat_id:
+        logger.warning(
+            "Cannot send report: no telegram_chat_id on session %s",
+            getattr(session, "session_id", "?"),
+        )
+        return
+
     try:
         report = session.generate_report()
+    except Exception as e:
+        logger.error("Failed to generate report: %s", e, exc_info=True)
+        return
 
-        import os
+    import os
 
-        from telegram import Bot as TelegramBot
+    from telegram import Bot as TelegramBot
 
-        token = os.getenv("TELEGRAM_BOT_TOKEN")
-        if token:
-            tg_bot = TelegramBot(token=token)
-            await tg_bot.send_message(
-                chat_id=session.telegram_chat_id,
-                text=report,
-                parse_mode="Markdown",
-            )
-            logger.info(
-                "Report sent to Telegram chat %s",
-                session.telegram_chat_id,
-            )
-        else:
-            logger.warning(
-                "Cannot send report: no TELEGRAM_BOT_TOKEN"
-            )
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        logger.warning("Cannot send report: no TELEGRAM_BOT_TOKEN")
+        logger.info("Call report (not sent):\n%s", report)
+        return
 
+    try:
+        tg_bot = TelegramBot(token=token)
+    except Exception as e:
+        logger.error("Failed to create Telegram bot: %s", e)
+        logger.info("Call report (not sent):\n%s", report)
+        return
+
+    # Try Markdown first, fall back to plain text on parse error
+    try:
+        await tg_bot.send_message(
+            chat_id=chat_id,
+            text=report,
+            parse_mode="Markdown",
+        )
+        logger.info("Report sent to Telegram chat %s", chat_id)
+        return
+    except Exception as md_err:
+        logger.warning(
+            "Markdown send failed (%s), retrying as plain text",
+            md_err,
+        )
+
+    # Fallback: strip markdown and send as plain text
+    try:
+        plain = report.replace("*", "").replace("`", "").replace("_", "")
+        await tg_bot.send_message(chat_id=chat_id, text=plain)
+        logger.info(
+            "Report sent (plain text) to Telegram chat %s", chat_id
+        )
     except Exception as e:
         logger.error(
-            "Failed to send Telegram report: %s",
-            e,
-            exc_info=True,
+            "Failed to send Telegram report: %s", e, exc_info=True
         )
-        logger.info(
-            "Call report (not sent):\n%s",
-            session.generate_report(),
-        )
+        logger.info("Call report (not sent):\n%s", report)

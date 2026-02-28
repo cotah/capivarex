@@ -457,13 +457,113 @@ class CallSession:
 
     # -- Report ---------------------------------------------------------------
 
-    def generate_report(self) -> str:
+    def generate_report(self, max_transcript_turns: int = 10) -> str:
         """
         Generate a Telegram-friendly report of the call.
 
+        Handles Markdown escaping for Telegram's Markdown v1 limitations.
+        Falls back to a short report if the message would be too long.
+
+        Args:
+            max_transcript_turns: Max conversation turns to include
+
         Returns:
-            Markdown-formatted string for Telegram
+            Formatted string for Telegram (Markdown-safe)
         """
+        result_emoji = {
+            CallResult.SUCCESS: "\u2705",
+            CallResult.PARTIAL: "\u26a0\ufe0f",
+            CallResult.FAILED: "\u274c",
+            CallResult.HANGUP: "\U0001f4f5",
+            CallResult.TIMEOUT: "\u23f0",
+            CallResult.UNKNOWN: "\u2753",
+        }
+        emoji = result_emoji.get(self.result, "\u2753")
+
+        # Duration
+        minutes = int(self.duration_s // 60)
+        seconds = int(self.duration_s % 60)
+        duration_str = (
+            f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
+        )
+
+        # Language display
+        lang_display = {
+            "pt": "\U0001f1f5\U0001f1f9 PT",
+            "en": "\U0001f1ec\U0001f1e7 EN",
+            "es": "\U0001f1ea\U0001f1f8 ES",
+        }.get(self.language, self.language.upper())
+
+        # Header
+        lines = [
+            "\U0001f4de *Call completed*",
+            "",
+            f"\U0001f4f1 To: `{self.phone_number}`",
+            f"\u23f1\ufe0f Duration: {duration_str}",
+            f"\U0001f30d Language: {lang_display}",
+            f"\U0001f504 Turns: {self._turn_count}",
+            "",
+            f"{emoji} *Result: {self.result.value.upper()}*",
+        ]
+
+        if self.result_details:
+            safe_details = self._escape_markdown(self.result_details)
+            lines.append(f"_{safe_details}_")
+
+        # Objective
+        safe_objective = self._escape_markdown(self.objective)
+        lines.append(f"\n\U0001f3af *Objective:* {safe_objective}")
+
+        # Transcript (limited)
+        if self.conversation:
+            lines.append("\n\U0001f4dd *Transcript:*")
+            turns_to_show = self.conversation[:max_transcript_turns]
+            for turn in turns_to_show:
+                icon = (
+                    "\U0001f916"
+                    if turn.role == "assistant"
+                    else "\U0001f464"
+                )
+                safe_content = self._escape_markdown(turn.content)
+                if len(safe_content) > 200:
+                    safe_content = safe_content[:197] + "..."
+                lines.append(f'{icon} "{safe_content}"')
+
+            remaining = len(self.conversation) - max_transcript_turns
+            if remaining > 0:
+                lines.append(f"_...and {remaining} more turns_")
+
+        # Metrics
+        m = self.metrics
+        if m["avg_turn_latency_s"] > 0:
+            lines.append("\n\u26a1 *Performance:*")
+            lines.append(f"  Avg response: {m['avg_turn_latency_s']}s")
+            if m["stt_total_latency_s"] > 0:
+                lines.append(
+                    f"  STT: {m['stt_total_latency_s']}s total"
+                )
+            if m["llm_total_latency_s"] > 0:
+                lines.append(
+                    f"  LLM: {m['llm_total_latency_s']}s total"
+                )
+            if m["tts_total_latency_s"] > 0:
+                lines.append(
+                    f"  TTS: {m['tts_total_latency_s']}s total"
+                )
+
+        # Footer
+        lines.append(f"\n\U0001f511 `{self.session_id[:12]}...`")
+
+        report = "\n".join(lines)
+
+        # Telegram has a 4096 char limit for messages
+        if len(report) > 4000:
+            return self._generate_short_report()
+
+        return report
+
+    def _generate_short_report(self) -> str:
+        """Fallback short report if full report exceeds Telegram limit."""
         result_emoji = {
             CallResult.SUCCESS: "\u2705",
             CallResult.PARTIAL: "\u26a0\ufe0f",
@@ -481,29 +581,33 @@ class CallSession:
         )
 
         lines = [
-            "\U0001f4de **Call completed**\n",
+            "\U0001f4de *Call completed*",
             f"\U0001f4f1 To: `{self.phone_number}`",
-            f"\u23f1\ufe0f Duration: {duration_str}",
-            f"\U0001f30d Language: {self.language.upper()}",
-            f"\U0001f504 Turns: {self._turn_count}",
-            "",
-            f"{emoji} **Result: {self.result.value}**",
+            f"\u23f1\ufe0f {duration_str} | \U0001f504 {self._turn_count} turns",
+            f"{emoji} *{self.result.value.upper()}*",
         ]
 
         if self.result_details:
-            lines.append(f"_{self.result_details}_")
+            details = self.result_details[:100]
+            lines.append(
+                f"_{self._escape_markdown(details)}_"
+            )
 
-        if self.conversation:
-            lines.append("\n\U0001f4dd **Transcript:**")
-            for turn in self.conversation:
-                icon = "\U0001f916" if turn.role == "assistant" else "\U0001f464"
-                lines.append(f'{icon} "{turn.content}"')
-
-        m = self.metrics
-        lines.append(f"\n\u26a1 Avg response: {m['avg_turn_latency_s']}s")
-        lines.append(f"\U0001f511 Session: `{self.session_id[:12]}...`")
+        lines.append(f"\n\U0001f511 `{self.session_id[:12]}...`")
 
         return "\n".join(lines)
+
+    @staticmethod
+    def _escape_markdown(text: str) -> str:
+        """
+        Escape special characters for Telegram Markdown v1.
+
+        Telegram's Markdown v1 parser treats _, *, `, and [ as
+        formatting characters. We escape them with backslash.
+        """
+        for char in ["_", "*", "`", "["]:
+            text = text.replace(char, f"\\{char}")
+        return text
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize session to dict (for logging/debugging)."""
