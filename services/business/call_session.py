@@ -40,7 +40,9 @@ Usage:
     session = CallSession.from_pending(pending)
 """
 
+import json
 import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -634,9 +636,67 @@ class CallSession:
 
 
 # =============================================================================
-# PENDING CALLS REGISTRY (in-memory)
+# PENDING CALLS REGISTRY (Redis + in-memory fallback)
 # =============================================================================
 
+_REDIS_PREFIX = "pending_call:"
+_REDIS_TTL = 30  # seconds (same as PendingCall.EXPIRY_SECONDS)
+
+
+def _get_redis_client():
+    """
+    Get sync Upstash Redis client for pending call storage.
+
+    Uses the sync ``upstash_redis.Redis`` client so that
+    register/get_pending_call can remain regular (non-async) functions.
+    Returns None if env vars are missing or the import fails.
+    """
+    try:
+        from upstash_redis import Redis
+
+        url = os.getenv("UPSTASH_REDIS_REST_URL")
+        token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
+        if url and token:
+            return Redis(url=url, token=token)
+    except ImportError:
+        pass
+    return None
+
+
+def _serialize_pending(pending: PendingCall) -> str:
+    """Serialize PendingCall to JSON string for Redis."""
+    return json.dumps({
+        "session_id": pending.session_id,
+        "objective": pending.objective,
+        "user_name": pending.user_name,
+        "language": pending.language,
+        "phone_number": pending.phone_number,
+        "telegram_chat_id": pending.telegram_chat_id,
+        "telegram_user_id": pending.telegram_user_id,
+        "extra_context": pending.extra_context,
+        "greeting": pending.greeting,
+        "created_at": pending.created_at,
+    })
+
+
+def _deserialize_pending(data: str) -> PendingCall:
+    """Deserialize PendingCall from JSON string."""
+    d = json.loads(data)
+    return PendingCall(
+        session_id=d["session_id"],
+        objective=d["objective"],
+        user_name=d["user_name"],
+        language=d["language"],
+        phone_number=d["phone_number"],
+        telegram_chat_id=d["telegram_chat_id"],
+        telegram_user_id=d["telegram_user_id"],
+        extra_context=d.get("extra_context", ""),
+        greeting=d.get("greeting", ""),
+        created_at=d.get("created_at", time.time()),
+    )
+
+
+# ── In-memory fallback (single worker / tests) ──────────────────────────────
 _PENDING_CALLS: Dict[str, PendingCall] = {}
 
 
@@ -651,30 +711,16 @@ def register_pending_call(
     greeting: str = "",
 ) -> str:
     """
-    Register a pending call. Called by TwilioAgent BEFORE making the call.
+    Register a pending call. Uses Redis if available, falls back to in-memory.
 
+    Called by TwilioAgent BEFORE making the call.
     The session_id is passed to Twilio via TwiML <Stream> parameter.
     When Twilio connects via WebSocket, the handler uses this ID
     to retrieve the call objective and context.
-
-    Args:
-        objective: What the call should accomplish
-        user_name: Name of the user
-        language: Language for the call (pt, en, es)
-        phone_number: Number being called
-        telegram_chat_id: Where to send report
-        telegram_user_id: Who requested the call
-        extra_context: Additional context for GPT
-        greeting: Custom greeting (optional)
-
-    Returns:
-        session_id to pass to Twilio
     """
-    _cleanup_expired()
-
     session_id = uuid.uuid4().hex[:16]
 
-    _PENDING_CALLS[session_id] = PendingCall(
+    pending = PendingCall(
         session_id=session_id,
         objective=objective,
         user_name=user_name,
@@ -686,22 +732,71 @@ def register_pending_call(
         greeting=greeting,
     )
 
+    # Try Redis first (shared across workers)
+    redis_client = _get_redis_client()
+    if redis_client:
+        try:
+            key = f"{_REDIS_PREFIX}{session_id}"
+            redis_client.set(key, _serialize_pending(pending), ex=_REDIS_TTL)
+            logger.info(
+                "Registered pending call %s -> %s via Redis (TTL=%ds)",
+                session_id[:8],
+                phone_number,
+                _REDIS_TTL,
+            )
+            return session_id
+        except Exception as e:
+            logger.warning(
+                "Redis register failed, using in-memory: %s", e
+            )
+
+    # Fallback: in-memory
+    _cleanup_expired()
+    _PENDING_CALLS[session_id] = pending
     logger.info(
-        "Registered pending call %s -> %s (objective: %s)",
+        "Registered pending call %s -> %s in-memory",
         session_id[:8],
         phone_number,
-        objective[:60],
     )
-
     return session_id
 
 
 def get_pending_call(session_id: str) -> Optional[PendingCall]:
     """
-    Retrieve and remove a pending call. Called by WebSocket handler.
+    Retrieve and remove a pending call. Checks Redis first, then in-memory.
 
     Returns None if session_id not found or expired.
     """
+    if not session_id:
+        logger.warning("get_pending_call called with empty session_id")
+        return None
+
+    # Try Redis first
+    redis_client = _get_redis_client()
+    if redis_client:
+        try:
+            key = f"{_REDIS_PREFIX}{session_id}"
+            data = redis_client.get(key)
+            if data:
+                # Delete immediately (consume once)
+                redis_client.delete(key)
+                raw = data if isinstance(data, str) else data.decode()
+                pending = _deserialize_pending(raw)
+                logger.info(
+                    "Retrieved pending call %s from Redis",
+                    session_id[:8],
+                )
+                return pending
+            logger.warning(
+                "Pending call %s not found in Redis",
+                session_id[:8],
+            )
+        except Exception as e:
+            logger.warning(
+                "Redis get failed, trying in-memory: %s", e
+            )
+
+    # Fallback: in-memory
     pending = _PENDING_CALLS.pop(session_id, None)
     if pending is None:
         logger.warning("Pending call not found: %s", session_id[:8])
@@ -713,13 +808,13 @@ def get_pending_call(session_id: str) -> Optional[PendingCall]:
 
 
 def get_pending_calls_count() -> int:
-    """Get number of pending calls (for monitoring)."""
+    """Get number of pending calls (in-memory only — for monitoring)."""
     _cleanup_expired()
     return len(_PENDING_CALLS)
 
 
 def _cleanup_expired() -> None:
-    """Remove expired pending calls."""
+    """Remove expired pending calls from in-memory dict."""
     expired = [
         sid for sid, p in _PENDING_CALLS.items() if p.is_expired
     ]

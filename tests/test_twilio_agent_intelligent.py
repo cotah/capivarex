@@ -135,6 +135,16 @@ class TestCallBrainExtractPlan:
 class TestIntelligentCallFlow:
     """Test the full intelligent call flow end-to-end (mocked)."""
 
+    def setup_method(self):
+        self._patcher = patch(
+            "services.business.call_session._get_redis_client",
+            return_value=None,
+        )
+        self._patcher.start()
+
+    def teardown_method(self):
+        self._patcher.stop()
+
     @pytest.mark.asyncio
     async def test_full_flow_registers_pending_call(self):
         """

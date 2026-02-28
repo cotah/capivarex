@@ -20,6 +20,16 @@ from api.routes.twilio_stream import (
 
 
 class TestLoadSession:
+    def setup_method(self):
+        self._patcher = patch(
+            "services.business.call_session._get_redis_client",
+            return_value=None,
+        )
+        self._patcher.start()
+
+    def teardown_method(self):
+        self._patcher.stop()
+
     @pytest.mark.asyncio
     async def test_load_valid_session(self):
         """Loads session from pending registry."""

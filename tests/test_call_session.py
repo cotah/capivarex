@@ -2,6 +2,7 @@
 Tests for CallSession — AI phone call state management.
 """
 import time
+from unittest.mock import patch
 
 from services.business.call_session import (
     CallResult,
@@ -9,10 +10,14 @@ from services.business.call_session import (
     CallStatus,
     PendingCall,
     _PENDING_CALLS,
+    _deserialize_pending,
+    _serialize_pending,
     get_pending_call,
     get_pending_calls_count,
     register_pending_call,
 )
+
+_REDIS_PATCH_TARGET = "services.business.call_session._get_redis_client"
 
 
 # -- Helpers ------------------------------------------------------------------
@@ -282,8 +287,13 @@ class TestReport:
 
 class TestPendingCallsRegistry:
     def setup_method(self):
-        """Clear pending calls before each test."""
+        """Clear pending calls and disable Redis before each test."""
         _PENDING_CALLS.clear()
+        self._patcher = patch(_REDIS_PATCH_TARGET, return_value=None)
+        self._patcher.start()
+
+    def teardown_method(self):
+        self._patcher.stop()
 
     def test_register_and_get(self):
         session_id = register_pending_call(
@@ -350,6 +360,13 @@ class TestPendingCallsRegistry:
 
 
 class TestPendingCallExpiry:
+    def setup_method(self):
+        self._patcher = patch(_REDIS_PATCH_TARGET, return_value=None)
+        self._patcher.start()
+
+    def teardown_method(self):
+        self._patcher.stop()
+
     def test_is_expired(self):
         p = _make_pending()
         assert p.is_expired is False
@@ -378,3 +395,130 @@ class TestPendingCallExpiry:
         )
 
         assert "expired_id" not in _PENDING_CALLS
+
+
+# -- Redis pending calls tests ------------------------------------------------
+
+
+class TestSerializePending:
+    def test_round_trip(self):
+        """Serialize then deserialize preserves all fields."""
+        p = _make_pending()
+        data = _serialize_pending(p)
+        restored = _deserialize_pending(data)
+        assert restored.session_id == p.session_id
+        assert restored.objective == p.objective
+        assert restored.user_name == p.user_name
+        assert restored.language == p.language
+        assert restored.phone_number == p.phone_number
+        assert restored.telegram_chat_id == p.telegram_chat_id
+        assert restored.telegram_user_id == p.telegram_user_id
+        assert restored.extra_context == p.extra_context
+        assert restored.greeting == p.greeting
+        assert restored.created_at == p.created_at
+
+    def test_deserialize_missing_optional_fields(self):
+        """Deserialize handles missing optional fields gracefully."""
+        import json
+
+        data = json.dumps({
+            "session_id": "abc",
+            "objective": "test",
+            "user_name": "U",
+            "language": "en",
+            "phone_number": "+1",
+            "telegram_chat_id": 1,
+            "telegram_user_id": 2,
+        })
+        p = _deserialize_pending(data)
+        assert p.extra_context == ""
+        assert p.greeting == ""
+
+
+class TestRedisRegisterAndGet:
+    """Test register/get pending call through the Redis path (mocked)."""
+
+    def test_register_via_redis(self):
+        """register_pending_call uses Redis when available."""
+        from unittest.mock import MagicMock
+
+        mock_redis = MagicMock()
+        mock_redis.set = MagicMock()
+
+        with patch(_REDIS_PATCH_TARGET, return_value=mock_redis):
+            sid = register_pending_call(
+                objective="Test",
+                user_name="U",
+                language="en",
+                phone_number="+1",
+                telegram_chat_id=1,
+                telegram_user_id=1,
+            )
+
+        assert len(sid) == 16
+        mock_redis.set.assert_called_once()
+        call_args = mock_redis.set.call_args
+        assert call_args.args[0] == f"pending_call:{sid}"
+        assert call_args.kwargs.get("ex") == 30
+
+    def test_get_via_redis(self):
+        """get_pending_call retrieves and deletes from Redis."""
+        from unittest.mock import MagicMock
+
+        p = _make_pending()
+        mock_redis = MagicMock()
+        mock_redis.get = MagicMock(return_value=_serialize_pending(p))
+        mock_redis.delete = MagicMock()
+
+        with patch(_REDIS_PATCH_TARGET, return_value=mock_redis):
+            result = get_pending_call(p.session_id)
+
+        assert result is not None
+        assert result.objective == p.objective
+        mock_redis.get.assert_called_once_with(
+            f"pending_call:{p.session_id}"
+        )
+        mock_redis.delete.assert_called_once()
+
+    def test_get_empty_session_id(self):
+        """get_pending_call returns None for empty session_id."""
+        result = get_pending_call("")
+        assert result is None
+
+    def test_register_redis_failure_falls_back(self):
+        """Falls back to in-memory when Redis set fails."""
+        from unittest.mock import MagicMock
+
+        mock_redis = MagicMock()
+        mock_redis.set = MagicMock(side_effect=Exception("connection error"))
+
+        _PENDING_CALLS.clear()
+
+        with patch(_REDIS_PATCH_TARGET, return_value=mock_redis):
+            sid = register_pending_call(
+                objective="Fallback",
+                user_name="U",
+                language="en",
+                phone_number="+1",
+                telegram_chat_id=1,
+                telegram_user_id=1,
+            )
+
+        assert sid in _PENDING_CALLS
+
+    def test_get_redis_not_found_falls_back_to_memory(self):
+        """When Redis returns None, falls back to in-memory lookup."""
+        from unittest.mock import MagicMock
+
+        mock_redis = MagicMock()
+        mock_redis.get = MagicMock(return_value=None)
+
+        _PENDING_CALLS.clear()
+        p = _make_pending()
+        _PENDING_CALLS[p.session_id] = p
+
+        with patch(_REDIS_PATCH_TARGET, return_value=mock_redis):
+            result = get_pending_call(p.session_id)
+
+        assert result is not None
+        assert result.session_id == p.session_id
