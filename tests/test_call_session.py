@@ -355,3 +355,26 @@ class TestPendingCallExpiry:
         assert p.is_expired is False
         p.created_at = time.time() - 60
         assert p.is_expired is True
+
+    def test_cleanup_removes_expired_entries(self):
+        """register_pending_call triggers cleanup of expired entries."""
+        _PENDING_CALLS.clear()
+
+        # Manually inject an expired pending call
+        expired = _make_pending()
+        expired.created_at = time.time() - 120  # well past TTL
+        _PENDING_CALLS["expired_id"] = expired
+
+        assert "expired_id" in _PENDING_CALLS
+
+        # Registering a new call triggers _cleanup_expired
+        register_pending_call(
+            objective="New",
+            user_name="U",
+            language="en",
+            phone_number="+1",
+            telegram_chat_id=1,
+            telegram_user_id=1,
+        )
+
+        assert "expired_id" not in _PENDING_CALLS

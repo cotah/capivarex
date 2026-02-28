@@ -47,6 +47,7 @@ from api.routes import (
 )
 from api.routes import webhooks
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
+from api.routes.twilio_stream import router as twilio_stream_router
 
 # Load environment variables
 load_dotenv()
@@ -364,4 +365,5 @@ app.include_router(
     agent_generic.router, prefix=f"{API_V1}/agent", tags=["Generic Agent"]
 )
 app.include_router(webhooks.router, prefix=f"{API_V1}/webhooks", tags=["Webhooks"])
+app.include_router(twilio_stream_router, tags=["Twilio Stream"])
 app.include_router(health.router, tags=["Monitoring"])
