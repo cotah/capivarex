@@ -92,6 +92,12 @@ class MercadoAgent(BaseAgent):
                 await svc.initialize()
 
             texto = (prompt or "").strip()
+            user_id = str(
+                context.get(
+                    "chat_id",
+                    context.get("user_id", "default"),
+                )
+            )
 
             # ── Foto de nota fiscal ───────────────────────────────────────────
             image_data: Optional[bytes] = context.get("image_data")
@@ -146,7 +152,7 @@ class MercadoAgent(BaseAgent):
 
             # ── Histórico da lista ────────────────────────────────────────────
             if _RE_HISTORICO_LISTA.search(texto):
-                result = await svc.historico_lista()
+                result = await svc.historico_lista(user_id=user_id)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=result.get("mensagem", "❌ Erro ao obter histórico."),
@@ -155,7 +161,7 @@ class MercadoAgent(BaseAgent):
 
             # ── Limpar lista ──────────────────────────────────────────────────
             if _RE_LIMPAR.search(texto):
-                result = await svc.limpar_lista()
+                result = await svc.limpar_lista(user_id=user_id)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=result.get("mensagem", "❌ Erro ao limpar."),
@@ -164,7 +170,7 @@ class MercadoAgent(BaseAgent):
 
             # ── Ver lista ─────────────────────────────────────────────────────
             if _RE_VER.search(texto):
-                result = await svc.ver_lista()
+                result = await svc.ver_lista(user_id=user_id)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=result.get("mensagem", "❌ Erro ao obter lista."),
@@ -175,7 +181,7 @@ class MercadoAgent(BaseAgent):
             m = _RE_REMOVER.search(texto)
             if m:
                 item = m.group(1).strip().rstrip("?!.,")
-                result = await svc.remover(item)
+                result = await svc.remover(item, user_id=user_id)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=result.get("mensagem", "❌ Erro ao remover."),
@@ -186,7 +192,7 @@ class MercadoAgent(BaseAgent):
             m = _RE_ADICIONAR.search(texto)
             if m:
                 itens = m.group(1).strip().rstrip("?!.,")
-                result = await svc.adicionar(itens)
+                result = await svc.adicionar(itens, user_id=user_id)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=result.get("mensagem", "❌ Erro ao adicionar."),
@@ -195,7 +201,7 @@ class MercadoAgent(BaseAgent):
 
             # ── Fallback: tenta adicionar o texto directamente ────────────────
             if texto and len(texto) < 150:
-                result = await svc.adicionar(texto)
+                result = await svc.adicionar(texto, user_id=user_id)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=result.get("mensagem", self._ajuda()),

@@ -15,40 +15,60 @@ from agents.core import AgentStatus
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def mock_mercado_svc():
     svc = MagicMock()
     svc.is_initialized = MagicMock(return_value=True)
     svc.initialize = AsyncMock()
-    svc.adicionar = AsyncMock(return_value={"mensagem": "✅ Adicionado: leite", "sucesso": True})
-    svc.ver_lista = AsyncMock(return_value={"mensagem": "🛒 Lista: leite", "lista": ["leite"]})
-    svc.remover = AsyncMock(return_value={"mensagem": "🗑️ leite removido.", "removeu": True})
-    svc.limpar_lista = AsyncMock(return_value={"mensagem": "🗑️ Lista limpa!", "totalRemovido": 1})
+    svc.adicionar = AsyncMock(
+        return_value={"mensagem": "✅ Adicionado: leite", "sucesso": True}
+    )
+    svc.ver_lista = AsyncMock(
+        return_value={"mensagem": "🛒 Lista: leite", "lista": ["leite"]}
+    )
+    svc.remover = AsyncMock(
+        return_value={"mensagem": "🗑️ leite removido.", "removeu": True}
+    )
+    svc.limpar_lista = AsyncMock(
+        return_value={"mensagem": "🗑️ Lista limpa!", "totalRemovido": 1}
+    )
     svc.historico_lista = AsyncMock(return_value={"mensagem": "📖 Histórico vazio."})
-    svc.relatorio_mensal = AsyncMock(return_value={"mensagem": "📊 Relatório fevereiro"})
+    svc.relatorio_mensal = AsyncMock(
+        return_value={"mensagem": "📊 Relatório fevereiro"}
+    )
     svc.comparar_produto = AsyncMock(return_value={"mensagem": "💰 Leite: Lidl €0.89"})
     svc.ranking_mercados = AsyncMock(return_value={"mensagem": "🏪 Ranking: Lidl 1º"})
-    svc.processar_nota = AsyncMock(return_value={"mensagem": "🧾 Nota registada", "sucesso": True})
+    svc.processar_nota = AsyncMock(
+        return_value={"mensagem": "🧾 Nota registada", "sucesso": True}
+    )
     return svc
 
 
 @pytest.fixture
 def mercado_agent(mock_mercado_svc):
     from agents.specialized.mercado_agent import MercadoAgent
+
     agent = MercadoAgent()
-    with patch("agents.specialized.mercado_agent.get_service", return_value=mock_mercado_svc):
+    with patch(
+        "agents.specialized.mercado_agent.get_service", return_value=mock_mercado_svc
+    ):
         yield agent, mock_mercado_svc
 
 
 # ── Testes: detecção de intenção ──────────────────────────────────────────────
 
+
 class TestIntencoes:
-    @pytest.mark.parametrize("msg", [
-        "adicionar leite e pão",
-        "coloca manteiga na lista",
-        "põe ovos",
-        "acrescenta arroz",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "adicionar leite e pão",
+            "coloca manteiga na lista",
+            "põe ovos",
+            "acrescenta arroz",
+        ],
+    )
     @pytest.mark.asyncio
     async def test_adicionar(self, msg, mercado_agent):
         agent, svc = mercado_agent
@@ -56,12 +76,15 @@ class TestIntencoes:
         svc.adicionar.assert_called_once()
         assert result.status == AgentStatus.SUCCESS
 
-    @pytest.mark.parametrize("msg", [
-        "ver lista",
-        "mostra a lista",
-        "o que tem na lista",
-        "minha lista de compras",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "ver lista",
+            "mostra a lista",
+            "o que tem na lista",
+            "minha lista de compras",
+        ],
+    )
     @pytest.mark.asyncio
     async def test_ver_lista(self, msg, mercado_agent):
         agent, svc = mercado_agent
@@ -69,11 +92,14 @@ class TestIntencoes:
         svc.ver_lista.assert_called_once()
         assert result.status == AgentStatus.SUCCESS
 
-    @pytest.mark.parametrize("msg", [
-        "remover leite",
-        "apaga o pão",
-        "tira manteiga da lista",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "remover leite",
+            "apaga o pão",
+            "tira manteiga da lista",
+        ],
+    )
     @pytest.mark.asyncio
     async def test_remover(self, msg, mercado_agent):
         agent, svc = mercado_agent
@@ -81,12 +107,15 @@ class TestIntencoes:
         svc.remover.assert_called_once()
         assert result.status == AgentStatus.SUCCESS
 
-    @pytest.mark.parametrize("msg", [
-        "limpar lista",
-        "zera tudo",
-        "apaga tudo",
-        "clear",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "limpar lista",
+            "zera tudo",
+            "apaga tudo",
+            "clear",
+        ],
+    )
     @pytest.mark.asyncio
     async def test_limpar(self, msg, mercado_agent):
         agent, svc = mercado_agent
@@ -137,18 +166,24 @@ class TestIntencoes:
         """Texto curto sem padrão → fallback para adicionar."""
         agent, svc = mercado_agent
         result = await agent.execute("bananas", {})
-        svc.adicionar.assert_called_once_with("bananas")
+        svc.adicionar.assert_called_once_with(
+            "bananas", user_id="default"
+        )
         assert result.status == AgentStatus.SUCCESS
 
     @pytest.mark.asyncio
     async def test_service_unavailable(self):
         """Sem serviço disponível → erro gracioso."""
         from agents.specialized.mercado_agent import MercadoAgent
+
         agent = MercadoAgent()
         with patch("agents.specialized.mercado_agent.get_service", return_value=None):
             result = await agent.execute("ver lista", {})
         assert result.status == AgentStatus.ERROR
-        assert "não disponível" in result.response.lower() or "unavailable" in result.response.lower()
+        assert (
+            "não disponível" in result.response.lower()
+            or "unavailable" in result.response.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_ajuda_texto_longo(self, mercado_agent):
@@ -160,9 +195,11 @@ class TestIntencoes:
 
 # ── Testes: MercadoService (categorização) ────────────────────────────────────
 
+
 class TestCategorizacao:
     def test_categorias_conhecidas(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Leite Mimosa") == "Laticínios"
         assert _categorizar("Pão de Forma") == "Padaria"
         assert _categorizar("Frango Inteiro") == "Carnes"
@@ -171,27 +208,33 @@ class TestCategorizacao:
 
     def test_categoria_outros(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Produto Desconhecido XYZ") == "Outros"
 
     def test_categorias_peixe(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Salmão Fresco") == "Peixe"
         assert _categorizar("Bacalhau da Noruega") == "Peixe"
 
     def test_categorias_higiene(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Shampoo H&S") == "Higiene"
 
     def test_categorias_ovos(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Ovos M 12un") == "Ovos"
 
 
 # ── Testes: normalização de nota ──────────────────────────────────────────────
 
+
 class TestNormalizacaoNota:
     def _make_svc(self):
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         return svc
 
@@ -202,8 +245,13 @@ class TestNormalizacaoNota:
             "data": "22/02/2026",
             "total": 5.00,
             "itens": [
-                {"produto": "Leite", "quantidade": 2, "preco_total": 2.18, "preco_unitario": 0}
-            ]
+                {
+                    "produto": "Leite",
+                    "quantidade": 2,
+                    "preco_total": 2.18,
+                    "preco_unitario": 0,
+                }
+            ],
         }
         result = svc._normalizar_nota(nota)
         assert result["itens"][0]["preco_unitario"] == pytest.approx(1.09, 0.01)
@@ -211,6 +259,7 @@ class TestNormalizacaoNota:
 
     def test_normalizar_data_padrao(self):
         from datetime import date
+
         svc = self._make_svc()
         nota = {"mercado": "Aldi", "total": 10.0, "data": None, "itens": []}
         result = svc._normalizar_nota(nota)
@@ -219,17 +268,30 @@ class TestNormalizacaoNota:
     def test_normalizar_total_calculado(self):
         svc = self._make_svc()
         nota = {
-            "mercado": "Pingo Doce", "data": "01/02/2026", "total": None,
+            "mercado": "Pingo Doce",
+            "data": "01/02/2026",
+            "total": None,
             "itens": [
-                {"produto": "Pão", "quantidade": 1, "preco_total": 1.35, "preco_unitario": 1.35},
-                {"produto": "Leite", "quantidade": 1, "preco_total": 0.99, "preco_unitario": 0.99},
-            ]
+                {
+                    "produto": "Pão",
+                    "quantidade": 1,
+                    "preco_total": 1.35,
+                    "preco_unitario": 1.35,
+                },
+                {
+                    "produto": "Leite",
+                    "quantidade": 1,
+                    "preco_total": 0.99,
+                    "preco_unitario": 0.99,
+                },
+            ],
         }
         result = svc._normalizar_nota(nota)
         assert result["total"] == pytest.approx(2.34, 0.01)
 
     def test_normalizar_data_formato_iso(self):
         from datetime import date
+
         svc = self._make_svc()
         nota = {"mercado": "Aldi", "total": 10.0, "data": "2026-02-22", "itens": []}
         result = svc._normalizar_nota(nota)
@@ -238,10 +300,17 @@ class TestNormalizacaoNota:
     def test_normalizar_preco_total_from_unitario(self):
         svc = self._make_svc()
         nota = {
-            "mercado": "Aldi", "data": "01/01/2026", "total": 10.0,
+            "mercado": "Aldi",
+            "data": "01/01/2026",
+            "total": 10.0,
             "itens": [
-                {"produto": "Arroz", "quantidade": 3, "preco_total": 0, "preco_unitario": 1.50}
-            ]
+                {
+                    "produto": "Arroz",
+                    "quantidade": 3,
+                    "preco_total": 0,
+                    "preco_unitario": 1.50,
+                }
+            ],
         }
         result = svc._normalizar_nota(nota)
         assert result["itens"][0]["preco_total"] == pytest.approx(4.50, 0.01)
@@ -255,11 +324,18 @@ class TestNormalizacaoNota:
     def test_normalizar_ignora_item_sem_produto(self):
         svc = self._make_svc()
         nota = {
-            "mercado": "Lidl", "data": "01/01/2026", "total": 5.0,
+            "mercado": "Lidl",
+            "data": "01/01/2026",
+            "total": 5.0,
             "itens": [
                 {"produto": "", "quantidade": 1, "preco_total": 1.0},
-                {"produto": "Leite", "quantidade": 1, "preco_total": 1.0, "preco_unitario": 1.0},
-            ]
+                {
+                    "produto": "Leite",
+                    "quantidade": 1,
+                    "preco_total": 1.0,
+                    "preco_unitario": 1.0,
+                },
+            ],
         }
         result = svc._normalizar_nota(nota)
         assert len(result["itens"]) == 1
@@ -268,6 +344,7 @@ class TestNormalizacaoNota:
     def test_normalizar_data_formato_curto(self):
         """Testa data dd/mm/yy (2 dígitos)."""
         from datetime import date
+
         svc = self._make_svc()
         nota = {"mercado": "Aldi", "total": 10.0, "data": "22/02/26", "itens": []}
         result = svc._normalizar_nota(nota)
@@ -277,10 +354,17 @@ class TestNormalizacaoNota:
         """Item sem unidade deve receber 'un' por padrão."""
         svc = self._make_svc()
         nota = {
-            "mercado": "Lidl", "data": "01/01/2026", "total": 5.0,
+            "mercado": "Lidl",
+            "data": "01/01/2026",
+            "total": 5.0,
             "itens": [
-                {"produto": "Leite", "quantidade": 1, "preco_total": 1.0, "preco_unitario": 1.0}
-            ]
+                {
+                    "produto": "Leite",
+                    "quantidade": 1,
+                    "preco_total": 1.0,
+                    "preco_unitario": 1.0,
+                }
+            ],
         }
         result = svc._normalizar_nota(nota)
         assert result["itens"][0]["unidade"] == "un"
@@ -289,10 +373,17 @@ class TestNormalizacaoNota:
         """Item sem quantidade deve usar 1 por padrão."""
         svc = self._make_svc()
         nota = {
-            "mercado": "Lidl", "data": "01/01/2026", "total": 5.0,
+            "mercado": "Lidl",
+            "data": "01/01/2026",
+            "total": 5.0,
             "itens": [
-                {"produto": "Pão", "quantidade": None, "preco_total": 0.80, "preco_unitario": 0.80}
-            ]
+                {
+                    "produto": "Pão",
+                    "quantidade": None,
+                    "preco_total": 0.80,
+                    "preco_unitario": 0.80,
+                }
+            ],
         }
         result = svc._normalizar_nota(nota)
         assert result["itens"][0]["quantidade"] == 1.0
@@ -300,9 +391,11 @@ class TestNormalizacaoNota:
 
 # ── Testes: _nome_mes ──────────────────────────────────────────────────────
 
+
 class TestNomeMes:
     def _make_svc(self):
         from services.business.mercado_service import MercadoService
+
         return MercadoService.__new__(MercadoService)
 
     def test_meses_validos(self):
@@ -320,24 +413,39 @@ class TestNomeMes:
 
 # ── Testes: _formatar_resposta_nota ─────────────────────────────────────────
 
+
 class TestFormatarRespostaNota:
     def _make_svc(self):
         from services.business.mercado_service import MercadoService
+
         return MercadoService.__new__(MercadoService)
 
     def test_formato_basico(self):
         from datetime import date
+
         svc = self._make_svc()
         nota = {
             "mercado": "Lidl",
             "data_obj": date(2026, 2, 22),
             "total": 15.50,
             "itens": [
-                {"produto": "Leite", "quantidade": 2.0, "preco_total": 2.18,
-                 "preco_unitario": 1.09, "unidade": "un", "categoria": "Laticínios"},
-                {"produto": "Pão", "quantidade": 1.0, "preco_total": 0.80,
-                 "preco_unitario": 0.80, "unidade": "un", "categoria": "Padaria"},
-            ]
+                {
+                    "produto": "Leite",
+                    "quantidade": 2.0,
+                    "preco_total": 2.18,
+                    "preco_unitario": 1.09,
+                    "unidade": "un",
+                    "categoria": "Laticínios",
+                },
+                {
+                    "produto": "Pão",
+                    "quantidade": 1.0,
+                    "preco_total": 0.80,
+                    "preco_unitario": 0.80,
+                    "unidade": "un",
+                    "categoria": "Padaria",
+                },
+            ],
         }
         result = svc._formatar_resposta_nota(nota, alertas=[], compra_id="abc123")
         assert result["sucesso"] is True
@@ -353,15 +461,22 @@ class TestFormatarRespostaNota:
 
     def test_formato_com_alertas(self):
         from datetime import date
+
         svc = self._make_svc()
         nota = {
             "mercado": "Aldi",
             "data_obj": date(2026, 2, 20),
             "total": 5.0,
             "itens": [
-                {"produto": "Arroz", "quantidade": 1.0, "preco_total": 2.50,
-                 "preco_unitario": 2.50, "unidade": "kg", "categoria": "Mercearia"},
-            ]
+                {
+                    "produto": "Arroz",
+                    "quantidade": 1.0,
+                    "preco_total": 2.50,
+                    "preco_unitario": 2.50,
+                    "unidade": "kg",
+                    "categoria": "Mercearia",
+                },
+            ],
         }
         alertas = ["⚠️ *Arroz* subiu 25% (era €2.00, agora €2.50)"]
         result = svc._formatar_resposta_nota(nota, alertas=alertas, compra_id="x1")
@@ -371,10 +486,17 @@ class TestFormatarRespostaNota:
 
     def test_formato_mais_de_15_itens(self):
         from datetime import date
+
         svc = self._make_svc()
         itens = [
-            {"produto": f"Produto {i}", "quantidade": 1.0, "preco_total": 1.0,
-             "preco_unitario": 1.0, "unidade": "un", "categoria": "Outros"}
+            {
+                "produto": f"Produto {i}",
+                "quantidade": 1.0,
+                "preco_total": 1.0,
+                "preco_unitario": 1.0,
+                "unidade": "un",
+                "categoria": "Outros",
+            }
             for i in range(20)
         ]
         nota = {
@@ -390,117 +512,35 @@ class TestFormatarRespostaNota:
 
     def test_formato_quantidade_1_sem_multiplicador(self):
         from datetime import date
+
         svc = self._make_svc()
         nota = {
             "mercado": "Lidl",
             "data_obj": date(2026, 2, 22),
             "total": 1.50,
             "itens": [
-                {"produto": "Pão", "quantidade": 1.0, "preco_total": 1.50,
-                 "preco_unitario": 1.50, "unidade": "un", "categoria": "Padaria"},
-            ]
+                {
+                    "produto": "Pão",
+                    "quantidade": 1.0,
+                    "preco_total": 1.50,
+                    "preco_unitario": 1.50,
+                    "unidade": "un",
+                    "categoria": "Padaria",
+                },
+            ],
         }
         result = svc._formatar_resposta_nota(nota, alertas=[], compra_id=None)
         assert "×" not in result["mensagem"]
 
 
-# ── Testes: _n8n_call ──────────────────────────────────────────────────────
+# ── Testes: Supabase list operations ───────────────────────────────────────
 
-class TestN8nCall:
+
+class TestSupabaseList:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
-        svc = MercadoService.__new__(MercadoService)
-        svc.name = "mercado"
-        svc.logger = logging.getLogger("test.mercado")
-        svc._initialized = True
-        svc._call_count = 0
-        svc._error_count = 0
-        svc._total_latency = 0.0
-        return svc
 
-    @pytest.mark.asyncio
-    async def test_n8n_call_success(self):
-        svc = self._make_svc()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {"mensagem": "OK", "sucesso": True}
-        mock_resp.raise_for_status = MagicMock()
-
-        mock_http = AsyncMock()
-        mock_http.post = AsyncMock(return_value=mock_resp)
-        svc._http = mock_http
-
-        result = await svc._n8n_call({"action": "lista"})
-        assert result == {"mensagem": "OK", "sucesso": True}
-        mock_http.post.assert_called_once()
-        assert svc._call_count == 1
-        assert svc._error_count == 0
-
-    @pytest.mark.asyncio
-    async def test_n8n_call_http_error(self):
-        import httpx
-        from services.core import ServiceUnavailableError
-        svc = self._make_svc()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-
-        mock_http = AsyncMock()
-        mock_http.post = AsyncMock(
-            side_effect=httpx.HTTPStatusError("Server error", request=MagicMock(), response=mock_response)
-        )
-        svc._http = mock_http
-
-        with pytest.raises(ServiceUnavailableError, match="n8n webhook error"):
-            await svc._n8n_call({"action": "lista"})
-        assert svc._error_count == 1
-
-    @pytest.mark.asyncio
-    async def test_n8n_call_connection_error(self):
-        from services.core import ServiceUnavailableError
-        svc = self._make_svc()
-
-        mock_http = AsyncMock()
-        mock_http.post = AsyncMock(side_effect=ConnectionError("No route to host"))
-        svc._http = mock_http
-
-        with pytest.raises(ServiceUnavailableError, match="n8n connection error"):
-            await svc._n8n_call({"action": "lista"})
-        assert svc._error_count == 1
-
-    @pytest.mark.asyncio
-    async def test_n8n_call_initializes_if_needed(self):
-        """Deve inicializar automaticamente se não inicializado."""
-        import logging
-        from services.business.mercado_service import MercadoService
-        svc = MercadoService.__new__(MercadoService)
-        svc.name = "mercado"
-        svc.logger = logging.getLogger("test.mercado")
-        svc._initialized = False
-        svc._call_count = 0
-        svc._error_count = 0
-        svc._total_latency = 0.0
-        svc._status = "unknown"
-        svc.config = {}
-
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {"ok": True}
-        mock_resp.raise_for_status = MagicMock()
-        mock_http = AsyncMock()
-        mock_http.post = AsyncMock(return_value=mock_resp)
-
-        with patch.object(svc, "initialize", new_callable=AsyncMock) as mock_init:
-            svc._http = mock_http
-            await svc._n8n_call({"action": "test"})
-            mock_init.assert_called_once()
-
-
-# ── Testes: list helpers delegam a _n8n_call ──────────────────────────────
-
-class TestListDelegation:
-    def _make_svc(self):
-        import logging
-        from services.business.mercado_service import MercadoService
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -509,98 +549,125 @@ class TestListDelegation:
         svc._error_count = 0
         svc._total_latency = 0.0
         svc._http = AsyncMock()
+
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_client.return_value = MagicMock()
+        svc._db = mock_db
         return svc
 
-    @pytest.mark.asyncio
-    async def test_adicionar_chama_n8n(self):
+    def test_get_client_returns_supabase(self):
         svc = self._make_svc()
-        with patch.object(svc, "_n8n_call", new_callable=AsyncMock, return_value={"ok": True}) as mock:
-            await svc.adicionar("leite, pão")
-            mock.assert_called_once_with({"action": "adicionar", "itens": "leite, pão"})
+        client = svc._get_client()
+        assert client is not None
+
+    def test_get_client_raises_if_no_db(self):
+        from services.core import ServiceUnavailableError
+
+        svc = self._make_svc()
+        svc._db = None
+        with pytest.raises(ServiceUnavailableError):
+            svc._get_client()
+
+    def test_get_client_raises_if_not_initialized(self):
+        from services.core import ServiceUnavailableError
+
+        svc = self._make_svc()
+        svc._db.is_initialized.return_value = False
+        with pytest.raises(ServiceUnavailableError):
+            svc._get_client()
 
     @pytest.mark.asyncio
-    async def test_ver_lista_chama_n8n(self):
+    async def test_ver_lista_empty(self):
         svc = self._make_svc()
-        with patch.object(svc, "_n8n_call", new_callable=AsyncMock, return_value={"ok": True}) as mock:
-            await svc.ver_lista()
-            mock.assert_called_once_with({"action": "lista"})
+        with patch.object(
+            svc,
+            "_get_lista",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
+            result = await svc.ver_lista(user_id="u1")
+            assert result["total"] == 0
+            assert "vazia" in result["mensagem"]
 
     @pytest.mark.asyncio
-    async def test_remover_chama_n8n(self):
+    async def test_ver_lista_with_items(self):
         svc = self._make_svc()
-        with patch.object(svc, "_n8n_call", new_callable=AsyncMock, return_value={"ok": True}) as mock:
-            await svc.remover("leite")
-            mock.assert_called_once_with({"action": "remover", "item": "leite"})
-
-    @pytest.mark.asyncio
-    async def test_limpar_lista_chama_n8n(self):
-        svc = self._make_svc()
-        with patch.object(svc, "_n8n_call", new_callable=AsyncMock, return_value={"ok": True}) as mock:
-            await svc.limpar_lista()
-            mock.assert_called_once_with({"action": "limpar"})
-
-    @pytest.mark.asyncio
-    async def test_historico_lista_chama_n8n(self):
-        svc = self._make_svc()
-        with patch.object(svc, "_n8n_call", new_callable=AsyncMock, return_value={"ok": True}) as mock:
-            await svc.historico_lista()
-            mock.assert_called_once_with({"action": "historico"})
+        with patch.object(
+            svc,
+            "_get_lista",
+            new_callable=AsyncMock,
+            return_value=["leite", "pão"],
+        ):
+            result = await svc.ver_lista(user_id="u1")
+            assert result["total"] == 2
+            assert "leite" in result["mensagem"]
 
 
 # ── Testes: _initialize e _health_check ─────────────────────────────────────
+
 
 class TestServiceInit:
     @pytest.mark.asyncio
     async def test_initialize_creates_http_client(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
         svc._http = None
+        svc._db = None
 
-        await svc._initialize()
+        mock_db = MagicMock()
+        with patch(
+            "services.get_service",
+            return_value=mock_db,
+        ):
+            await svc._initialize()
         assert svc._http is not None
+        assert svc._db is mock_db
         await svc._http.aclose()
 
     @pytest.mark.asyncio
     async def test_health_check_returns_true(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
 
-        mock_http = AsyncMock()
-        mock_http.get = AsyncMock(return_value=MagicMock(status_code=200))
-        svc._http = mock_http
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        svc._db = mock_db
 
         result = await svc._health_check()
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_health_check_returns_true_on_error(self):
-        """Health check deve retornar True mesmo se n8n não responder."""
+    async def test_health_check_returns_false_no_db(self):
+        """Health check deve retornar False se db não disponível."""
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
-
-        mock_http = AsyncMock()
-        mock_http.get = AsyncMock(side_effect=ConnectionError("unreachable"))
-        svc._http = mock_http
+        svc._db = None
 
         result = await svc._health_check()
-        assert result is True
+        assert result is False
 
 
 # ── Testes: processar_nota (pipeline completo) ──────────────────────────────
+
 
 class TestProcessarNota:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -612,13 +679,33 @@ class TestProcessarNota:
     async def test_processar_nota_gpt4_sucesso(self):
         svc = self._make_svc()
         nota_raw = {
-            "mercado": "Lidl", "data": "22/02/2026", "total": 5.00,
-            "itens": [{"produto": "Leite", "quantidade": 1, "preco_total": 1.09, "preco_unitario": 1.09}]
+            "mercado": "Lidl",
+            "data": "22/02/2026",
+            "total": 5.00,
+            "itens": [
+                {
+                    "produto": "Leite",
+                    "quantidade": 1,
+                    "preco_total": 1.09,
+                    "preco_unitario": 1.09,
+                }
+            ],
         }
 
-        with patch.object(svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=nota_raw), \
-             patch.object(svc, "_guardar_compra", new_callable=AsyncMock, return_value="compra-001"), \
-             patch.object(svc, "_verificar_alertas", new_callable=AsyncMock, return_value=[]):
+        with (
+            patch.object(
+                svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=nota_raw
+            ),
+            patch.object(
+                svc,
+                "_guardar_compra",
+                new_callable=AsyncMock,
+                return_value="compra-001",
+            ),
+            patch.object(
+                svc, "_verificar_alertas", new_callable=AsyncMock, return_value=[]
+            ),
+        ):
             result = await svc.processar_nota(b"image_bytes", "chat1")
             assert result["sucesso"] is True
             assert result["mercado"] == "Lidl"
@@ -629,14 +716,39 @@ class TestProcessarNota:
         """Se GPT-4 falhar, deve usar Google Vision como fallback."""
         svc = self._make_svc()
         nota_raw = {
-            "mercado": "Aldi", "data": "20/02/2026", "total": 3.00,
-            "itens": [{"produto": "Pão", "quantidade": 1, "preco_total": 0.80, "preco_unitario": 0.80}]
+            "mercado": "Aldi",
+            "data": "20/02/2026",
+            "total": 3.00,
+            "itens": [
+                {
+                    "produto": "Pão",
+                    "quantidade": 1,
+                    "preco_total": 0.80,
+                    "preco_unitario": 0.80,
+                }
+            ],
         }
 
-        with patch.object(svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=None), \
-             patch.object(svc, "_extrair_google_vision", new_callable=AsyncMock, return_value=nota_raw), \
-             patch.object(svc, "_guardar_compra", new_callable=AsyncMock, return_value="compra-002"), \
-             patch.object(svc, "_verificar_alertas", new_callable=AsyncMock, return_value=[]):
+        with (
+            patch.object(
+                svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                svc,
+                "_extrair_google_vision",
+                new_callable=AsyncMock,
+                return_value=nota_raw,
+            ),
+            patch.object(
+                svc,
+                "_guardar_compra",
+                new_callable=AsyncMock,
+                return_value="compra-002",
+            ),
+            patch.object(
+                svc, "_verificar_alertas", new_callable=AsyncMock, return_value=[]
+            ),
+        ):
             result = await svc.processar_nota(b"image_bytes", "chat1")
             assert result["sucesso"] is True
             svc._extrair_google_vision.assert_called_once()
@@ -647,14 +759,36 @@ class TestProcessarNota:
         svc = self._make_svc()
         nota_vazia = {"mercado": "Lidl", "data": "22/02/2026", "total": 0, "itens": []}
         nota_ok = {
-            "mercado": "Lidl", "data": "22/02/2026", "total": 2.0,
-            "itens": [{"produto": "Leite", "quantidade": 1, "preco_total": 2.0, "preco_unitario": 2.0}]
+            "mercado": "Lidl",
+            "data": "22/02/2026",
+            "total": 2.0,
+            "itens": [
+                {
+                    "produto": "Leite",
+                    "quantidade": 1,
+                    "preco_total": 2.0,
+                    "preco_unitario": 2.0,
+                }
+            ],
         }
 
-        with patch.object(svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=nota_vazia), \
-             patch.object(svc, "_extrair_google_vision", new_callable=AsyncMock, return_value=nota_ok), \
-             patch.object(svc, "_guardar_compra", new_callable=AsyncMock, return_value="c3"), \
-             patch.object(svc, "_verificar_alertas", new_callable=AsyncMock, return_value=[]):
+        with (
+            patch.object(
+                svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=nota_vazia
+            ),
+            patch.object(
+                svc,
+                "_extrair_google_vision",
+                new_callable=AsyncMock,
+                return_value=nota_ok,
+            ),
+            patch.object(
+                svc, "_guardar_compra", new_callable=AsyncMock, return_value="c3"
+            ),
+            patch.object(
+                svc, "_verificar_alertas", new_callable=AsyncMock, return_value=[]
+            ),
+        ):
             result = await svc.processar_nota(b"img", "chat1")
             assert result["sucesso"] is True
 
@@ -663,8 +797,14 @@ class TestProcessarNota:
         """Ambos GPT-4 e Google Vision falham → erro gracioso."""
         svc = self._make_svc()
 
-        with patch.object(svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=None), \
-             patch.object(svc, "_extrair_google_vision", new_callable=AsyncMock, return_value=None):
+        with (
+            patch.object(
+                svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                svc, "_extrair_google_vision", new_callable=AsyncMock, return_value=None
+            ),
+        ):
             result = await svc.processar_nota(b"img", "chat1")
             assert result["sucesso"] is False
             assert "Não consegui ler" in result["mensagem"]
@@ -672,10 +812,12 @@ class TestProcessarNota:
 
 # ── Testes: _extrair_gpt4 ──────────────────────────────────────────────────
 
+
 class TestExtrairGpt4:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -686,10 +828,21 @@ class TestExtrairGpt4:
         svc = self._make_svc()
         import json
 
-        nota_json = json.dumps({
-            "mercado": "Lidl", "data": "22/02/2026", "total": 5.0,
-            "itens": [{"produto": "Leite", "quantidade": 1, "preco_total": 1.09, "preco_unitario": 1.09}]
-        })
+        nota_json = json.dumps(
+            {
+                "mercado": "Lidl",
+                "data": "22/02/2026",
+                "total": 5.0,
+                "itens": [
+                    {
+                        "produto": "Leite",
+                        "quantidade": 1,
+                        "preco_total": 1.09,
+                        "preco_unitario": 1.09,
+                    }
+                ],
+            }
+        )
 
         mock_msg = MagicMock()
         mock_msg.content = nota_json
@@ -732,7 +885,9 @@ class TestExtrairGpt4:
         svc = self._make_svc()
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
-        mock_openai.client.chat.completions.create = AsyncMock(side_effect=RuntimeError("API error"))
+        mock_openai.client.chat.completions.create = AsyncMock(
+            side_effect=RuntimeError("API error")
+        )
 
         with patch("services.get_service", return_value=mock_openai):
             result = await svc._extrair_gpt4(b"fake_image", "image/jpeg")
@@ -743,10 +898,26 @@ class TestExtrairGpt4:
         """GPT-4 pode retornar JSON envolto em ```json ... ```."""
         svc = self._make_svc()
         import json
-        nota_json = "```json\n" + json.dumps({
-            "mercado": "Aldi", "data": "01/01/2026", "total": 3.0,
-            "itens": [{"produto": "Pão", "quantidade": 1, "preco_total": 0.80, "preco_unitario": 0.80}]
-        }) + "\n```"
+
+        nota_json = (
+            "```json\n"
+            + json.dumps(
+                {
+                    "mercado": "Aldi",
+                    "data": "01/01/2026",
+                    "total": 3.0,
+                    "itens": [
+                        {
+                            "produto": "Pão",
+                            "quantidade": 1,
+                            "preco_total": 0.80,
+                            "preco_unitario": 0.80,
+                        }
+                    ],
+                }
+            )
+            + "\n```"
+        )
 
         mock_msg = MagicMock()
         mock_msg.content = nota_json
@@ -768,10 +939,12 @@ class TestExtrairGpt4:
 
 # ── Testes: _extrair_google_vision ─────────────────────────────────────────
 
+
 class TestExtrairGoogleVision:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -780,18 +953,39 @@ class TestExtrairGoogleVision:
     @pytest.mark.asyncio
     async def test_google_vision_sucesso(self):
         import json
+
         svc = self._make_svc()
 
         ocr_response = {
-            "responses": [{"textAnnotations": [{"description": "LIDL\nLeite 1.09\nPão 0.80\nTOTAL 1.89"}]}]
-        }
-        nota_json = json.dumps({
-            "mercado": "Lidl", "data": "22/02/2026", "total": 1.89,
-            "itens": [
-                {"produto": "Leite", "quantidade": 1, "preco_total": 1.09, "preco_unitario": 1.09},
-                {"produto": "Pão", "quantidade": 1, "preco_total": 0.80, "preco_unitario": 0.80},
+            "responses": [
+                {
+                    "textAnnotations": [
+                        {"description": "LIDL\nLeite 1.09\nPão 0.80\nTOTAL 1.89"}
+                    ]
+                }
             ]
-        })
+        }
+        nota_json = json.dumps(
+            {
+                "mercado": "Lidl",
+                "data": "22/02/2026",
+                "total": 1.89,
+                "itens": [
+                    {
+                        "produto": "Leite",
+                        "quantidade": 1,
+                        "preco_total": 1.09,
+                        "preco_unitario": 1.09,
+                    },
+                    {
+                        "produto": "Pão",
+                        "quantidade": 1,
+                        "preco_total": 0.80,
+                        "preco_unitario": 0.80,
+                    },
+                ],
+            }
+        )
 
         mock_http_resp = MagicMock()
         mock_http_resp.status_code = 200
@@ -853,7 +1047,15 @@ class TestExtrairGoogleVision:
         """OCR OK mas OpenAI indisponível → None."""
         svc = self._make_svc()
         ocr_response = {
-            "responses": [{"textAnnotations": [{"description": "LIDL\nLeite 1.09\nPão 0.80\nTOTAL 1.89 long enough text"}]}]
+            "responses": [
+                {
+                    "textAnnotations": [
+                        {
+                            "description": "LIDL\nLeite 1.09\nPão 0.80\nTOTAL 1.89 long enough text"
+                        }
+                    ]
+                }
+            ]
         }
 
         mock_http_resp = MagicMock()
@@ -882,10 +1084,12 @@ class TestExtrairGoogleVision:
 
 # ── Testes: _guardar_compra ─────────────────────────────────────────────────
 
+
 class TestGuardarCompra:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -894,6 +1098,7 @@ class TestGuardarCompra:
     @pytest.mark.asyncio
     async def test_guardar_compra_sucesso(self):
         from datetime import date
+
         svc = self._make_svc()
 
         mock_compra_res = MagicMock()
@@ -902,7 +1107,10 @@ class TestGuardarCompra:
         mock_itens_res = MagicMock()
 
         mock_table = MagicMock()
-        mock_table.insert.return_value.execute.side_effect = [mock_compra_res, mock_itens_res]
+        mock_table.insert.return_value.execute.side_effect = [
+            mock_compra_res,
+            mock_itens_res,
+        ]
 
         mock_db = MagicMock()
         mock_db.table.return_value = mock_table
@@ -916,9 +1124,15 @@ class TestGuardarCompra:
             "data_obj": date(2026, 2, 22),
             "total": 5.0,
             "itens": [
-                {"produto": "Leite", "categoria": "Laticínios", "quantidade": 1.0,
-                 "unidade": "un", "preco_total": 1.09, "preco_unitario": 1.09},
-            ]
+                {
+                    "produto": "Leite",
+                    "categoria": "Laticínios",
+                    "quantidade": 1.0,
+                    "unidade": "un",
+                    "preco_total": 1.09,
+                    "preco_unitario": 1.09,
+                },
+            ],
         }
 
         with patch("services.get_service", return_value=mock_supabase):
@@ -928,38 +1142,46 @@ class TestGuardarCompra:
     @pytest.mark.asyncio
     async def test_guardar_compra_supabase_indisponivel(self):
         from datetime import date
+
         svc = self._make_svc()
 
         with patch("services.get_service", return_value=None):
             result = await svc._guardar_compra(
                 {"mercado": "X", "data_obj": date.today(), "total": 5, "itens": []},
-                "chat1", "gpt4"
+                "chat1",
+                "gpt4",
             )
             assert result is None
 
     @pytest.mark.asyncio
     async def test_guardar_compra_exception(self):
         from datetime import date
+
         svc = self._make_svc()
 
         mock_supabase = MagicMock()
         mock_supabase.is_initialized.return_value = True
-        mock_supabase.client.table.return_value.insert.return_value.execute.side_effect = RuntimeError("DB error")
+        mock_supabase.client.table.return_value.insert.return_value.execute.side_effect = RuntimeError(
+            "DB error"
+        )
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc._guardar_compra(
                 {"mercado": "X", "data_obj": date.today(), "total": 5, "itens": []},
-                "chat1", "gpt4"
+                "chat1",
+                "gpt4",
             )
             assert result is None
 
 
 # ── Testes: _verificar_alertas ──────────────────────────────────────────────
 
+
 class TestVerificarAlertas:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -970,11 +1192,12 @@ class TestVerificarAlertas:
         svc = self._make_svc()
 
         mock_res = MagicMock()
-        mock_res.data = [{"preco_unitario": 1.00, "mercado": "Lidl", "data_compra": "2026-01-01"}]
+        mock_res.data = [
+            {"preco_unitario": 1.00, "mercado": "Lidl", "data_compra": "2026-01-01"}
+        ]
 
         mock_db = MagicMock()
-        mock_db.table.return_value.select.return_value.eq.return_value \
-            .ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
+        mock_db.table.return_value.select.return_value.eq.return_value.ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
 
         mock_supabase = MagicMock()
         mock_supabase.is_initialized.return_value = True
@@ -992,17 +1215,20 @@ class TestVerificarAlertas:
         svc = self._make_svc()
 
         mock_res = MagicMock()
-        mock_res.data = [{"preco_unitario": 1.00, "mercado": "Lidl", "data_compra": "2026-01-01"}]
+        mock_res.data = [
+            {"preco_unitario": 1.00, "mercado": "Lidl", "data_compra": "2026-01-01"}
+        ]
 
         mock_db = MagicMock()
-        mock_db.table.return_value.select.return_value.eq.return_value \
-            .ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
+        mock_db.table.return_value.select.return_value.eq.return_value.ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
 
         mock_supabase = MagicMock()
         mock_supabase.is_initialized.return_value = True
         mock_supabase.client = mock_db
 
-        itens = [{"produto": "Leite Mimosa", "preco_unitario": 1.10}]  # 10% — abaixo do threshold
+        itens = [
+            {"produto": "Leite Mimosa", "preco_unitario": 1.10}
+        ]  # 10% — abaixo do threshold
 
         with patch("services.get_service", return_value=mock_supabase):
             alertas = await svc._verificar_alertas(itens, "chat1")
@@ -1012,7 +1238,9 @@ class TestVerificarAlertas:
     async def test_sem_alerta_supabase_indisponivel(self):
         svc = self._make_svc()
         with patch("services.get_service", return_value=None):
-            alertas = await svc._verificar_alertas([{"produto": "X", "preco_unitario": 2.0}], "c1")
+            alertas = await svc._verificar_alertas(
+                [{"produto": "X", "preco_unitario": 2.0}], "c1"
+            )
             assert alertas == []
 
     @pytest.mark.asyncio
@@ -1023,15 +1251,16 @@ class TestVerificarAlertas:
         mock_res.data = []
 
         mock_db = MagicMock()
-        mock_db.table.return_value.select.return_value.eq.return_value \
-            .ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
+        mock_db.table.return_value.select.return_value.eq.return_value.ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
 
         mock_supabase = MagicMock()
         mock_supabase.is_initialized.return_value = True
         mock_supabase.client = mock_db
 
         with patch("services.get_service", return_value=mock_supabase):
-            alertas = await svc._verificar_alertas([{"produto": "Pão", "preco_unitario": 0.80}], "c1")
+            alertas = await svc._verificar_alertas(
+                [{"produto": "Pão", "preco_unitario": 0.80}], "c1"
+            )
             assert alertas == []
 
     @pytest.mark.asyncio
@@ -1043,7 +1272,9 @@ class TestVerificarAlertas:
         mock_supabase.client = MagicMock()
 
         with patch("services.get_service", return_value=mock_supabase):
-            alertas = await svc._verificar_alertas([{"produto": "X", "preco_unitario": 0}], "c1")
+            alertas = await svc._verificar_alertas(
+                [{"produto": "X", "preco_unitario": 0}], "c1"
+            )
             assert alertas == []
 
     @pytest.mark.asyncio
@@ -1051,27 +1282,32 @@ class TestVerificarAlertas:
         svc = self._make_svc()
 
         mock_res = MagicMock()
-        mock_res.data = [{"preco_unitario": 0, "mercado": "Lidl", "data_compra": "2026-01-01"}]
+        mock_res.data = [
+            {"preco_unitario": 0, "mercado": "Lidl", "data_compra": "2026-01-01"}
+        ]
 
         mock_db = MagicMock()
-        mock_db.table.return_value.select.return_value.eq.return_value \
-            .ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
+        mock_db.table.return_value.select.return_value.eq.return_value.ilike.return_value.order.return_value.limit.return_value.execute.return_value = mock_res
 
         mock_supabase = MagicMock()
         mock_supabase.is_initialized.return_value = True
         mock_supabase.client = mock_db
 
         with patch("services.get_service", return_value=mock_supabase):
-            alertas = await svc._verificar_alertas([{"produto": "Leite", "preco_unitario": 1.50}], "c1")
+            alertas = await svc._verificar_alertas(
+                [{"produto": "Leite", "preco_unitario": 1.50}], "c1"
+            )
             assert alertas == []
 
 
 # ── Testes: relatorio_mensal ────────────────────────────────────────────────
 
+
 class TestRelatorioMensal:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -1157,10 +1393,12 @@ class TestRelatorioMensal:
 
 # ── Testes: comparar_produto ────────────────────────────────────────────────
 
+
 class TestCompararProduto:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -1172,9 +1410,24 @@ class TestCompararProduto:
 
         mock_res = MagicMock()
         mock_res.data = [
-            {"mercado": "Lidl", "preco_unitario": 1.09, "data_compra": "2026-02-20", "unidade": "un"},
-            {"mercado": "Aldi", "preco_unitario": 1.19, "data_compra": "2026-02-18", "unidade": "un"},
-            {"mercado": "Lidl", "preco_unitario": 1.05, "data_compra": "2026-02-15", "unidade": "un"},
+            {
+                "mercado": "Lidl",
+                "preco_unitario": 1.09,
+                "data_compra": "2026-02-20",
+                "unidade": "un",
+            },
+            {
+                "mercado": "Aldi",
+                "preco_unitario": 1.19,
+                "data_compra": "2026-02-18",
+                "unidade": "un",
+            },
+            {
+                "mercado": "Lidl",
+                "preco_unitario": 1.05,
+                "data_compra": "2026-02-15",
+                "unidade": "un",
+            },
         ]
 
         mock_db = MagicMock()
@@ -1217,7 +1470,10 @@ class TestCompararProduto:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.comparar_produto("xyz", "chat1")
-            assert "não tenho dados" in result["mensagem"].lower() or "Ainda" in result["mensagem"]
+            assert (
+                "não tenho dados" in result["mensagem"].lower()
+                or "Ainda" in result["mensagem"]
+            )
 
     @pytest.mark.asyncio
     async def test_comparar_sem_precos_validos(self):
@@ -1225,7 +1481,12 @@ class TestCompararProduto:
 
         mock_res = MagicMock()
         mock_res.data = [
-            {"mercado": "Lidl", "preco_unitario": 0, "data_compra": "2026-02-20", "unidade": "un"},
+            {
+                "mercado": "Lidl",
+                "preco_unitario": 0,
+                "data_compra": "2026-02-20",
+                "unidade": "un",
+            },
         ]
 
         mock_db = MagicMock()
@@ -1256,10 +1517,12 @@ class TestCompararProduto:
 
 # ── Testes: ranking_mercados ────────────────────────────────────────────────
 
+
 class TestRankingMercados:
     def _make_svc(self):
         import logging
         from services.business.mercado_service import MercadoService
+
         svc = MercadoService.__new__(MercadoService)
         svc.name = "mercado"
         svc.logger = logging.getLogger("test.mercado")
@@ -1314,7 +1577,10 @@ class TestRankingMercados:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.ranking_mercados("chat1")
-            assert "sem histórico" in result["mensagem"].lower() or "Ainda" in result["mensagem"]
+            assert (
+                "sem histórico" in result["mensagem"].lower()
+                or "Ainda" in result["mensagem"]
+            )
 
     @pytest.mark.asyncio
     async def test_ranking_exception(self):
@@ -1351,27 +1617,33 @@ class TestRankingMercados:
 
 # ── Testes: mais categorias ────────────────────────────────────────────────
 
+
 class TestCategorizacaoCompleta:
     def test_frutas(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Banana Madeira") == "Frutas"
         assert _categorizar("Maçã Royal Gala") == "Frutas"
 
     def test_legumes(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Tomate Cherry") == "Legumes"
         assert _categorizar("Batata") == "Legumes"
 
     def test_limpeza(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Detergente Fairy") == "Limpeza"
 
     def test_snacks(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Chocolate Milka") == "Snacks"
         assert _categorizar("Bolacha Maria") == "Snacks"
 
     def test_carnes_variadas(self):
         from services.business.mercado_service import _categorizar
+
         assert _categorizar("Bife de Peru") == "Carnes"
         assert _categorizar("Carne Picada") == "Carnes"
