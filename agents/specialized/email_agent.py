@@ -2,15 +2,14 @@
 """
 agents/specialized/email_agent.py
 ====================================
-EmailAgent — gestão de emails via N8N (Gmail + Hotmail/Outlook).
+EmailAgent — gestão de emails (Gmail + Hotmail/Outlook).
 
 Fluxo completo:
-    1. N8N detecta email novo (Gmail ou Hotmail)
-    2. N8N envia webhook para /api/webhooks/email
-    3. EmailAgent recebe, resume e notifica no Telegram
-    4. Utilizador responde: "sim responde" / "ignora" / "responde dizendo X"
-    5. EmailAgent gera resposta com GPT e pede confirmação
-    6. Com confirmação, envia via N8N para a conta correcta
+    1. Webhook recebe notificação de email novo em /api/webhooks/email
+    2. EmailAgent recebe, resume e notifica no Telegram
+    3. Utilizador responde: "sim responde" / "ignora" / "responde dizendo X"
+    4. EmailAgent gera resposta com GPT e pede confirmação
+    5. Com confirmação, envia via Gmail API / Microsoft Graph (TODO)
 
 Comandos suportados (no Telegram):
     "Mostra os meus emails"
@@ -77,15 +76,14 @@ _RE_SENT = re.compile(
 @register_agent("email")
 class EmailAgent(BaseAgent):
     """
-    Agente de email — recebe notificações do N8N e gere
-    emails de Gmail e Hotmail/Outlook através do Telegram.
+    Agente de email — gere emails de Gmail e Hotmail/Outlook
+    através do Telegram.
     """
 
     def __init__(self):
-        super().__init__(name="email", description="Gestão de emails via N8N")
+        super().__init__(name="email", description="Gestão de emails Gmail e Hotmail")
         self._db = None
         self._ai = None
-        self._n8n = None
         self._initialized = False
 
     def is_initialized(self) -> bool:
@@ -100,7 +98,86 @@ class EmailAgent(BaseAgent):
     async def _initialize(self) -> None:
         self._db = get_service("database")
         self._ai = get_service("openai")
-        self._n8n = get_service("n8n")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # HELPERS INTERNOS (substituem N8NService)
+    # ──────────────────────────────────────────────────────────────────────────
+
+    _ACCOUNT_LABELS = {
+        "gmail": "Gmail",
+        "hotmail": "Hotmail",
+        "outlook": "Outlook",
+        "yahoo": "Yahoo",
+    }
+
+    @staticmethod
+    def _get_account_label(account: str) -> str:
+        """Retorna label legível da conta. Ex: 'gmail' → 'Gmail'"""
+        return EmailAgent._ACCOUNT_LABELS.get(
+            account.lower(), account.capitalize()
+        )
+
+    @staticmethod
+    def _parse_webhook_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normaliza payload recebido do webhook para formato padrão.
+        Suporta payloads já normalizados (do N8N antigo ou de qualquer fonte).
+        """
+        return {
+            "account": data.get("account", "unknown"),
+            "email_id": data.get("email_id", ""),
+            "thread_id": data.get("thread_id", ""),
+            "message_id": data.get("message_id", ""),
+            "from_email": data.get("from_email", data.get("from", "")),
+            "from_name": data.get("from_name", ""),
+            "to": data.get("to", ""),
+            "subject": data.get("subject", "(sem assunto)"),
+            "body_text": data.get("body_text", data.get("body", "")),
+            "body_html": data.get("body_html", ""),
+            "received_at": data.get("received_at", ""),
+            "is_reply": data.get("is_reply", False),
+        }
+
+    async def _send_email(
+        self,
+        account: str,
+        to: str,
+        subject: str,
+        body: str,
+        reply_to_message_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Envia email. Placeholder para futura implementação com
+        Gmail API / Microsoft Graph.
+
+        TODO: Implementar com:
+        - Gmail API (google-auth + google-api-python-client) para account='gmail'
+        - Microsoft Graph API (msal) para account='hotmail'/'outlook'
+        """
+        self.logger.warning(
+            "Email send requested but direct API not yet implemented. "
+            "account=%s, to=%s, subject=%s",
+            account, to, subject,
+        )
+        # Guardar a tentativa no Supabase para referência
+        try:
+            await edb.save_reply(
+                user_id="system",
+                account=account,
+                to_email=to,
+                subject=subject,
+                body=body,
+                inbox_id=reply_to_message_id,
+                status="pending_implementation",
+            )
+        except Exception:
+            pass
+
+        raise NotImplementedError(
+            f"Envio directo de email via {account} ainda não implementado. "
+            "Em breve com Gmail API / Microsoft Graph!"
+        )
 
     # ──────────────────────────────────────────────────────────────────────────
     # ENTRADA PRINCIPAL
@@ -111,7 +188,7 @@ class EmailAgent(BaseAgent):
     ) -> AgentResponse:
         """
         Processa mensagem do utilizador relacionada com emails.
-        Também é chamado internamente quando chega webhook do N8N.
+        Também é chamado internamente quando chega webhook.
         """
         if not self.is_initialized():
             await self.initialize()
@@ -167,7 +244,7 @@ class EmailAgent(BaseAgent):
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # WEBHOOK RECEBIDO DO N8N (chamado pela route /api/webhooks/email)
+    # WEBHOOK RECEBIDO (chamado pela route /api/webhooks/email)
     # ──────────────────────────────────────────────────────────────────────────
 
     async def handle_incoming_email(
@@ -177,22 +254,19 @@ class EmailAgent(BaseAgent):
         context: Dict[str, Any],
     ) -> AgentResponse:
         """
-        Processa email recebido via webhook do N8N.
+        Processa email recebido via webhook.
         Guarda no Supabase, analisa com GPT e notifica no Telegram.
 
         Args:
             user_id:    ID do utilizador dono da conta
-            email_data: Payload já normalizado pelo N8NService.parse_webhook_payload
+            email_data: Payload do webhook (será normalizado internamente)
             context:    Contexto do utilizador
         """
         if not self.is_initialized():
             await self.initialize()
 
-        # 1. Normalizar (caso não tenha sido feito antes)
-        if self._n8n:
-            email = self._n8n.parse_webhook_payload(email_data)
-        else:
-            email = email_data
+        # 1. Normalizar payload
+        email = self._parse_webhook_payload(email_data)
 
         # 2. Guardar no Supabase
         email_id = await self._save_email(user_id, email)
@@ -204,11 +278,7 @@ class EmailAgent(BaseAgent):
         urgency = await self._classify_urgency(email)
 
         # 5. Formatar notificação Telegram
-        account_label = (
-            self._n8n.get_account_label(email["account"])
-            if self._n8n
-            else email["account"].capitalize()
-        )
+        account_label = self._get_account_label(email["account"])
         urgency_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(urgency, "📧")
 
         notification = (
@@ -306,11 +376,7 @@ class EmailAgent(BaseAgent):
             unread = data.get("unread", 0)
             total = data.get("total", 0)
             total_unread += unread
-            label = (
-                self._n8n.get_account_label(account)
-                if self._n8n
-                else account.capitalize()
-            )
+            label = self._get_account_label(account)
             lines.append(f"{icon} **{label}:** {unread} não lidos / {total} total")
 
         if total_unread > 0:
@@ -339,9 +405,7 @@ class EmailAgent(BaseAgent):
             )
 
         summary = await self._summarize_email(email, detailed=True)
-        account_label = (
-            self._n8n.get_account_label(email.get("account", "")) if self._n8n else ""
-        )
+        account_label = self._get_account_label(email.get("account", ""))
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -378,9 +442,7 @@ class EmailAgent(BaseAgent):
         # Gerar rascunho com GPT
         draft = await self._generate_reply_draft(email, instruction)
 
-        account_label = (
-            self._n8n.get_account_label(email.get("account", "")) if self._n8n else ""
-        )
+        account_label = self._get_account_label(email.get("account", ""))
 
         # Guardar rascunho no contexto
         context["email_pending_reply"] = {
@@ -424,7 +486,7 @@ class EmailAgent(BaseAgent):
             )
 
         if _RE_CONFIRM.search(msg):
-            # Enviar via N8N
+            # Enviar resposta
             draft = pending.get("draft", "")
             if not draft:
                 return AgentResponse(
@@ -433,15 +495,14 @@ class EmailAgent(BaseAgent):
                 )
 
             try:
-                if self._n8n:
-                    await self._n8n.trigger_send_reply(
-                        account=pending["account"],
-                        thread_id=pending.get("thread_id", ""),
-                        message_id=pending.get("message_id", ""),
-                        to=pending["from_email"],
-                        subject=pending.get("subject", ""),
-                        body=draft,
-                    )
+                await self._send_email(
+                    account=pending["account"],
+                    to=pending["from_email"],
+                    subject=pending.get("subject", ""),
+                    body=draft,
+                    reply_to_message_id=pending.get("message_id", ""),
+                    thread_id=pending.get("thread_id", ""),
+                )
 
                 # Marcar como respondido no Supabase
                 await self._mark_replied(pending.get("email_id"), user_id)
@@ -462,11 +523,7 @@ class EmailAgent(BaseAgent):
 
                 context.pop("email_pending_reply", None)
 
-                account_label = (
-                    self._n8n.get_account_label(pending["account"])
-                    if self._n8n
-                    else pending.get("account", "").capitalize()
-                )
+                account_label = self._get_account_label(pending["account"])
 
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
