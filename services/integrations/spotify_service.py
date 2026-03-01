@@ -203,20 +203,17 @@ class SpotifyService(BaseService):
         data = await self._api_get(
             f"artists/{artist_id}"
         )
-        self.logger.debug(
-            "RAW artist API: name=%s followers=%s "
-            "popularity=%s",
-            data.get("name"),
-            data.get("followers"),
-            data.get("popularity"),
+        print(
+            f"[SPOTIFY DEBUG] Raw artist data: "
+            f"followers={data.get('followers')}, "
+            f"popularity={data.get('popularity')}, "
+            f"name={data.get('name')}"
         )
         result = self._format_artist(data)
-        self.logger.debug(
-            "FORMATTED artist: name=%s followers=%s "
-            "popularity=%s",
-            result.get("name"),
-            result.get("followers"),
-            result.get("popularity"),
+        print(
+            f"[SPOTIFY DEBUG] Formatted: "
+            f"followers={result.get('followers')}, "
+            f"popularity={result.get('popularity')}"
         )
         return result
 
