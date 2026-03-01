@@ -351,6 +351,10 @@ class TestMusicAgentExecution:
         mock_spotify.search_artists = AsyncMock(
             return_value=[sample_artist]
         )
+        # Always fetches full profile after search
+        mock_spotify.get_artist = AsyncMock(
+            return_value=sample_artist
+        )
         mock_openai = _make_openai_mock(
             '{"action": "search_artist", '
             '"query": "Queen", "language": "pt"}'
@@ -377,11 +381,11 @@ class TestMusicAgentExecution:
         assert "seguidores" in result.response
 
     @pytest.mark.asyncio
-    async def test_search_artist_fallback_full_profile(
+    async def test_search_artist_always_fetches_full(
         self, music_agent, mock_spotify
     ):
-        """When search returns 0 followers, fetch full."""
-        # Search returns artist with 0 followers
+        """Always fetch full artist profile by ID."""
+        # Search returns sparse artist
         sparse_artist = {
             "type": "artist",
             "id": "a1",
@@ -436,6 +440,7 @@ class TestMusicAgentExecution:
         assert "Eminem" in result.response
         assert "70.0M" in result.response
         assert "95/100" in result.response
+        # Always fetches full profile regardless
         mock_spotify.get_artist.assert_called_once_with(
             "a1"
         )

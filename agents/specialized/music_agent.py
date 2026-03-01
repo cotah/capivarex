@@ -44,6 +44,19 @@ Return a JSON object with:
 - "language": the language the user wrote in — \
 one of "pt", "en", "es" (detect from the message text)
 
+CRITICAL RULES for action selection:
+- "search_artist": Use when the user asks WHO an \
+artist is, or wants info ABOUT an artist. Examples: \
+"quem é o X", "who is X", "quién es X", "fala sobre X", \
+"tell me about X", "cuéntame sobre X".
+- "artist_top_tracks": Use ONLY when the user \
+explicitly asks for TOP/BEST/MOST POPULAR songs. \
+Examples: "top músicas de X", "top tracks by X", \
+"top canciones de X", "melhores músicas de X", \
+"best songs by X", "mejores canciones de X".
+- When in doubt between search_artist and \
+artist_top_tracks, choose "search_artist".
+
 Examples:
 - "toca Bohemian Rhapsody" -> \
 {{"action": "search_track", "query": "Bohemian Rhapsody", \
@@ -51,10 +64,20 @@ Examples:
 - "who is Queen" -> \
 {{"action": "search_artist", "query": "Queen", \
 "language": "en"}}
+- "quem é o Eminem" -> \
+{{"action": "search_artist", "query": "Eminem", \
+"language": "pt"}}
+- "quién es Eminem" -> \
+{{"action": "search_artist", "query": "Eminem", \
+"language": "es"}}
 - "top musicas do Eminem" -> \
 {{"action": "artist_top_tracks", \
 "query": "Eminem", "artist_name": "Eminem", \
 "language": "pt"}}
+- "best songs by Drake" -> \
+{{"action": "artist_top_tracks", \
+"query": "Drake", "artist_name": "Drake", \
+"language": "en"}}
 - "recomenda rock" -> \
 {{"action": "recommendations", "genre": "rock", \
 "language": "pt"}}
@@ -374,24 +397,21 @@ class MusicAgent(BaseAgent):
             )
         artist = artists[0]
         self.logger.debug(
-            "Artist data (lang=%s, market=%s): %s",
+            "Artist search result (lang=%s): %s",
             lang,
-            market,
             artist,
         )
-        # If search returned 0 followers, try
-        # fetching the full artist profile by ID
-        if not artist.get("followers") and artist.get(
-            "id"
-        ):
+        # Always fetch full artist profile — search
+        # results often lack followers/popularity data.
+        artist_id = artist.get("id")
+        if artist_id:
             try:
-                full = await spotify.get_artist(
-                    artist["id"]
+                artist = await spotify.get_artist(
+                    artist_id
                 )
                 self.logger.debug(
-                    "Full artist data: %s", full
+                    "Full artist profile: %s", artist
                 )
-                artist = full
             except Exception:
                 pass  # keep search result as fallback
         text = _format_artist_response(artist, lang)
