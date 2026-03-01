@@ -204,17 +204,14 @@ class SpotifyService(BaseService):
             f"artists/{artist_id}"
         )
         print(
-            f"[SPOTIFY DEBUG] Raw artist data: "
-            f"followers={data.get('followers')}, "
-            f"popularity={data.get('popularity')}, "
-            f"name={data.get('name')}"
+            "[SPOTIFY DEBUG] FULL RAW RESPONSE "
+            f"KEYS: {list(data.keys())}"
+        )
+        print(
+            "[SPOTIFY DEBUG] FULL RAW RESPONSE: "
+            f"{data}"
         )
         result = self._format_artist(data)
-        print(
-            f"[SPOTIFY DEBUG] Formatted: "
-            f"followers={result.get('followers')}, "
-            f"popularity={result.get('popularity')}"
-        )
         return result
 
     async def get_artist_top_tracks(
