@@ -203,7 +203,22 @@ class SpotifyService(BaseService):
         data = await self._api_get(
             f"artists/{artist_id}"
         )
-        return self._format_artist(data)
+        self.logger.debug(
+            "RAW artist API: name=%s followers=%s "
+            "popularity=%s",
+            data.get("name"),
+            data.get("followers"),
+            data.get("popularity"),
+        )
+        result = self._format_artist(data)
+        self.logger.debug(
+            "FORMATTED artist: name=%s followers=%s "
+            "popularity=%s",
+            result.get("name"),
+            result.get("followers"),
+            result.get("popularity"),
+        )
+        return result
 
     async def get_artist_top_tracks(
         self,
@@ -306,6 +321,15 @@ class SpotifyService(BaseService):
 
     @staticmethod
     def _format_artist(artist: dict) -> Dict:
+        # followers can be: {"total": N}, int, or None
+        followers_raw = artist.get("followers")
+        if isinstance(followers_raw, dict):
+            followers = followers_raw.get("total", 0)
+        elif isinstance(followers_raw, (int, float)):
+            followers = int(followers_raw)
+        else:
+            followers = 0
+
         return {
             "type": "artist",
             "id": artist.get("id", ""),
@@ -313,10 +337,11 @@ class SpotifyService(BaseService):
             "genres": ", ".join(
                 artist.get("genres", [])[:5]
             ),
-            "popularity": artist.get("popularity", 0),
-            "followers": artist.get("followers", {}).get(
-                "total", 0
-            ),
+            "popularity": artist.get(
+                "popularity", 0
+            )
+            or 0,
+            "followers": followers,
             "image": (
                 artist.get("images", [{}])[0].get(
                     "url", ""

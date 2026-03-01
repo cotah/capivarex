@@ -412,8 +412,13 @@ class MusicAgent(BaseAgent):
                 self.logger.debug(
                     "Full artist profile: %s", artist
                 )
-            except Exception:
-                pass  # keep search result as fallback
+            except Exception as exc:
+                self.logger.warning(
+                    "get_artist(%s) failed, using "
+                    "search data: %s",
+                    artist_id,
+                    exc,
+                )
         text = _format_artist_response(artist, lang)
         return AgentResponse(
             status=AgentStatus.SUCCESS,

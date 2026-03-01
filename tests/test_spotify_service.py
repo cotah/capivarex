@@ -529,6 +529,37 @@ class TestFormatting:
         assert result["genres"] == "pop, rock"
         assert result["followers"] == 1000000
 
+    def test_format_artist_followers_null(self):
+        """Handle followers: null from Spotify API."""
+        artist = {
+            "id": "a1",
+            "name": "X",
+            "genres": [],
+            "popularity": None,
+            "followers": None,
+            "images": [],
+            "external_urls": {"spotify": ""},
+            "uri": "",
+        }
+        result = SpotifyService._format_artist(artist)
+        assert result["followers"] == 0
+        assert result["popularity"] == 0
+
+    def test_format_artist_followers_int(self):
+        """Handle already-formatted followers as int."""
+        artist = {
+            "id": "a1",
+            "name": "X",
+            "genres": [],
+            "popularity": 80,
+            "followers": 5000000,
+            "images": [],
+            "external_urls": {"spotify": ""},
+            "uri": "",
+        }
+        result = SpotifyService._format_artist(artist)
+        assert result["followers"] == 5000000
+
     def test_format_album(self):
         album = {
             "id": "al1",
