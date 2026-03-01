@@ -11,6 +11,7 @@ Capabilities:
   - Artist top tracks
   - Music recommendations by genre
   - Available genre listing
+  - i18n: PT / EN / ES responses + market-aware search
 """
 
 import json
@@ -24,8 +25,12 @@ from agents.core import (
     register_agent,
 )
 from services import get_service
+from services.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
+
+# ── Language → Spotify market mapping ─────────────
+LANGUAGE_MARKET = {"pt": "BR", "en": "US", "es": "ES"}
 
 MUSIC_INTENT_PROMPT = """You are a music assistant. \
 Analyze the user's message and determine the intent.
@@ -36,21 +41,31 @@ Return a JSON object with:
 - "query": the search query extracted from the message
 - "artist_name": artist name if mentioned (optional)
 - "genre": genre if mentioned (optional)
+- "language": the language the user wrote in — \
+one of "pt", "en", "es" (detect from the message text)
 
 Examples:
 - "toca Bohemian Rhapsody" -> \
-{"action": "search_track", "query": "Bohemian Rhapsody"}
-- "quem e o Queen" -> \
-{"action": "search_artist", "query": "Queen"}
+{{"action": "search_track", "query": "Bohemian Rhapsody", \
+"language": "pt"}}
+- "who is Queen" -> \
+{{"action": "search_artist", "query": "Queen", \
+"language": "en"}}
 - "top musicas do Eminem" -> \
-{"action": "artist_top_tracks", \
-"query": "Eminem", "artist_name": "Eminem"}
+{{"action": "artist_top_tracks", \
+"query": "Eminem", "artist_name": "Eminem", \
+"language": "pt"}}
 - "recomenda rock" -> \
-{"action": "recommendations", "genre": "rock"}
-- "me indica umas musicas" -> \
-{"action": "recommendations"}
+{{"action": "recommendations", "genre": "rock", \
+"language": "pt"}}
+- "recomienda pop" -> \
+{{"action": "recommendations", "genre": "pop", \
+"language": "es"}}
+- "suggest me some music" -> \
+{{"action": "recommendations", "language": "en"}}
 - "album Thriller" -> \
-{"action": "search_album", "query": "Thriller"}
+{{"action": "search_album", "query": "Thriller", \
+"language": "en"}}
 
 User message: {message}
 Respond ONLY with JSON, no markdown."""
@@ -66,65 +81,79 @@ def _format_number(n: int) -> str:
 
 
 def _format_tracks_response(
-    tracks: List[Dict],
+    tracks: List[Dict], lang: str = "en"
 ) -> str:
     """Format a list of tracks for Telegram."""
     if not tracks:
-        return "Nenhuma musica encontrada."
+        return t("music_no_results", lang=lang)
 
+    listen = t("music_listen_on_spotify", lang=lang)
     lines = []
-    for i, t in enumerate(tracks, 1):
+    for i, tr in enumerate(tracks, 1):
         lines.append(
-            f"{i}. *{t['name']}* — {t['artists']} "
-            f"({t['duration']})"
+            f"{i}. *{tr['name']}* — {tr['artists']} "
+            f"({tr['duration']})"
         )
         lines.append(
-            f"   [Ouvir no Spotify]({t['spotify_url']})"
+            f"   [{listen}]({tr['spotify_url']})"
         )
     return "\n".join(lines)
 
 
-def _format_single_track(track: Dict) -> str:
+def _format_single_track(
+    track: Dict, lang: str = "en"
+) -> str:
     """Format a single track for Telegram."""
+    listen = t("music_listen_on_spotify", lang=lang)
+    popularity = t("music_popularity", lang=lang)
     lines = [
         f"*{track['name']}*",
         f"  {track['artists']}",
         f"  {track['album']}",
         f"  {track['duration']}",
-        f"  Popularidade: {track['popularity']}/100",
-        f"[Ouvir no Spotify]({track['spotify_url']})",
+        f"  {popularity}: {track['popularity']}/100",
+        f"[{listen}]({track['spotify_url']})",
     ]
     return "\n".join(lines)
 
 
-def _format_artist_response(artist: Dict) -> str:
+def _format_artist_response(
+    artist: Dict, lang: str = "en"
+) -> str:
     """Format artist info for Telegram."""
     followers = _format_number(artist["followers"])
+    followers_label = t("music_followers", lang=lang)
+    popularity = t("music_popularity", lang=lang)
+    view = t("music_view_on_spotify", lang=lang)
     lines = [
-        f"*{artist['name']}*",
+        f"🎤 *{artist['name']}*",
     ]
     if artist.get("genres"):
         lines.append(f"  {artist['genres']}")
     lines.extend(
         [
-            f"  {followers} seguidores",
-            f"  Popularidade: "
+            f"  {followers} {followers_label}",
+            f"  {popularity}: "
             f"{artist['popularity']}/100",
-            f"[Ver no Spotify]"
+            f"[{view}]"
             f"({artist['spotify_url']})",
         ]
     )
     return "\n".join(lines)
 
 
-def _format_album_response(album: Dict) -> str:
+def _format_album_response(
+    album: Dict, lang: str = "en"
+) -> str:
     """Format album info for Telegram."""
+    tracks_label = t("music_tracks_count", lang=lang)
+    view = t("music_view_on_spotify", lang=lang)
     lines = [
-        f"*{album['name']}*",
+        f"💿 *{album['name']}*",
         f"  {album['artists']}",
         f"  {album['release_date']}",
-        f"  {album['total_tracks']} faixas",
-        f"[Ver no Spotify]({album['spotify_url']})",
+        f"  {album['total_tracks']} {tracks_label}",
+        f"[{view}]({album['spotify_url']})",
     ]
     return "\n".join(lines)
 
@@ -151,11 +180,12 @@ class MusicAgent(BaseAgent):
         try:
             spotify = get_service("spotify")
             if not spotify:
+                lang = get_user_lang(context)
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response=(
-                        "O servico Spotify nao esta "
-                        "disponivel de momento."
+                    response=t(
+                        "music_spotify_unavailable",
+                        lang=lang,
                     ),
                     error="Spotify service not found",
                 )
@@ -171,38 +201,50 @@ class MusicAgent(BaseAgent):
             artist_name = intent.get("artist_name", "")
             genre = intent.get("genre", "")
 
+            # ── Language: GPT-detected > context ──────
+            gpt_lang = intent.get("language", "")
+            if gpt_lang in ("pt", "en", "es"):
+                lang = gpt_lang
+            else:
+                lang = get_user_lang(context)
+
+            market = LANGUAGE_MARKET.get(lang, "US")
+
             # ── Dispatch ──────────────────────────────
             if action == "search_track":
                 return await self._search_tracks(
-                    spotify, query
+                    spotify, query, lang, market
                 )
 
             if action == "search_artist":
                 return await self._search_artist(
-                    spotify, query
+                    spotify, query, lang, market
                 )
 
             if action == "search_album":
                 return await self._search_album(
-                    spotify, query
+                    spotify, query, lang, market
                 )
 
             if action == "artist_top_tracks":
                 return await self._artist_top_tracks(
-                    spotify, artist_name or query
+                    spotify,
+                    artist_name or query,
+                    lang,
+                    market,
                 )
 
             if action == "recommendations":
                 return await self._recommendations(
-                    spotify, genre
+                    spotify, genre, lang, market
                 )
 
             if action == "genres":
-                return await self._list_genres(spotify)
+                return await self._list_genres(lang)
 
             # general_info fallback: search track
             return await self._search_tracks(
-                spotify, query
+                spotify, query, lang, market
             )
 
         except Exception as e:
@@ -211,12 +253,10 @@ class MusicAgent(BaseAgent):
                 e,
                 exc_info=True,
             )
+            lang = get_user_lang(context)
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=(
-                    "Ocorreu um erro ao buscar musica. "
-                    "Tente novamente."
-                ),
+                response=t("music_error", lang=lang),
                 error=str(e),
             )
 
@@ -262,7 +302,7 @@ class MusicAgent(BaseAgent):
                     response_format={
                         "type": "json_object"
                     },
-                    max_completion_tokens=150,
+                    max_completion_tokens=200,
                     temperature=0.0,
                 )
             )
@@ -286,19 +326,26 @@ class MusicAgent(BaseAgent):
     # ──────────────────────────────────────────────────
 
     async def _search_tracks(
-        self, spotify, query: str
+        self,
+        spotify,
+        query: str,
+        lang: str,
+        market: str,
     ) -> AgentResponse:
-        tracks = await spotify.search_tracks(query)
+        tracks = await spotify.search_tracks(
+            query, limit=5
+        )
         if not tracks:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=(
-                    f'Nenhuma musica encontrada '
-                    f'para "{query}".'
+                response=t(
+                    "music_no_results_for",
+                    lang=lang,
+                    query=query,
                 ),
                 data={"tracks": []},
             )
-        text = _format_tracks_response(tracks)
+        text = _format_tracks_response(tracks, lang)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
@@ -306,7 +353,11 @@ class MusicAgent(BaseAgent):
         )
 
     async def _search_artist(
-        self, spotify, query: str
+        self,
+        spotify,
+        query: str,
+        lang: str,
+        market: str,
     ) -> AgentResponse:
         artists = await spotify.search_artists(
             query, limit=1
@@ -314,13 +365,15 @@ class MusicAgent(BaseAgent):
         if not artists:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=(
-                    f'Artista "{query}" nao encontrado.'
+                response=t(
+                    "music_artist_not_found",
+                    lang=lang,
+                    query=query,
                 ),
                 data={"artists": []},
             )
         artist = artists[0]
-        text = _format_artist_response(artist)
+        text = _format_artist_response(artist, lang)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
@@ -328,7 +381,11 @@ class MusicAgent(BaseAgent):
         )
 
     async def _search_album(
-        self, spotify, query: str
+        self,
+        spotify,
+        query: str,
+        lang: str,
+        market: str,
     ) -> AgentResponse:
         albums = await spotify.search_albums(
             query, limit=3
@@ -336,14 +393,18 @@ class MusicAgent(BaseAgent):
         if not albums:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=(
-                    f'Album "{query}" nao encontrado.'
+                response=t(
+                    "music_album_not_found",
+                    lang=lang,
+                    query=query,
                 ),
                 data={"albums": []},
             )
         lines = []
         for a in albums:
-            lines.append(_format_album_response(a))
+            lines.append(
+                _format_album_response(a, lang)
+            )
         text = "\n\n".join(lines)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -352,24 +413,33 @@ class MusicAgent(BaseAgent):
         )
 
     async def _artist_top_tracks(
-        self, spotify, artist_name: str
+        self,
+        spotify,
+        artist_name: str,
+        lang: str,
+        market: str,
     ) -> AgentResponse:
         tracks = await spotify.get_artist_top_tracks(
-            artist_name
+            artist_name, market=market
         )
         if not tracks:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=(
-                    f'Nenhuma musica encontrada '
-                    f'para "{artist_name}".'
+                response=t(
+                    "music_no_results_for",
+                    lang=lang,
+                    query=artist_name,
                 ),
                 data={"tracks": []},
             )
-        header = (
-            f"*Top musicas de {artist_name}:*\n\n"
+        header = t(
+            "music_top_tracks_header",
+            lang=lang,
+            artist=artist_name,
         )
-        text = header + _format_tracks_response(tracks)
+        text = header + _format_tracks_response(
+            tracks, lang
+        )
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
@@ -377,22 +447,35 @@ class MusicAgent(BaseAgent):
         )
 
     async def _recommendations(
-        self, spotify, genre: str
+        self,
+        spotify,
+        genre: str,
+        lang: str,
+        market: str,
     ) -> AgentResponse:
         seed_genres = (
             [genre] if genre else None
         )
         tracks = await spotify.get_recommendations(
-            seed_genres=seed_genres, limit=5
+            seed_genres=seed_genres,
+            limit=5,
+            market=market,
         )
         if not tracks:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Sem recomendacoes disponiveis.",
+                response=t(
+                    "music_no_recommendations",
+                    lang=lang,
+                ),
                 data={"tracks": []},
             )
-        header = "*Recomendacoes para voce:*\n\n"
-        text = header + _format_tracks_response(tracks)
+        header = t(
+            "music_recommendations_header", lang=lang
+        )
+        text = header + _format_tracks_response(
+            tracks, lang
+        )
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
@@ -400,7 +483,7 @@ class MusicAgent(BaseAgent):
         )
 
     async def _list_genres(
-        self, spotify
+        self, lang: str
     ) -> AgentResponse:
         # Static list — /recommendations/available-genre-seeds
         # returns 404 with Client Credentials flow.
@@ -429,10 +512,8 @@ class MusicAgent(BaseAgent):
             "synth-pop", "tango", "techno", "trance",
             "trip-hop", "world-music",
         ]
-        text = (
-            "*Generos disponiveis no Spotify:*\n\n"
-            + ", ".join(genres)
-        )
+        header = t("music_genres_header", lang=lang)
+        text = header + ", ".join(genres)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,

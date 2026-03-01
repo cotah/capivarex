@@ -1,7 +1,7 @@
 """
 tests/test_music_agent.py
 ==========================
-Unit tests for MusicAgent.
+Unit tests for MusicAgent with i18n support.
 """
 
 import pytest
@@ -83,33 +83,81 @@ class TestFormatNumber:
 
 
 class TestFormatTracksResponse:
-    def test_empty_list(self):
-        result = _format_tracks_response([])
+    def test_empty_list_pt(self):
+        result = _format_tracks_response([], lang="pt")
         assert "Nenhuma" in result
 
-    def test_single_track(self, sample_track):
-        result = _format_tracks_response([sample_track])
+    def test_empty_list_en(self):
+        result = _format_tracks_response([], lang="en")
+        assert "No music found" in result
+
+    def test_empty_list_es(self):
+        result = _format_tracks_response([], lang="es")
+        assert "No se encontró" in result
+
+    def test_single_track_pt(self, sample_track):
+        result = _format_tracks_response(
+            [sample_track], lang="pt"
+        )
         assert "Bohemian Rhapsody" in result
         assert "Queen" in result
         assert "Ouvir no Spotify" in result
 
+    def test_single_track_en(self, sample_track):
+        result = _format_tracks_response(
+            [sample_track], lang="en"
+        )
+        assert "Bohemian Rhapsody" in result
+        assert "Listen on Spotify" in result
+
+    def test_single_track_es(self, sample_track):
+        result = _format_tracks_response(
+            [sample_track], lang="es"
+        )
+        assert "Bohemian Rhapsody" in result
+        assert "Escuchar en Spotify" in result
+
     def test_multiple_tracks(self, sample_track):
         tracks = [sample_track, sample_track]
-        result = _format_tracks_response(tracks)
+        result = _format_tracks_response(
+            tracks, lang="en"
+        )
         assert "1." in result
         assert "2." in result
 
 
 class TestFormatArtistResponse:
-    def test_format(self, sample_artist):
-        result = _format_artist_response(sample_artist)
+    def test_format_pt(self, sample_artist):
+        result = _format_artist_response(
+            sample_artist, lang="pt"
+        )
         assert "Queen" in result
         assert "48.0M" in result
+        assert "seguidores" in result
+        assert "Popularidade" in result
         assert "Ver no Spotify" in result
+
+    def test_format_en(self, sample_artist):
+        result = _format_artist_response(
+            sample_artist, lang="en"
+        )
+        assert "Queen" in result
+        assert "followers" in result
+        assert "Popularity" in result
+        assert "View on Spotify" in result
+
+    def test_format_es(self, sample_artist):
+        result = _format_artist_response(
+            sample_artist, lang="es"
+        )
+        assert "Queen" in result
+        assert "seguidores" in result
+        assert "Popularidad" in result
+        assert "Ver en Spotify" in result
 
 
 class TestFormatAlbumResponse:
-    def test_format(self):
+    def test_format_pt(self):
         album = {
             "type": "album",
             "id": "al1",
@@ -118,45 +166,92 @@ class TestFormatAlbumResponse:
             "release_date": "1982-11-30",
             "total_tracks": 9,
             "image": "img",
-            "spotify_url": "https://open.spotify.com/album/al1",
+            "spotify_url": (
+                "https://open.spotify.com/album/al1"
+            ),
         }
-        result = _format_album_response(album)
+        result = _format_album_response(
+            album, lang="pt"
+        )
         assert "Thriller" in result
         assert "Michael Jackson" in result
         assert "9 faixas" in result
+        assert "Ver no Spotify" in result
+
+    def test_format_en(self):
+        album = {
+            "type": "album",
+            "id": "al1",
+            "name": "Thriller",
+            "artists": "Michael Jackson",
+            "release_date": "1982-11-30",
+            "total_tracks": 9,
+            "image": "img",
+            "spotify_url": (
+                "https://open.spotify.com/album/al1"
+            ),
+        }
+        result = _format_album_response(
+            album, lang="en"
+        )
+        assert "9 tracks" in result
+        assert "View on Spotify" in result
+
+    def test_format_es(self):
+        album = {
+            "type": "album",
+            "id": "al1",
+            "name": "Thriller",
+            "artists": "Michael Jackson",
+            "release_date": "1982-11-30",
+            "total_tracks": 9,
+            "image": "img",
+            "spotify_url": (
+                "https://open.spotify.com/album/al1"
+            ),
+        }
+        result = _format_album_response(
+            album, lang="es"
+        )
+        assert "9 canciones" in result
+        assert "Ver en Spotify" in result
 
 
 # -- Agent execution ------------------------------------------
 
 
+def _make_openai_mock(intent_json: str):
+    """Helper to create a mock openai service."""
+    mock = MagicMock()
+    mock.is_initialized = MagicMock(
+        return_value=True
+    )
+    mock_completion = MagicMock()
+    mock_completion.choices = [
+        MagicMock(
+            message=MagicMock(content=intent_json)
+        )
+    ]
+    mock.client = MagicMock()
+    mock.client.chat.completions.create = AsyncMock(
+        return_value=mock_completion
+    )
+    return mock
+
+
 class TestMusicAgentExecution:
     @pytest.mark.asyncio
-    async def test_search_track_success(
+    async def test_search_track_pt(
         self, music_agent, mock_spotify, sample_track
     ):
-        """Search track returns formatted response."""
+        """Search track returns PT response."""
         mock_spotify.search_tracks = AsyncMock(
             return_value=[sample_track]
         )
-
-        mock_openai = MagicMock()
-        mock_openai.is_initialized = MagicMock(
-            return_value=True
-        )
-        mock_completion = MagicMock()
-        mock_completion.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content=(
-                        '{"action": "search_track", '
-                        '"query": "Bohemian Rhapsody"}'
-                    )
-                )
-            )
-        ]
-        mock_openai.client = MagicMock()
-        mock_openai.client.chat.completions.create = (
-            AsyncMock(return_value=mock_completion)
+        mock_openai = _make_openai_mock(
+            '{"action": "search_track", '
+            '"query": "Bohemian Rhapsody", '
+            '"language": "pt"}'
         )
 
         def _get_svc(name):
@@ -177,7 +272,73 @@ class TestMusicAgentExecution:
 
         assert result.status == AgentStatus.SUCCESS
         assert "Bohemian Rhapsody" in result.response
-        assert result.data.get("tracks")
+        assert "Ouvir no Spotify" in result.response
+
+    @pytest.mark.asyncio
+    async def test_search_track_en(
+        self, music_agent, mock_spotify, sample_track
+    ):
+        """Search track returns EN response."""
+        mock_spotify.search_tracks = AsyncMock(
+            return_value=[sample_track]
+        )
+        mock_openai = _make_openai_mock(
+            '{"action": "search_track", '
+            '"query": "Bohemian Rhapsody", '
+            '"language": "en"}'
+        )
+
+        def _get_svc(name):
+            if name == "spotify":
+                return mock_spotify
+            if name == "openai":
+                return mock_openai
+            return None
+
+        with patch(
+            "agents.specialized.music_agent"
+            ".get_service",
+            side_effect=_get_svc,
+        ):
+            result = await music_agent.execute(
+                "search Bohemian Rhapsody", {}
+            )
+
+        assert result.status == AgentStatus.SUCCESS
+        assert "Listen on Spotify" in result.response
+
+    @pytest.mark.asyncio
+    async def test_search_track_es(
+        self, music_agent, mock_spotify, sample_track
+    ):
+        """Search track returns ES response."""
+        mock_spotify.search_tracks = AsyncMock(
+            return_value=[sample_track]
+        )
+        mock_openai = _make_openai_mock(
+            '{"action": "search_track", '
+            '"query": "Bohemian Rhapsody", '
+            '"language": "es"}'
+        )
+
+        def _get_svc(name):
+            if name == "spotify":
+                return mock_spotify
+            if name == "openai":
+                return mock_openai
+            return None
+
+        with patch(
+            "agents.specialized.music_agent"
+            ".get_service",
+            side_effect=_get_svc,
+        ):
+            result = await music_agent.execute(
+                "busca Bohemian Rhapsody", {}
+            )
+
+        assert result.status == AgentStatus.SUCCESS
+        assert "Escuchar en Spotify" in result.response
 
     @pytest.mark.asyncio
     async def test_search_artist_success(
@@ -190,25 +351,9 @@ class TestMusicAgentExecution:
         mock_spotify.search_artists = AsyncMock(
             return_value=[sample_artist]
         )
-
-        mock_openai = MagicMock()
-        mock_openai.is_initialized = MagicMock(
-            return_value=True
-        )
-        mock_completion = MagicMock()
-        mock_completion.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content=(
-                        '{"action": "search_artist", '
-                        '"query": "Queen"}'
-                    )
-                )
-            )
-        ]
-        mock_openai.client = MagicMock()
-        mock_openai.client.chat.completions.create = (
-            AsyncMock(return_value=mock_completion)
+        mock_openai = _make_openai_mock(
+            '{"action": "search_artist", '
+            '"query": "Queen", "language": "pt"}'
         )
 
         def _get_svc(name):
@@ -229,6 +374,7 @@ class TestMusicAgentExecution:
 
         assert result.status == AgentStatus.SUCCESS
         assert "Queen" in result.response
+        assert "seguidores" in result.response
 
     @pytest.mark.asyncio
     async def test_spotify_unavailable(
@@ -241,39 +387,24 @@ class TestMusicAgentExecution:
             return_value=None,
         ):
             result = await music_agent.execute(
-                "busca musica", {}
+                "busca musica",
+                {"language_code": "pt"},
             )
 
         assert result.status == AgentStatus.ERROR
         assert "Spotify" in result.response
 
     @pytest.mark.asyncio
-    async def test_no_results(
+    async def test_no_results_pt(
         self, music_agent, mock_spotify
     ):
-        """Returns message when no results found."""
+        """Returns PT message when no results found."""
         mock_spotify.search_tracks = AsyncMock(
             return_value=[]
         )
-
-        mock_openai = MagicMock()
-        mock_openai.is_initialized = MagicMock(
-            return_value=True
-        )
-        mock_completion = MagicMock()
-        mock_completion.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content=(
-                        '{"action": "search_track", '
-                        '"query": "xyz"}'
-                    )
-                )
-            )
-        ]
-        mock_openai.client = MagicMock()
-        mock_openai.client.chat.completions.create = (
-            AsyncMock(return_value=mock_completion)
+        mock_openai = _make_openai_mock(
+            '{"action": "search_track", '
+            '"query": "xyz", "language": "pt"}'
         )
 
         def _get_svc(name):
@@ -296,6 +427,38 @@ class TestMusicAgentExecution:
         assert "Nenhuma" in result.response
 
     @pytest.mark.asyncio
+    async def test_no_results_en(
+        self, music_agent, mock_spotify
+    ):
+        """Returns EN message when no results found."""
+        mock_spotify.search_tracks = AsyncMock(
+            return_value=[]
+        )
+        mock_openai = _make_openai_mock(
+            '{"action": "search_track", '
+            '"query": "xyz", "language": "en"}'
+        )
+
+        def _get_svc(name):
+            if name == "spotify":
+                return mock_spotify
+            if name == "openai":
+                return mock_openai
+            return None
+
+        with patch(
+            "agents.specialized.music_agent"
+            ".get_service",
+            side_effect=_get_svc,
+        ):
+            result = await music_agent.execute(
+                "search xyz", {}
+            )
+
+        assert result.status == AgentStatus.SUCCESS
+        assert "No music found" in result.response
+
+    @pytest.mark.asyncio
     async def test_exception_handling(
         self, music_agent, mock_spotify
     ):
@@ -316,39 +479,24 @@ class TestMusicAgentExecution:
             side_effect=_get_svc,
         ):
             result = await music_agent.execute(
-                "busca algo", {}
+                "busca algo",
+                {"language_code": "en"},
             )
 
         assert result.status == AgentStatus.ERROR
-        assert "erro" in result.response.lower()
+        assert "error" in result.response.lower()
 
     @pytest.mark.asyncio
-    async def test_recommendations(
+    async def test_recommendations_pt(
         self, music_agent, mock_spotify, sample_track
     ):
-        """Recommendations action returns tracks."""
+        """Recommendations in PT."""
         mock_spotify.get_recommendations = AsyncMock(
             return_value=[sample_track]
         )
-
-        mock_openai = MagicMock()
-        mock_openai.is_initialized = MagicMock(
-            return_value=True
-        )
-        mock_completion = MagicMock()
-        mock_completion.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content=(
-                        '{"action": "recommendations",'
-                        ' "genre": "rock"}'
-                    )
-                )
-            )
-        ]
-        mock_openai.client = MagicMock()
-        mock_openai.client.chat.completions.create = (
-            AsyncMock(return_value=mock_completion)
+        mock_openai = _make_openai_mock(
+            '{"action": "recommendations",'
+            ' "genre": "rock", "language": "pt"}'
         )
 
         def _get_svc(name):
@@ -368,7 +516,39 @@ class TestMusicAgentExecution:
             )
 
         assert result.status == AgentStatus.SUCCESS
-        assert "Recomendacoes" in result.response
+        assert "Recomendações" in result.response
+
+    @pytest.mark.asyncio
+    async def test_recommendations_en(
+        self, music_agent, mock_spotify, sample_track
+    ):
+        """Recommendations in EN."""
+        mock_spotify.get_recommendations = AsyncMock(
+            return_value=[sample_track]
+        )
+        mock_openai = _make_openai_mock(
+            '{"action": "recommendations",'
+            ' "genre": "rock", "language": "en"}'
+        )
+
+        def _get_svc(name):
+            if name == "spotify":
+                return mock_spotify
+            if name == "openai":
+                return mock_openai
+            return None
+
+        with patch(
+            "agents.specialized.music_agent"
+            ".get_service",
+            side_effect=_get_svc,
+        ):
+            result = await music_agent.execute(
+                "recommend rock", {}
+            )
+
+        assert result.status == AgentStatus.SUCCESS
+        assert "Recommendations" in result.response
 
     @pytest.mark.asyncio
     async def test_artist_top_tracks(
@@ -378,27 +558,11 @@ class TestMusicAgentExecution:
         mock_spotify.get_artist_top_tracks = AsyncMock(
             return_value=[sample_track]
         )
-
-        mock_openai = MagicMock()
-        mock_openai.is_initialized = MagicMock(
-            return_value=True
-        )
-        mock_completion = MagicMock()
-        mock_completion.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content=(
-                        '{"action": '
-                        '"artist_top_tracks",'
-                        ' "query": "Eminem",'
-                        ' "artist_name": "Eminem"}'
-                    )
-                )
-            )
-        ]
-        mock_openai.client = MagicMock()
-        mock_openai.client.chat.completions.create = (
-            AsyncMock(return_value=mock_completion)
+        mock_openai = _make_openai_mock(
+            '{"action": "artist_top_tracks",'
+            ' "query": "Eminem",'
+            ' "artist_name": "Eminem",'
+            ' "language": "pt"}'
         )
 
         def _get_svc(name):
@@ -419,10 +583,43 @@ class TestMusicAgentExecution:
 
         assert result.status == AgentStatus.SUCCESS
         assert "Eminem" in result.response
-        # Verify it called with artist name, not ID
+        assert "Top músicas" in result.response
         mock_spotify.get_artist_top_tracks.assert_called_once_with(
-            "Eminem"
+            "Eminem", market="BR"
         )
+
+    @pytest.mark.asyncio
+    async def test_lang_fallback_to_context(
+        self, music_agent, mock_spotify, sample_track
+    ):
+        """Falls back to context lang when GPT omits it."""
+        mock_spotify.search_tracks = AsyncMock(
+            return_value=[sample_track]
+        )
+        mock_openai = _make_openai_mock(
+            '{"action": "search_track", '
+            '"query": "test"}'
+        )
+
+        def _get_svc(name):
+            if name == "spotify":
+                return mock_spotify
+            if name == "openai":
+                return mock_openai
+            return None
+
+        with patch(
+            "agents.specialized.music_agent"
+            ".get_service",
+            side_effect=_get_svc,
+        ):
+            result = await music_agent.execute(
+                "test",
+                {"language_code": "es"},
+            )
+
+        assert result.status == AgentStatus.SUCCESS
+        assert "Escuchar en Spotify" in result.response
 
 
 class TestCapabilities:

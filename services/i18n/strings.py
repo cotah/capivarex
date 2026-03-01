@@ -711,6 +711,84 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "Serviço de desenvolvimento não disponível.",
         "es": "Servicio de desarrollo no disponible.",
     },
+    # ══════════════════════════════════════════════════════════════════════════
+    # MUSIC AGENT
+    # ══════════════════════════════════════════════════════════════════════════
+    "music_no_results": {
+        "en": "🎵 No music found.",
+        "pt": "🎵 Nenhuma música encontrada.",
+        "es": "🎵 No se encontró música.",
+    },
+    "music_no_results_for": {
+        "en": '🎵 No music found for "{query}".',
+        "pt": '🎵 Nenhuma música encontrada para "{query}".',
+        "es": '🎵 No se encontró música para "{query}".',
+    },
+    "music_artist_not_found": {
+        "en": '🎤 Artist "{query}" not found.',
+        "pt": '🎤 Artista "{query}" não encontrado.',
+        "es": '🎤 Artista "{query}" no encontrado.',
+    },
+    "music_album_not_found": {
+        "en": '💿 Album "{query}" not found.',
+        "pt": '💿 Álbum "{query}" não encontrado.',
+        "es": '💿 Álbum "{query}" no encontrado.',
+    },
+    "music_listen_on_spotify": {
+        "en": "Listen on Spotify",
+        "pt": "Ouvir no Spotify",
+        "es": "Escuchar en Spotify",
+    },
+    "music_view_on_spotify": {
+        "en": "View on Spotify",
+        "pt": "Ver no Spotify",
+        "es": "Ver en Spotify",
+    },
+    "music_popularity": {
+        "en": "Popularity",
+        "pt": "Popularidade",
+        "es": "Popularidad",
+    },
+    "music_followers": {
+        "en": "followers",
+        "pt": "seguidores",
+        "es": "seguidores",
+    },
+    "music_tracks_count": {
+        "en": "tracks",
+        "pt": "faixas",
+        "es": "canciones",
+    },
+    "music_top_tracks_header": {
+        "en": "🔝 *Top tracks by {artist}:*\n\n",
+        "pt": "🔝 *Top músicas de {artist}:*\n\n",
+        "es": "🔝 *Top canciones de {artist}:*\n\n",
+    },
+    "music_recommendations_header": {
+        "en": "🎶 *Recommendations for you:*\n\n",
+        "pt": "🎶 *Recomendações para você:*\n\n",
+        "es": "🎶 *Recomendaciones para ti:*\n\n",
+    },
+    "music_no_recommendations": {
+        "en": "🎶 No recommendations available.",
+        "pt": "🎶 Sem recomendações disponíveis.",
+        "es": "🎶 No hay recomendaciones disponibles.",
+    },
+    "music_genres_header": {
+        "en": "🎵 *Available genres on Spotify:*\n\n",
+        "pt": "🎵 *Gêneros disponíveis no Spotify:*\n\n",
+        "es": "🎵 *Géneros disponibles en Spotify:*\n\n",
+    },
+    "music_spotify_unavailable": {
+        "en": "🎵 Spotify service is not available right now.",
+        "pt": "🎵 O serviço Spotify não está disponível de momento.",
+        "es": "🎵 El servicio de Spotify no está disponible ahora.",
+    },
+    "music_error": {
+        "en": "An error occurred while searching for music. Please try again.",
+        "pt": "Ocorreu um erro ao buscar música. Tente novamente.",
+        "es": "Ocurrió un error al buscar música. Inténtalo de nuevo.",
+    },
 }
 
 
