@@ -3,7 +3,6 @@
 from .calendar_service import CalendarService
 from .car_service import CarService
 from .finance_service import FinanceService
-from .n8n_service import N8NService
 from .restaurant_service import RestaurantService
 from .smartthings_oauth import get_smartthings_token_manager
 from .smartthings_service import SmartThingsService
@@ -16,7 +15,6 @@ __all__ = [
     "CarService",
     "DuffelService",
     "FinanceService",
-    "N8NService",
     "RestaurantService",
     "SmartThingsService",
     "TrafficService",
