@@ -1,8 +1,10 @@
 """
 Webhook Routes
 
-Receives external webhook calls (e.g., from N8N for email notifications).
+Receives external webhook calls for email notifications.
+Can be called by any email monitoring service (Gmail API, Microsoft Graph, etc).
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,14 +21,15 @@ logger = logging.getLogger(__name__)
 @router.post("/email")
 async def email_webhook(request: Request):
     """
-    Receive email notification from N8N.
+    Receive email notification webhook.
 
     Expected payload:
     {
         "from": "sender@example.com",
         "subject": "Email subject",
         "body": "Email body text",
-        "user_id": "telegram_user_id"
+        "user_id": "telegram_user_id",
+        "account": "gmail" | "hotmail"  (optional)
     }
     """
     try:
@@ -40,8 +43,7 @@ async def email_webhook(request: Request):
 
     user_id = payload.get("user_id", "")
     subject = payload.get("subject", "")
-    sender = payload.get("from", "")
-    body = payload.get("body", "")
+    sender = payload.get("from", payload.get("from_email", ""))
 
     logger.info("Email webhook received: from=%s subject=%s", sender, subject)
 
@@ -49,11 +51,7 @@ async def email_webhook(request: Request):
         context = {
             "user_id": user_id,
             "intent": "incoming_email",
-            "email_data": {
-                "from": sender,
-                "subject": subject,
-                "body": body,
-            },
+            "email_data": payload,
         }
         response = await email_agent.process(
             f"New email from {sender}: {subject}", context
