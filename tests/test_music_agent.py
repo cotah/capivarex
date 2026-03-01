@@ -377,6 +377,70 @@ class TestMusicAgentExecution:
         assert "seguidores" in result.response
 
     @pytest.mark.asyncio
+    async def test_search_artist_fallback_full_profile(
+        self, music_agent, mock_spotify
+    ):
+        """When search returns 0 followers, fetch full."""
+        # Search returns artist with 0 followers
+        sparse_artist = {
+            "type": "artist",
+            "id": "a1",
+            "name": "Eminem",
+            "genres": "hip-hop, rap",
+            "popularity": 0,
+            "followers": 0,
+            "image": "",
+            "spotify_url": "url",
+            "uri": "uri",
+        }
+        # Full profile has real data
+        full_artist = {
+            "type": "artist",
+            "id": "a1",
+            "name": "Eminem",
+            "genres": "hip-hop, rap",
+            "popularity": 95,
+            "followers": 70000000,
+            "image": "img",
+            "spotify_url": "url",
+            "uri": "uri",
+        }
+        mock_spotify.search_artists = AsyncMock(
+            return_value=[sparse_artist]
+        )
+        mock_spotify.get_artist = AsyncMock(
+            return_value=full_artist
+        )
+        mock_openai = _make_openai_mock(
+            '{"action": "search_artist", '
+            '"query": "Eminem", "language": "en"}'
+        )
+
+        def _get_svc(name):
+            if name == "spotify":
+                return mock_spotify
+            if name == "openai":
+                return mock_openai
+            return None
+
+        with patch(
+            "agents.specialized.music_agent"
+            ".get_service",
+            side_effect=_get_svc,
+        ):
+            result = await music_agent.execute(
+                "who is Eminem", {}
+            )
+
+        assert result.status == AgentStatus.SUCCESS
+        assert "Eminem" in result.response
+        assert "70.0M" in result.response
+        assert "95/100" in result.response
+        mock_spotify.get_artist.assert_called_once_with(
+            "a1"
+        )
+
+    @pytest.mark.asyncio
     async def test_spotify_unavailable(
         self, music_agent
     ):

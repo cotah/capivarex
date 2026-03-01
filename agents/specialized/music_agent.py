@@ -373,6 +373,27 @@ class MusicAgent(BaseAgent):
                 data={"artists": []},
             )
         artist = artists[0]
+        self.logger.debug(
+            "Artist data (lang=%s, market=%s): %s",
+            lang,
+            market,
+            artist,
+        )
+        # If search returned 0 followers, try
+        # fetching the full artist profile by ID
+        if not artist.get("followers") and artist.get(
+            "id"
+        ):
+            try:
+                full = await spotify.get_artist(
+                    artist["id"]
+                )
+                self.logger.debug(
+                    "Full artist data: %s", full
+                )
+                artist = full
+            except Exception:
+                pass  # keep search result as fallback
         text = _format_artist_response(artist, lang)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
