@@ -144,23 +144,34 @@ def _format_artist_response(
     artist: Dict, lang: str = "en"
 ) -> str:
     """Format artist info for Telegram."""
-    followers = _format_number(artist["followers"])
-    followers_label = t("music_followers", lang=lang)
-    popularity = t("music_popularity", lang=lang)
-    view = t("music_view_on_spotify", lang=lang)
-    lines = [
-        f"🎤 *{artist['name']}*",
-    ]
+    lines = [f"🎤 *{artist['name']}*"]
     if artist.get("genres"):
-        lines.append(f"  {artist['genres']}")
-    lines.extend(
-        [
-            f"  {followers} {followers_label}",
-            f"  {popularity}: "
-            f"{artist['popularity']}/100",
-            f"[{view}]"
-            f"({artist['spotify_url']})",
-        ]
+        lines.append(f"🎸 {artist['genres']}")
+    if (
+        artist.get("followers")
+        and artist["followers"] > 0
+    ):
+        followers = _format_number(artist["followers"])
+        followers_label = t(
+            "music_followers", lang=lang
+        )
+        lines.append(
+            f"👥 {followers} {followers_label}"
+        )
+    if (
+        artist.get("popularity")
+        and artist["popularity"] > 0
+    ):
+        popularity_label = t(
+            "music_popularity", lang=lang
+        )
+        lines.append(
+            f"⭐ {popularity_label}: "
+            f"{artist['popularity']}/100"
+        )
+    view = t("music_view_on_spotify", lang=lang)
+    lines.append(
+        f"🔗 [{view}]({artist['spotify_url']})"
     )
     return "\n".join(lines)
 
