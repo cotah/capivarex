@@ -133,8 +133,8 @@
 4. **MÃƒÂºltiplas interfaces desde o inÃƒÂ­cio**
 
 ### ConsideraÃƒÂ§ÃƒÂµes TÃƒÂ©cnicas
-- Backend deve lidar com integraÃƒÂ§ÃƒÂµes diretamente (evitar dependÃƒÂªncia excessiva de N8N)
-- N8N reservado para workflows complexos multi-app
+- Backend lida com integrações diretamente (Gmail API, Microsoft Graph, Supabase)
+- Sem dependências externas de workflow — tudo nativo em Python
 - Foco em performance e confiabilidade
 - Testes contÃƒÂ­nuos em produÃƒÂ§ÃƒÂ£o
 
