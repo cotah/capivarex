@@ -15,7 +15,7 @@ from schemas.calendar import CalendarEventInput
 from services import get_service
 from services.auth.google_oauth_service import get_google_oauth
 from services.core import ServiceUnavailableError
-from services.i18n import t
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
@@ -102,6 +102,7 @@ class CalendarAgent(BaseAgent):
     ) -> AgentResponse:
         """Process calendar-related queries."""
         try:
+            lang = get_user_lang(context)
             calendar_service = await self._get_calendar_service()
             if not calendar_service:
                 return AgentResponse(
@@ -118,7 +119,7 @@ class CalendarAgent(BaseAgent):
             if context.get("action") == "create_event":
                 event_params = context.get("event_params", {})
                 return await self._create_event(
-                    calendar_service, event_params, user_id=user_id
+                    calendar_service, event_params, user_id=user_id, lang=lang
                 )
 
             # Dispatch by detected intent
@@ -130,39 +131,33 @@ class CalendarAgent(BaseAgent):
                 if await oauth.is_connected(user_id):
                     return AgentResponse(
                         status=AgentStatus.SUCCESS,
-                        response=(
-                            "A tua conta Google já está conectada! "
-                            "Calendar e Gmail activos."
-                        ),
+                        response=t("cal_already_connected", lang=lang),
                     )
                 auth_url = oauth.get_auth_url(user_id)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=(
-                        "Clica no link para conectar a tua conta Google "
-                        f"(Calendar + Gmail):\n{auth_url}"
-                    ),
+                    response=t("cal_connect_link", lang=lang, auth_url=auth_url),
                     data={"auth_url": auth_url},
                 )
 
             dispatch = {
                 "next_meeting": lambda: self._get_next_meeting(
-                    calendar_service, user_id=user_id
+                    calendar_service, user_id=user_id, lang=lang
                 ),
                 "today": lambda: self._get_today_events(
-                    calendar_service, user_id=user_id
+                    calendar_service, user_id=user_id, lang=lang
                 ),
                 "week": lambda: self._get_week_events(
-                    calendar_service, user_id=user_id
+                    calendar_service, user_id=user_id, lang=lang
                 ),
                 "briefing": lambda: self._get_briefing(
-                    calendar_service, user_id=user_id
+                    calendar_service, user_id=user_id, lang=lang
                 ),
                 "traffic": lambda: self._check_traffic_for_next_event(
-                    calendar_service, user_id, context.get("user_location", "Dublin")
+                    calendar_service, user_id, context.get("user_location", "Dublin"), lang=lang
                 ),
                 "upcoming": lambda: self._get_upcoming_events(
-                    calendar_service, user_id=user_id
+                    calendar_service, user_id=user_id, lang=lang
                 ),
             }
 
@@ -182,12 +177,12 @@ class CalendarAgent(BaseAgent):
             )
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao acessar seu calendario: {str(e)}",
+                response=t("cal_error", lang=lang, error=str(e)),
                 error=str(e),
             )
 
     async def _get_next_meeting(
-        self, calendar_service: Any, user_id: str
+        self, calendar_service: Any, user_id: str, lang: str = "en"
     ) -> AgentResponse:
         """Get the next upcoming meeting."""
         next_meeting = await calendar_service.async_get_next_meeting(
@@ -197,11 +192,11 @@ class CalendarAgent(BaseAgent):
         if not next_meeting:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Voce nao tem reunioes agendadas.",
+                response=t("cal_no_meetings", lang=lang),
                 data={"events": []},
             )
 
-        summary = next_meeting.get("summary", "Sem titulo")
+        summary = next_meeting.get("summary", t("cal_no_title", lang=lang))
         start = next_meeting.get("start", "")
         location = next_meeting.get("location", "")
 
@@ -216,9 +211,9 @@ class CalendarAgent(BaseAgent):
         except (ValueError, TypeError):
             time_str = start
 
-        response = f"Sua proxima reuniao e '{summary}' em {time_str}"
+        response = t("cal_next_meeting", lang=lang, summary=summary, time=time_str)
         if location:
-            response += f" em {location}"
+            response += t("cal_next_meeting_location", lang=lang, location=location)
         response += "."
 
         return AgentResponse(
@@ -228,7 +223,7 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_today_events(
-        self, calendar_service: Any, user_id: str
+        self, calendar_service: Any, user_id: str, lang: str = "en"
     ) -> AgentResponse:
         """Get all events for today."""
         events = await calendar_service.async_get_today_events(
@@ -238,11 +233,11 @@ class CalendarAgent(BaseAgent):
         if not events:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Voce nao tem eventos agendados para hoje.",
+                response=t("cal_no_events_today", lang=lang),
                 data={"events": []},
             )
 
-        response = f"Voce tem {len(events)} evento(s) hoje:\n\n"
+        response = t("cal_events_today", lang=lang, count=len(events))
         for event in events:
             response += (
                 calendar_service.format_event_for_briefing(event) + "\n"
@@ -255,7 +250,7 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_week_events(
-        self, calendar_service: Any, user_id: str
+        self, calendar_service: Any, user_id: str, lang: str = "en"
     ) -> AgentResponse:
         """Get events for the current week."""
         events = await calendar_service.async_get_upcoming_events(
@@ -265,11 +260,11 @@ class CalendarAgent(BaseAgent):
         if not events:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Voce nao tem eventos agendados para esta semana.",
+                response=t("cal_no_events_week", lang=lang),
                 data={"events": []},
             )
 
-        response = f"Voce tem {len(events)} evento(s) esta semana:\n\n"
+        response = t("cal_events_week", lang=lang, count=len(events))
         for event in events:
             response += (
                 calendar_service.format_event_for_briefing(event) + "\n"
@@ -282,7 +277,7 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_upcoming_events(
-        self, calendar_service: Any, user_id: str
+        self, calendar_service: Any, user_id: str, lang: str = "en"
     ) -> AgentResponse:
         """Get upcoming events (next 7 days)."""
         events = await calendar_service.async_get_upcoming_events(
@@ -292,11 +287,11 @@ class CalendarAgent(BaseAgent):
         if not events:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Voce nao tem eventos nos proximos 7 dias.",
+                response=t("cal_no_events_upcoming", lang=lang),
                 data={"events": []},
             )
 
-        response = f"Voce tem {len(events)} evento(s) proximos:\n\n"
+        response = t("cal_events_upcoming", lang=lang, count=len(events))
         for event in events:
             response += (
                 calendar_service.format_event_for_briefing(event) + "\n"
@@ -309,7 +304,7 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_briefing(
-        self, calendar_service: Any, user_id: str
+        self, calendar_service: Any, user_id: str, lang: str = "en"
     ) -> AgentResponse:
         """Get calendar briefing."""
         events = await calendar_service.async_get_today_events(
@@ -318,13 +313,14 @@ class CalendarAgent(BaseAgent):
 
         if not events:
             briefing_text = (
-                "**Calendar Briefing**\n\n"
-                "**Today:** No events scheduled."
+                t("cal_briefing_header", lang=lang)
+                + t("cal_briefing_no_events", lang=lang)
             )
         else:
-            briefing_text = "**Calendar Briefing**\n\n"
-            briefing_text += (
-                f"**Today ({datetime.now(timezone.utc).strftime('%B %d')}):**\n"
+            briefing_text = t("cal_briefing_header", lang=lang)
+            briefing_text += t(
+                "cal_briefing_today", lang=lang,
+                date=datetime.now(timezone.utc).strftime('%B %d'),
             )
             for ev in events:
                 briefing_text += (
@@ -342,6 +338,7 @@ class CalendarAgent(BaseAgent):
         calendar_service: Any,
         event_params: Dict[str, Any],
         user_id: str,
+        lang: str = "en",
     ) -> AgentResponse:
         """Create a new calendar event."""
         try:
@@ -351,37 +348,24 @@ class CalendarAgent(BaseAgent):
             if "\ntitle\n" in msg:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response=(
-                        "Nao consegui identificar o titulo do evento. "
-                        "Por favor, especifique o que deseja agendar."
-                    ),
+                    response=t("cal_event_missing_title", lang=lang),
                     error="Missing title",
                 )
             if "\nstart_datetime\n" in msg:
                 if "value_error" in msg:
                     return AgentResponse(
                         status=AgentStatus.ERROR,
-                        response=(
-                            "Erro ao processar data e hora do evento. "
-                            "Por favor, use um formato valido "
-                            "(ex: 2025-02-15T15:00:00)."
-                        ),
+                        response=t("cal_event_invalid_datetime", lang=lang),
                         error="Invalid start_datetime",
                     )
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response=(
-                        "Nao consegui identificar a data e hora do evento. "
-                        "Por favor, especifique quando deseja agendar."
-                    ),
+                    response=t("cal_event_missing_datetime", lang=lang),
                     error="Missing start_datetime",
                 )
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=(
-                    f"Erro ao processar dados do evento: {msg}. "
-                    "Por favor, use um formato valido."
-                ),
+                response=t("cal_event_validation_error", lang=lang, error=msg),
                 error=str(e),
             )
 
@@ -399,10 +383,7 @@ class CalendarAgent(BaseAgent):
         if not created_event:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=(
-                    "Nao foi possivel criar o evento. "
-                    "Por favor, tente novamente."
-                ),
+                response=t("cal_event_creation_failed", lang=lang),
                 error="Calendar service returned None",
             )
 
@@ -414,27 +395,26 @@ class CalendarAgent(BaseAgent):
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=self._format_event_response(event_input, end_dt),
+            response=self._format_event_response(event_input, end_dt, lang=lang),
             data={"event": created_event},
         )
 
     @staticmethod
     def _format_event_response(
-        event: CalendarEventInput, end_dt: datetime
+        event: CalendarEventInput, end_dt: datetime, lang: str = "en"
     ) -> str:
         """Format a human-readable confirmation for a created event."""
-        response = "Evento criado com sucesso!\n\n"
+        response = t("cal_event_created", lang=lang)
         response += f"{event.title}\n"
-        response += (
-            f"Data: {event.start_datetime.strftime('%d/%m/%Y as %H:%M')}"
+        response += t(
+            "cal_event_date_label", lang=lang,
+            date=f"{event.start_datetime.strftime('%d/%m/%Y %H:%M')}"
+            f" - {end_dt.strftime('%H:%M')}",
         )
-        response += f" - {end_dt.strftime('%H:%M')}"
-
         if event.location:
-            response += f"\nLocal: {event.location}"
+            response += t("cal_event_location_label", lang=lang, location=event.location)
         if event.description:
-            response += f"\nDescricao: {event.description}"
-
+            response += t("cal_event_description_label", lang=lang, description=event.description)
         return response.strip()
 
     @staticmethod
@@ -466,8 +446,7 @@ class CalendarAgent(BaseAgent):
         if "T" not in start:
             summary = event.get("summary", "Evento")
             raise ValueError(
-                f"O evento '{summary}' e um evento de dia inteiro, "
-                "sem horario especifico."
+                t("cal_event_all_day", summary=summary)
             )
         return datetime.fromisoformat(
             start.replace("Z", "+00:00")
@@ -479,8 +458,9 @@ class CalendarAgent(BaseAgent):
         """Public wrapper for traffic check functionality."""
         calendar_service = await self._get_calendar_service()
         user_id = kwargs.get("user_id", "")
+        lang = kwargs.get("lang", "en")
         return await self._check_traffic_for_next_event(
-            calendar_service, user_id, user_location
+            calendar_service, user_id, user_location, lang=lang
         )
 
     async def _check_traffic_for_next_event(
@@ -488,6 +468,7 @@ class CalendarAgent(BaseAgent):
         calendar_service: Any,
         user_id: str,
         user_location: str,
+        lang: str = "en",
     ) -> AgentResponse:
         """Check traffic conditions for the next event with location."""
         try:
@@ -497,7 +478,7 @@ class CalendarAgent(BaseAgent):
             if not events:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Voce nao tem eventos agendados.",
+                    response=t("cal_no_events", lang=lang),
                     error="No events found",
                 )
 
@@ -505,9 +486,7 @@ class CalendarAgent(BaseAgent):
             if not target_event:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response=(
-                        "Nenhum evento futuro com localizacao encontrado."
-                    ),
+                    response=t("cal_no_events_with_location", lang=lang),
                     error="No future events with location",
                 )
 
@@ -530,12 +509,11 @@ class CalendarAgent(BaseAgent):
             if not traffic_agent:
                 return AgentResponse(
                     status=AgentStatus.PARTIAL,
-                    response=(
-                        f"Proximo evento com local: '{event_summary}' "
-                        f"em {event_location} as "
-                        f"{event_time_naive.strftime('%H:%M')}. "
-                        "Servico de trafego nao disponivel "
-                        "para verificar condicoes."
+                    response=t(
+                        "cal_traffic_partial", lang=lang,
+                        summary=event_summary,
+                        location=event_location,
+                        time=event_time_naive.strftime('%H:%M'),
                     ),
                     data={"event": target_event},
                 )
@@ -551,10 +529,12 @@ class CalendarAgent(BaseAgent):
                 traffic_context,
             )
 
-            response = "Alerta de Trafego para Evento\n\n"
-            response += f"Evento: {event_summary}\n"
-            response += f"Horario: {event_time_naive.strftime('%H:%M')}\n"
-            response += f"Local: {event_location}\n\n"
+            response = t(
+                "cal_traffic_header", lang=lang,
+                summary=event_summary,
+                time=event_time_naive.strftime('%H:%M'),
+                location=event_location,
+            )
             response += traffic_response.response
 
             return AgentResponse(
@@ -574,7 +554,7 @@ class CalendarAgent(BaseAgent):
             )
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao verificar trafego para evento: {str(e)}",
+                response=t("cal_traffic_error", lang=lang, error=str(e)),
                 error=str(e),
             )
 

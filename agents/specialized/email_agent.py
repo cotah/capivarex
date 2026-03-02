@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services.core import get_service
 from services.business import email_account_service as edb
+from services.i18n import t, get_user_lang
 
 
 # ─── Padrões de intenção ─────────────────────────────────────────────────────
@@ -74,6 +75,11 @@ _RE_SENT = re.compile(
 _RE_CONNECT = re.compile(
     r"\b(conectar?|connect|ligar|autorizar?|authorize?)\b"
     r".*\b(gmail|email|google|conta)\b",
+    re.IGNORECASE,
+)
+_RE_SUMMARY_ALL = re.compile(
+    r"\b(resum[eo]|resume?|summarize?)\b.*\b(emails?|todos?|últimos?)\b"
+    r"|\b(todos?|últimos?)\b.*\b(resum[eo]|resume?|summarize?)\b",
     re.IGNORECASE,
 )
 
@@ -136,7 +142,7 @@ class EmailAgent(BaseAgent):
             "from_email": data.get("from_email", data.get("from", "")),
             "from_name": data.get("from_name", ""),
             "to": data.get("to", ""),
-            "subject": data.get("subject", "(sem assunto)"),
+            "subject": data.get("subject", t("email_no_subject")),
             "body_text": data.get("body_text", data.get("body", "")),
             "body_html": data.get("body_html", ""),
             "received_at": data.get("received_at", ""),
@@ -172,7 +178,7 @@ class EmailAgent(BaseAgent):
         if not user_id:
             return {
                 "success": False,
-                "error": "user_id obrigatório para enviar emails.",
+                "error": t("email_user_id_required"),
             }
 
         try:
@@ -183,7 +189,7 @@ class EmailAgent(BaseAgent):
                 else:
                     return {
                         "success": False,
-                        "error": "GmailService não disponível.",
+                        "error": t("email_gmail_unavailable"),
                     }
 
             # Verificar se user tem Gmail conectado
@@ -192,12 +198,9 @@ class EmailAgent(BaseAgent):
                 auth_url = gmail.get_auth_url(user_id)
                 return {
                     "success": False,
-                    "error": "Gmail não conectado.",
+                    "error": t("email_gmail_not_connected"),
                     "auth_url": auth_url,
-                    "message": (
-                        "Precisas conectar o teu Gmail primeiro. "
-                        "Clica no link para autorizar."
-                    ),
+                    "message": t("email_need_connect_first"),
                 }
 
             result = await gmail.send_email(
@@ -236,18 +239,18 @@ class EmailAgent(BaseAgent):
             Dict com success, emails, count
         """
         if not user_id:
-            return {"success": False, "error": "user_id obrigatório."}
+            return {"success": False, "error": t("email_user_id_required")}
 
         try:
             gmail = get_service("gmail")
             if not gmail:
-                return {"success": False, "error": "GmailService não disponível."}
+                return {"success": False, "error": t("email_gmail_unavailable")}
 
             if not await gmail.is_connected(user_id):
                 auth_url = gmail.get_auth_url(user_id)
                 return {
                     "success": False,
-                    "error": "Gmail não conectado.",
+                    "error": t("email_gmail_not_connected"),
                     "auth_url": auth_url,
                 }
 
@@ -278,21 +281,21 @@ class EmailAgent(BaseAgent):
         try:
             gmail = get_service("gmail")
             if not gmail:
-                return {"success": False, "error": "GmailService não disponível."}
+                return {"success": False, "error": t("email_gmail_unavailable")}
 
             already_connected = await gmail.is_connected(user_id)
             if already_connected:
                 return {
                     "success": True,
                     "already_connected": True,
-                    "message": "Gmail já está conectado!",
+                    "message": t("email_connect_url_already"),
                 }
 
             auth_url = gmail.get_auth_url(user_id)
             return {
                 "success": True,
                 "auth_url": auth_url,
-                "message": "Clica no link para conectar o teu Gmail.",
+                "message": t("email_connect_url_click"),
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -312,6 +315,7 @@ class EmailAgent(BaseAgent):
             await self.initialize()
 
         user_id = str(context.get("user_id", context.get("chat_id", "")))
+        lang = get_user_lang(context)
 
         # Fetch linked accounts so the agent knows what's available
         try:
@@ -325,46 +329,40 @@ class EmailAgent(BaseAgent):
         # Verificar se é resposta a confirmação pendente
         pending = context.get("email_pending_reply")
         if pending:
-            return await self._handle_confirmation(msg, user_id, context, pending)
+            return await self._handle_confirmation(msg, user_id, context, pending, lang)
 
         # Detectar intenção
         if _RE_CONNECT.search(msg):
-            return await self._handle_connect(user_id)
+            return await self._handle_connect(user_id, lang)
 
         if _RE_SENT.search(msg):
-            return await self._handle_sent_replies(user_id, context)
+            return await self._handle_sent_replies(user_id, context, lang)
 
         if _RE_REPLY.search(msg):
-            return await self._handle_reply_intent(msg, user_id, context)
+            return await self._handle_reply_intent(msg, user_id, context, lang)
 
         if _RE_IGNORE.search(msg):
-            return await self._handle_ignore(msg, user_id, context)
+            return await self._handle_ignore(msg, user_id, context, lang)
+
+        if _RE_SUMMARY_ALL.search(msg):
+            return await self._handle_summary_all(user_id, context, lang)
 
         if _RE_SUMMARY.search(msg):
-            return await self._handle_summary(msg, user_id, context)
+            return await self._handle_summary(msg, user_id, context, lang)
 
         if _RE_COUNT.search(msg):
-            return await self._handle_count(user_id, context)
+            return await self._handle_count(user_id, context, lang)
 
         if _RE_UNREAD.search(msg):
-            return await self._handle_list(user_id, context, unread_only=True)
+            return await self._handle_list(user_id, context, unread_only=True, lang=lang)
 
         if _RE_SHOW.search(msg):
             account = self._extract_account(msg)
-            return await self._handle_list(user_id, context, account=account)
+            return await self._handle_list(user_id, context, account=account, lang=lang)
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            message=(
-                "📧 *Gestão de Email*\n\n"
-                "Podes dizer-me:\n"
-                "• _'Mostra os meus emails'_\n"
-                "• _'Emails não lidos do Gmail'_\n"
-                "• _'Responde ao último email'_\n"
-                "• _'Resume o email do João'_\n"
-                "• _'Quantos emails tenho?'_\n"
-                "• _'Conectar Gmail'_"
-            ),
+            message=t("email_help", lang=lang),
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -389,6 +387,8 @@ class EmailAgent(BaseAgent):
         if not self.is_initialized():
             await self.initialize()
 
+        lang = get_user_lang(context)
+
         # 1. Normalizar payload
         email = self._parse_webhook_payload(email_data)
 
@@ -396,7 +396,7 @@ class EmailAgent(BaseAgent):
         email_id = await self._save_email(user_id, email)
 
         # 3. Resumir com GPT
-        summary = await self._summarize_email(email)
+        summary = await self._summarize_email(email, lang=lang)
 
         # 4. Classificar urgência
         urgency = await self._classify_urgency(email)
@@ -405,12 +405,13 @@ class EmailAgent(BaseAgent):
         account_label = self._get_account_label(email["account"])
         urgency_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(urgency, "📧")
 
-        notification = (
-            f"{urgency_icon} *{account_label}* — Email recebido\n\n"
-            f"👤 **De:** {email['from_name'] or email['from_email']}\n"
-            f"📌 **Assunto:** {email['subject']}\n\n"
-            f"📝 **Resumo:**\n{summary}\n\n"
-            f"💬 Queres que eu responda?"
+        notification = t(
+            "email_incoming_notification", lang=lang,
+            urgency_icon=urgency_icon,
+            account=account_label,
+            sender=email['from_name'] or email['from_email'],
+            subject=email['subject'],
+            summary=summary,
         )
 
         # 6. Guardar contexto para resposta futura
@@ -441,6 +442,7 @@ class EmailAgent(BaseAgent):
         unread_only: bool = False,
         account: Optional[str] = None,
         limit: int = 5,
+        lang: str = "en",
     ) -> AgentResponse:
         emails = await self._fetch_emails(
             user_id, unread_only=unread_only, account=account, limit=limit
@@ -449,18 +451,17 @@ class EmailAgent(BaseAgent):
         if not emails:
             filter_desc = ""
             if account:
-                filter_desc = f" do {account.capitalize()}"
+                filter_desc += t("email_filter_from_account", lang=lang, account=account.capitalize())
             if unread_only:
-                filter_desc += " não lidos"
+                filter_desc += t("email_filter_unread", lang=lang)
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                message=f"📭 Nenhum email{filter_desc} encontrado.",
+                message=t("email_no_emails", lang=lang, filter=filter_desc),
             )
 
-        account_label = account.capitalize() if account else "todas as contas"
-        title = (
-            f"📧 *Emails{' não lidos' if unread_only else ''} — {account_label}*\n\n"
-        )
+        account_label = account.capitalize() if account else t("email_all_accounts", lang=lang)
+        filter_str = t("email_filter_unread", lang=lang) if unread_only else ""
+        title = t("email_list_title", lang=lang, filter=filter_str, account=account_label)
         lines = [title]
 
         for i, email in enumerate(emails, 1):
@@ -468,11 +469,11 @@ class EmailAgent(BaseAgent):
             read_icon = "🔵" if not email.get("read") else ""
             lines.append(
                 f"{i}. {acc_icon}{read_icon} **{email.get('from_name') or email.get('from_email', '?')}**\n"
-                f"   _{email.get('subject', '(sem assunto)')}_\n"
-                f"   {self._format_time(email.get('received_at', ''))}\n"
+                f"   _{email.get('subject', t('email_no_subject', lang=lang))}_\n"
+                f"   {self._format_time(email.get('received_at', ''), lang=lang)}\n"
             )
 
-        lines.append("\n_Diz 'responde ao 1' ou 'resume o 2' para interagir._")
+        lines.append(t("email_list_interact", lang=lang))
 
         # Guardar lista no contexto para referenciar por número
         context["email_last_list"] = emails
@@ -488,7 +489,7 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_connect(
-        self, user_id: str
+        self, user_id: str, lang: str = "en"
     ) -> AgentResponse:
         """Handle Gmail connect intent."""
         result = await self._get_connect_url(user_id)
@@ -496,30 +497,19 @@ class EmailAgent(BaseAgent):
         if not result.get("success"):
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                message=(
-                    "❌ Não foi possível gerar o link de "
-                    f"conexão. {result.get('error', '')}"
-                ),
+                message=t("email_connect_error", lang=lang, error=result.get('error', '')),
             )
 
         if result.get("already_connected"):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                message=(
-                    "✅ O teu Gmail já está conectado! "
-                    "Diz 'mostra os meus emails' para ver."
-                ),
+                message=t("email_already_connected", lang=lang),
             )
 
         auth_url = result.get("auth_url", "")
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            message=(
-                "🔗 Para conectar o teu Gmail, clica "
-                f"no link:\n{auth_url}\n\n"
-                "Depois de autorizar, diz "
-                "'mostra os meus emails'."
-            ),
+            message=t("email_connect_link", lang=lang, auth_url=auth_url),
             data={"auth_url": auth_url},
         )
 
@@ -528,11 +518,11 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_count(
-        self, user_id: str, context: Dict[str, Any]
+        self, user_id: str, context: Dict[str, Any], lang: str = "en"
     ) -> AgentResponse:
         counts = await self._get_counts(user_id)
 
-        lines = ["📊 *Seus emails*\n"]
+        lines = [t("email_count_header", lang=lang)]
         total_unread = 0
 
         for account, data in counts.items():
@@ -541,12 +531,12 @@ class EmailAgent(BaseAgent):
             total = data.get("total", 0)
             total_unread += unread
             label = self._get_account_label(account)
-            lines.append(f"{icon} **{label}:** {unread} não lidos / {total} total")
+            lines.append(t("email_count_line", lang=lang, icon=icon, label=label, unread=unread, total=total))
 
         if total_unread > 0:
-            lines.append(f"\n🔵 **Total não lidos: {total_unread}**")
+            lines.append(t("email_count_total_unread", lang=lang, count=total_unread))
         else:
-            lines.append("\n✅ Sem emails por ler!")
+            lines.append(t("email_count_all_read", lang=lang))
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -559,26 +549,103 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_summary(
-        self, msg: str, user_id: str, context: Dict[str, Any]
+        self, msg: str, user_id: str, context: Dict[str, Any], lang: str = "en"
     ) -> AgentResponse:
         email = await self._resolve_email_reference(msg, user_id, context)
         if not email:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                message="❌ Não encontrei o email. Podes mostrar a lista primeiro com 'mostra os meus emails'?",
+                message=t("email_not_found", lang=lang),
             )
 
-        summary = await self._summarize_email(email, detailed=True)
-        account_label = self._get_account_label(email.get("account", ""))
+        # PART B: Fetch email body from Gmail API if available
+        body_text = email.get("body_text", "")
+        gmail_id = email.get("id") or email.get("email_id", "")
+        if not body_text and gmail_id:
+            try:
+                gmail = get_service("gmail")
+                if gmail and await gmail.is_connected(user_id):
+                    body_text = await gmail.get_email_body(user_id, gmail_id)
+            except Exception:
+                pass
+
+        # Summarize with LLM using structured prompt
+        summary = await self._summarize_email(
+            {**email, "body_text": body_text}, detailed=True, lang=lang
+        )
+
+        # Classify urgency
+        urgency = await self._classify_urgency({**email, "body_text": body_text})
+        urgency_label = t(f"email_urgency_{urgency}", lang=lang)
+
+        sender = email.get('from_name') or email.get('from_email', '')
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            message=(
-                f"📧 **{account_label}** — Resumo\n\n"
-                f"👤 **De:** {email.get('from_name') or email.get('from_email')}\n"
-                f"📌 **Assunto:** {email.get('subject')}\n\n"
-                f"{summary}"
+            message=t(
+                "email_summary_formatted", lang=lang,
+                sender=sender,
+                subject=email.get('subject', ''),
+                summary=summary,
+                urgency=urgency_label,
             ),
+        )
+
+    async def _handle_summary_all(
+        self, user_id: str, context: Dict[str, Any], lang: str = "en"
+    ) -> AgentResponse:
+        """Summarize the last N emails with short summaries."""
+        emails = await self._fetch_emails(user_id, limit=5)
+        if not emails:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                message=t("email_summary_all_empty", lang=lang),
+            )
+
+        lines = [t("email_summary_all_header", lang=lang)]
+        for i, email in enumerate(emails, 1):
+            # Try to get body from Gmail API
+            body_text = email.get("body_text", "")
+            gmail_id = email.get("id") or email.get("email_id", "")
+            if not body_text and gmail_id:
+                try:
+                    gmail = get_service("gmail")
+                    if gmail and await gmail.is_connected(user_id):
+                        body_text = await gmail.get_email_body(
+                            user_id, gmail_id
+                        )
+                except Exception:
+                    pass
+
+            summary = await self._summarize_email(
+                {**email, "body_text": body_text}, lang=lang
+            )
+            urgency = await self._classify_urgency(
+                {**email, "body_text": body_text}
+            )
+            urgency_label = t(f"email_urgency_{urgency}", lang=lang)
+            sender = (
+                email.get("from_name") or email.get("from_email", "?")
+            )
+            lines.append(
+                f"{i}. "
+                + t(
+                    "email_summary_formatted",
+                    lang=lang,
+                    sender=sender,
+                    subject=email.get("subject", ""),
+                    summary=summary,
+                    urgency=urgency_label,
+                )
+                + "\n"
+            )
+
+        context["email_last_list"] = emails
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            message="\n".join(lines),
+            data={"emails": emails},
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -586,7 +653,7 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_reply_intent(
-        self, msg: str, user_id: str, context: Dict[str, Any]
+        self, msg: str, user_id: str, context: Dict[str, Any], lang: str = "en"
     ) -> AgentResponse:
         email = await self._resolve_email_reference(msg, user_id, context)
         if not email:
@@ -597,14 +664,14 @@ class EmailAgent(BaseAgent):
             else:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    message="❌ Não encontrei nenhum email para responder. Diz 'mostra os meus emails' primeiro.",
+                    message=t("email_no_email_to_reply", lang=lang),
                 )
 
         # Extrair instrução de resposta da mensagem
         instruction = self._extract_reply_instruction(msg)
 
         # Gerar rascunho com GPT
-        draft = await self._generate_reply_draft(email, instruction)
+        draft = await self._generate_reply_draft(email, instruction, lang=lang)
 
         account_label = self._get_account_label(email.get("account", ""))
 
@@ -621,13 +688,12 @@ class EmailAgent(BaseAgent):
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            message=(
-                f"📝 *Rascunho de resposta — {account_label}*\n\n"
-                f"**Para:** {email.get('from_email')}\n"
-                f"**Assunto:** Re: {email.get('subject')}\n\n"
-                f"---\n{draft}\n---\n\n"
-                f"✅ Diz **'sim'** para enviar ou **'não'** para cancelar.\n"
-                f"Ou diz o que queres alterar."
+            message=t(
+                "email_draft_header", lang=lang,
+                account=account_label,
+                to=email.get('from_email'),
+                subject=email.get('subject'),
+                draft=draft,
             ),
         )
 
@@ -641,12 +707,13 @@ class EmailAgent(BaseAgent):
         user_id: str,
         context: Dict[str, Any],
         pending: Dict[str, Any],
+        lang: str = "en",
     ) -> AgentResponse:
         if _RE_CANCEL.search(msg) and not _RE_CONFIRM.search(msg):
             context.pop("email_pending_reply", None)
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                message="✅ Resposta cancelada. Email não enviado.",
+                message=t("email_reply_cancelled", lang=lang),
             )
 
         if _RE_CONFIRM.search(msg):
@@ -655,7 +722,7 @@ class EmailAgent(BaseAgent):
             if not draft:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    message="❌ Sem rascunho para enviar. Pede uma resposta primeiro.",
+                    message=t("email_no_draft", lang=lang),
                 )
 
             try:
@@ -671,9 +738,10 @@ class EmailAgent(BaseAgent):
                 if not send_result.get("success"):
                     error_msg = send_result.get("error", "Erro desconhecido")
                     auth_url = send_result.get("auth_url")
-                    msg_text = f"❌ {error_msg}"
                     if auth_url:
-                        msg_text += f"\n\n🔗 Conecta o Gmail: {auth_url}"
+                        msg_text = t("email_send_error_with_auth", lang=lang, error=error_msg, auth_url=auth_url)
+                    else:
+                        msg_text = f"❌ {error_msg}"
                     return AgentResponse(
                         status=AgentStatus.ERROR,
                         message=msg_text,
@@ -703,14 +771,14 @@ class EmailAgent(BaseAgent):
 
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    message=f"✅ Resposta enviada pelo {account_label}!",
+                    message=t("email_reply_sent", lang=lang, account=account_label),
                 )
 
             except Exception as e:
                 self.logger.error("Erro ao enviar reply: %s", e)
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    message=f"❌ Erro ao enviar: {e}\nTente novamente.",
+                    message=t("email_send_error", lang=lang, error=str(e)),
                 )
 
         # Check for ignore intent within confirmation flow
@@ -718,7 +786,7 @@ class EmailAgent(BaseAgent):
             context.pop("email_pending_reply", None)
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                message="✅ Email ignorado. Não vou notificar-te sobre este.",
+                message=t("email_ignored", lang=lang),
             )
 
         # Não foi sim nem não — pode ser uma alteração ao rascunho
@@ -728,17 +796,13 @@ class EmailAgent(BaseAgent):
             "subject": pending.get("subject", ""),
             "body_text": pending.get("body_text", ""),
         }
-        new_draft = await self._generate_reply_draft(email_ctx, new_instruction)
+        new_draft = await self._generate_reply_draft(email_ctx, new_instruction, lang=lang)
         pending["draft"] = new_draft
         context["email_pending_reply"] = pending
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            message=(
-                f"📝 *Rascunho actualizado:*\n\n"
-                f"---\n{new_draft}\n---\n\n"
-                f"✅ **'sim'** para enviar ou **'não'** para cancelar."
-            ),
+            message=t("email_draft_updated", lang=lang, draft=new_draft),
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -746,7 +810,7 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_sent_replies(
-        self, user_id: str, context: Dict[str, Any]
+        self, user_id: str, context: Dict[str, Any], lang: str = "en"
     ) -> AgentResponse:
         try:
             replies = await edb.get_sent_replies(user_id)
@@ -756,15 +820,15 @@ class EmailAgent(BaseAgent):
         if not replies:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                message="📭 Ainda não respondi a nenhum email por ti.",
+                message=t("email_no_sent_replies", lang=lang),
             )
 
-        lines = ["📤 *Emails respondidos pelo bot*\n"]
+        lines = [t("email_sent_replies_header", lang=lang)]
         for i, r in enumerate(replies[:10], 1):
             lines.append(
                 f"{i}. **Para:** {r.get('to_email', '?')}\n"
-                f"   _{r.get('subject', '(sem assunto)')}_\n"
-                f"   📅 {self._format_time(r.get('sent_at', ''))}\n"
+                f"   _{r.get('subject', t('email_no_subject', lang=lang))}_\n"
+                f"   📅 {self._format_time(r.get('sent_at', ''), lang=lang)}\n"
             )
 
         return AgentResponse(
@@ -778,12 +842,12 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_ignore(
-        self, msg: str, user_id: str, context: Dict[str, Any]
+        self, msg: str, user_id: str, context: Dict[str, Any], lang: str = "en"
     ) -> AgentResponse:
         context.pop("email_pending_reply", None)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            message="✅ Email ignorado. Não vou notificar-te sobre este.",
+            message=t("email_ignored", lang=lang),
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -791,22 +855,27 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _summarize_email(
-        self, email: Dict[str, Any], detailed: bool = False
+        self, email: Dict[str, Any], detailed: bool = False, lang: str = "en"
     ) -> str:
         body = (email.get("body_text") or "")[:2000]
         if not body:
-            return "_Sem corpo de email._"
+            return t("email_no_body", lang=lang)
 
         if not self._ai:
             return body[:300] + ("..." if len(body) > 300 else "")
 
-        prompt = (
-            f"Resume este email de forma clara e concisa em português.\n"
-            f"{'Dá um resumo detalhado.' if detailed else 'Máximo 3 linhas.'}\n\n"
-            f"De: {email.get('from_name') or email.get('from_email')}\n"
-            f"Assunto: {email.get('subject')}\n\n"
-            f"{body}"
-        )
+        sender = email.get('from_name') or email.get('from_email', '')
+        subject = email.get('subject', '')
+        if detailed:
+            prompt = t(
+                "email_summary_prompt_detailed", lang=lang,
+                sender=sender, subject=subject, body=body,
+            )
+        else:
+            prompt = t(
+                "email_summary_prompt", lang=lang,
+                sender=sender, subject=subject, body=body,
+            )
         try:
             response = await self._ai.complete(prompt, max_tokens=300)
             return response.strip()
@@ -852,26 +921,30 @@ class EmailAgent(BaseAgent):
         return "medium"
 
     async def _generate_reply_draft(
-        self, email: Dict[str, Any], instruction: Optional[str] = None
+        self, email: Dict[str, Any],
+        instruction: Optional[str] = None, lang: str = "en"
     ) -> str:
         if not self._ai:
-            return f"Obrigado pelo seu email sobre '{email.get('subject', '')}'. Fico aguardando."
+            return t("email_reply_fallback", lang=lang, subject=email.get('subject', ''))
 
-        prompt = (
-            f"Gera uma resposta profissional e natural em português para este email.\n"
-            f"{'Instrução: ' + instruction if instruction else 'Resposta educada e concisa.'}\n\n"
-            f"Email original:\n"
-            f"De: {email.get('from_name') or email.get('from_email', '')}\n"
-            f"Assunto: {email.get('subject', '')}\n"
-            f"Corpo: {(email.get('body_text') or '')[:1000]}\n\n"
-            f"Escreve apenas o corpo da resposta, sem saudação de assunto."
+        instr = (
+            t("email_reply_instruction", lang=lang, instruction=instruction)
+            if instruction
+            else t("email_reply_default_instruction", lang=lang)
+        )
+        sender = email.get('from_name') or email.get('from_email', '')
+        prompt = t(
+            "email_reply_prompt", lang=lang,
+            instruction=instr, sender=sender,
+            subject=email.get('subject', ''),
+            body=(email.get('body_text') or '')[:1000],
         )
         try:
             response = await self._ai.complete(prompt, max_tokens=400)
             return response.strip()
         except Exception as e:
             self.logger.warning("Erro ao gerar rascunho: %s", e)
-            return "Obrigado pela sua mensagem. Irei responder em breve."
+            return t("email_reply_fallback_generic", lang=lang)
 
     # ──────────────────────────────────────────────────────────────────────────
     # DATABASE HELPERS
@@ -1122,7 +1195,7 @@ class EmailAgent(BaseAgent):
         return None
 
     @staticmethod
-    def _format_time(dt_str: str) -> str:
+    def _format_time(dt_str: str, lang: str = "en") -> str:
         try:
             from datetime import datetime
 
@@ -1130,11 +1203,11 @@ class EmailAgent(BaseAgent):
             now = datetime.now(timezone.utc)
             diff = now - dt
             if diff.days == 0:
-                return f"hoje às {dt.strftime('%H:%M')}"
+                return t("email_today_at", lang=lang, time=dt.strftime('%H:%M'))
             elif diff.days == 1:
-                return "ontem"
+                return t("email_yesterday", lang=lang)
             elif diff.days < 7:
-                return f"há {diff.days} dias"
+                return t("email_days_ago", lang=lang, days=diff.days)
             return dt.strftime("%d/%m/%Y")
         except Exception:
             return dt_str[:10] if dt_str else ""

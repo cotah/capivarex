@@ -28,6 +28,7 @@ import httpx
 
 from services.auth.google_oauth_service import get_google_oauth
 from services.core import BaseService, ServiceUnavailableError, register_service
+from services.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,7 @@ class GmailService(BaseService):
         oauth = get_google_oauth()
         if not oauth.is_configured:
             raise ServiceUnavailableError(
-                "GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET "
-                "não configurados. Gmail OAuth2 não disponível."
+                t("gmail_oauth_not_configured")
             )
         self.logger.info(
             "GmailService initialized (OAuth2 via GoogleOAuthService)"
@@ -83,8 +83,7 @@ class GmailService(BaseService):
         access_token = await oauth.get_valid_access_token(user_id)
         if not access_token:
             raise ServiceUnavailableError(
-                "Gmail não conectado. "
-                "Usa 'conectar gmail' para autorizar."
+                t("gmail_not_connected")
             )
 
         url = f"{GMAIL_API_BASE}/{endpoint}"
@@ -106,8 +105,7 @@ class GmailService(BaseService):
         if resp.status_code == 401:
             self._track_call(latency, error=True)
             raise ServiceUnavailableError(
-                "Token Gmail expirado ou revogado. "
-                "Reconecta com 'conectar gmail'."
+                t("gmail_token_expired")
             )
         if resp.status_code == 204:
             self._track_call(latency, error=False)
@@ -213,7 +211,7 @@ class GmailService(BaseService):
                     headers.get("from", "")
                 ),
                 "to": headers.get("to", ""),
-                "subject": headers.get("subject", "(sem assunto)"),
+                "subject": headers.get("subject", t("gmail_no_subject")),
                 "date": headers.get("date", ""),
                 "snippet": data.get("snippet", ""),
                 "is_unread": "UNREAD" in label_ids,

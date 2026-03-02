@@ -124,4 +124,5 @@ def sample_context():
         "tenant_id": "default",
         "channel": "websocket",
         "user_location": "Dublin",
+        "lang": "pt",
     }

@@ -24,6 +24,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from services.auth.google_oauth_service import get_google_oauth
+from services.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +83,7 @@ async def google_connect(
     if not oauth.is_configured:
         raise HTTPException(
             status_code=503,
-            detail="Google OAuth2 não configurado. "
-            "Defina GOOGLE_OAUTH_CLIENT_ID e "
-            "GOOGLE_OAUTH_CLIENT_SECRET.",
+            detail=t("oauth_not_configured"),
         )
 
     auth_url = oauth.get_auth_url(user_id)
@@ -109,13 +108,13 @@ async def google_callback(
     if error:
         logger.warning("Google OAuth error: %s", error)
         return HTMLResponse(
-            content=_error_page(f"Google retornou erro: {error}"),
+            content=_error_page(t("oauth_google_error", error=error)),
             status_code=400,
         )
 
     if not code or not state:
         return HTMLResponse(
-            content=_error_page("Parâmetros em falta (code ou state)."),
+            content=_error_page(t("oauth_missing_params")),
             status_code=400,
         )
 
@@ -133,13 +132,13 @@ async def google_callback(
     except ValueError as e:
         logger.error("OAuth callback ValueError: %s", e)
         return HTMLResponse(
-            content=_error_page(f"State inválido: {e}"),
+            content=_error_page(t("oauth_invalid_state", error=str(e))),
             status_code=400,
         )
     except Exception as e:
         logger.error("OAuth callback failed: %s", e, exc_info=True)
         return HTMLResponse(
-            content=_error_page(f"Erro ao conectar: {e}"),
+            content=_error_page(t("oauth_connect_error", error=str(e))),
             status_code=500,
         )
 
@@ -185,10 +184,10 @@ async def google_disconnect(
 
     if success:
         logger.info("Google disconnected: user=%s", user_id)
-        return {"success": True, "message": "Conta Google desconectada."}
+        return {"success": True, "message": t("oauth_disconnected")}
     else:
         raise HTTPException(
-            status_code=500, detail="Falha ao desconectar conta Google."
+            status_code=500, detail=t("oauth_disconnect_failed")
         )
 
 
@@ -198,12 +197,16 @@ async def google_disconnect(
 def _success_page(email: str, name: str) -> str:
     """Página HTML de sucesso após conectar Google."""
     display = name or email
+    title = t("oauth_success_title")
+    heading = t("oauth_success_heading")
+    message = t("oauth_success_message", name=display)
+    close_msg = t("oauth_success_close")
     return f"""<!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Conectado!</title>
+    <title>{title}</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -233,10 +236,10 @@ def _success_page(email: str, name: str) -> str:
 <body>
     <div class="card">
         <div class="icon">&#10004;</div>
-        <h1>Google Conectado!</h1>
+        <h1>{heading}</h1>
         <p class="email">{email}</p>
-        <p>Ol&aacute; {display}! O Jarvis agora tem acesso ao teu Calendar e Gmail.</p>
-        <p class="close">Podes fechar esta janela e voltar ao Telegram.</p>
+        <p>{message}</p>
+        <p class="close">{close_msg}</p>
     </div>
 </body>
 </html>"""
@@ -244,12 +247,15 @@ def _success_page(email: str, name: str) -> str:
 
 def _error_page(error: str) -> str:
     """Página HTML de erro."""
+    title = t("oauth_error_page_title")
+    heading = t("oauth_error_heading")
+    retry = t("oauth_error_retry")
     return f"""<!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Erro</title>
+    <title>{title}</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -278,9 +284,9 @@ def _error_page(error: str) -> str:
 <body>
     <div class="card">
         <div class="icon">&#10060;</div>
-        <h1>Erro ao Conectar</h1>
+        <h1>{heading}</h1>
         <p>{error}</p>
-        <p>Tenta novamente ou fala com o admin.</p>
+        <p>{retry}</p>
     </div>
 </body>
 </html>"""

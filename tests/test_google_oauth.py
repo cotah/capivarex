@@ -267,7 +267,7 @@ async def test_handle_callback_success(oauth_configured):
 @pytest.mark.asyncio
 async def test_handle_callback_invalid_state(oauth_configured):
     """handle_callback raises ValueError on invalid state."""
-    with pytest.raises(ValueError, match="State inválido"):
+    with pytest.raises(ValueError, match="(Invalid state|State inválido)"):
         await oauth_configured.handle_callback(
             code="code", state_b64="not-valid-base64!!!"
         )

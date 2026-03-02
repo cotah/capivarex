@@ -115,7 +115,7 @@ def test_callback_success():
         )
 
     assert resp.status_code == 200
-    assert "Conectado" in resp.text
+    assert "Connected" in resp.text or "Conectado" in resp.text
     assert "test@gmail.com" in resp.text
 
 
@@ -152,7 +152,12 @@ def test_callback_missing_params():
         resp = client.get("/api/auth/google/callback")
 
     assert resp.status_code == 400
-    assert "falta" in resp.text.lower() or "Parâmetros" in resp.text
+    assert (
+        "falta" in resp.text.lower()
+        or "Parâmetros" in resp.text
+        or "Missing" in resp.text
+        or "parameters" in resp.text.lower()
+    )
 
 
 # ── /callback ValueError ────────────────────────────────────────────────────
@@ -176,7 +181,12 @@ def test_callback_value_error():
         )
 
     assert resp.status_code == 400
-    assert "State" in resp.text or "inválido" in resp.text
+    assert (
+        "State" in resp.text
+        or "inválido" in resp.text
+        or "Invalid" in resp.text
+        or "state" in resp.text.lower()
+    )
 
 
 # ── /callback generic exception ─────────────────────────────────────────────
@@ -200,7 +210,7 @@ def test_callback_generic_exception():
         )
 
     assert resp.status_code == 500
-    assert "Erro" in resp.text
+    assert "Erro" in resp.text or "Error" in resp.text
 
 
 # ── /status connected ───────────────────────────────────────────────────────
@@ -252,6 +262,73 @@ def test_disconnect_success():
 
 
 # ── /disconnect failure ─────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_resolve_user_id_non_numeric():
+    """_resolve_user_id returns non-numeric IDs unchanged."""
+    from api.routes.google_auth import _resolve_user_id
+
+    result = await _resolve_user_id("abc-uuid-123")
+    assert result == "abc-uuid-123"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_resolve_user_id_numeric_no_db():
+    """_resolve_user_id returns numeric ID when DB service unavailable."""
+    from api.routes.google_auth import _resolve_user_id
+
+    with patch("services.core.get_service", return_value=None):
+        result = await _resolve_user_id("6316076982")
+    assert result == "6316076982"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_resolve_user_id_numeric_with_db():
+    """_resolve_user_id resolves numeric telegram_id to UUID."""
+    from api.routes.google_auth import _resolve_user_id
+
+    mock_db = AsyncMock()
+    mock_db.is_initialized.return_value = True
+    mock_db.get_user_by_telegram_id = AsyncMock(
+        return_value={"id": "uuid-resolved-123"}
+    )
+
+    with patch("services.core.get_service", return_value=mock_db):
+        result = await _resolve_user_id("6316076982")
+    assert result == "uuid-resolved-123"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_resolve_user_id_numeric_not_found():
+    """_resolve_user_id returns original ID when telegram_id not in DB."""
+    from api.routes.google_auth import _resolve_user_id
+
+    mock_db = AsyncMock()
+    mock_db.is_initialized.return_value = True
+    mock_db.get_user_by_telegram_id = AsyncMock(return_value=None)
+
+    with patch("services.core.get_service", return_value=mock_db):
+        result = await _resolve_user_id("9999999")
+    assert result == "9999999"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_resolve_user_id_db_exception():
+    """_resolve_user_id handles DB exceptions gracefully."""
+    from api.routes.google_auth import _resolve_user_id
+
+    with patch(
+        "services.core.get_service",
+        side_effect=Exception("DB down"),
+    ):
+        result = await _resolve_user_id("6316076982")
+    assert result == "6316076982"
 
 
 @pytest.mark.unit

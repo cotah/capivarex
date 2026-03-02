@@ -28,6 +28,8 @@ from urllib.parse import urlencode
 import httpx
 from dotenv import load_dotenv
 
+from services.i18n import t
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
@@ -120,7 +122,7 @@ class GoogleOAuthService:
             )
             user_id = state_data["user_id"]
         except Exception as e:
-            raise ValueError(f"State inválido no callback: {e}")
+            raise ValueError(t("oauth_state_invalid", error=str(e)))
 
         # 2. Trocar code por tokens
         async with httpx.AsyncClient() as client:
@@ -136,8 +138,7 @@ class GoogleOAuthService:
             )
             if resp.status_code != 200:
                 raise RuntimeError(
-                    f"Google token exchange failed "
-                    f"({resp.status_code}): {resp.text}"
+                    t("oauth_token_exchange_failed", status=resp.status_code, detail=resp.text)
                 )
             tokens = resp.json()
 
@@ -153,7 +154,7 @@ class GoogleOAuthService:
             )
             if resp.status_code != 200:
                 raise RuntimeError(
-                    f"Failed to get Google profile: {resp.text}"
+                    t("oauth_profile_failed", detail=resp.text)
                 )
             profile = resp.json()
 
@@ -196,7 +197,7 @@ class GoogleOAuthService:
         sb = get_supabase_client()
         if not sb:
             raise RuntimeError(
-                "Supabase not available for token storage"
+                t("oauth_supabase_unavailable")
             )
 
         expires_at = (
@@ -354,7 +355,7 @@ class GoogleOAuthService:
             )
             if resp.status_code != 200:
                 raise RuntimeError(
-                    f"Token refresh failed: {resp.text}"
+                    t("oauth_token_refresh_failed", detail=resp.text)
                 )
             tokens = resp.json()
 

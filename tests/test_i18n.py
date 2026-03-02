@@ -357,6 +357,140 @@ def test_chat_prompt_portuguese():
     assert "português" in prompt
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# FORMAT ERROR HANDLING TESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_t_format_with_missing_kwarg():
+    """t() returns unformatted string when a placeholder kwarg is missing."""
+    result = t("oauth_token_exchange_failed", lang="en")
+    # Should return the raw string with {status} and {detail} unformatted
+    assert "{status}" in result or "token exchange" in result.lower()
+
+
+def test_t_format_with_wrong_kwarg():
+    """t() returns unformatted string when kwargs don't match placeholders."""
+    result = t("oauth_token_exchange_failed", lang="en", wrong_key="value")
+    assert "token exchange" in result.lower()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NEW I18N STRINGS TESTS (Gmail, OAuth, Calendar, Email)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_gmail_service_strings_exist():
+    """All Gmail service i18n keys exist in STRINGS."""
+    keys = [
+        "gmail_not_connected",
+        "gmail_token_expired",
+        "gmail_no_subject",
+        "gmail_oauth_not_configured",
+    ]
+    for key in keys:
+        assert key in STRINGS, f"Missing i18n key: {key}"
+        for lang in SUPPORTED_LANGS:
+            assert lang in STRINGS[key], f"Missing {lang} for {key}"
+
+
+def test_oauth_strings_exist():
+    """All OAuth i18n keys exist in STRINGS."""
+    keys = [
+        "oauth_state_invalid",
+        "oauth_token_exchange_failed",
+        "oauth_profile_failed",
+        "oauth_supabase_unavailable",
+        "oauth_token_refresh_failed",
+        "oauth_success_title",
+        "oauth_success_heading",
+        "oauth_success_message",
+        "oauth_success_close",
+        "oauth_error_page_title",
+        "oauth_error_heading",
+        "oauth_error_retry",
+    ]
+    for key in keys:
+        assert key in STRINGS, f"Missing i18n key: {key}"
+        for lang in SUPPORTED_LANGS:
+            assert lang in STRINGS[key], f"Missing {lang} for {key}"
+
+
+def test_calendar_agent_strings_exist():
+    """All CalendarAgent i18n keys exist in STRINGS."""
+    keys = [
+        "cal_already_connected",
+        "cal_connect_link",
+        "cal_no_meetings",
+        "cal_next_meeting",
+        "cal_events_today",
+        "cal_no_events_today",
+        "cal_briefing_header",
+        "cal_event_created",
+        "cal_event_missing_title",
+        "cal_event_missing_datetime",
+        "cal_event_invalid_datetime",
+        "cal_event_creation_failed",
+        "cal_traffic_header",
+    ]
+    for key in keys:
+        assert key in STRINGS, f"Missing i18n key: {key}"
+        for lang in SUPPORTED_LANGS:
+            assert lang in STRINGS[key], f"Missing {lang} for {key}"
+
+
+def test_email_agent_strings_exist():
+    """All EmailAgent i18n keys exist in STRINGS."""
+    keys = [
+        "email_help",
+        "email_no_emails",
+        "email_list_title",
+        "email_connect_link",
+        "email_already_connected",
+        "email_count_header",
+        "email_summary_header",
+        "email_no_body",
+        "email_summary_prompt",
+        "email_reply_prompt",
+        "email_urgency_high",
+        "email_urgency_medium",
+        "email_urgency_low",
+        "email_summary_formatted",
+        "email_summary_all_header",
+    ]
+    for key in keys:
+        assert key in STRINGS, f"Missing i18n key: {key}"
+        for lang in SUPPORTED_LANGS:
+            assert lang in STRINGS[key], f"Missing {lang} for {key}"
+
+
+def test_t_new_gmail_strings():
+    """Test actual translations of new Gmail strings."""
+    assert "not connected" in t("gmail_not_connected").lower()
+    assert "conectado" in t("gmail_not_connected", lang="pt").lower()
+
+    assert "(no subject)" == t("gmail_no_subject")
+    assert "(sem assunto)" == t("gmail_no_subject", lang="pt")
+
+
+def test_t_new_email_strings():
+    """Test actual translations of new Email strings."""
+    assert "high" in t("email_urgency_high").lower()
+    assert "alta" in t("email_urgency_high", lang="pt").lower()
+
+    assert "No email body" in t("email_no_body")
+    assert "Sem corpo" in t("email_no_body", lang="pt")
+
+
+def test_t_new_calendar_strings():
+    """Test actual translations of new Calendar strings."""
+    result = t("cal_event_created", lang="pt")
+    assert "criado" in result.lower()
+
+    result_en = t("cal_event_created")
+    assert "created" in result_en.lower()
+
+
 def test_chat_prompt_spanish():
     prompt = get_chat_prompt("es")
     assert "Capivarex" in prompt

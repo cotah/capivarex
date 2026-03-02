@@ -60,7 +60,10 @@ async def test_create_event_missing_title(mock_calendar_service, sample_context)
     result = await agent.execute("Create event", context)
 
     assert result.status == AgentStatus.ERROR
-    assert "titulo" in result.response.lower()
+    assert (
+        "tulo" in result.response.lower()
+        or "title" in result.response.lower()
+    )
     mock_calendar_service.async_create_event.assert_not_called()
 
 
@@ -145,7 +148,10 @@ async def test_create_event_calendar_service_returns_none(
     result = await agent.execute("Create event", context)
 
     assert result.status == AgentStatus.ERROR
-    assert "nao foi possivel criar o evento" in result.response.lower()
+    assert (
+        "criar o evento" in result.response.lower()
+        or "create the event" in result.response.lower()
+    )
 
 
 # ── Query Routing ───────────────────────────────────────────────────────────
@@ -182,7 +188,10 @@ async def test_get_next_meeting_no_results(mock_calendar_service, sample_context
     result = await agent.execute("next meeting", sample_context)
 
     assert result.is_success()
-    assert "nao tem reunioes" in result.response.lower()
+    assert (
+        "reuni" in result.response.lower()
+        or "meeting" in result.response.lower()
+    )
 
 
 @pytest.mark.unit
@@ -236,7 +245,7 @@ async def test_get_briefing_path(mock_calendar_service, sample_context):
     result = await agent.execute("briefing", sample_context)
 
     assert result.is_success()
-    assert "Calendar Briefing" in result.response
+    assert "Briefing" in result.response
     assert "Standup" in result.response
 
 
@@ -280,11 +289,14 @@ async def test_traffic_check_success(mock_calendar_service):
 
     with patch("agents.core.get_agent", return_value=mock_traffic_agent):
         result = await agent.execute(
-            "traffic", {"user_location": "Dublin", "user_id": "test_user"}
+            "traffic", {"user_location": "Dublin", "user_id": "test_user", "lang": "pt"}
         )
 
     assert result.is_success()
-    assert "Alerta de Trafego" in result.response
+    assert (
+        "Alerta de Tr" in result.response
+        or "Traffic Alert" in result.response
+    )
 
 
 @pytest.mark.unit
@@ -295,11 +307,15 @@ async def test_traffic_check_no_events(mock_calendar_service):
     agent = _build_agent(mock_calendar_service)
 
     result = await agent.execute(
-        "traffic", {"user_location": "Dublin", "user_id": "test_user"}
+        "traffic", {"user_location": "Dublin", "user_id": "test_user", "lang": "pt"}
     )
 
     assert result.status == AgentStatus.ERROR
-    assert "nao tem eventos" in result.response.lower()
+    assert (
+        "eventos" in result.response.lower()
+        or "no events" in result.response.lower()
+        or "no upcoming" in result.response.lower()
+    )
 
 
 # ── Calendar Service Unavailable ────────────────────────────────────────────
@@ -313,7 +329,7 @@ async def test_service_unavailable():
     agent._calendar_service = None
 
     with patch("agents.specialized.calendar_agent.get_service", return_value=None):
-        result = await agent.execute("today", {})
+        result = await agent.execute("today", {"lang": "pt"})
 
     assert result.status == AgentStatus.ERROR
     assert (

@@ -789,6 +789,700 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "Ocorreu um erro ao buscar música. Tente novamente.",
         "es": "Ocurrió un error al buscar música. Inténtalo de nuevo.",
     },
+    # ══════════════════════════════════════════════════════════════════════════
+    # GMAIL SERVICE
+    # ══════════════════════════════════════════════════════════════════════════
+    "gmail_not_connected": {
+        "en": "Gmail not connected. Use 'connect gmail' to authorize.",
+        "pt": "Gmail não conectado. Usa 'conectar gmail' para autorizar.",
+        "es": "Gmail no conectado. Usa 'conectar gmail' para autorizar.",
+    },
+    "gmail_token_expired": {
+        "en": "Gmail token expired or revoked. Reconnect with 'connect gmail'.",
+        "pt": "Token Gmail expirado ou revogado. Reconecta com 'conectar gmail'.",
+        "es": "Token de Gmail expirado o revocado. Reconecta con 'conectar gmail'.",
+    },
+    "gmail_no_subject": {
+        "en": "(no subject)",
+        "pt": "(sem assunto)",
+        "es": "(sin asunto)",
+    },
+    "gmail_oauth_not_configured": {
+        "en": "GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET "
+        "not configured. Gmail OAuth2 not available.",
+        "pt": "GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET "
+        "não configurados. Gmail OAuth2 não disponível.",
+        "es": "GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET "
+        "no configurados. Gmail OAuth2 no disponible.",
+    },
+    # ══════════════════════════════════════════════════════════════════════════
+    # GOOGLE OAUTH SERVICE
+    # ══════════════════════════════════════════════════════════════════════════
+    "oauth_state_invalid": {
+        "en": "Invalid state in callback: {error}",
+        "pt": "State inválido no callback: {error}",
+        "es": "Estado inválido en callback: {error}",
+    },
+    "oauth_token_exchange_failed": {
+        "en": "Google token exchange failed ({status}): {detail}",
+        "pt": "Falha na troca de token Google ({status}): {detail}",
+        "es": "Fallo en intercambio de token Google ({status}): {detail}",
+    },
+    "oauth_profile_failed": {
+        "en": "Failed to get Google profile: {detail}",
+        "pt": "Falha ao obter perfil Google: {detail}",
+        "es": "Fallo al obtener perfil de Google: {detail}",
+    },
+    "oauth_supabase_unavailable": {
+        "en": "Supabase not available for token storage",
+        "pt": "Supabase não disponível para guardar tokens",
+        "es": "Supabase no disponible para almacenar tokens",
+    },
+    "oauth_token_refresh_failed": {
+        "en": "Token refresh failed: {detail}",
+        "pt": "Falha ao renovar token: {detail}",
+        "es": "Fallo al renovar token: {detail}",
+    },
+    # ══════════════════════════════════════════════════════════════════════════
+    # AUTH ROUTES — Google OAuth HTML pages & messages
+    # ══════════════════════════════════════════════════════════════════════════
+    "oauth_not_configured": {
+        "en": "Google OAuth2 not configured. "
+        "Set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.",
+        "pt": "Google OAuth2 não configurado. "
+        "Defina GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET.",
+        "es": "Google OAuth2 no configurado. "
+        "Configure GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET.",
+    },
+    "oauth_google_error": {
+        "en": "Google returned an error: {error}",
+        "pt": "Google retornou erro: {error}",
+        "es": "Google devolvió un error: {error}",
+    },
+    "oauth_missing_params": {
+        "en": "Missing parameters (code or state).",
+        "pt": "Parâmetros em falta (code ou state).",
+        "es": "Parámetros faltantes (code o state).",
+    },
+    "oauth_invalid_state": {
+        "en": "Invalid state: {error}",
+        "pt": "State inválido: {error}",
+        "es": "Estado inválido: {error}",
+    },
+    "oauth_connect_error": {
+        "en": "Error connecting: {error}",
+        "pt": "Erro ao conectar: {error}",
+        "es": "Error al conectar: {error}",
+    },
+    "oauth_disconnected": {
+        "en": "Google account disconnected.",
+        "pt": "Conta Google desconectada.",
+        "es": "Cuenta de Google desconectada.",
+    },
+    "oauth_disconnect_failed": {
+        "en": "Failed to disconnect Google account.",
+        "pt": "Falha ao desconectar conta Google.",
+        "es": "Fallo al desconectar cuenta de Google.",
+    },
+    "oauth_success_title": {
+        "en": "Connected!",
+        "pt": "Conectado!",
+        "es": "¡Conectado!",
+    },
+    "oauth_success_heading": {
+        "en": "Google Connected!",
+        "pt": "Google Conectado!",
+        "es": "¡Google Conectado!",
+    },
+    "oauth_success_message": {
+        "en": "Hello {name}! Jarvis now has access to your Calendar and Gmail.",
+        "pt": "Olá {name}! O Jarvis agora tem acesso ao teu Calendar e Gmail.",
+        "es": "¡Hola {name}! Jarvis ahora tiene acceso a tu Calendar y Gmail.",
+    },
+    "oauth_success_close": {
+        "en": "You can close this window and go back to Telegram.",
+        "pt": "Podes fechar esta janela e voltar ao Telegram.",
+        "es": "Puedes cerrar esta ventana y volver a Telegram.",
+    },
+    "oauth_error_page_title": {
+        "en": "Error",
+        "pt": "Erro",
+        "es": "Error",
+    },
+    "oauth_error_heading": {
+        "en": "Connection Error",
+        "pt": "Erro ao Conectar",
+        "es": "Error al Conectar",
+    },
+    "oauth_error_retry": {
+        "en": "Try again or contact the admin.",
+        "pt": "Tenta novamente ou fala com o admin.",
+        "es": "Inténtalo de nuevo o contacta al admin.",
+    },
+    # ══════════════════════════════════════════════════════════════════════════
+    # CALENDAR AGENT (expanded)
+    # ══════════════════════════════════════════════════════════════════════════
+    "cal_already_connected": {
+        "en": "Your Google account is already connected! "
+        "Calendar and Gmail active.",
+        "pt": "A tua conta Google já está conectada! "
+        "Calendar e Gmail activos.",
+        "es": "¡Tu cuenta de Google ya está conectada! "
+        "Calendar y Gmail activos.",
+    },
+    "cal_connect_link": {
+        "en": "Click the link to connect your Google account "
+        "(Calendar + Gmail):\n{auth_url}",
+        "pt": "Clica no link para conectar a tua conta Google "
+        "(Calendar + Gmail):\n{auth_url}",
+        "es": "Haz clic en el enlace para conectar tu cuenta de Google "
+        "(Calendar + Gmail):\n{auth_url}",
+    },
+    "cal_no_meetings": {
+        "en": "You have no scheduled meetings.",
+        "pt": "Não tens reuniões agendadas.",
+        "es": "No tienes reuniones programadas.",
+    },
+    "cal_no_title": {
+        "en": "Untitled",
+        "pt": "Sem título",
+        "es": "Sin título",
+    },
+    "cal_next_meeting": {
+        "en": "Your next meeting is '{summary}' on {time}",
+        "pt": "A tua próxima reunião é '{summary}' em {time}",
+        "es": "Tu próxima reunión es '{summary}' el {time}",
+    },
+    "cal_next_meeting_location": {
+        "en": " at {location}",
+        "pt": " em {location}",
+        "es": " en {location}",
+    },
+    "cal_no_events_today": {
+        "en": "You have no events scheduled for today.",
+        "pt": "Não tens eventos agendados para hoje.",
+        "es": "No tienes eventos programados para hoy.",
+    },
+    "cal_events_today": {
+        "en": "You have {count} event(s) today:\n\n",
+        "pt": "Tens {count} evento(s) hoje:\n\n",
+        "es": "Tienes {count} evento(s) hoy:\n\n",
+    },
+    "cal_no_events_week": {
+        "en": "You have no events scheduled for this week.",
+        "pt": "Não tens eventos agendados para esta semana.",
+        "es": "No tienes eventos programados para esta semana.",
+    },
+    "cal_events_week": {
+        "en": "You have {count} event(s) this week:\n\n",
+        "pt": "Tens {count} evento(s) esta semana:\n\n",
+        "es": "Tienes {count} evento(s) esta semana:\n\n",
+    },
+    "cal_no_events_upcoming": {
+        "en": "You have no events in the next 7 days.",
+        "pt": "Não tens eventos nos próximos 7 dias.",
+        "es": "No tienes eventos en los próximos 7 días.",
+    },
+    "cal_events_upcoming": {
+        "en": "You have {count} upcoming event(s):\n\n",
+        "pt": "Tens {count} evento(s) próximos:\n\n",
+        "es": "Tienes {count} evento(s) próximos:\n\n",
+    },
+    "cal_briefing_header": {
+        "en": "**Calendar Briefing**\n\n",
+        "pt": "**Briefing do Calendário**\n\n",
+        "es": "**Briefing del Calendario**\n\n",
+    },
+    "cal_briefing_no_events": {
+        "en": "**Today:** No events scheduled.",
+        "pt": "**Hoje:** Sem eventos agendados.",
+        "es": "**Hoy:** Sin eventos programados.",
+    },
+    "cal_briefing_today": {
+        "en": "**Today ({date}):**\n",
+        "pt": "**Hoje ({date}):**\n",
+        "es": "**Hoy ({date}):**\n",
+    },
+    "cal_error": {
+        "en": "Error accessing your calendar: {error}",
+        "pt": "Erro ao acessar o teu calendário: {error}",
+        "es": "Error al acceder a tu calendario: {error}",
+    },
+    "cal_event_missing_title": {
+        "en": "Couldn't identify the event title. "
+        "Please specify what you want to schedule.",
+        "pt": "Não consegui identificar o título do evento. "
+        "Por favor, especifica o que queres agendar.",
+        "es": "No pude identificar el título del evento. "
+        "Por favor, especifica qué quieres agendar.",
+    },
+    "cal_event_invalid_datetime": {
+        "en": "Error processing the event date and time. "
+        "Please use a valid format (e.g., 2025-02-15T15:00:00).",
+        "pt": "Erro ao processar data e hora do evento. "
+        "Por favor, usa um formato válido (ex: 2025-02-15T15:00:00).",
+        "es": "Error al procesar la fecha y hora del evento. "
+        "Por favor, usa un formato válido (ej: 2025-02-15T15:00:00).",
+    },
+    "cal_event_missing_datetime": {
+        "en": "Couldn't identify the event date and time. "
+        "Please specify when you want to schedule.",
+        "pt": "Não consegui identificar a data e hora do evento. "
+        "Por favor, especifica quando queres agendar.",
+        "es": "No pude identificar la fecha y hora del evento. "
+        "Por favor, especifica cuándo quieres agendar.",
+    },
+    "cal_event_validation_error": {
+        "en": "Error processing event data: {error}. "
+        "Please use a valid format.",
+        "pt": "Erro ao processar dados do evento: {error}. "
+        "Por favor, usa um formato válido.",
+        "es": "Error al procesar datos del evento: {error}. "
+        "Por favor, usa un formato válido.",
+    },
+    "cal_event_creation_failed": {
+        "en": "Could not create the event. Please try again.",
+        "pt": "Não foi possível criar o evento. Por favor, tenta novamente.",
+        "es": "No fue posible crear el evento. Por favor, inténtalo de nuevo.",
+    },
+    "cal_event_created": {
+        "en": "Event created successfully!\n\n",
+        "pt": "Evento criado com sucesso!\n\n",
+        "es": "¡Evento creado con éxito!\n\n",
+    },
+    "cal_event_date_label": {
+        "en": "Date: {date}",
+        "pt": "Data: {date}",
+        "es": "Fecha: {date}",
+    },
+    "cal_event_location_label": {
+        "en": "\nLocation: {location}",
+        "pt": "\nLocal: {location}",
+        "es": "\nUbicación: {location}",
+    },
+    "cal_event_description_label": {
+        "en": "\nDescription: {description}",
+        "pt": "\nDescrição: {description}",
+        "es": "\nDescripción: {description}",
+    },
+    "cal_no_events": {
+        "en": "You have no scheduled events.",
+        "pt": "Não tens eventos agendados.",
+        "es": "No tienes eventos programados.",
+    },
+    "cal_no_events_with_location": {
+        "en": "No future events with location found.",
+        "pt": "Nenhum evento futuro com localização encontrado.",
+        "es": "No se encontraron eventos futuros con ubicación.",
+    },
+    "cal_event_all_day": {
+        "en": "The event '{summary}' is an all-day event, "
+        "with no specific time.",
+        "pt": "O evento '{summary}' é um evento de dia inteiro, "
+        "sem horário específico.",
+        "es": "El evento '{summary}' es un evento de todo el día, "
+        "sin horario específico.",
+    },
+    "cal_traffic_partial": {
+        "en": "Next event with location: '{summary}' at {location} "
+        "at {time}. Traffic service not available to check conditions.",
+        "pt": "Próximo evento com local: '{summary}' em {location} "
+        "às {time}. Serviço de tráfego não disponível "
+        "para verificar condições.",
+        "es": "Próximo evento con ubicación: '{summary}' en {location} "
+        "a las {time}. Servicio de tráfico no disponible "
+        "para verificar condiciones.",
+    },
+    "cal_traffic_header": {
+        "en": "Traffic Alert for Event\n\n"
+        "Event: {summary}\n"
+        "Time: {time}\n"
+        "Location: {location}\n\n",
+        "pt": "Alerta de Tráfego para Evento\n\n"
+        "Evento: {summary}\n"
+        "Horário: {time}\n"
+        "Local: {location}\n\n",
+        "es": "Alerta de Tráfico para Evento\n\n"
+        "Evento: {summary}\n"
+        "Horario: {time}\n"
+        "Ubicación: {location}\n\n",
+    },
+    "cal_traffic_error": {
+        "en": "Error checking traffic for event: {error}",
+        "pt": "Erro ao verificar tráfego para evento: {error}",
+        "es": "Error al verificar tráfico para evento: {error}",
+    },
+    # ══════════════════════════════════════════════════════════════════════════
+    # EMAIL AGENT (expanded)
+    # ══════════════════════════════════════════════════════════════════════════
+    "email_help": {
+        "en": "📧 *Email Management*\n\n"
+        "You can tell me:\n"
+        "• _'Show my emails'_\n"
+        "• _'Unread emails from Gmail'_\n"
+        "• _'Reply to the last email'_\n"
+        "• _'Summarize João's email'_\n"
+        "• _'How many emails do I have?'_\n"
+        "• _'Connect Gmail'_",
+        "pt": "📧 *Gestão de Email*\n\n"
+        "Podes dizer-me:\n"
+        "• _'Mostra os meus emails'_\n"
+        "• _'Emails não lidos do Gmail'_\n"
+        "• _'Responde ao último email'_\n"
+        "• _'Resume o email do João'_\n"
+        "• _'Quantos emails tenho?'_\n"
+        "• _'Conectar Gmail'_",
+        "es": "📧 *Gestión de Email*\n\n"
+        "Puedes decirme:\n"
+        "• _'Muestra mis emails'_\n"
+        "• _'Emails no leídos de Gmail'_\n"
+        "• _'Responde al último email'_\n"
+        "• _'Resume el email de João'_\n"
+        "• _'¿Cuántos emails tengo?'_\n"
+        "• _'Conectar Gmail'_",
+    },
+    "email_no_emails": {
+        "en": "📭 No emails{filter} found.",
+        "pt": "📭 Nenhum email{filter} encontrado.",
+        "es": "📭 Ningún email{filter} encontrado.",
+    },
+    "email_filter_from_account": {
+        "en": " from {account}",
+        "pt": " do {account}",
+        "es": " de {account}",
+    },
+    "email_filter_unread": {
+        "en": " unread",
+        "pt": " não lidos",
+        "es": " no leídos",
+    },
+    "email_list_title": {
+        "en": "📧 *Emails{filter} — {account}*\n\n",
+        "pt": "📧 *Emails{filter} — {account}*\n\n",
+        "es": "📧 *Emails{filter} — {account}*\n\n",
+    },
+    "email_no_subject": {
+        "en": "(no subject)",
+        "pt": "(sem assunto)",
+        "es": "(sin asunto)",
+    },
+    "email_list_interact": {
+        "en": "\n_Say 'reply to 1' or 'summarize 2' to interact._",
+        "pt": "\n_Diz 'responde ao 1' ou 'resume o 2' para interagir._",
+        "es": "\n_Di 'responde al 1' o 'resume el 2' para interactuar._",
+    },
+    "email_connect_error": {
+        "en": "❌ Could not generate the connection link. {error}",
+        "pt": "❌ Não foi possível gerar o link de conexão. {error}",
+        "es": "❌ No fue posible generar el enlace de conexión. {error}",
+    },
+    "email_already_connected": {
+        "en": "✅ Your Gmail is already connected! "
+        "Say 'show my emails' to view.",
+        "pt": "✅ O teu Gmail já está conectado! "
+        "Diz 'mostra os meus emails' para ver.",
+        "es": "✅ ¡Tu Gmail ya está conectado! "
+        "Di 'muestra mis emails' para ver.",
+    },
+    "email_connect_link": {
+        "en": "🔗 To connect your Gmail, click the link:\n{auth_url}"
+        "\n\nAfter authorizing, say 'show my emails'.",
+        "pt": "🔗 Para conectar o teu Gmail, clica no link:\n{auth_url}"
+        "\n\nDepois de autorizar, diz 'mostra os meus emails'.",
+        "es": "🔗 Para conectar tu Gmail, haz clic en el enlace:"
+        "\n{auth_url}\n\nDespués de autorizar, di 'muestra mis emails'.",
+    },
+    "email_count_header": {
+        "en": "📊 *Your emails*\n",
+        "pt": "📊 *Seus emails*\n",
+        "es": "📊 *Tus emails*\n",
+    },
+    "email_count_line": {
+        "en": "{icon} **{label}:** {unread} unread / {total} total",
+        "pt": "{icon} **{label}:** {unread} não lidos / {total} total",
+        "es": "{icon} **{label}:** {unread} no leídos / {total} total",
+    },
+    "email_count_total_unread": {
+        "en": "\n🔵 **Total unread: {count}**",
+        "pt": "\n🔵 **Total não lidos: {count}**",
+        "es": "\n🔵 **Total no leídos: {count}**",
+    },
+    "email_count_all_read": {
+        "en": "\n✅ No unread emails!",
+        "pt": "\n✅ Sem emails por ler!",
+        "es": "\n✅ ¡Sin emails por leer!",
+    },
+    "email_not_found": {
+        "en": "❌ Couldn't find the email. "
+        "Show the list first with 'show my emails'?",
+        "pt": "❌ Não encontrei o email. "
+        "Podes mostrar a lista primeiro com 'mostra os meus emails'?",
+        "es": "❌ No encontré el email. "
+        "¿Puedes mostrar la lista primero con 'muestra mis emails'?",
+    },
+    "email_summary_header": {
+        "en": "📧 **{account}** — Summary\n\n"
+        "👤 **From:** {sender}\n"
+        "📌 **Subject:** {subject}\n\n{summary}",
+        "pt": "📧 **{account}** — Resumo\n\n"
+        "👤 **De:** {sender}\n"
+        "📌 **Assunto:** {subject}\n\n{summary}",
+        "es": "📧 **{account}** — Resumen\n\n"
+        "👤 **De:** {sender}\n"
+        "📌 **Asunto:** {subject}\n\n{summary}",
+    },
+    "email_no_email_to_reply": {
+        "en": "❌ Couldn't find any email to reply to. "
+        "Say 'show my emails' first.",
+        "pt": "❌ Não encontrei nenhum email para responder. "
+        "Diz 'mostra os meus emails' primeiro.",
+        "es": "❌ No encontré ningún email para responder. "
+        "Di 'muestra mis emails' primero.",
+    },
+    "email_draft_header": {
+        "en": "📝 *Reply draft — {account}*\n\n"
+        "**To:** {to}\n**Subject:** Re: {subject}\n\n"
+        "---\n{draft}\n---\n\n"
+        "✅ Say **'yes'** to send or **'no'** to cancel.\n"
+        "Or say what you want to change.",
+        "pt": "📝 *Rascunho de resposta — {account}*\n\n"
+        "**Para:** {to}\n**Assunto:** Re: {subject}\n\n"
+        "---\n{draft}\n---\n\n"
+        "✅ Diz **'sim'** para enviar ou **'não'** para cancelar.\n"
+        "Ou diz o que queres alterar.",
+        "es": "📝 *Borrador de respuesta — {account}*\n\n"
+        "**Para:** {to}\n**Asunto:** Re: {subject}\n\n"
+        "---\n{draft}\n---\n\n"
+        "✅ Di **'sí'** para enviar o **'no'** para cancelar.\n"
+        "O di qué quieres cambiar.",
+    },
+    "email_reply_cancelled": {
+        "en": "✅ Reply cancelled. Email not sent.",
+        "pt": "✅ Resposta cancelada. Email não enviado.",
+        "es": "✅ Respuesta cancelada. Email no enviado.",
+    },
+    "email_no_draft": {
+        "en": "❌ No draft to send. Request a reply first.",
+        "pt": "❌ Sem rascunho para enviar. Pede uma resposta primeiro.",
+        "es": "❌ Sin borrador para enviar. Pide una respuesta primero.",
+    },
+    "email_send_error_with_auth": {
+        "en": "❌ {error}\n\n🔗 Connect Gmail: {auth_url}",
+        "pt": "❌ {error}\n\n🔗 Conecta o Gmail: {auth_url}",
+        "es": "❌ {error}\n\n🔗 Conecta Gmail: {auth_url}",
+    },
+    "email_reply_sent": {
+        "en": "✅ Reply sent via {account}!",
+        "pt": "✅ Resposta enviada pelo {account}!",
+        "es": "✅ ¡Respuesta enviada por {account}!",
+    },
+    "email_send_error": {
+        "en": "❌ Error sending: {error}\nTry again.",
+        "pt": "❌ Erro ao enviar: {error}\nTente novamente.",
+        "es": "❌ Error al enviar: {error}\nInténtalo de nuevo.",
+    },
+    "email_ignored": {
+        "en": "✅ Email ignored. I won't notify you about this one.",
+        "pt": "✅ Email ignorado. Não vou notificar-te sobre este.",
+        "es": "✅ Email ignorado. No te notificaré sobre este.",
+    },
+    "email_draft_updated": {
+        "en": "📝 *Draft updated:*\n\n---\n{draft}\n---\n\n"
+        "✅ **'yes'** to send or **'no'** to cancel.",
+        "pt": "📝 *Rascunho actualizado:*\n\n---\n{draft}\n---\n\n"
+        "✅ **'sim'** para enviar ou **'não'** para cancelar.",
+        "es": "📝 *Borrador actualizado:*\n\n---\n{draft}\n---\n\n"
+        "✅ **'sí'** para enviar o **'no'** para cancelar.",
+    },
+    "email_no_sent_replies": {
+        "en": "📭 I haven't replied to any emails for you yet.",
+        "pt": "📭 Ainda não respondi a nenhum email por ti.",
+        "es": "📭 Aún no he respondido a ningún email por ti.",
+    },
+    "email_sent_replies_header": {
+        "en": "📤 *Emails replied by bot*\n",
+        "pt": "📤 *Emails respondidos pelo bot*\n",
+        "es": "📤 *Emails respondidos por el bot*\n",
+    },
+    "email_no_body": {
+        "en": "_No email body._",
+        "pt": "_Sem corpo de email._",
+        "es": "_Sin cuerpo de email._",
+    },
+    "email_incoming_notification": {
+        "en": "{urgency_icon} *{account}* — Email received\n\n"
+        "👤 **From:** {sender}\n"
+        "📌 **Subject:** {subject}\n\n"
+        "📝 **Summary:**\n{summary}\n\n"
+        "💬 Do you want me to reply?",
+        "pt": "{urgency_icon} *{account}* — Email recebido\n\n"
+        "👤 **De:** {sender}\n"
+        "📌 **Assunto:** {subject}\n\n"
+        "📝 **Resumo:**\n{summary}\n\n"
+        "💬 Queres que eu responda?",
+        "es": "{urgency_icon} *{account}* — Email recibido\n\n"
+        "👤 **De:** {sender}\n"
+        "📌 **Asunto:** {subject}\n\n"
+        "📝 **Resumen:**\n{summary}\n\n"
+        "💬 ¿Quieres que responda?",
+    },
+    "email_user_id_required": {
+        "en": "user_id required to send emails.",
+        "pt": "user_id obrigatório para enviar emails.",
+        "es": "user_id obligatorio para enviar emails.",
+    },
+    "email_gmail_unavailable": {
+        "en": "GmailService not available.",
+        "pt": "GmailService não disponível.",
+        "es": "GmailService no disponible.",
+    },
+    "email_gmail_not_connected": {
+        "en": "Gmail not connected.",
+        "pt": "Gmail não conectado.",
+        "es": "Gmail no conectado.",
+    },
+    "email_need_connect_first": {
+        "en": "You need to connect your Gmail first. "
+        "Click the link to authorize.",
+        "pt": "Precisas conectar o teu Gmail primeiro. "
+        "Clica no link para autorizar.",
+        "es": "Necesitas conectar tu Gmail primero. "
+        "Haz clic en el enlace para autorizar.",
+    },
+    "email_connect_url_already": {
+        "en": "Gmail is already connected!",
+        "pt": "Gmail já está conectado!",
+        "es": "¡Gmail ya está conectado!",
+    },
+    "email_connect_url_click": {
+        "en": "Click the link to connect your Gmail.",
+        "pt": "Clica no link para conectar o teu Gmail.",
+        "es": "Haz clic en el enlace para conectar tu Gmail.",
+    },
+    "email_all_accounts": {
+        "en": "all accounts",
+        "pt": "todas as contas",
+        "es": "todas las cuentas",
+    },
+    "email_today_at": {
+        "en": "today at {time}",
+        "pt": "hoje às {time}",
+        "es": "hoy a las {time}",
+    },
+    "email_yesterday": {
+        "en": "yesterday",
+        "pt": "ontem",
+        "es": "ayer",
+    },
+    "email_days_ago": {
+        "en": "{days} days ago",
+        "pt": "há {days} dias",
+        "es": "hace {days} días",
+    },
+    "email_summary_prompt": {
+        "en": "Summarize this email in 2-3 sentences.\n"
+        "Identify:\n"
+        "- Who sent it and what it's about\n"
+        "- Whether it needs a reply or action\n"
+        "- Urgency (high/medium/low)\n\n"
+        "From: {sender}\nSubject: {subject}\n\n{body}",
+        "pt": "Resuma este email em 2-3 frases.\n"
+        "Identifique:\n"
+        "- Quem enviou e sobre o quê\n"
+        "- Se precisa de resposta ou acção\n"
+        "- Urgência (alta/média/baixa)\n\n"
+        "De: {sender}\nAssunto: {subject}\n\n{body}",
+        "es": "Resume este email en 2-3 frases.\n"
+        "Identifica:\n"
+        "- Quién envió y de qué trata\n"
+        "- Si necesita respuesta o acción\n"
+        "- Urgencia (alta/media/baja)\n\n"
+        "De: {sender}\nAsunto: {subject}\n\n{body}",
+    },
+    "email_summary_prompt_detailed": {
+        "en": "Give a detailed summary of this email.\n\n"
+        "From: {sender}\nSubject: {subject}\n\n{body}",
+        "pt": "Dá um resumo detalhado deste email.\n\n"
+        "De: {sender}\nAssunto: {subject}\n\n{body}",
+        "es": "Da un resumen detallado de este email.\n\n"
+        "De: {sender}\nAsunto: {subject}\n\n{body}",
+    },
+    "email_reply_prompt": {
+        "en": "Generate a professional and natural reply to this email.\n"
+        "{instruction}\n\n"
+        "Original email:\nFrom: {sender}\n"
+        "Subject: {subject}\nBody: {body}\n\n"
+        "Write only the reply body, no subject greeting.",
+        "pt": "Gera uma resposta profissional e natural em português "
+        "para este email.\n{instruction}\n\n"
+        "Email original:\nDe: {sender}\n"
+        "Assunto: {subject}\nCorpo: {body}\n\n"
+        "Escreve apenas o corpo da resposta, sem saudação de assunto.",
+        "es": "Genera una respuesta profesional y natural en español "
+        "para este email.\n{instruction}\n\n"
+        "Email original:\nDe: {sender}\n"
+        "Asunto: {subject}\nCuerpo: {body}\n\n"
+        "Escribe solo el cuerpo de la respuesta, sin saludo de asunto.",
+    },
+    "email_reply_instruction": {
+        "en": "Instruction: {instruction}",
+        "pt": "Instrução: {instruction}",
+        "es": "Instrucción: {instruction}",
+    },
+    "email_reply_default_instruction": {
+        "en": "Polite and concise reply.",
+        "pt": "Resposta educada e concisa.",
+        "es": "Respuesta educada y concisa.",
+    },
+    "email_reply_fallback": {
+        "en": "Thank you for your email about '{subject}'. I'll be in touch.",
+        "pt": "Obrigado pelo seu email sobre '{subject}'. Fico aguardando.",
+        "es": "Gracias por tu email sobre '{subject}'. Quedo a la espera.",
+    },
+    "email_reply_fallback_generic": {
+        "en": "Thank you for your message. I will reply soon.",
+        "pt": "Obrigado pela sua mensagem. Irei responder em breve.",
+        "es": "Gracias por tu mensaje. Responderé pronto.",
+    },
+    "email_summary_formatted": {
+        "en": "📧 **From:** {sender}\n"
+        "📌 **Subject:** {subject}\n"
+        "📝 **Summary:** {summary}\n"
+        "⚡ **Urgency:** {urgency}",
+        "pt": "📧 **De:** {sender}\n"
+        "📌 **Assunto:** {subject}\n"
+        "📝 **Resumo:** {summary}\n"
+        "⚡ **Urgência:** {urgency}",
+        "es": "📧 **De:** {sender}\n"
+        "📌 **Asunto:** {subject}\n"
+        "📝 **Resumen:** {summary}\n"
+        "⚡ **Urgencia:** {urgency}",
+    },
+    "email_summary_all_header": {
+        "en": "📧 *Summary of your latest emails*\n\n",
+        "pt": "📧 *Resumo dos teus últimos emails*\n\n",
+        "es": "📧 *Resumen de tus últimos emails*\n\n",
+    },
+    "email_summary_all_empty": {
+        "en": "📭 No emails to summarize.",
+        "pt": "📭 Sem emails para resumir.",
+        "es": "📭 Sin emails para resumir.",
+    },
+    "email_urgency_high": {
+        "en": "High — needs reply",
+        "pt": "Alta — precisa de resposta",
+        "es": "Alta — necesita respuesta",
+    },
+    "email_urgency_medium": {
+        "en": "Medium",
+        "pt": "Média",
+        "es": "Media",
+    },
+    "email_urgency_low": {
+        "en": "Low",
+        "pt": "Baixa",
+        "es": "Baja",
+    },
 }
 
 
