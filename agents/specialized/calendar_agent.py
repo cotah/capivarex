@@ -76,9 +76,17 @@ class CalendarAgent(BaseAgent):
         ],
         "connect": [
             "conectar google",
+            "conectar com google",
+            "conectar ao google",
+            "conectar meu google",
+            "conectar o google",
             "connect google",
             "conectar calendario",
+            "conectar com gmail",
+            "conectar ao gmail",
             "conectar gmail",
+            "ligar google",
+            "ligar gmail",
         ],
     }
 
