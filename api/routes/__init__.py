@@ -1,4 +1,5 @@
 """API routes."""
+
 from . import auth
 from . import chat
 from . import notes
@@ -16,5 +17,25 @@ from . import traffic
 from . import smartthings
 from . import agent_generic
 from . import webhooks
+from . import google_auth
 
-__all__ = ["auth", "chat", "notes", "research", "dev", "workspace", "weather", "finance", "image", "video", "voice", "calendar", "car", "traffic", "smartthings", "agent_generic", "webhooks"]
+__all__ = [
+    "auth",
+    "chat",
+    "notes",
+    "research",
+    "dev",
+    "workspace",
+    "weather",
+    "finance",
+    "image",
+    "video",
+    "voice",
+    "calendar",
+    "car",
+    "traffic",
+    "smartthings",
+    "agent_generic",
+    "webhooks",
+    "google_auth",
+]

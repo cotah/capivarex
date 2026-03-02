@@ -45,6 +45,7 @@ from api.routes import (
     smartthings,
     health,
     music,
+    google_auth,
 )
 from api.routes import webhooks
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
@@ -343,6 +344,7 @@ def debug_agents():
 API_V1 = "/api/v1"
 
 app.include_router(auth.router, prefix=f"{API_V1}/auth", tags=["Authentication"])
+app.include_router(google_auth.router, tags=["Google Auth"])
 app.include_router(chat.router, prefix=f"{API_V1}/chat", tags=["Chat"])
 app.include_router(notes.router, prefix=f"{API_V1}/notes", tags=["Notes"])
 app.include_router(workspace.router, prefix=f"{API_V1}/workspace", tags=["Workspace"])
