@@ -61,7 +61,7 @@ async def test_create_event_missing_title(mock_calendar_service, sample_context)
 
     assert result.status == AgentStatus.ERROR
     assert "titulo" in result.response.lower()
-    mock_calendar_service.create_event.assert_not_called()
+    mock_calendar_service.async_create_event.assert_not_called()
 
 
 @pytest.mark.unit
@@ -79,7 +79,7 @@ async def test_create_event_missing_datetime(mock_calendar_service, sample_conte
 
     assert result.status == AgentStatus.ERROR
     assert "data e hora" in result.response.lower()
-    mock_calendar_service.create_event.assert_not_called()
+    mock_calendar_service.async_create_event.assert_not_called()
 
 
 @pytest.mark.unit
@@ -122,7 +122,7 @@ async def test_create_event_invalid_datetime(mock_calendar_service, sample_conte
 
     assert result.status == AgentStatus.ERROR
     assert "Erro ao processar data e hora" in result.response
-    mock_calendar_service.create_event.assert_not_called()
+    mock_calendar_service.async_create_event.assert_not_called()
 
 
 @pytest.mark.unit
@@ -153,16 +153,23 @@ async def test_create_event_calendar_service_returns_none(
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_process_authentication_failure(mock_calendar_service, sample_context):
-    """Test process returns auth error when authentication fails."""
-    mock_calendar_service._service = None
-    mock_calendar_service.authenticate = Mock(return_value=False)
-    agent = _build_agent(mock_calendar_service)
+async def test_service_unavailable_error_returns_connect_message(sample_context):
+    """Test that ServiceUnavailableError returns connect message."""
+    from services.core import ServiceUnavailableError
+
+    mock_svc = Mock()
+    mock_svc.async_get_today_events = AsyncMock(
+        side_effect=ServiceUnavailableError(
+            "Google Calendar não conectado. "
+            "Conecta a tua conta: http://localhost:8000/api/auth/google/connect?user_id=test"
+        )
+    )
+    agent = _build_agent(mock_svc)
 
     result = await agent.execute("What's on my calendar today?", sample_context)
 
     assert result.status == AgentStatus.ERROR
-    assert result.error == "Authentication failed"
+    assert "conecta" in result.response.lower() or "connect" in result.response.lower()
 
 
 @pytest.mark.unit
@@ -217,16 +224,20 @@ async def test_get_week_events_routes_with_time_range(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_briefing_path(mock_calendar_service, sample_context):
-    """Test briefing path returns calendar briefing text."""
-    mock_calendar_service.generate_calendar_briefing.return_value = "📅 Briefing"
-    mock_calendar_service.async_get_today_events.return_value = [{"id": "1"}]
+    """Test briefing path returns calendar briefing text built from today events."""
+    mock_calendar_service.async_get_today_events.return_value = [
+        {"summary": "Standup", "start": "2026-02-15T09:00:00"}
+    ]
+    mock_calendar_service.format_event_for_briefing.side_effect = lambda e: (
+        f"* {e.get('summary', 'No title')} at 09:00"
+    )
     agent = _build_agent(mock_calendar_service)
 
     result = await agent.execute("briefing", sample_context)
 
     assert result.is_success()
-    assert result.response == "📅 Briefing"
-    assert result.data["events"] == [{"id": "1"}]
+    assert "Calendar Briefing" in result.response
+    assert "Standup" in result.response
 
 
 # ── Traffic Check ───────────────────────────────────────────────────────────
@@ -242,17 +253,19 @@ async def test_traffic_check_success(mock_calendar_service):
     future_dt = datetime.now() + timedelta(days=1)
     future_iso = future_dt.isoformat()
 
-    mock_calendar_service.get_upcoming_events.return_value = [
-        {
-            "id": "event_future",
-            "summary": "Future Meeting",
-            "start": future_iso,
-            "end": (future_dt + timedelta(hours=1)).isoformat(),
-            "location": "Cork, Ireland",
-            "description": "",
-            "attendees": [],
-        }
-    ]
+    mock_calendar_service.async_get_upcoming_events = AsyncMock(
+        return_value=[
+            {
+                "id": "event_future",
+                "summary": "Future Meeting",
+                "start": future_iso,
+                "end": (future_dt + timedelta(hours=1)).isoformat(),
+                "location": "Cork, Ireland",
+                "description": "",
+                "attendees": [],
+            }
+        ]
+    )
 
     mock_traffic_agent = AsyncMock()
     mock_traffic_agent.execute = AsyncMock(
@@ -266,7 +279,9 @@ async def test_traffic_check_success(mock_calendar_service):
     agent = _build_agent(mock_calendar_service)
 
     with patch("agents.core.get_agent", return_value=mock_traffic_agent):
-        result = await agent.execute("traffic", {"user_location": "Dublin"})
+        result = await agent.execute(
+            "traffic", {"user_location": "Dublin", "user_id": "test_user"}
+        )
 
     assert result.is_success()
     assert "Alerta de Trafego" in result.response
@@ -276,10 +291,12 @@ async def test_traffic_check_success(mock_calendar_service):
 @pytest.mark.asyncio
 async def test_traffic_check_no_events(mock_calendar_service):
     """Test traffic check returns error when there are no events."""
-    mock_calendar_service.get_upcoming_events.return_value = []
+    mock_calendar_service.async_get_upcoming_events = AsyncMock(return_value=[])
     agent = _build_agent(mock_calendar_service)
 
-    result = await agent.execute("traffic", {"user_location": "Dublin"})
+    result = await agent.execute(
+        "traffic", {"user_location": "Dublin", "user_id": "test_user"}
+    )
 
     assert result.status == AgentStatus.ERROR
     assert "nao tem eventos" in result.response.lower()

@@ -181,7 +181,7 @@ class ProactivityService(BaseService):
             @calendar_breaker
             async def protected_calendar_call():
                 """Fetch the next meeting via the calendar service (circuit-protected)."""
-                return await asyncio.to_thread(calendar_service.get_next_meeting)
+                return await calendar_service.async_get_next_meeting(user_id=user_id)
 
             tasks["calendar"] = protected_calendar_call()
         else:

@@ -63,22 +63,17 @@ def mock_calendar_service():
         "location": "Cork, Ireland",
     }
 
-    # Sync methods (Service Account fallback)
-    service.create_event = Mock(return_value=_default_event)
-    service.get_upcoming_events = Mock(return_value=_default_upcoming)
-    service.get_next_meeting = Mock(return_value=_default_next)
-    service.get_today_events = Mock(return_value=[])
-    service.generate_calendar_briefing = Mock(return_value="📅 **Calendar Briefing**")
-    service.get_morning_briefing_events = Mock(return_value=[{"id": "1"}])
-    service.format_event_for_briefing = Mock(
-        side_effect=lambda e: f"• {e.get('summary', 'No title')}"
-    )
-
-    # Async methods (OAuth2 per-user) — same return values
+    # Async methods (OAuth2 per-user)
     service.async_create_event = AsyncMock(return_value=_default_event)
+    service.async_create_meeting = AsyncMock(return_value=_default_event)
     service.async_get_upcoming_events = AsyncMock(return_value=_default_upcoming)
     service.async_get_next_meeting = AsyncMock(return_value=_default_next)
     service.async_get_today_events = AsyncMock(return_value=[])
+
+    # Formatting helpers (sync — still used by agents)
+    service.format_event_for_briefing = Mock(
+        side_effect=lambda e: f"• {e.get('summary', 'No title')}"
+    )
 
     return service
 

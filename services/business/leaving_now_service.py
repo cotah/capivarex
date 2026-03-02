@@ -38,16 +38,16 @@ logger = logging.getLogger(__name__)
 
 # Buffers de clima (minutos a adicionar ao tempo de viagem)
 _WEATHER_BUFFERS = {
-    "clear":       0,
-    "sunny":       0,
-    "cloudy":      0,
-    "overcast":    0,
-    "light_rain":  5,
-    "rain":        10,
-    "heavy_rain":  15,
-    "storm":       20,
-    "snow":        25,
-    "blizzard":    30,
+    "clear": 0,
+    "sunny": 0,
+    "cloudy": 0,
+    "overcast": 0,
+    "light_rain": 5,
+    "rain": 10,
+    "heavy_rain": 15,
+    "storm": 20,
+    "snow": 25,
+    "blizzard": 30,
 }
 
 # Tempo de preparação default (minutos)
@@ -64,16 +64,16 @@ class LeavingNowResult:
     event_time: datetime
     suggested_departure: datetime
     minutes_until_departure: float
-    urgency: str                       # LATE | URGENT | SOON | COMFORTABLE | RELAXED
-    message: str                       # Mensagem principal para o utilizador
-    action_message: str                # CTA: "Sai agora" / "Prepara-te em 10 min"
+    urgency: str  # LATE | URGENT | SOON | COMFORTABLE | RELAXED
+    message: str  # Mensagem principal para o utilizador
+    action_message: str  # CTA: "Sai agora" / "Prepara-te em 10 min"
 
     # Detalhes do cálculo
     travel_minutes: float = 0.0
     weather_buffer_minutes: float = 0.0
     transit_delay_minutes: float = 0.0
     prep_minutes: float = _DEFAULT_PREP_MINUTES
-    transport_mode: str = "driving"    # driving | transit
+    transport_mode: str = "driving"  # driving | transit
 
     # Transporte público
     transit_lines: List[Dict] = field(default_factory=list)
@@ -108,9 +108,10 @@ class LeavingNowResult:
                 "transit_delay_minutes": self.transit_delay_minutes,
                 "prep_minutes": self.prep_minutes,
                 "total_buffer_minutes": round(
-                    self.weather_buffer_minutes +
-                    self.transit_delay_minutes +
-                    self.prep_minutes, 1
+                    self.weather_buffer_minutes
+                    + self.transit_delay_minutes
+                    + self.prep_minutes,
+                    1,
                 ),
             },
             "transport_mode": self.transport_mode,
@@ -126,8 +127,7 @@ class LeavingNowResult:
             },
             "distance_km": self.distance_km,
             "estimated_arrival": (
-                self.estimated_arrival.isoformat()
-                if self.estimated_arrival else None
+                self.estimated_arrival.isoformat() if self.estimated_arrival else None
             ),
         }
 
@@ -160,6 +160,7 @@ class LeavingNowService(BaseService):
     async def calculate_for_next_event(
         self,
         user_location: str,
+        user_id: str = "",
         transport_mode: str = "driving",
         prep_minutes: float = _DEFAULT_PREP_MINUTES,
     ) -> Optional[LeavingNowResult]:
@@ -168,6 +169,7 @@ class LeavingNowService(BaseService):
 
         Args:
             user_location:  Localização actual do utilizador (endereço ou cidade)
+            user_id:        ID do utilizador (OAuth2)
             transport_mode: "driving" (carro) ou "transit" (transporte público)
             prep_minutes:   Tempo de preparação do utilizador (minutos)
 
@@ -178,7 +180,7 @@ class LeavingNowService(BaseService):
             await self.initialize()
 
         # 1. Próximo evento com localização
-        event = await self._get_next_event_with_location()
+        event = await self._get_next_event_with_location(user_id=user_id)
         if not event:
             self.logger.info("Nenhum evento com localização encontrado")
             return None
@@ -223,8 +225,9 @@ class LeavingNowService(BaseService):
 
         self.logger.info(
             "A calcular hora de saída: %s → %s às %s",
-            user_location, event_location,
-            event_time.strftime("%H:%M")
+            user_location,
+            event_location,
+            event_time.strftime("%H:%M"),
         )
 
         # 2. Tempo de viagem + clima (paralelo)
@@ -271,11 +274,14 @@ class LeavingNowService(BaseService):
 
         # 6. Fórmula central
         total_buffer = weather_buffer + transit_delay + prep_minutes
-        suggested_departure = event_time - timedelta(minutes=travel_minutes + total_buffer)
+        suggested_departure = event_time - timedelta(
+            minutes=travel_minutes + total_buffer
+        )
 
         now = datetime.now()
         if suggested_departure.tzinfo:
             import pytz
+
             now = now.replace(tzinfo=pytz.UTC)
 
         minutes_until = (suggested_departure - now).total_seconds() / 60
@@ -323,6 +329,7 @@ class LeavingNowService(BaseService):
     async def get_all_events_today(
         self,
         user_location: str,
+        user_id: str = "",
         transport_mode: str = "driving",
         prep_minutes: float = _DEFAULT_PREP_MINUTES,
     ) -> List[LeavingNowResult]:
@@ -342,7 +349,7 @@ class LeavingNowService(BaseService):
             return []
 
         try:
-            events = cal.get_today_events()
+            events = await cal.async_get_today_events(user_id=user_id)
         except Exception as e:
             self.logger.error("Erro ao buscar eventos de hoje: %s", e)
             return []
@@ -367,14 +374,18 @@ class LeavingNowService(BaseService):
     # Private — orquestração
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def _get_next_event_with_location(self) -> Optional[Dict[str, Any]]:
+    async def _get_next_event_with_location(
+        self, user_id: str = ""
+    ) -> Optional[Dict[str, Any]]:
         """Obtém o próximo evento do calendário que tem localização."""
         try:
             cal = get_service("calendar")
             if not cal:
                 return None
 
-            events = cal.get_upcoming_events(max_results=10)
+            events = await cal.async_get_upcoming_events(
+                user_id=user_id, max_results=10
+            )
             now = datetime.now()
 
             for event in events:
@@ -499,7 +510,15 @@ class LeavingNowService(BaseService):
             return best_buffer
 
         # Verifica palavras de chuva/neve genéricas
-        rain_words = ["rain", "drizzle", "shower", "mist", "chuva", "chuvisco", "aguaceiro"]
+        rain_words = [
+            "rain",
+            "drizzle",
+            "shower",
+            "mist",
+            "chuva",
+            "chuvisco",
+            "aguaceiro",
+        ]
         snow_words = ["snow", "sleet", "blizzard", "neve", "granizo"]
 
         if any(w in condition for w in snow_words):
@@ -576,7 +595,9 @@ class LeavingNowService(BaseService):
         buffer_parts = []
         if weather_buffer > 0:
             rain_emoji = "🌧️" if "rain" in weather_condition.lower() else "🌨️"
-            buffer_parts.append(f"{rain_emoji} +{weather_buffer:.0f} min ({weather_condition})")
+            buffer_parts.append(
+                f"{rain_emoji} +{weather_buffer:.0f} min ({weather_condition})"
+            )
         if transit_delay > 0:
             buffer_parts.append(f"🚌 +{transit_delay:.0f} min atraso")
         buffer_note = f" ({' · '.join(buffer_parts)})" if buffer_parts else ""

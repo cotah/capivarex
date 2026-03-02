@@ -52,7 +52,9 @@ class TestInitialize:
                 return mock_redis
             return None
 
-        with patch("services.business.proactivity_service.get_service", side_effect=_get):
+        with patch(
+            "services.business.proactivity_service.get_service", side_effect=_get
+        ):
             svc = ProactivityService()
             await svc._initialize()
         assert svc._openai_client is not None
@@ -60,7 +62,9 @@ class TestInitialize:
 
     @pytest.mark.asyncio
     async def test_initialize_without_services(self):
-        with patch("services.business.proactivity_service.get_service", return_value=None):
+        with patch(
+            "services.business.proactivity_service.get_service", return_value=None
+        ):
             svc = ProactivityService()
             await svc._initialize()
         assert svc._openai_client is None
@@ -68,7 +72,10 @@ class TestInitialize:
 
     @pytest.mark.asyncio
     async def test_initialize_exception_handling(self):
-        with patch("services.business.proactivity_service.get_service", side_effect=RuntimeError("boom")):
+        with patch(
+            "services.business.proactivity_service.get_service",
+            side_effect=RuntimeError("boom"),
+        ):
             svc = ProactivityService()
             await svc._initialize()
         assert svc._openai_client is None
@@ -103,11 +110,15 @@ class TestGatherContext:
 
         svc = _make_service()
         ctx = UserContext(
-            user_id="u1", telegram_chat_id=123, full_name="Test",
+            user_id="u1",
+            telegram_chat_id=123,
+            full_name="Test",
             permissions=["calendar", "weather", "car", "finance", "traffic"],
         )
 
-        with patch("services.business.proactivity_service.get_service", return_value=None):
+        with patch(
+            "services.business.proactivity_service.get_service", return_value=None
+        ):
             result = await svc.gather_context(ctx)
         assert isinstance(result, dict)
 
@@ -118,10 +129,14 @@ class TestGatherContext:
 
         svc = _make_service()
         ctx = UserContext(
-            user_id="u1", telegram_chat_id=123, full_name="Test",
+            user_id="u1",
+            telegram_chat_id=123,
+            full_name="Test",
         )
 
-        with patch("services.business.proactivity_service.get_service", return_value=None):
+        with patch(
+            "services.business.proactivity_service.get_service", return_value=None
+        ):
             with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
                 result = await svc.gather_context(ctx)
         assert isinstance(result, dict)
@@ -159,6 +174,7 @@ class TestIsNotificationAllowed:
     async def test_duplicate_blocked(self):
         """When duplicate hash key exists, notification is blocked."""
         import hashlib
+
         svc = _make_service()
         insight = "same insight"
         insight_hash = hashlib.md5(insight.encode()).hexdigest()
@@ -171,6 +187,7 @@ class TestRecordNotificationSent:
     @pytest.mark.asyncio
     async def test_record_with_redis(self):
         import hashlib
+
         svc = _make_service()
         await svc.record_notification_sent("u1", "test insight")
         # Verify frequency key was set
@@ -203,7 +220,9 @@ class TestAnalyzeContext:
         svc = _make_service()
         mock_resp = Mock()
         mock_resp.choices = [Mock()]
-        mock_resp.choices[0].message = Mock(content="Good morning! Here's your briefing.")
+        mock_resp.choices[0].message = Mock(
+            content="Good morning! Here's your briefing."
+        )
         svc._openai_client.chat.completions.create = AsyncMock(return_value=mock_resp)
 
         result = await svc.analyze_context_for_insights({"weather": {"temp": 20}})
@@ -223,7 +242,9 @@ class TestAnalyzeContext:
     @pytest.mark.asyncio
     async def test_analyze_exception(self):
         svc = _make_service()
-        svc._openai_client.chat.completions.create = AsyncMock(side_effect=RuntimeError("API down"))
+        svc._openai_client.chat.completions.create = AsyncMock(
+            side_effect=RuntimeError("API down")
+        )
 
         result = await svc.analyze_context_for_insights({})
         assert result == ""
@@ -233,7 +254,9 @@ class TestGetCarStatus:
     @pytest.mark.asyncio
     async def test_no_services(self):
         svc = _make_service()
-        with patch("services.business.proactivity_service.get_service", return_value=None):
+        with patch(
+            "services.business.proactivity_service.get_service", return_value=None
+        ):
             result = await svc._get_car_status("u1")
         assert result["connected"] is False
 
@@ -251,7 +274,9 @@ class TestGetCarStatus:
                 return mock_car
             return None
 
-        with patch("services.business.proactivity_service.get_service", side_effect=_get):
+        with patch(
+            "services.business.proactivity_service.get_service", side_effect=_get
+        ):
             result = await svc._get_car_status("u1")
         assert result["connected"] is False
 
@@ -306,7 +331,9 @@ class TestGatherContextPreferences:
         ctx = UserContext(user_id="u1", telegram_chat_id=123, full_name="Test")
 
         with (
-            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_service", return_value=None
+            ),
             patch(
                 "services.business.proactivity_service.get_preferences",
                 new=AsyncMock(side_effect=Exception("boom")),
@@ -329,7 +356,9 @@ class TestGatherContextPreferences:
         }
 
         with (
-            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_service", return_value=None
+            ),
             patch(
                 "services.business.proactivity_service.get_preferences",
                 new=AsyncMock(return_value=prefs),
@@ -350,7 +379,9 @@ class TestGatherContextPreferences:
         prefs = {"work_latitude": 38.72, "work_longitude": -9.15}
 
         with (
-            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_service", return_value=None
+            ),
             patch(
                 "services.business.proactivity_service.get_preferences",
                 new=AsyncMock(return_value=prefs),
@@ -372,12 +403,16 @@ class TestGatherContextServicePaths:
         svc = _make_service()
         device = Device(type="mobile", id="d1", permissions=["weather"])
         ctx = UserContext(
-            user_id="u1", telegram_chat_id=123, full_name="Test",
+            user_id="u1",
+            telegram_chat_id=123,
+            full_name="Test",
             devices=[device],
         )
 
         with (
-            patch("services.business.proactivity_service.get_service", return_value=None),
+            patch(
+                "services.business.proactivity_service.get_service", return_value=None
+            ),
             patch(
                 "services.business.proactivity_service.get_preferences",
                 new=AsyncMock(return_value={}),
@@ -397,11 +432,19 @@ class TestGatherContextServicePaths:
 
         mock_calendar = Mock()
         mock_calendar.is_initialized.return_value = True
-        mock_calendar.get_next_meeting.return_value = {"summary": "Standup", "start": "2026-02-23T10:00:00Z"}
+        mock_calendar.async_get_next_meeting = AsyncMock(
+            return_value={
+                "summary": "Standup",
+                "start": "2026-02-23T10:00:00Z",
+            }
+        )
 
         mock_weather = Mock()
         mock_weather.is_initialized.return_value = True
-        mock_weather.get_current_weather.return_value = {"temp": 18, "description": "cloudy"}
+        mock_weather.get_current_weather.return_value = {
+            "temp": 18,
+            "description": "cloudy",
+        }
 
         mock_car = Mock()
         mock_car.is_initialized.return_value = True
@@ -414,7 +457,9 @@ class TestGatherContextServicePaths:
             }.get(name)
 
         with (
-            patch("services.business.proactivity_service.get_service", side_effect=_get),
+            patch(
+                "services.business.proactivity_service.get_service", side_effect=_get
+            ),
             patch(
                 "services.business.proactivity_service.get_preferences",
                 new=AsyncMock(return_value={"preferred_city": "Porto"}),
@@ -444,7 +489,10 @@ class TestGatherContextServicePaths:
         mock_svc.is_initialized.return_value = True
 
         with (
-            patch("services.business.proactivity_service.get_service", return_value=mock_svc),
+            patch(
+                "services.business.proactivity_service.get_service",
+                return_value=mock_svc,
+            ),
             patch(
                 "services.business.proactivity_service.get_preferences",
                 new=AsyncMock(return_value={}),
@@ -460,7 +508,10 @@ class TestGatherContextServicePaths:
 
 class TestGetProactivityService:
     def test_singleton_getter(self):
-        with patch("services.business.proactivity_service.get_service", return_value=None):
+        with patch(
+            "services.business.proactivity_service.get_service", return_value=None
+        ):
             from services.business.proactivity_service import get_proactivity_service
+
             svc = get_proactivity_service()
             assert isinstance(svc, ProactivityService)

@@ -192,17 +192,18 @@ class LeavingNowAgent(BaseAgent):
 
             transport_mode = _detect_transport_mode(prompt, context)
             prep_minutes = _extract_prep_minutes(prompt, context)
+            user_id = context.get("user_id", "")
 
             # ── Action override (ProactivityService) ─────────────────────────
             if context.get("action") == "check_departure":
                 return await self._handle_proactive(
-                    svc, user_location, transport_mode, prep_minutes
+                    svc, user_location, user_id, transport_mode, prep_minutes
                 )
 
             # ── Todos os eventos de hoje ──────────────────────────────────────
             if _detect_all_today(prompt):
                 return await self._handle_all_today(
-                    svc, user_location, transport_mode, prep_minutes
+                    svc, user_location, user_id, transport_mode, prep_minutes
                 )
 
             # ── Evento específico no context ──────────────────────────────────
@@ -213,7 +214,7 @@ class LeavingNowAgent(BaseAgent):
 
             # ── Query natural → próximo evento ────────────────────────────────
             return await self._handle_next_event(
-                svc, user_location, transport_mode, prep_minutes
+                svc, user_location, user_id, transport_mode, prep_minutes
             )
 
         except Exception as e:
@@ -229,11 +230,12 @@ class LeavingNowAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_next_event(
-        self, svc: Any, location: str, transport_mode: str, prep_minutes: float
+        self, svc: Any, location: str, user_id: str, transport_mode: str, prep_minutes: float
     ) -> AgentResponse:
         """Calcula hora de saída para o próximo evento."""
         result = await svc.calculate_for_next_event(
             user_location=location,
+            user_id=user_id,
             transport_mode=transport_mode,
             prep_minutes=prep_minutes,
         )
@@ -285,11 +287,12 @@ class LeavingNowAgent(BaseAgent):
         )
 
     async def _handle_all_today(
-        self, svc: Any, location: str, transport_mode: str, prep_minutes: float
+        self, svc: Any, location: str, user_id: str, transport_mode: str, prep_minutes: float
     ) -> AgentResponse:
         """Lista hora de saída para todos os eventos de hoje."""
         results = await svc.get_all_events_today(
             user_location=location,
+            user_id=user_id,
             transport_mode=transport_mode,
             prep_minutes=prep_minutes,
         )
@@ -335,7 +338,7 @@ class LeavingNowAgent(BaseAgent):
         )
 
     async def _handle_proactive(
-        self, svc: Any, location: str, transport_mode: str, prep_minutes: float
+        self, svc: Any, location: str, user_id: str, transport_mode: str, prep_minutes: float
     ) -> AgentResponse:
         """
         Chamado pelo ProactivityService.
@@ -343,6 +346,7 @@ class LeavingNowAgent(BaseAgent):
         """
         result = await svc.calculate_for_next_event(
             user_location=location,
+            user_id=user_id,
             transport_mode=transport_mode,
             prep_minutes=prep_minutes,
         )

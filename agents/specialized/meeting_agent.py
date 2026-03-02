@@ -4,7 +4,7 @@ agents/specialized/meeting_agent.py
 =====================================
 MeetingAgent — cria reuniões Google Meet via CalendarService existente.
 
-Não precisa de nova API key — usa a mesma service_account.json do Calendar.
+Usa OAuth2 per-user — o utilizador precisa de ter a conta Google conectada.
 
 Exemplos de queries:
   - "Cria uma reunião com João amanhã às 10h"
@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.core import ServiceUnavailableError
 
 
 # ─── Regex helpers ────────────────────────────────────────────────────────────
@@ -256,20 +257,28 @@ class MeetingAgent(BaseAgent):
                     status=AgentStatus.ERROR,
                     response=(
                         "Serviço de calendário não disponível.\n"
-                        "Verifique se o `GOOGLE_SERVICE_ACCOUNT_FILE` está configurado."
+                        "Verifique a configuração do Google OAuth2."
                     ),
                     error="CalendarService unavailable",
                 )
             if not cal_svc.is_initialized():
                 await cal_svc.initialize()
 
+            user_id = context.get("user_id", "")
+
             # ── Context override (dados já parseados pelo orquestrador) ──────
             if context.get("action") == "create_meeting":
-                return await self._create_from_context(cal_svc, context)
+                return await self._create_from_context(cal_svc, user_id, context)
 
             # ── Extrai dados do prompt natural ────────────────────────────────
-            return await self._create_from_prompt(cal_svc, prompt, context)
+            return await self._create_from_prompt(cal_svc, user_id, prompt, context)
 
+        except ServiceUnavailableError as e:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=str(e),
+                error="Google not connected",
+            )
         except Exception as e:
             self.logger.error("MeetingAgent error: %s", e, exc_info=True)
             return AgentResponse(
@@ -283,7 +292,7 @@ class MeetingAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _create_from_prompt(
-        self, cal_svc: Any, prompt: str, context: Dict[str, Any]
+        self, cal_svc: Any, user_id: str, prompt: str, context: Dict[str, Any]
     ) -> AgentResponse:
         """Cria reunião extraindo dados do prompt natural."""
 
@@ -308,6 +317,7 @@ class MeetingAgent(BaseAgent):
 
         return await self._create_meeting(
             cal_svc=cal_svc,
+            user_id=user_id,
             title=title,
             start_dt=start_dt,
             end_dt=end_dt,
@@ -317,7 +327,7 @@ class MeetingAgent(BaseAgent):
         )
 
     async def _create_from_context(
-        self, cal_svc: Any, context: Dict[str, Any]
+        self, cal_svc: Any, user_id: str, context: Dict[str, Any]
     ) -> AgentResponse:
         """Cria reunião com dados estruturados do context."""
         title = context.get("title", "Reunião")
@@ -346,6 +356,7 @@ class MeetingAgent(BaseAgent):
 
         return await self._create_meeting(
             cal_svc=cal_svc,
+            user_id=user_id,
             title=title,
             start_dt=start_dt,
             end_dt=end_dt,
@@ -357,6 +368,7 @@ class MeetingAgent(BaseAgent):
     async def _create_meeting(
         self,
         cal_svc: Any,
+        user_id: str,
         title: str,
         start_dt: datetime,
         end_dt: datetime,
@@ -366,14 +378,14 @@ class MeetingAgent(BaseAgent):
     ) -> AgentResponse:
         """Cria o evento com Google Meet link via CalendarService."""
 
-        # Usa o método create_meeting do CalendarService (com conferenceData)
-        result = cal_svc.create_meeting(
+        result = await cal_svc.async_create_meeting(
+            user_id=user_id,
             summary=title,
             start_time=start_dt,
             end_time=end_dt,
             attendees=attendees,
             description=description,
-            timezone=tz_str,
+            tz=tz_str,
         )
 
         if not result:
@@ -381,9 +393,9 @@ class MeetingAgent(BaseAgent):
                 status=AgentStatus.ERROR,
                 response=(
                     "Não foi possível criar a reunião. "
-                    "Verifique as permissões da service account no Google Calendar."
+                    "Verifica se a tua conta Google tem permissões de Calendar."
                 ),
-                error="CalendarService.create_meeting returned None",
+                error="CalendarService.async_create_meeting returned None",
             )
 
         meet_link = result.get("meet_link", "")

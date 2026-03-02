@@ -1,17 +1,20 @@
 """
 Calendar Agent - Manages calendar and schedule.
 
-Refactored to use new BaseAgent architecture.
+Uses OAuth2 per-user calendar only.  If the user hasn't
+connected their Google account, returns a message with the
+OAuth2 connect URL.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from schemas.calendar import CalendarEventInput
 from services import get_service
 from services.auth.google_oauth_service import get_google_oauth
+from services.core import ServiceUnavailableError
 from services.i18n import t
 
 
@@ -30,22 +33,18 @@ class CalendarAgent(BaseAgent):
     - Calendar briefings
     - Event creation
     - Traffic alerts for events
+    - Google account connection
     """
 
     def __init__(self):
-        """Initialise the calendar agent."""
         super().__init__(
-            name="calendar", description="Manages calendar, meetings, and schedule"
+            name="calendar",
+            description="Manages calendar, meetings, and schedule",
         )
         self._calendar_service: Optional[Any] = None
 
     async def _get_calendar_service(self) -> Optional[Any]:
-        """
-        Get the Google Calendar service, initializing if needed.
-
-        Returns:
-            Calendar service instance or None
-        """
+        """Get the Calendar service, initializing if needed."""
         if self._calendar_service:
             return self._calendar_service
 
@@ -84,65 +83,25 @@ class CalendarAgent(BaseAgent):
     }
 
     def _detect_intent(self, query_lower: str) -> str:
-        """Detect calendar query intent from keywords.
-
-        Args:
-            query_lower: Lowercased user query.
-
-        Returns:
-            Intent key (e.g. 'today', 'traffic') or 'upcoming' as default.
-        """
+        """Detect calendar query intent from keywords."""
         for intent, keywords in self._INTENT_KEYWORDS.items():
             if any(kw in query_lower for kw in keywords):
                 return intent
         return "upcoming"
 
-    async def _ensure_authenticated(
-        self,
-    ) -> Optional[AgentResponse]:
-        """Ensure the calendar service is available and authenticated.
-
-        Returns:
-            An error AgentResponse if unavailable, or None on success.
-            When None is returned, ``self._calendar_service`` is ready.
-        """
-        calendar_service = await self._get_calendar_service()
-        if not calendar_service:
-            return AgentResponse(
-                status=AgentStatus.ERROR,
-                response=t("calendar_service_unavailable"),
-                error="Calendar service not available",
-            )
-
-        if not calendar_service._service:
-            auth_success = calendar_service.authenticate()
-            if not auth_success:
+    async def execute(
+        self, prompt: str, context: Dict[str, Any]
+    ) -> AgentResponse:
+        """Process calendar-related queries."""
+        try:
+            calendar_service = await self._get_calendar_service()
+            if not calendar_service:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response=t("calendar_connect_failed"),
-                    error="Authentication failed",
+                    response=t("calendar_service_unavailable"),
+                    error="Calendar service not available",
                 )
-        return None
 
-    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
-        """
-        Process calendar-related queries.
-
-        Args:
-            prompt: User's calendar query
-            context: Execution context with optional action parameters
-
-        Returns:
-            AgentResponse with calendar data
-        """
-        try:
-            auth_error = await self._ensure_authenticated()
-            if auth_error:
-                return auth_error
-
-            calendar_service = self._calendar_service
-
-            # Extrair user_id para OAuth2 per-user calendar
             user_id = str(
                 context.get("chat_id", context.get("user_id", ""))
             )
@@ -163,7 +122,10 @@ class CalendarAgent(BaseAgent):
                 if await oauth.is_connected(user_id):
                     return AgentResponse(
                         status=AgentStatus.SUCCESS,
-                        response="A tua conta Google já está conectada! Calendar e Gmail activos.",
+                        response=(
+                            "A tua conta Google já está conectada! "
+                            "Calendar e Gmail activos."
+                        ),
                     )
                 auth_url = oauth.get_auth_url(user_id)
                 return AgentResponse(
@@ -189,7 +151,7 @@ class CalendarAgent(BaseAgent):
                     calendar_service, user_id=user_id
                 ),
                 "traffic": lambda: self._check_traffic_for_next_event(
-                    calendar_service, context.get("user_location", "Dublin")
+                    calendar_service, user_id, context.get("user_location", "Dublin")
                 ),
                 "upcoming": lambda: self._get_upcoming_events(
                     calendar_service, user_id=user_id
@@ -199,9 +161,17 @@ class CalendarAgent(BaseAgent):
             handler = dispatch[intent]
             return await handler()
 
+        except ServiceUnavailableError as e:
+            # OAuth2 not connected — return the connect message
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=str(e),
+                error="Not connected",
+            )
         except Exception as e:
-            self.logger.error(f"Calendar query failed: {e}", exc_info=True)
-
+            self.logger.error(
+                f"Calendar query failed: {e}", exc_info=True
+            )
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao acessar seu calendario: {str(e)}",
@@ -209,15 +179,12 @@ class CalendarAgent(BaseAgent):
             )
 
     async def _get_next_meeting(
-        self, calendar_service: Any, user_id: str = ""
+        self, calendar_service: Any, user_id: str
     ) -> AgentResponse:
-        """Get the next upcoming meeting (OAuth2 per-user if available)."""
-        if user_id and hasattr(calendar_service, "async_get_next_meeting"):
-            next_meeting = await calendar_service.async_get_next_meeting(
-                user_id=user_id
-            )
-        else:
-            next_meeting = calendar_service.get_next_meeting()
+        """Get the next upcoming meeting."""
+        next_meeting = await calendar_service.async_get_next_meeting(
+            user_id=user_id
+        )
 
         if not next_meeting:
             return AgentResponse(
@@ -230,10 +197,11 @@ class CalendarAgent(BaseAgent):
         start = next_meeting.get("start", "")
         location = next_meeting.get("location", "")
 
-        # Format start time
         try:
             if "T" in start:
-                start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                start_dt = datetime.fromisoformat(
+                    start.replace("Z", "+00:00")
+                )
                 time_str = start_dt.strftime("%d/%m/%Y as %H:%M")
             else:
                 time_str = start
@@ -252,13 +220,12 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_today_events(
-        self, calendar_service: Any, user_id: str = ""
+        self, calendar_service: Any, user_id: str
     ) -> AgentResponse:
-        """Get all events for today (OAuth2 per-user if available)."""
-        if user_id and hasattr(calendar_service, "async_get_today_events"):
-            events = await calendar_service.async_get_today_events(user_id=user_id)
-        else:
-            events = calendar_service.get_today_events()
+        """Get all events for today."""
+        events = await calendar_service.async_get_today_events(
+            user_id=user_id
+        )
 
         if not events:
             return AgentResponse(
@@ -269,7 +236,9 @@ class CalendarAgent(BaseAgent):
 
         response = f"Voce tem {len(events)} evento(s) hoje:\n\n"
         for event in events:
-            response += calendar_service.format_event_for_briefing(event) + "\n"
+            response += (
+                calendar_service.format_event_for_briefing(event) + "\n"
+            )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -278,19 +247,12 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_week_events(
-        self, calendar_service: Any, user_id: str = ""
+        self, calendar_service: Any, user_id: str
     ) -> AgentResponse:
-        """Get events for the current week (OAuth2 per-user if available)."""
-        if user_id and hasattr(calendar_service, "async_get_upcoming_events"):
-            events = await calendar_service.async_get_upcoming_events(
-                user_id=user_id, max_results=50, days_ahead=7
-            )
-        else:
-            now = datetime.now(timezone.utc)
-            end_of_week = now + timedelta(days=7)
-            events = calendar_service.get_upcoming_events(
-                max_results=50, time_min=now, time_max=end_of_week
-            )
+        """Get events for the current week."""
+        events = await calendar_service.async_get_upcoming_events(
+            user_id=user_id, max_results=50, days_ahead=7
+        )
 
         if not events:
             return AgentResponse(
@@ -301,7 +263,9 @@ class CalendarAgent(BaseAgent):
 
         response = f"Voce tem {len(events)} evento(s) esta semana:\n\n"
         for event in events:
-            response += calendar_service.format_event_for_briefing(event) + "\n"
+            response += (
+                calendar_service.format_event_for_briefing(event) + "\n"
+            )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -310,15 +274,12 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_upcoming_events(
-        self, calendar_service: Any, user_id: str = ""
+        self, calendar_service: Any, user_id: str
     ) -> AgentResponse:
-        """Get upcoming events (next 7 days, OAuth2 per-user if available)."""
-        if user_id and hasattr(calendar_service, "async_get_upcoming_events"):
-            events = await calendar_service.async_get_upcoming_events(
-                user_id=user_id, max_results=10
-            )
-        else:
-            events = calendar_service.get_upcoming_events(max_results=10)
+        """Get upcoming events (next 7 days)."""
+        events = await calendar_service.async_get_upcoming_events(
+            user_id=user_id, max_results=10
+        )
 
         if not events:
             return AgentResponse(
@@ -329,7 +290,9 @@ class CalendarAgent(BaseAgent):
 
         response = f"Voce tem {len(events)} evento(s) proximos:\n\n"
         for event in events:
-            response += calendar_service.format_event_for_briefing(event) + "\n"
+            response += (
+                calendar_service.format_event_for_briefing(event) + "\n"
+            )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -338,99 +301,107 @@ class CalendarAgent(BaseAgent):
         )
 
     async def _get_briefing(
-        self, calendar_service: Any, user_id: str = ""
+        self, calendar_service: Any, user_id: str
     ) -> AgentResponse:
-        """Get calendar briefing (OAuth2 per-user if available)."""
-        if user_id and hasattr(calendar_service, "async_get_today_events"):
-            events = await calendar_service.async_get_today_events(user_id=user_id)
-            briefing_text = calendar_service.generate_calendar_briefing()
+        """Get calendar briefing."""
+        events = await calendar_service.async_get_today_events(
+            user_id=user_id
+        )
+
+        if not events:
+            briefing_text = (
+                "**Calendar Briefing**\n\n"
+                "**Today:** No events scheduled."
+            )
         else:
-            briefing_text = calendar_service.generate_calendar_briefing()
-            events = calendar_service.get_morning_briefing_events()
+            briefing_text = "**Calendar Briefing**\n\n"
+            briefing_text += (
+                f"**Today ({datetime.now(timezone.utc).strftime('%B %d')}):**\n"
+            )
+            for ev in events:
+                briefing_text += (
+                    calendar_service.format_event_for_briefing(ev) + "\n"
+                )
 
         return AgentResponse(
-            status=AgentStatus.SUCCESS, response=briefing_text, data={"events": events}
+            status=AgentStatus.SUCCESS,
+            response=briefing_text.strip(),
+            data={"events": events},
         )
 
     async def _create_event(
-        self, calendar_service: Any, event_params: Dict[str, Any],
-        user_id: str = "",
+        self,
+        calendar_service: Any,
+        event_params: Dict[str, Any],
+        user_id: str,
     ) -> AgentResponse:
-        """
-        Create a new calendar event.
-
-        Uses ``CalendarEventInput`` for validation and datetime parsing,
-        then delegates to ``_build_google_event`` and the calendar service.
-
-        Args:
-            calendar_service: Calendar service instance
-            event_params: Event parameters (title, start_datetime, etc.)
-
-        Returns:
-            AgentResponse with creation result
-        """
-        # Validate and parse through Pydantic
+        """Create a new calendar event."""
         try:
             event_input = CalendarEventInput.model_validate(event_params)
         except Exception as e:
             msg = str(e)
-            # Pydantic errors include field names in both the error line
-            # (e.g. "\ntitle\n") and in the input_value repr.  Use the
-            # "\nfield_name\n" pattern to match only the actual missing field.
             if "\ntitle\n" in msg:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Nao consegui identificar o titulo do evento. Por favor, especifique o que deseja agendar.",
+                    response=(
+                        "Nao consegui identificar o titulo do evento. "
+                        "Por favor, especifique o que deseja agendar."
+                    ),
                     error="Missing title",
                 )
             if "\nstart_datetime\n" in msg:
                 if "value_error" in msg:
                     return AgentResponse(
                         status=AgentStatus.ERROR,
-                        response="Erro ao processar data e hora do evento. Por favor, use um formato valido (ex: 2025-02-15T15:00:00).",
+                        response=(
+                            "Erro ao processar data e hora do evento. "
+                            "Por favor, use um formato valido "
+                            "(ex: 2025-02-15T15:00:00)."
+                        ),
                         error="Invalid start_datetime",
                     )
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Nao consegui identificar a data e hora do evento. Por favor, especifique quando deseja agendar.",
+                    response=(
+                        "Nao consegui identificar a data e hora do evento. "
+                        "Por favor, especifique quando deseja agendar."
+                    ),
                     error="Missing start_datetime",
                 )
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao processar dados do evento: {msg}. Por favor, use um formato valido.",
+                response=(
+                    f"Erro ao processar dados do evento: {msg}. "
+                    "Por favor, use um formato valido."
+                ),
                 error=str(e),
             )
 
         end_dt = event_input.resolved_end()
 
-        # Delegate to calendar service (async OAuth2 if available)
-        if user_id and hasattr(calendar_service, "async_create_event"):
-            created_event = await calendar_service.async_create_event(
-                user_id=user_id,
-                summary=event_input.title,
-                start_time=event_input.start_datetime,
-                end_time=end_dt,
-                location=event_input.location,
-                description=event_input.description,
-            )
-        else:
-            created_event = calendar_service.create_event(
-                summary=event_input.title,
-                start_time=event_input.start_datetime,
-                end_time=end_dt,
-                location=event_input.location,
-                description=event_input.description,
-            )
+        created_event = await calendar_service.async_create_event(
+            user_id=user_id,
+            summary=event_input.title,
+            start_time=event_input.start_datetime,
+            end_time=end_dt,
+            location=event_input.location,
+            description=event_input.description,
+        )
 
         if not created_event:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Nao foi possivel criar o evento. Por favor, tente novamente.",
+                response=(
+                    "Nao foi possivel criar o evento. "
+                    "Por favor, tente novamente."
+                ),
                 error="Calendar service returned None",
             )
 
         self.logger.info(
-            f"Event created successfully: {event_input.title} at {event_input.start_datetime.isoformat()}"
+            "Event created successfully: %s at %s",
+            event_input.title,
+            event_input.start_datetime.isoformat(),
         )
 
         return AgentResponse(
@@ -440,11 +411,15 @@ class CalendarAgent(BaseAgent):
         )
 
     @staticmethod
-    def _format_event_response(event: CalendarEventInput, end_dt: datetime) -> str:
+    def _format_event_response(
+        event: CalendarEventInput, end_dt: datetime
+    ) -> str:
         """Format a human-readable confirmation for a created event."""
         response = "Evento criado com sucesso!\n\n"
         response += f"{event.title}\n"
-        response += f"Data: {event.start_datetime.strftime('%d/%m/%Y as %H:%M')}"
+        response += (
+            f"Data: {event.start_datetime.strftime('%d/%m/%Y as %H:%M')}"
+        )
         response += f" - {end_dt.strftime('%H:%M')}"
 
         if event.location:
@@ -458,14 +433,7 @@ class CalendarAgent(BaseAgent):
     def _find_next_event_with_location(
         events: List[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
-        """Find the first future event that has a physical location.
-
-        Args:
-            events: List of calendar event dicts.
-
-        Returns:
-            The matching event dict, or None.
-        """
+        """Find the first future event with a physical location."""
         now = datetime.now()
         for event in events:
             location = event.get("location", "").strip()
@@ -485,46 +453,39 @@ class CalendarAgent(BaseAgent):
 
     @staticmethod
     def _parse_event_time(event: Dict[str, Any]) -> datetime:
-        """Parse a timed event's start into a naive datetime.
-
-        Args:
-            event: Calendar event dict.
-
-        Returns:
-            Naive datetime of the event start.
-
-        Raises:
-            ValueError: If the event is all-day or the time cannot be parsed.
-        """
+        """Parse a timed event's start into a naive datetime."""
         start = event.get("start", "")
         if "T" not in start:
             summary = event.get("summary", "Evento")
             raise ValueError(
-                f"O evento '{summary}' e um evento de dia inteiro, sem horario especifico."
+                f"O evento '{summary}' e um evento de dia inteiro, "
+                "sem horario especifico."
             )
-        return datetime.fromisoformat(start.replace("Z", "+00:00")).replace(tzinfo=None)
+        return datetime.fromisoformat(
+            start.replace("Z", "+00:00")
+        ).replace(tzinfo=None)
 
     async def check_traffic_for_next_event(
         self, user_location: str, **kwargs
     ) -> AgentResponse:
         """Public wrapper for traffic check functionality."""
-        return await self._check_traffic_for_next_event(user_location, **kwargs)
+        calendar_service = await self._get_calendar_service()
+        user_id = kwargs.get("user_id", "")
+        return await self._check_traffic_for_next_event(
+            calendar_service, user_id, user_location
+        )
 
     async def _check_traffic_for_next_event(
-        self, calendar_service: Any, user_location: str
+        self,
+        calendar_service: Any,
+        user_id: str,
+        user_location: str,
     ) -> AgentResponse:
-        """
-        Check traffic conditions for the next event with location.
-
-        Args:
-            calendar_service: Calendar service instance
-            user_location: User's current location
-
-        Returns:
-            AgentResponse with traffic alert and recommendations
-        """
+        """Check traffic conditions for the next event with location."""
         try:
-            events = calendar_service.get_upcoming_events(max_results=10)
+            events = await calendar_service.async_get_upcoming_events(
+                user_id=user_id, max_results=10
+            )
             if not events:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
@@ -536,7 +497,9 @@ class CalendarAgent(BaseAgent):
             if not target_event:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Nenhum evento futuro com localizacao encontrado.",
+                    response=(
+                        "Nenhum evento futuro com localizacao encontrado."
+                    ),
                     error="No future events with location",
                 )
 
@@ -547,10 +510,11 @@ class CalendarAgent(BaseAgent):
                 event_time_naive = self._parse_event_time(target_event)
             except (ValueError, TypeError) as e:
                 return AgentResponse(
-                    status=AgentStatus.ERROR, response=str(e), error=str(e)
+                    status=AgentStatus.ERROR,
+                    response=str(e),
+                    error=str(e),
                 )
 
-            # Check traffic via traffic agent
             from agents.core import get_agent
 
             traffic_agent = get_agent("traffic")
@@ -560,8 +524,10 @@ class CalendarAgent(BaseAgent):
                     status=AgentStatus.PARTIAL,
                     response=(
                         f"Proximo evento com local: '{event_summary}' "
-                        f"em {event_location} as {event_time_naive.strftime('%H:%M')}. "
-                        f"Servico de trafego nao disponivel para verificar condicoes."
+                        f"em {event_location} as "
+                        f"{event_time_naive.strftime('%H:%M')}. "
+                        "Servico de trafego nao disponivel "
+                        "para verificar condicoes."
                     ),
                     data={"event": target_event},
                 )
@@ -573,7 +539,8 @@ class CalendarAgent(BaseAgent):
             }
 
             traffic_response = await traffic_agent.execute(
-                f"Trafego de {user_location} para {event_location}", traffic_context
+                f"Trafego de {user_location} para {event_location}",
+                traffic_context,
             )
 
             response = "Alerta de Trafego para Evento\n\n"
@@ -585,11 +552,18 @@ class CalendarAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=response,
-                data={"event": target_event, "traffic": traffic_response.data},
+                data={
+                    "event": target_event,
+                    "traffic": traffic_response.data,
+                },
             )
 
+        except ServiceUnavailableError:
+            raise
         except Exception as e:
-            self.logger.error(f"Traffic check for event failed: {e}", exc_info=True)
+            self.logger.error(
+                f"Traffic check for event failed: {e}", exc_info=True
+            )
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"Erro ao verificar trafego para evento: {str(e)}",
@@ -597,7 +571,6 @@ class CalendarAgent(BaseAgent):
             )
 
     def get_capabilities(self) -> List[str]:
-        """Get calendar agent capabilities."""
         return [
             "calendar_management",
             "meetings",
