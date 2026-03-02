@@ -30,8 +30,42 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth/google", tags=["auth"])
 
 
+# ── Helper ──────────────────────────────────────────────────────────────────
+
+
+async def _resolve_user_id(raw_id: str) -> str:
+    """Resolve numeric Telegram chat_id → UUID if possible."""
+    if not raw_id.isdigit():
+        return raw_id
+    try:
+        from services.core import get_service
+
+        db_svc = get_service("database")
+        if db_svc and db_svc.is_initialized():
+            row = await db_svc.get_user_by_telegram_id(raw_id)
+            if row:
+                logger.info(
+                    "Resolved telegram_id %s → UUID %s",
+                    raw_id,
+                    row["id"],
+                )
+                return row["id"]
+    except Exception as exc:
+        logger.warning(
+            "Could not resolve telegram_id %s: %s",
+            raw_id,
+            exc,
+        )
+    return raw_id
+
+
+# ── Endpoints ───────────────────────────────────────────────────────────────
+
+
 @router.get("/connect")
-async def google_connect(user_id: str = Query(..., description="User ID")):
+async def google_connect(
+    user_id: str = Query(..., description="User ID"),
+):
     """
     Inicia fluxo OAuth2 Google.
     Redireciona o user para o Google consent screen.
@@ -42,12 +76,15 @@ async def google_connect(user_id: str = Query(..., description="User ID")):
     Returns:
         Redirect para Google consent screen
     """
+    user_id = await _resolve_user_id(user_id)
+
     oauth = get_google_oauth()
     if not oauth.is_configured:
         raise HTTPException(
             status_code=503,
             detail="Google OAuth2 não configurado. "
-            "Defina GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET.",
+            "Defina GOOGLE_OAUTH_CLIENT_ID e "
+            "GOOGLE_OAUTH_CLIENT_SECRET.",
         )
 
     auth_url = oauth.get_auth_url(user_id)
@@ -108,13 +145,16 @@ async def google_callback(
 
 
 @router.get("/status")
-async def google_status(user_id: str = Query(..., description="User ID")):
+async def google_status(
+    user_id: str = Query(..., description="User ID"),
+):
     """
     Verifica se user tem conta Google conectada.
 
     Returns:
         Dict com connected, email, accounts
     """
+    user_id = await _resolve_user_id(user_id)
     oauth = get_google_oauth()
     connected = await oauth.is_connected(user_id)
     email = await oauth.get_user_email(user_id) if connected else None
@@ -139,6 +179,7 @@ async def google_disconnect(
     Returns:
         Dict com success
     """
+    user_id = await _resolve_user_id(user_id)
     oauth = get_google_oauth()
     success = await oauth.disconnect(user_id)
 

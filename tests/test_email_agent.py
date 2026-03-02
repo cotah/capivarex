@@ -70,6 +70,7 @@ def _email_agent(ai_response="Resumo do email.", draft="Olá, confirmo a reuniã
     # Mock database methods
     agent._save_email = AsyncMock(return_value="email_uuid_001")
     agent._get_emails = AsyncMock(return_value=[])
+    agent._fetch_emails = AsyncMock(return_value=[])
     agent._get_counts = AsyncMock(return_value={})
     agent._mark_replied = AsyncMock()
 
@@ -391,13 +392,13 @@ class TestEmailIncoming:
 class TestEmailExecuteList:
     async def test_list_empty(self):
         agent = _email_agent()
-        agent._get_emails = AsyncMock(return_value=[])
+        agent._fetch_emails = AsyncMock(return_value=[])
         result = await agent.execute("mostra os meus emails", {"user_id": "u1"})
         assert "Nenhum email" in result.message or "📭" in result.message
 
     async def test_list_with_emails(self):
         agent = _email_agent()
-        agent._get_emails = AsyncMock(
+        agent._fetch_emails = AsyncMock(
             return_value=[
                 {
                     "account": "gmail",
@@ -414,19 +415,19 @@ class TestEmailExecuteList:
 
     async def test_list_unread_only(self):
         agent = _email_agent()
-        agent._get_emails = AsyncMock(return_value=[])
+        agent._fetch_emails = AsyncMock(return_value=[])
         await agent.execute("emails não lidos", {"user_id": "u1"})
-        agent._get_emails.assert_called_once()
-        call_kwargs = agent._get_emails.call_args
+        agent._fetch_emails.assert_called_once()
+        call_kwargs = agent._fetch_emails.call_args
         assert call_kwargs[1].get("unread_only") is True or (
             call_kwargs[0] and True in call_kwargs[0]
         )
 
     async def test_list_gmail_filter(self):
         agent = _email_agent()
-        agent._get_emails = AsyncMock(return_value=[])
+        agent._fetch_emails = AsyncMock(return_value=[])
         await agent.execute("mostra emails do gmail", {"user_id": "u1"})
-        call_kwargs = agent._get_emails.call_args
+        call_kwargs = agent._fetch_emails.call_args
         # account deve ser gmail
         account_arg = call_kwargs[1].get("account") or (
             call_kwargs[0][2] if len(call_kwargs[0]) > 2 else None
@@ -465,7 +466,7 @@ class TestEmailExecuteCount:
 class TestEmailReplyFlow:
     async def test_reply_intent_generates_draft(self):
         agent = _email_agent(draft="Olá, confirmo a reunião para amanhã.")
-        agent._get_emails = AsyncMock(
+        agent._fetch_emails = AsyncMock(
             return_value=[
                 {
                     "id": "e001",
@@ -570,7 +571,7 @@ class TestEmailReplyInstruction:
         agent = _email_agent(
             draft="Olá, confirmo que posso estar presente."
         )
-        agent._get_emails = AsyncMock(
+        agent._fetch_emails = AsyncMock(
             return_value=[
                 {
                     "id": "e001",
@@ -710,7 +711,7 @@ class TestGenerateReplyDraft:
 class TestHandleSummary:
     async def test_summary_no_email_found(self):
         agent = _email_agent()
-        agent._get_emails = AsyncMock(return_value=[])
+        agent._fetch_emails = AsyncMock(return_value=[])
         result = await agent.execute("resume o email do Pedro", {"user_id": "u1"})
         assert "Não encontrei" in result.message or "❌" in result.message
 
@@ -718,7 +719,7 @@ class TestHandleSummary:
         agent = _email_agent(
             ai_response="Este email fala sobre reunião."
         )
-        agent._get_emails = AsyncMock(
+        agent._fetch_emails = AsyncMock(
             return_value=[
                 {
                     "id": "e1",
@@ -813,7 +814,7 @@ class TestResolveEmailReference:
 
     async def test_resolve_by_name(self):
         agent = _email_agent()
-        agent._get_emails = AsyncMock(
+        agent._fetch_emails = AsyncMock(
             return_value=[
                 {"from_name": "Carlos", "from_email": "carlos@x.com"},
             ]
@@ -825,7 +826,7 @@ class TestResolveEmailReference:
 
     async def test_resolve_fallback_to_pending(self):
         agent = _email_agent()
-        agent._get_emails = AsyncMock(return_value=[])
+        agent._fetch_emails = AsyncMock(return_value=[])
         context = {
             "email_pending_reply": {
                 "email_id": "pending_e1",
@@ -836,3 +837,161 @@ class TestResolveEmailReference:
             "resume email", "u1", context
         )
         assert email["email_id"] == "pending_e1"
+
+
+# ─── EmailAgent — connect intent ────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestConnectIntent:
+    async def test_connect_returns_auth_url(self):
+        agent = _email_agent()
+        agent._get_connect_url = AsyncMock(
+            return_value={
+                "success": True,
+                "auth_url": "https://accounts.google.com/o/oauth2",
+            }
+        )
+        result = await agent.execute(
+            "conectar gmail", {"user_id": "u1"}
+        )
+        assert "http" in result.message or "link" in result.message.lower()
+
+    async def test_connect_already_connected(self):
+        agent = _email_agent()
+        agent._get_connect_url = AsyncMock(
+            return_value={
+                "success": True,
+                "already_connected": True,
+                "message": "Gmail já está conectado!",
+            }
+        )
+        result = await agent.execute(
+            "conectar gmail", {"user_id": "u1"}
+        )
+        assert "conectado" in result.message.lower()
+
+    async def test_connect_error(self):
+        agent = _email_agent()
+        agent._get_connect_url = AsyncMock(
+            return_value={
+                "success": False,
+                "error": "GmailService não disponível.",
+            }
+        )
+        result = await agent.execute(
+            "connect email", {"user_id": "u1"}
+        )
+        assert "❌" in result.message
+
+
+# ─── EmailAgent — _normalize_gmail_email ─────────────────────────────────────
+
+
+class TestNormalizeGmailEmail:
+    def test_maps_date_to_received_at(self):
+        from agents.specialized.email_agent import EmailAgent
+
+        email = {
+            "date": "2026-02-22T10:00:00Z",
+            "is_unread": True,
+            "id": "msg_1",
+        }
+        result = EmailAgent._normalize_gmail_email(email)
+        assert result["received_at"] == "2026-02-22T10:00:00Z"
+        assert result["read"] is False
+        assert result["email_id"] == "msg_1"
+
+    def test_preserves_existing_fields(self):
+        from agents.specialized.email_agent import EmailAgent
+
+        email = {
+            "received_at": "existing",
+            "read": True,
+            "email_id": "e1",
+        }
+        result = EmailAgent._normalize_gmail_email(email)
+        assert result["received_at"] == "existing"
+        assert result["read"] is True
+        assert result["email_id"] == "e1"
+
+
+# ─── EmailAgent — _fetch_emails ──────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestFetchEmails:
+    async def test_uses_gmail_when_connected(self):
+        agent = _email_agent()
+        del agent._fetch_emails  # Use real method
+        agent._list_emails = AsyncMock(
+            return_value={
+                "success": True,
+                "emails": [
+                    {
+                        "id": "1",
+                        "date": "2026-02-22T10:00:00Z",
+                        "is_unread": True,
+                        "account": "gmail",
+                    }
+                ],
+                "count": 1,
+            }
+        )
+        agent._get_emails = AsyncMock(return_value=[])
+        result = await agent._fetch_emails("u1")
+        assert len(result) == 1
+        assert result[0]["received_at"] == "2026-02-22T10:00:00Z"
+        assert result[0]["read"] is False
+        agent._get_emails.assert_not_called()
+
+    async def test_falls_back_to_supabase(self):
+        agent = _email_agent()
+        del agent._fetch_emails  # Use real method
+        agent._list_emails = AsyncMock(
+            return_value={
+                "success": False,
+                "error": "Gmail não conectado.",
+            }
+        )
+        agent._get_emails = AsyncMock(
+            return_value=[{"from_name": "Test"}]
+        )
+        result = await agent._fetch_emails("u1")
+        assert len(result) == 1
+        agent._get_emails.assert_called_once()
+
+    async def test_hotmail_skips_gmail(self):
+        agent = _email_agent()
+        del agent._fetch_emails  # Use real method
+        agent._list_emails = AsyncMock()
+        agent._get_emails = AsyncMock(return_value=[])
+        await agent._fetch_emails("u1", account="hotmail")
+        agent._list_emails.assert_not_called()
+        agent._get_emails.assert_called_once()
+
+    async def test_gmail_exception_falls_back(self):
+        agent = _email_agent()
+        del agent._fetch_emails  # Use real method
+        agent._list_emails = AsyncMock(
+            side_effect=Exception("connection error")
+        )
+        agent._get_emails = AsyncMock(return_value=[])
+        result = await agent._fetch_emails("u1")
+        assert result == []
+        agent._get_emails.assert_called_once()
+
+    async def test_gmail_empty_returns_empty(self):
+        agent = _email_agent()
+        del agent._fetch_emails  # Use real method
+        agent._list_emails = AsyncMock(
+            return_value={
+                "success": True,
+                "emails": [],
+                "count": 0,
+            }
+        )
+        agent._get_emails = AsyncMock(return_value=[{"x": 1}])
+        result = await agent._fetch_emails("u1")
+        assert result == []
+        agent._get_emails.assert_not_called()

@@ -103,7 +103,7 @@ class CalendarAgent(BaseAgent):
                 )
 
             user_id = str(
-                context.get("chat_id", context.get("user_id", ""))
+                context.get("user_id", context.get("chat_id", ""))
             )
 
             # Priority: explicit create event action from PromptCleaner

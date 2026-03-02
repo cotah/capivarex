@@ -71,6 +71,11 @@ _RE_SENT = re.compile(
     r"|\b(email|bot|mail)\b.*\b(respondeu|respondid[oa]s?|enviad[oa]s?|sent|replies)\b",
     re.IGNORECASE,
 )
+_RE_CONNECT = re.compile(
+    r"\b(conectar?|connect|ligar|autorizar?|authorize?)\b"
+    r".*\b(gmail|email|google|conta)\b",
+    re.IGNORECASE,
+)
 
 
 @register_agent("email")
@@ -323,6 +328,9 @@ class EmailAgent(BaseAgent):
             return await self._handle_confirmation(msg, user_id, context, pending)
 
         # Detectar intenção
+        if _RE_CONNECT.search(msg):
+            return await self._handle_connect(user_id)
+
         if _RE_SENT.search(msg):
             return await self._handle_sent_replies(user_id, context)
 
@@ -354,7 +362,8 @@ class EmailAgent(BaseAgent):
                 "• _'Emails não lidos do Gmail'_\n"
                 "• _'Responde ao último email'_\n"
                 "• _'Resume o email do João'_\n"
-                "• _'Quantos emails tenho?'_"
+                "• _'Quantos emails tenho?'_\n"
+                "• _'Conectar Gmail'_"
             ),
         )
 
@@ -433,7 +442,7 @@ class EmailAgent(BaseAgent):
         account: Optional[str] = None,
         limit: int = 5,
     ) -> AgentResponse:
-        emails = await self._get_emails(
+        emails = await self._fetch_emails(
             user_id, unread_only=unread_only, account=account, limit=limit
         )
 
@@ -472,6 +481,46 @@ class EmailAgent(BaseAgent):
             status=AgentStatus.SUCCESS,
             message="\n".join(lines),
             data={"emails": emails},
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # CONECTAR GMAIL
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def _handle_connect(
+        self, user_id: str
+    ) -> AgentResponse:
+        """Handle Gmail connect intent."""
+        result = await self._get_connect_url(user_id)
+
+        if not result.get("success"):
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                message=(
+                    "❌ Não foi possível gerar o link de "
+                    f"conexão. {result.get('error', '')}"
+                ),
+            )
+
+        if result.get("already_connected"):
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                message=(
+                    "✅ O teu Gmail já está conectado! "
+                    "Diz 'mostra os meus emails' para ver."
+                ),
+            )
+
+        auth_url = result.get("auth_url", "")
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            message=(
+                "🔗 Para conectar o teu Gmail, clica "
+                f"no link:\n{auth_url}\n\n"
+                "Depois de autorizar, diz "
+                "'mostra os meus emails'."
+            ),
+            data={"auth_url": auth_url},
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -542,7 +591,7 @@ class EmailAgent(BaseAgent):
         email = await self._resolve_email_reference(msg, user_id, context)
         if not email:
             # Se não especificou qual, pegar o mais recente não lido
-            emails = await self._get_emails(user_id, unread_only=True, limit=1)
+            emails = await self._fetch_emails(user_id, unread_only=True, limit=1)
             if emails:
                 email = emails[0]
             else:
@@ -901,7 +950,7 @@ class EmailAgent(BaseAgent):
             return []
 
     async def _get_counts(self, user_id: str) -> Dict[str, Any]:
-        emails = await self._get_emails(user_id, limit=100)
+        emails = await self._fetch_emails(user_id, limit=100)
         counts: Dict[str, Any] = {}
         for email in emails:
             acc = email.get("account", "unknown")
@@ -934,6 +983,79 @@ class EmailAgent(BaseAgent):
             self.logger.warning("Erro ao marcar como respondido: %s", e)
 
     # ──────────────────────────────────────────────────────────────────────────
+    # GMAIL-FIRST FETCHING
+    # ──────────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _normalize_gmail_email(
+        gmail_email: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Normalize Gmail API fields to Supabase-compatible names.
+
+        Gmail → Supabase mappings:
+          date       → received_at
+          is_unread  → read (inverted)
+          id         → email_id
+        """
+        n = dict(gmail_email)
+        if "date" in n and "received_at" not in n:
+            n["received_at"] = n["date"]
+        if "is_unread" in n and "read" not in n:
+            n["read"] = not n["is_unread"]
+        if "id" in n and "email_id" not in n:
+            n["email_id"] = n["id"]
+        return n
+
+    async def _fetch_emails(
+        self,
+        user_id: str,
+        unread_only: bool = False,
+        account: Optional[str] = None,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Fetch emails: Gmail API first, Supabase fallback.
+
+        If *account* is explicitly non-Gmail (e.g. hotmail),
+        skip the Gmail API and go straight to Supabase.
+        """
+        if account and account.lower() not in ("gmail",):
+            return await self._get_emails(
+                user_id,
+                unread_only=unread_only,
+                account=account,
+                limit=limit,
+            )
+
+        # Try Gmail API first
+        try:
+            result = await self._list_emails(
+                user_id=user_id,
+                max_results=limit,
+                unread_only=unread_only,
+            )
+            if result.get("success") and result.get("emails"):
+                return [
+                    self._normalize_gmail_email(e)
+                    for e in result["emails"]
+                ]
+            if result.get("success"):
+                return []
+        except Exception as e:
+            self.logger.debug(
+                "Gmail API unavailable, falling back to "
+                "Supabase: %s",
+                e,
+            )
+
+        # Supabase fallback (old N8N flow / Gmail not connected)
+        return await self._get_emails(
+            user_id,
+            unread_only=unread_only,
+            account=account,
+            limit=limit,
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
     # HELPERS
     # ──────────────────────────────────────────────────────────────────────────
 
@@ -964,7 +1086,7 @@ class EmailAgent(BaseAgent):
         )
         if name_match:
             name = name_match.group(1).lower()
-            emails = await self._get_emails(user_id, limit=20)
+            emails = await self._fetch_emails(user_id, limit=20)
             for email in emails:
                 if (
                     name in (email.get("from_name") or "").lower()
@@ -978,7 +1100,7 @@ class EmailAgent(BaseAgent):
             return pending
 
         # Mais recente
-        emails = await self._get_emails(user_id, limit=1)
+        emails = await self._fetch_emails(user_id, limit=1)
         return emails[0] if emails else None
 
     @staticmethod
