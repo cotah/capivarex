@@ -33,7 +33,7 @@ Available agents:
 - 'image': Create, generate, or draw a VISUAL IMAGE (photo, illustration, drawing).
 - 'video': Create, generate, or produce a VIDEO.
 - 'voice': Convert text to AUDIO/VOICE (speak, narrate, read aloud), or transcribe audio to text.
-- 'calendar': Questions about schedule, calendar, meetings, appointments, events (view, list, check).
+- 'calendar': Questions about schedule, calendar, meetings, appointments, events (view, list, check). Also: connect/link/authorize Google account, connect Google Calendar.
 - 'meeting': CREATE or SCHEDULE new meetings and events in the calendar.
 - 'traffic': Traffic questions, routes, travel time, driving conditions, car navigation.
 - 'car': Electric vehicle control: battery, charging, car location, lock/unlock doors, odometer, vehicle status.
@@ -51,7 +51,7 @@ Available agents:
 - 'mercado': Shopping list, supermarket, receipt, add/remove items, spending report, compare prices, store ranking.
 - 'notes': Personal notepad: write, save, list, search, pin, delete notes.
 - 'restaurant': Restaurant concierge: suggest, search, filter restaurants by location, cuisine type, rating, open now, details, phone, hours, reviews.
-- 'email': Email management: read, list, summarize, reply, ignore Gmail and Hotmail/Outlook emails, unread, how many emails.
+- 'email': Email management: read, list, summarize, reply, ignore Gmail and Hotmail/Outlook emails, unread, how many emails, connect Gmail, my emails, check inbox.
 - 'music': Search songs, artists, albums on Spotify, top tracks of an artist, music recommendations, playlists. Use for ANY query about music, songs, singers, bands, albums, playlists, or Spotify in ANY language. PT: 'busca música', 'quem é o artista', 'recomenda músicas', 'top músicas de'. EN: 'search song', 'who is the artist', 'recommend music', 'top tracks by'. ES: 'buscar canción', 'quién es el artista', 'recomienda música', 'canciones de', 'top canciones', 'escuchar música', 'álbum de'.
 - 'twilio': Make phone calls, call someone, dial a number, voice call via telephone.
 - 'travel': Flight search (origin, destination, dates), hotel/stay search (location, dates), travel booking, price comparison. Use for ANY query about flights, hotels, accommodation, trips, vacations, travel planning.
@@ -72,6 +72,8 @@ IMPORTANT RULES:
 12. If the user wants to find specific products, prices, places, stores, or restaurants → 'search' (not 'research')
 13. If the user wants analysis, synthesis, explanation, or deep research about a topic → 'research' (not 'search')
 14. If the user asks "how much does X cost" or "where can I buy X" → 'search' (not 'research')
+16. If the user wants to connect Google, authorize Google, link Google Calendar, or "conectar google" → 'calendar' (NOT 'search')
+17. If the user asks about their emails, inbox, unread emails, "meus emails", "conectar gmail", "ver inbox" → 'email' (NOT 'search' or 'chat')
 
 Respond ONLY with a JSON object:
 {"agent": "<agent_name>", "reason": "<brief explanation>"}

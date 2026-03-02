@@ -308,8 +308,103 @@ MERCADO_KEYWORDS: Dict[str, List[str]] = {
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Utility function
+# CALENDAR CONNECT (Google OAuth2) keywords
 # ══════════════════════════════════════════════════════════════════════════════
+
+CALENDAR_CONNECT_KEYWORDS: Dict[str, List[str]] = {
+    "pt": [
+        "conectar google",
+        "conectar calendario",
+        "conectar calendário",
+        "ligar google calendar",
+        "autorizar google",
+        "conectar conta google",
+        "ligar conta google",
+        "link google",
+        "google calendar",
+    ],
+    "en": [
+        "connect google",
+        "connect calendar",
+        "link google calendar",
+        "authorize google",
+        "connect google account",
+        "link google account",
+        "google calendar",
+    ],
+    "es": [
+        "conectar google",
+        "conectar calendario",
+        "enlazar google calendar",
+        "autorizar google",
+        "conectar cuenta google",
+        "vincular google",
+        "google calendar",
+    ],
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EMAIL keywords
+# ══════════════════════════════════════════════════════════════════════════════
+
+EMAIL_KEYWORDS: Dict[str, List[str]] = {
+    "pt": [
+        "meus emails",
+        "meus e-mails",
+        "ver inbox",
+        "ver caixa",
+        "emails não lidos",
+        "emails nao lidos",
+        "mostra emails",
+        "mostra meus emails",
+        "últimos emails",
+        "ultimos emails",
+        "conectar gmail",
+        "quantos emails",
+        "emails do gmail",
+        "emails do hotmail",
+        "emails do outlook",
+        "caixa de entrada",
+        "responde ao email",
+        "responder email",
+        "resume o email",
+        "ler emails",
+    ],
+    "en": [
+        "my emails",
+        "check inbox",
+        "view inbox",
+        "unread emails",
+        "show emails",
+        "show my emails",
+        "recent emails",
+        "connect gmail",
+        "how many emails",
+        "gmail inbox",
+        "email inbox",
+        "read emails",
+        "reply to email",
+        "summarize email",
+    ],
+    "es": [
+        "mis emails",
+        "mis correos",
+        "ver bandeja",
+        "ver correos",
+        "emails no leídos",
+        "emails no leidos",
+        "correos no leídos",
+        "mostrar emails",
+        "mostrar correos",
+        "conectar gmail",
+        "cuántos emails",
+        "cuantos emails",
+        "bandeja de entrada",
+        "leer correos",
+        "responder correo",
+    ],
+}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

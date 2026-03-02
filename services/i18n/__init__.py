@@ -17,6 +17,8 @@ try:
         TWILIO_KEYWORDS,
         TRANSPORT_KEYWORDS,
         TRAVEL_KEYWORDS,
+        CALENDAR_CONNECT_KEYWORDS,
+        EMAIL_KEYWORDS,
     )
 except ImportError:
     from .strings import t, get_user_lang, SUPPORTED_LANGS, DEFAULT_LANG
@@ -26,6 +28,8 @@ except ImportError:
         TWILIO_KEYWORDS,
         TRANSPORT_KEYWORDS,
         TRAVEL_KEYWORDS,
+        CALENDAR_CONNECT_KEYWORDS,
+        EMAIL_KEYWORDS,
     )
 
 __all__ = [
@@ -38,4 +42,6 @@ __all__ = [
     "TWILIO_KEYWORDS",
     "TRANSPORT_KEYWORDS",
     "TRAVEL_KEYWORDS",
+    "CALENDAR_CONNECT_KEYWORDS",
+    "EMAIL_KEYWORDS",
 ]

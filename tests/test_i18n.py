@@ -11,6 +11,8 @@ from services.i18n.keywords import (
     TRANSPORT_KEYWORDS,
     LEAVING_NOW_KEYWORDS,
     MERCADO_KEYWORDS,
+    CALENDAR_CONNECT_KEYWORDS,
+    EMAIL_KEYWORDS,
 )
 from services.i18n.prompts import get_orchestrator_prompt, get_chat_prompt
 
@@ -223,6 +225,60 @@ def test_phone_with_keywords():
     assert not check_keywords_with_phone("call me back")  # no phone number
 
 
+def test_calendar_connect_keywords_pt():
+    assert check_keywords("conectar google", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("conectar calendario", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("conectar calendário", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("autorizar google", CALENDAR_CONNECT_KEYWORDS)
+
+
+def test_calendar_connect_keywords_en():
+    assert check_keywords("connect google", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("connect calendar", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("link google calendar", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("authorize google", CALENDAR_CONNECT_KEYWORDS)
+
+
+def test_calendar_connect_keywords_es():
+    assert check_keywords("conectar google", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("conectar calendario", CALENDAR_CONNECT_KEYWORDS)
+    assert check_keywords("vincular google", CALENDAR_CONNECT_KEYWORDS)
+
+
+def test_calendar_connect_keywords_no_match():
+    assert not check_keywords("what's the weather?", CALENDAR_CONNECT_KEYWORDS)
+    assert not check_keywords("pesquise no google sobre gatos", CALENDAR_CONNECT_KEYWORDS)
+
+
+def test_email_keywords_pt():
+    assert check_keywords("meus emails", EMAIL_KEYWORDS)
+    assert check_keywords("ver inbox", EMAIL_KEYWORDS)
+    assert check_keywords("emails não lidos", EMAIL_KEYWORDS)
+    assert check_keywords("conectar gmail", EMAIL_KEYWORDS)
+    assert check_keywords("quantos emails tenho?", EMAIL_KEYWORDS)
+    assert check_keywords("caixa de entrada", EMAIL_KEYWORDS)
+
+
+def test_email_keywords_en():
+    assert check_keywords("my emails", EMAIL_KEYWORDS)
+    assert check_keywords("check inbox", EMAIL_KEYWORDS)
+    assert check_keywords("unread emails", EMAIL_KEYWORDS)
+    assert check_keywords("show my emails", EMAIL_KEYWORDS)
+    assert check_keywords("how many emails do I have?", EMAIL_KEYWORDS)
+
+
+def test_email_keywords_es():
+    assert check_keywords("mis emails", EMAIL_KEYWORDS)
+    assert check_keywords("ver bandeja", EMAIL_KEYWORDS)
+    assert check_keywords("correos no leídos", EMAIL_KEYWORDS)
+    assert check_keywords("bandeja de entrada", EMAIL_KEYWORDS)
+
+
+def test_email_keywords_no_match():
+    assert not check_keywords("what's the weather?", EMAIL_KEYWORDS)
+    assert not check_keywords("faz uma chamada", EMAIL_KEYWORDS)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # PROMPTS TESTS
 # ═══════════════════════════════════════════════════════════════════════════
@@ -234,6 +290,20 @@ def test_orchestrator_prompt_is_english():
     assert "'chat'" in prompt
     assert "'twilio'" in prompt
     assert "'transport'" in prompt
+
+
+def test_orchestrator_prompt_has_google_connect_rule():
+    """Orchestrator prompt must route 'conectar google' to calendar."""
+    prompt = get_orchestrator_prompt()
+    assert "connect Google" in prompt or "conectar google" in prompt
+    assert "'calendar'" in prompt
+
+
+def test_orchestrator_prompt_has_email_routing_rule():
+    """Orchestrator prompt must route email queries to email agent."""
+    prompt = get_orchestrator_prompt()
+    assert "meus emails" in prompt or "inbox" in prompt
+    assert "'email'" in prompt
 
 
 def test_orchestrator_prompt_has_all_agents():

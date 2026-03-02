@@ -10,7 +10,13 @@ from telegram.ext import Application
 from services import get_service
 from agents import get_agent
 from agents.core.base_agent import AgentResponse
-from services.i18n import check_keywords, TWILIO_KEYWORDS, TRANSPORT_KEYWORDS
+from services.i18n import (
+    check_keywords,
+    TWILIO_KEYWORDS,
+    TRANSPORT_KEYWORDS,
+    CALENDAR_CONNECT_KEYWORDS,
+    EMAIL_KEYWORDS,
+)
 from services.i18n.keywords import check_keywords_with_phone
 
 # NOTE: _TRANSPORT_KEYWORDS and _TWILIO_KEYWORDS removed — now in services/i18n/keywords.py
@@ -151,6 +157,14 @@ class CapivaraXBot:
 
         return check_keywords(text, TRAVEL_KEYWORDS)
 
+    def _is_calendar_connect_query(self, text: str) -> bool:
+        """Check if the user wants to connect Google Calendar (multi-language)."""
+        return check_keywords(text, CALENDAR_CONNECT_KEYWORDS)
+
+    def _is_email_query(self, text: str) -> bool:
+        """Check if the text is clearly about email management (multi-language)."""
+        return check_keywords(text, EMAIL_KEYWORDS)
+
     def _is_search_query(self, text: str) -> bool:
         """Check if the text is clearly a search/shopping/places query."""
         _SEARCH_KEYWORDS = [
@@ -266,9 +280,25 @@ class CapivaraXBot:
             )
 
             # ── 3. KEYWORD SAFETY NET ─────────────────────────────────
-            # Se o orchestrator decidiu "chat" mas a mensagem é claramente
-            # sobre transporte público, redirecionar para "transport".
-            # Isto protege contra falhas do GPT-4o-mini no routing.
+            # Protege contra falhas do GPT-4o-mini no routing.
+            # "conectar google" → calendar (LLM confunde "google" com search)
+            # "meus emails" → email (LLM pode enviar para chat/search)
+            if agent_name in ("chat", "search", "research") and self._is_calendar_connect_query(text):
+                self.logger.info(
+                    "KEYWORD OVERRIDE: '%s' → calendar (was: %s)",
+                    text[:60],
+                    agent_name,
+                )
+                agent_name = "calendar"
+
+            if agent_name in ("chat", "search", "research") and self._is_email_query(text):
+                self.logger.info(
+                    "KEYWORD OVERRIDE: '%s' → email (was: %s)",
+                    text[:60],
+                    agent_name,
+                )
+                agent_name = "email"
+
             if agent_name == "chat" and self._is_transport_query(text):
                 self.logger.info(
                     "KEYWORD OVERRIDE: '%s' → transport (was: chat)", text[:60]
