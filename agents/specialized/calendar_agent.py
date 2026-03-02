@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from schemas.calendar import CalendarEventInput
 from services import get_service
+from services.auth.google_oauth_service import get_google_oauth
 from services.i18n import t
 
 
@@ -60,32 +61,6 @@ class CalendarAgent(BaseAgent):
 
         return None
 
-    async def _load_stored_credentials(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Load Google Calendar credentials from DB for a user."""
-        try:
-            db = get_service("database")
-            if db:
-                if not db.is_initialized():
-                    await db.initialize()
-                return await db.get_calendar_credentials(user_id)
-        except Exception as e:
-            self.logger.warning(f"Could not load calendar credentials: {e}")
-        return None
-
-    async def _save_credentials(
-        self, user_id: str, credentials: Dict[str, Any]
-    ) -> bool:
-        """Persist Google Calendar credentials to DB."""
-        try:
-            db = get_service("database")
-            if db:
-                if not db.is_initialized():
-                    await db.initialize()
-                return await db.save_calendar_credentials(user_id, credentials)
-        except Exception as e:
-            self.logger.warning(f"Could not save calendar credentials: {e}")
-        return False
-
     # Intent keywords mapped to handler method names
     _INTENT_KEYWORDS: Dict[str, List[str]] = {
         "next_meeting": ["next meeting", "proxima reuniao", "next event"],
@@ -99,6 +74,12 @@ class CalendarAgent(BaseAgent):
             "leave",
             "quando sair",
             "when to leave",
+        ],
+        "connect": [
+            "conectar google",
+            "connect google",
+            "conectar calendario",
+            "conectar gmail",
         ],
     }
 
@@ -161,23 +142,58 @@ class CalendarAgent(BaseAgent):
 
             calendar_service = self._calendar_service
 
+            # Extrair user_id para OAuth2 per-user calendar
+            user_id = str(
+                context.get("chat_id", context.get("user_id", ""))
+            )
+
             # Priority: explicit create event action from PromptCleaner
             if context.get("action") == "create_event":
                 event_params = context.get("event_params", {})
-                return await self._create_event(calendar_service, event_params)
+                return await self._create_event(
+                    calendar_service, event_params, user_id=user_id
+                )
 
             # Dispatch by detected intent
             intent = self._detect_intent(prompt.lower())
 
+            # Check if user wants to connect Google account
+            if intent == "connect":
+                oauth = get_google_oauth()
+                if await oauth.is_connected(user_id):
+                    return AgentResponse(
+                        status=AgentStatus.SUCCESS,
+                        response="A tua conta Google já está conectada! Calendar e Gmail activos.",
+                    )
+                auth_url = oauth.get_auth_url(user_id)
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=(
+                        "Clica no link para conectar a tua conta Google "
+                        f"(Calendar + Gmail):\n{auth_url}"
+                    ),
+                    data={"auth_url": auth_url},
+                )
+
             dispatch = {
-                "next_meeting": lambda: self._get_next_meeting(calendar_service),
-                "today": lambda: self._get_today_events(calendar_service),
-                "week": lambda: self._get_week_events(calendar_service),
-                "briefing": lambda: self._get_briefing(calendar_service),
+                "next_meeting": lambda: self._get_next_meeting(
+                    calendar_service, user_id=user_id
+                ),
+                "today": lambda: self._get_today_events(
+                    calendar_service, user_id=user_id
+                ),
+                "week": lambda: self._get_week_events(
+                    calendar_service, user_id=user_id
+                ),
+                "briefing": lambda: self._get_briefing(
+                    calendar_service, user_id=user_id
+                ),
                 "traffic": lambda: self._check_traffic_for_next_event(
                     calendar_service, context.get("user_location", "Dublin")
                 ),
-                "upcoming": lambda: self._get_upcoming_events(calendar_service),
+                "upcoming": lambda: self._get_upcoming_events(
+                    calendar_service, user_id=user_id
+                ),
             }
 
             handler = dispatch[intent]
@@ -192,9 +208,16 @@ class CalendarAgent(BaseAgent):
                 error=str(e),
             )
 
-    async def _get_next_meeting(self, calendar_service: Any) -> AgentResponse:
-        """Get the next upcoming meeting."""
-        next_meeting = calendar_service.get_next_meeting()
+    async def _get_next_meeting(
+        self, calendar_service: Any, user_id: str = ""
+    ) -> AgentResponse:
+        """Get the next upcoming meeting (OAuth2 per-user if available)."""
+        if user_id and hasattr(calendar_service, "async_get_next_meeting"):
+            next_meeting = await calendar_service.async_get_next_meeting(
+                user_id=user_id
+            )
+        else:
+            next_meeting = calendar_service.get_next_meeting()
 
         if not next_meeting:
             return AgentResponse(
@@ -228,9 +251,14 @@ class CalendarAgent(BaseAgent):
             data={"events": [next_meeting]},
         )
 
-    async def _get_today_events(self, calendar_service: Any) -> AgentResponse:
-        """Get all events for today."""
-        events = calendar_service.get_today_events()
+    async def _get_today_events(
+        self, calendar_service: Any, user_id: str = ""
+    ) -> AgentResponse:
+        """Get all events for today (OAuth2 per-user if available)."""
+        if user_id and hasattr(calendar_service, "async_get_today_events"):
+            events = await calendar_service.async_get_today_events(user_id=user_id)
+        else:
+            events = calendar_service.get_today_events()
 
         if not events:
             return AgentResponse(
@@ -249,14 +277,20 @@ class CalendarAgent(BaseAgent):
             data={"events": events},
         )
 
-    async def _get_week_events(self, calendar_service: Any) -> AgentResponse:
-        """Get events for the current week."""
-        now = datetime.now(timezone.utc)
-        end_of_week = now + timedelta(days=7)
-
-        events = calendar_service.get_upcoming_events(
-            max_results=50, time_min=now, time_max=end_of_week
-        )
+    async def _get_week_events(
+        self, calendar_service: Any, user_id: str = ""
+    ) -> AgentResponse:
+        """Get events for the current week (OAuth2 per-user if available)."""
+        if user_id and hasattr(calendar_service, "async_get_upcoming_events"):
+            events = await calendar_service.async_get_upcoming_events(
+                user_id=user_id, max_results=50, days_ahead=7
+            )
+        else:
+            now = datetime.now(timezone.utc)
+            end_of_week = now + timedelta(days=7)
+            events = calendar_service.get_upcoming_events(
+                max_results=50, time_min=now, time_max=end_of_week
+            )
 
         if not events:
             return AgentResponse(
@@ -275,9 +309,16 @@ class CalendarAgent(BaseAgent):
             data={"events": events},
         )
 
-    async def _get_upcoming_events(self, calendar_service: Any) -> AgentResponse:
-        """Get upcoming events (next 7 days)."""
-        events = calendar_service.get_upcoming_events(max_results=10)
+    async def _get_upcoming_events(
+        self, calendar_service: Any, user_id: str = ""
+    ) -> AgentResponse:
+        """Get upcoming events (next 7 days, OAuth2 per-user if available)."""
+        if user_id and hasattr(calendar_service, "async_get_upcoming_events"):
+            events = await calendar_service.async_get_upcoming_events(
+                user_id=user_id, max_results=10
+            )
+        else:
+            events = calendar_service.get_upcoming_events(max_results=10)
 
         if not events:
             return AgentResponse(
@@ -296,17 +337,24 @@ class CalendarAgent(BaseAgent):
             data={"events": events},
         )
 
-    async def _get_briefing(self, calendar_service: Any) -> AgentResponse:
-        """Get calendar briefing."""
-        briefing_text = calendar_service.generate_calendar_briefing()
-        events = calendar_service.get_morning_briefing_events()
+    async def _get_briefing(
+        self, calendar_service: Any, user_id: str = ""
+    ) -> AgentResponse:
+        """Get calendar briefing (OAuth2 per-user if available)."""
+        if user_id and hasattr(calendar_service, "async_get_today_events"):
+            events = await calendar_service.async_get_today_events(user_id=user_id)
+            briefing_text = calendar_service.generate_calendar_briefing()
+        else:
+            briefing_text = calendar_service.generate_calendar_briefing()
+            events = calendar_service.get_morning_briefing_events()
 
         return AgentResponse(
             status=AgentStatus.SUCCESS, response=briefing_text, data={"events": events}
         )
 
     async def _create_event(
-        self, calendar_service: Any, event_params: Dict[str, Any]
+        self, calendar_service: Any, event_params: Dict[str, Any],
+        user_id: str = "",
     ) -> AgentResponse:
         """
         Create a new calendar event.
@@ -355,14 +403,24 @@ class CalendarAgent(BaseAgent):
 
         end_dt = event_input.resolved_end()
 
-        # Delegate to calendar service
-        created_event = calendar_service.create_event(
-            summary=event_input.title,
-            start_time=event_input.start_datetime,
-            end_time=end_dt,
-            location=event_input.location,
-            description=event_input.description,
-        )
+        # Delegate to calendar service (async OAuth2 if available)
+        if user_id and hasattr(calendar_service, "async_create_event"):
+            created_event = await calendar_service.async_create_event(
+                user_id=user_id,
+                summary=event_input.title,
+                start_time=event_input.start_datetime,
+                end_time=end_dt,
+                location=event_input.location,
+                description=event_input.description,
+            )
+        else:
+            created_event = calendar_service.create_event(
+                summary=event_input.title,
+                start_time=event_input.start_datetime,
+                end_time=end_dt,
+                location=event_input.location,
+                description=event_input.description,
+            )
 
         if not created_event:
             return AgentResponse(

@@ -140,44 +140,157 @@ class EmailAgent(BaseAgent):
 
     async def _send_email(
         self,
-        account: str,
         to: str,
         subject: str,
         body: str,
+        user_id: str = "",
         reply_to_message_id: Optional[str] = None,
         thread_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Envia email. Placeholder para futura implementação com
-        Gmail API / Microsoft Graph.
+        Envia email via Gmail API (OAuth2 per-user).
 
-        TODO: Implementar com:
-        - Gmail API (google-auth + google-api-python-client) para account='gmail'
-        - Microsoft Graph API (msal) para account='hotmail'/'outlook'
+        Args:
+            to: Email do destinatário
+            subject: Assunto do email
+            body: Corpo do email (texto plano)
+            user_id: ID do utilizador (obrigatório para OAuth2)
+            reply_to_message_id: Message-ID para reply
+            thread_id: Thread ID para manter na conversa
+
+        Returns:
+            Dict com resultado do envio
+
+        Raises:
+            RuntimeError: Se Gmail não conectado ou envio falhar
         """
-        self.logger.warning(
-            "Email send requested but direct API not yet implemented. "
-            "account=%s, to=%s, subject=%s",
-            account, to, subject,
-        )
-        # Guardar a tentativa no Supabase para referência
+        if not user_id:
+            return {
+                "success": False,
+                "error": "user_id obrigatório para enviar emails.",
+            }
+
         try:
-            await edb.save_reply(
-                user_id="system",
-                account=account,
-                to_email=to,
+            gmail = get_service("gmail")
+            if not gmail or not gmail.is_initialized():
+                if gmail:
+                    await gmail.initialize()
+                else:
+                    return {
+                        "success": False,
+                        "error": "GmailService não disponível.",
+                    }
+
+            # Verificar se user tem Gmail conectado
+            connected = await gmail.is_connected(user_id)
+            if not connected:
+                auth_url = gmail.get_auth_url(user_id)
+                return {
+                    "success": False,
+                    "error": "Gmail não conectado.",
+                    "auth_url": auth_url,
+                    "message": (
+                        "Precisas conectar o teu Gmail primeiro. "
+                        "Clica no link para autorizar."
+                    ),
+                }
+
+            result = await gmail.send_email(
+                user_id=user_id,
+                to=to,
                 subject=subject,
                 body=body,
-                inbox_id=reply_to_message_id,
-                status="pending_implementation",
+                reply_to_message_id=reply_to_message_id,
+                thread_id=thread_id,
             )
-        except Exception:
-            pass
 
-        raise NotImplementedError(
-            f"Envio directo de email via {account} ainda não implementado. "
-            "Em breve com Gmail API / Microsoft Graph!"
-        )
+            return {
+                "success": True,
+                "message_id": result.get("id", ""),
+                "thread_id": result.get("threadId", ""),
+            }
+
+        except Exception as e:
+            self.logger.error("Failed to send email: %s", e, exc_info=True)
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
+    async def _list_emails(
+        self,
+        user_id: str,
+        max_results: int = 5,
+        unread_only: bool = False,
+        query: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Lista emails do utilizador via Gmail API.
+
+        Returns:
+            Dict com success, emails, count
+        """
+        if not user_id:
+            return {"success": False, "error": "user_id obrigatório."}
+
+        try:
+            gmail = get_service("gmail")
+            if not gmail:
+                return {"success": False, "error": "GmailService não disponível."}
+
+            if not await gmail.is_connected(user_id):
+                auth_url = gmail.get_auth_url(user_id)
+                return {
+                    "success": False,
+                    "error": "Gmail não conectado.",
+                    "auth_url": auth_url,
+                }
+
+            emails = await gmail.list_emails(
+                user_id=user_id,
+                max_results=max_results,
+                unread_only=unread_only,
+                query=query,
+            )
+
+            return {
+                "success": True,
+                "emails": emails,
+                "count": len(emails),
+            }
+
+        except Exception as e:
+            self.logger.error("Failed to list emails: %s", e, exc_info=True)
+            return {"success": False, "error": str(e)}
+
+    async def _get_connect_url(self, user_id: str) -> Dict[str, Any]:
+        """
+        Retorna URL para o user conectar o Gmail.
+
+        Returns:
+            Dict com auth_url
+        """
+        try:
+            gmail = get_service("gmail")
+            if not gmail:
+                return {"success": False, "error": "GmailService não disponível."}
+
+            already_connected = await gmail.is_connected(user_id)
+            if already_connected:
+                return {
+                    "success": True,
+                    "already_connected": True,
+                    "message": "Gmail já está conectado!",
+                }
+
+            auth_url = gmail.get_auth_url(user_id)
+            return {
+                "success": True,
+                "auth_url": auth_url,
+                "message": "Clica no link para conectar o teu Gmail.",
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     # ──────────────────────────────────────────────────────────────────────────
     # ENTRADA PRINCIPAL
@@ -495,14 +608,26 @@ class EmailAgent(BaseAgent):
                 )
 
             try:
-                await self._send_email(
-                    account=pending["account"],
+                send_result = await self._send_email(
                     to=pending["from_email"],
                     subject=pending.get("subject", ""),
                     body=draft,
+                    user_id=user_id,
                     reply_to_message_id=pending.get("message_id", ""),
                     thread_id=pending.get("thread_id", ""),
                 )
+
+                if not send_result.get("success"):
+                    error_msg = send_result.get("error", "Erro desconhecido")
+                    auth_url = send_result.get("auth_url")
+                    msg_text = f"❌ {error_msg}"
+                    if auth_url:
+                        msg_text += f"\n\n🔗 Conecta o Gmail: {auth_url}"
+                    return AgentResponse(
+                        status=AgentStatus.ERROR,
+                        message=msg_text,
+                        data=send_result,
+                    )
 
                 # Marcar como respondido no Supabase
                 await self._mark_replied(pending.get("email_id"), user_id)

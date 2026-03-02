@@ -3,6 +3,7 @@ Integration test for the complete create event flow — refactored architecture.
 
 Flow: PromptCleanerService → CalendarAgent → CalendarService
 """
+
 import pytest
 
 from agents.specialized.calendar_agent import CalendarAgent
@@ -47,4 +48,4 @@ async def test_complete_create_event_flow(
 
     assert result.is_success()
     assert "event" in result.data
-    mock_calendar_service.create_event.assert_called_once()
+    mock_calendar_service.async_create_event.assert_called_once()

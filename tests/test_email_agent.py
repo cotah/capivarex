@@ -14,7 +14,7 @@ Cobertura EmailAgent:
 - _extract_account
 - _extract_reply_instruction
 - _resolve_email_reference: por número, por nome, fallback
-- _send_email: stub NotImplementedError
+- _send_email: Gmail API integration
 - Fluxo completo: email chega → notifica → responde → confirma → envia
 """
 
@@ -193,33 +193,34 @@ class TestGetAccountLabel:
         assert EmailAgent._get_account_label("Gmail") == "Gmail"
 
 
-# ─── EmailAgent — _send_email (stub) ────────────────────────────────────────
+# ─── EmailAgent — _send_email (Gmail API) ──────────────────────────────────
 
 
 @pytest.mark.asyncio
-class TestSendEmailStub:
-    async def test_send_email_raises_not_implemented(self):
+class TestSendEmail:
+    async def test_send_email_no_user_id(self):
+        """Send without user_id returns error dict."""
         agent = _email_agent()
-        with pytest.raises(NotImplementedError, match="ainda não implementado"):
-            await agent._send_email(
-                account="gmail",
-                to="test@test.com",
-                subject="Test",
-                body="Body",
-            )
+        result = await agent._send_email(
+            to="test@test.com",
+            subject="Test",
+            body="Body",
+        )
+        assert result["success"] is False
+        assert "user_id" in result["error"]
 
-    async def test_send_email_logs_warning(self):
+    async def test_send_email_no_gmail_service(self):
+        """Send when GmailService not available returns error."""
         agent = _email_agent()
-        try:
-            await agent._send_email(
-                account="gmail",
+        with patch("agents.specialized.email_agent.get_service", return_value=None):
+            result = await agent._send_email(
                 to="test@test.com",
                 subject="Test",
                 body="Body",
+                user_id="u1",
             )
-        except NotImplementedError:
-            pass
-        agent.logger.warning.assert_called_once()
+        assert result["success"] is False
+        assert "GmailService" in result["error"]
 
 
 # ─── EmailAgent — classify urgency ───────────────────────────────────────────

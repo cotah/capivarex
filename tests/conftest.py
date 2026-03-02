@@ -1,6 +1,7 @@
 """
 Shared fixtures for tests — aligned with refactored BaseAgent/BaseService architecture.
 """
+
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -35,42 +36,49 @@ def mock_calendar_service():
     service.authenticate = Mock(return_value=True)
     service._initialized = True
 
-    service.create_event = Mock(
-        return_value={
-            "id": "test_event_123",
-            "summary": "Test Event",
-            "start": {"dateTime": "2026-02-15T15:00:00"},
-            "end": {"dateTime": "2026-02-15T16:00:00"},
-            "location": "Cork",
-        }
-    )
+    _default_event = {
+        "id": "test_event_123",
+        "summary": "Test Event",
+        "start": {"dateTime": "2026-02-15T15:00:00"},
+        "end": {"dateTime": "2026-02-15T16:00:00"},
+        "location": "Cork",
+    }
 
-    service.get_upcoming_events = Mock(
-        return_value=[
-            {
-                "id": "event_1",
-                "summary": "Meeting",
-                "start": "2026-02-15T15:00:00+00:00",
-                "end": "2026-02-15T16:00:00+00:00",
-                "location": "Cork, Ireland",
-                "description": "",
-                "attendees": [],
-            }
-        ]
-    )
-    service.get_next_meeting = Mock(
-        return_value={
+    _default_upcoming = [
+        {
             "id": "event_1",
             "summary": "Meeting",
             "start": "2026-02-15T15:00:00+00:00",
+            "end": "2026-02-15T16:00:00+00:00",
             "location": "Cork, Ireland",
+            "description": "",
+            "attendees": [],
         }
-    )
+    ]
+
+    _default_next = {
+        "id": "event_1",
+        "summary": "Meeting",
+        "start": "2026-02-15T15:00:00+00:00",
+        "location": "Cork, Ireland",
+    }
+
+    # Sync methods (Service Account fallback)
+    service.create_event = Mock(return_value=_default_event)
+    service.get_upcoming_events = Mock(return_value=_default_upcoming)
+    service.get_next_meeting = Mock(return_value=_default_next)
     service.get_today_events = Mock(return_value=[])
     service.generate_calendar_briefing = Mock(return_value="📅 **Calendar Briefing**")
+    service.get_morning_briefing_events = Mock(return_value=[{"id": "1"}])
     service.format_event_for_briefing = Mock(
         side_effect=lambda e: f"• {e.get('summary', 'No title')}"
     )
+
+    # Async methods (OAuth2 per-user) — same return values
+    service.async_create_event = AsyncMock(return_value=_default_event)
+    service.async_get_upcoming_events = AsyncMock(return_value=_default_upcoming)
+    service.async_get_next_meeting = AsyncMock(return_value=_default_next)
+    service.async_get_today_events = AsyncMock(return_value=[])
 
     return service
 

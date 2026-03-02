@@ -43,7 +43,7 @@ async def test_create_event_success(
     assert result.is_success()
     assert "Evento criado com sucesso" in result.response
     assert "event" in result.data
-    mock_calendar_service.create_event.assert_called_once()
+    mock_calendar_service.async_create_event.assert_called_once()
 
 
 @pytest.mark.unit
@@ -100,7 +100,7 @@ async def test_create_event_default_end_time(mock_calendar_service, sample_conte
     result = await agent.execute("Create event", context)
 
     assert result.is_success()
-    kwargs = mock_calendar_service.create_event.call_args.kwargs
+    kwargs = mock_calendar_service.async_create_event.call_args.kwargs
     assert kwargs["end_time"] - kwargs["start_time"] == timedelta(hours=1)
 
 
@@ -131,7 +131,7 @@ async def test_create_event_calendar_service_returns_none(
     mock_calendar_service, sample_context
 ):
     """Test create event handles calendar service failure."""
-    mock_calendar_service.create_event.return_value = None
+    mock_calendar_service.async_create_event.return_value = None
     agent = _build_agent(mock_calendar_service)
     context = {
         **sample_context,
@@ -169,7 +169,7 @@ async def test_process_authentication_failure(mock_calendar_service, sample_cont
 @pytest.mark.asyncio
 async def test_get_next_meeting_no_results(mock_calendar_service, sample_context):
     """Test next meeting response when no meetings are found."""
-    mock_calendar_service.get_next_meeting.return_value = None
+    mock_calendar_service.async_get_next_meeting.return_value = None
     agent = _build_agent(mock_calendar_service)
 
     result = await agent.execute("next meeting", sample_context)
@@ -182,7 +182,7 @@ async def test_get_next_meeting_no_results(mock_calendar_service, sample_context
 @pytest.mark.asyncio
 async def test_get_today_events_with_items(mock_calendar_service, sample_context):
     """Test today events formatting path."""
-    mock_calendar_service.get_today_events.return_value = [
+    mock_calendar_service.async_get_today_events.return_value = [
         {"summary": "Daily", "start": "2026-02-15T09:00:00"}
     ]
     mock_calendar_service.format_event_for_briefing.side_effect = lambda e: (
@@ -202,16 +202,16 @@ async def test_get_today_events_with_items(mock_calendar_service, sample_context
 async def test_get_week_events_routes_with_time_range(
     mock_calendar_service, sample_context
 ):
-    """Test weekly query calls get_upcoming_events with time range."""
-    mock_calendar_service.get_upcoming_events.return_value = []
+    """Test weekly query calls async_get_upcoming_events with time range."""
+    mock_calendar_service.async_get_upcoming_events.return_value = []
     agent = _build_agent(mock_calendar_service)
 
     result = await agent.execute("this week", sample_context)
 
     assert result.is_success()
-    kwargs = mock_calendar_service.get_upcoming_events.call_args.kwargs
+    kwargs = mock_calendar_service.async_get_upcoming_events.call_args.kwargs
     assert kwargs["max_results"] == 50
-    assert "time_min" in kwargs and "time_max" in kwargs
+    assert kwargs["days_ahead"] == 7
 
 
 @pytest.mark.unit
@@ -219,7 +219,7 @@ async def test_get_week_events_routes_with_time_range(
 async def test_get_briefing_path(mock_calendar_service, sample_context):
     """Test briefing path returns calendar briefing text."""
     mock_calendar_service.generate_calendar_briefing.return_value = "📅 Briefing"
-    mock_calendar_service.get_morning_briefing_events.return_value = [{"id": "1"}]
+    mock_calendar_service.async_get_today_events.return_value = [{"id": "1"}]
     agent = _build_agent(mock_calendar_service)
 
     result = await agent.execute("briefing", sample_context)
