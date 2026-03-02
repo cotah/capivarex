@@ -297,7 +297,7 @@ class EmailAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def execute(
-        self, message: str, user_id: str, context: Dict[str, Any]
+        self, prompt: str, context: Dict[str, Any]
     ) -> AgentResponse:
         """
         Processa mensagem do utilizador relacionada com emails.
@@ -306,6 +306,8 @@ class EmailAgent(BaseAgent):
         if not self.is_initialized():
             await self.initialize()
 
+        user_id = str(context.get("user_id", context.get("chat_id", "")))
+
         # Fetch linked accounts so the agent knows what's available
         try:
             accounts = await edb.get_email_accounts(user_id)
@@ -313,7 +315,7 @@ class EmailAgent(BaseAgent):
         except Exception:
             pass
 
-        msg = message.strip()
+        msg = prompt.strip()
 
         # Verificar se é resposta a confirmação pendente
         pending = context.get("email_pending_reply")

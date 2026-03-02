@@ -392,7 +392,7 @@ class TestEmailExecuteList:
     async def test_list_empty(self):
         agent = _email_agent()
         agent._get_emails = AsyncMock(return_value=[])
-        result = await agent.execute("mostra os meus emails", "u1", {})
+        result = await agent.execute("mostra os meus emails", {"user_id": "u1"})
         assert "Nenhum email" in result.message or "📭" in result.message
 
     async def test_list_with_emails(self):
@@ -409,13 +409,13 @@ class TestEmailExecuteList:
                 }
             ]
         )
-        result = await agent.execute("mostra os meus emails", "u1", {})
+        result = await agent.execute("mostra os meus emails", {"user_id": "u1"})
         assert "João" in result.message or "Olá" in result.message
 
     async def test_list_unread_only(self):
         agent = _email_agent()
         agent._get_emails = AsyncMock(return_value=[])
-        await agent.execute("emails não lidos", "u1", {})
+        await agent.execute("emails não lidos", {"user_id": "u1"})
         agent._get_emails.assert_called_once()
         call_kwargs = agent._get_emails.call_args
         assert call_kwargs[1].get("unread_only") is True or (
@@ -425,7 +425,7 @@ class TestEmailExecuteList:
     async def test_list_gmail_filter(self):
         agent = _email_agent()
         agent._get_emails = AsyncMock(return_value=[])
-        await agent.execute("mostra emails do gmail", "u1", {})
+        await agent.execute("mostra emails do gmail", {"user_id": "u1"})
         call_kwargs = agent._get_emails.call_args
         # account deve ser gmail
         account_arg = call_kwargs[1].get("account") or (
@@ -442,7 +442,7 @@ class TestEmailExecuteCount:
     async def test_count_empty(self):
         agent = _email_agent()
         agent._get_counts = AsyncMock(return_value={})
-        result = await agent.execute("quantos emails tenho?", "u1", {})
+        result = await agent.execute("quantos emails tenho?", {"user_id": "u1"})
         assert "email" in result.message.lower() or "📊" in result.message
 
     async def test_count_with_data(self):
@@ -453,7 +453,7 @@ class TestEmailExecuteCount:
                 "hotmail": {"total": 5, "unread": 0},
             }
         )
-        result = await agent.execute("quantos emails tenho?", "u1", {})
+        result = await agent.execute("quantos emails tenho?", {"user_id": "u1"})
         assert "Gmail" in result.message
         assert "3" in result.message
 
@@ -479,9 +479,9 @@ class TestEmailReplyFlow:
                 }
             ]
         )
-        context = {}
+        context = {"user_id": "u1"}
         result = await agent.execute(
-            "responde ao último email", "u1", context
+            "responde ao último email", context
         )
         assert (
             "Rascunho" in result.message
@@ -497,6 +497,7 @@ class TestEmailReplyFlow:
         agent._send_email = AsyncMock(return_value={"success": True})
 
         context = {
+            "user_id": "u1",
             "email_pending_reply": {
                 "email_id": "e001",
                 "account": "gmail",
@@ -505,9 +506,9 @@ class TestEmailReplyFlow:
                 "from_email": "joao@gmail.com",
                 "subject": "Reunião",
                 "draft": "Confirmo a reunião!",
-            }
+            },
         }
-        result = await agent.execute("sim", "u1", context)
+        result = await agent.execute("sim", context)
         agent._send_email.assert_called_once()
         assert "enviada" in result.message.lower() or "✅" in result.message
         assert "email_pending_reply" not in context
@@ -515,15 +516,16 @@ class TestEmailReplyFlow:
     async def test_cancel_clears_context(self):
         agent = _email_agent()
         context = {
+            "user_id": "u1",
             "email_pending_reply": {
                 "email_id": "e001",
                 "account": "gmail",
                 "from_email": "j@g.com",
                 "subject": "test",
                 "draft": "rascunho",
-            }
+            },
         }
-        result = await agent.execute("não", "u1", context)
+        result = await agent.execute("não", context)
         assert "email_pending_reply" not in context
         assert (
             "cancelada" in result.message.lower()
@@ -533,6 +535,7 @@ class TestEmailReplyFlow:
     async def test_modify_draft(self):
         agent = _email_agent(draft="Novo rascunho modificado.")
         context = {
+            "user_id": "u1",
             "email_pending_reply": {
                 "email_id": "e001",
                 "account": "gmail",
@@ -540,10 +543,10 @@ class TestEmailReplyFlow:
                 "subject": "test",
                 "body_text": "corpo original",
                 "draft": "rascunho antigo",
-            }
+            },
         }
         result = await agent.execute(
-            "muda para um tom mais formal", "u1", context
+            "muda para um tom mais formal", context
         )
         assert (
             "Rascunho actualizado" in result.message
@@ -552,8 +555,8 @@ class TestEmailReplyFlow:
 
     async def test_ignore_clears_pending(self):
         agent = _email_agent()
-        context = {"email_pending_reply": {"email_id": "e001"}}
-        result = await agent.execute("ignora este email", "u1", context)
+        context = {"user_id": "u1", "email_pending_reply": {"email_id": "e001"}}
+        result = await agent.execute("ignora este email", context)
         assert "email_pending_reply" not in context
         assert "ignorado" in result.message.lower()
 
@@ -581,9 +584,9 @@ class TestEmailReplyInstruction:
                 }
             ]
         )
-        context = {}
+        context = {"user_id": "u1"}
         await agent.execute(
-            "responde dizendo que confirmo presença", "u1", context
+            "responde dizendo que confirmo presença", context
         )
         # GPT foi chamado com a instrução
         agent._ai.complete.assert_called_once()
@@ -601,7 +604,7 @@ class TestEmailReplyInstruction:
 class TestEmailHelp:
     async def test_unknown_intent_shows_help(self):
         agent = _email_agent()
-        result = await agent.execute("ajuda com email", "u1", {})
+        result = await agent.execute("ajuda com email", {"user_id": "u1"})
         assert (
             "Podes dizer" in result.message
             or "email" in result.message.lower()
@@ -645,7 +648,7 @@ class TestEmailInit:
             from agents.specialized.email_agent import EmailAgent
 
             agent = EmailAgent()
-            result = await agent.execute("olá email", "u1", {})
+            result = await agent.execute("olá email", {"user_id": "u1"})
             assert agent.is_initialized() is True
             # Falls through to help message (no intent matched)
             assert "email" in result.message.lower()
@@ -708,7 +711,7 @@ class TestHandleSummary:
     async def test_summary_no_email_found(self):
         agent = _email_agent()
         agent._get_emails = AsyncMock(return_value=[])
-        result = await agent.execute("resume o email do Pedro", "u1", {})
+        result = await agent.execute("resume o email do Pedro", {"user_id": "u1"})
         assert "Não encontrei" in result.message or "❌" in result.message
 
     async def test_summary_with_email(self):
@@ -727,7 +730,7 @@ class TestHandleSummary:
                 }
             ]
         )
-        result = await agent.execute("resume o email da Ana", "u1", {})
+        result = await agent.execute("resume o email da Ana", {"user_id": "u1"})
         assert (
             "Resumo" in result.message
             or "resumo" in result.message.lower()
@@ -738,7 +741,7 @@ class TestHandleSummary:
 class TestHandleIgnoreWithoutPending:
     async def test_ignore_without_pending(self):
         agent = _email_agent()
-        result = await agent.execute("ignora o email", "u1", {})
+        result = await agent.execute("ignora o email", {"user_id": "u1"})
         assert "ignorado" in result.message.lower()
 
 
@@ -747,15 +750,16 @@ class TestConfirmationEdgeCases:
     async def test_confirm_no_draft_error(self):
         agent = _email_agent()
         context = {
+            "user_id": "u1",
             "email_pending_reply": {
                 "email_id": "e1",
                 "account": "gmail",
                 "from_email": "j@g.com",
                 "subject": "test",
                 "draft": "",  # empty draft
-            }
+            },
         }
-        result = await agent.execute("sim", "u1", context)
+        result = await agent.execute("sim", context)
         assert "❌" in result.message or "rascunho" in result.message.lower()
 
     async def test_confirm_send_error(self):
@@ -764,6 +768,7 @@ class TestConfirmationEdgeCases:
             side_effect=Exception("Network fail")
         )
         context = {
+            "user_id": "u1",
             "email_pending_reply": {
                 "email_id": "e1",
                 "account": "gmail",
@@ -772,9 +777,9 @@ class TestConfirmationEdgeCases:
                 "from_email": "j@g.com",
                 "subject": "test",
                 "draft": "Rascunho ok",
-            }
+            },
         }
-        result = await agent.execute("sim envia", "u1", context)
+        result = await agent.execute("sim envia", context)
         assert "❌" in result.message or "Erro" in result.message
 
 

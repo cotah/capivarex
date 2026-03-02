@@ -93,9 +93,7 @@ async def save_reply(
         logger.error("Failed to save email reply: %s", e)
 
 
-async def get_sent_replies(
-    user_id: str, limit: int = 20
-) -> List[Dict[str, Any]]:
+async def get_sent_replies(user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
     """Return emails sent/replied by the bot, newest first."""
     sb = get_supabase_client()
     if not sb:
