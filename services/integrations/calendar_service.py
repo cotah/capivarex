@@ -25,6 +25,7 @@ from services.core import (
     register_service,
     ServiceUnavailableError,
 )
+from services.auth.google_oauth_service import get_google_oauth
 
 load_dotenv()
 
@@ -197,6 +198,76 @@ class CalendarService(BaseService):
                 raise RuntimeError(
                     "Calendar service not initialised and authentication failed"
                 )
+
+    async def _get_oauth_service(self, user_id: str) -> Optional[Any]:
+        """
+        Tenta criar um Google Calendar service usando OAuth2 tokens do user.
+        Se o user não tem OAuth2 conectado, retorna None (fallback para Service Account).
+
+        Args:
+            user_id: ID do utilizador
+
+        Returns:
+            Google Calendar service object ou None
+        """
+        try:
+            oauth = get_google_oauth()
+            access_token = await oauth.get_valid_access_token(user_id)
+            if not access_token:
+                return None
+
+            from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
+
+            creds = Credentials(token=access_token)
+            service = build("calendar", "v3", credentials=creds)
+            self.logger.debug("Using OAuth2 calendar for user %s", user_id)
+            return service
+        except Exception as e:
+            self.logger.debug(
+                "OAuth2 calendar not available for user %s: %s", user_id, e
+            )
+            return None
+
+    def _get_service_for_user(
+        self,
+        user_id: Optional[str] = None,
+        _oauth_service: Optional[Any] = None,
+    ) -> Any:
+        """
+        Retorna o service object correcto:
+        - Se _oauth_service fornecido -> usa esse (OAuth2 per-user)
+        - Senão -> usa self._service (Service Account)
+
+        Args:
+            user_id: ID do utilizador (para logging)
+            _oauth_service: Service pré-construído via OAuth2
+
+        Returns:
+            Google Calendar API service object
+        """
+        if _oauth_service:
+            return _oauth_service
+        self._ensure_service()
+        return self._service
+
+    async def _resolve_service(self, user_id: Optional[str] = None) -> Any:
+        """
+        Resolve qual service usar: OAuth2 (se user conectado) ou Service Account.
+
+        Args:
+            user_id: ID do utilizador (se fornecido, tenta OAuth2)
+
+        Returns:
+            Google Calendar API service object
+        """
+        if user_id:
+            oauth_svc = await self._get_oauth_service(user_id)
+            if oauth_svc:
+                return oauth_svc
+        # Fallback: Service Account
+        self._ensure_service()
+        return self._service
 
     @staticmethod
     def _format_event_dict(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -874,6 +945,248 @@ class CalendarService(BaseService):
                 f"Error fetching morning briefing events: {exc}", exc_info=True
             )
             return []
+
+    # ------------------------------------------------------------------
+    # Async methods with OAuth2 per-user support
+    # ------------------------------------------------------------------
+    # Estes métodos tentam OAuth2 primeiro, Service Account como fallback.
+    # Os métodos síncronos acima continuam a funcionar para backward-compat.
+
+    async def async_get_upcoming_events(
+        self,
+        user_id: Optional[str] = None,
+        max_results: int = 10,
+        days_ahead: int = 7,
+        calendar_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Async version of get_upcoming_events with OAuth2 support.
+        Se user_id fornecido e OAuth2 conectado -> calendário pessoal do user.
+        Senão -> Service Account calendar.
+        """
+        import time as _time
+
+        svc = await self._resolve_service(user_id)
+        cal_id = calendar_id or (
+            "primary" if (user_id and svc != self._service) else self.calendar_id
+        )
+        start = _time.time()
+        try:
+            now = datetime.now(timezone.utc)
+            time_min = _utc_isoformat(now)
+            time_max = _utc_isoformat(now + timedelta(days=days_ahead))
+
+            result = (
+                svc.events()
+                .list(
+                    calendarId=cal_id,
+                    timeMin=time_min,
+                    timeMax=time_max,
+                    maxResults=max_results,
+                    singleEvents=True,
+                    orderBy="startTime",
+                )
+                .execute()
+            )
+
+            events = [
+                self._format_event_dict(e) for e in result.get("items", [])
+            ]
+            self._track_call(_time.time() - start, error=False)
+            return events
+        except Exception as exc:
+            self._track_call(_time.time() - start, error=True)
+            self.logger.error(
+                "async_get_upcoming_events failed: %s", exc, exc_info=True
+            )
+            return []
+
+    async def async_get_today_events(
+        self,
+        user_id: Optional[str] = None,
+        calendar_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Async version of get_today_events with OAuth2 support."""
+        import time as _time
+
+        svc = await self._resolve_service(user_id)
+        cal_id = calendar_id or (
+            "primary" if (user_id and svc != self._service) else self.calendar_id
+        )
+        start = _time.time()
+        try:
+            now = datetime.now(timezone.utc)
+            time_min = _utc_isoformat(
+                now.replace(hour=0, minute=0, second=0, microsecond=0)
+            )
+            time_max = _utc_isoformat(
+                now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            )
+
+            result = (
+                svc.events()
+                .list(
+                    calendarId=cal_id,
+                    timeMin=time_min,
+                    timeMax=time_max,
+                    singleEvents=True,
+                    orderBy="startTime",
+                )
+                .execute()
+            )
+
+            events = [
+                self._format_event_dict(e) for e in result.get("items", [])
+            ]
+            self._track_call(_time.time() - start, error=False)
+            return events
+        except Exception as exc:
+            self._track_call(_time.time() - start, error=True)
+            self.logger.error(
+                "async_get_today_events failed: %s", exc, exc_info=True
+            )
+            return []
+
+    async def async_create_event(
+        self,
+        user_id: Optional[str] = None,
+        summary: str = "",
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        description: str = "",
+        location: str = "",
+        attendees: Optional[List[str]] = None,
+        calendar_id: Optional[str] = None,
+        tz: str = "UTC",
+    ) -> Optional[Dict[str, Any]]:
+        """Async version of create_event with OAuth2 support."""
+        import time as _time
+
+        svc = await self._resolve_service(user_id)
+        cal_id = calendar_id or (
+            "primary" if (user_id and svc != self._service) else self.calendar_id
+        )
+        call_start = _time.time()
+        try:
+            event_body: Dict[str, Any] = {
+                "summary": summary,
+                "location": location,
+                "description": description,
+                "start": {"dateTime": start_time.isoformat(), "timeZone": tz},
+                "end": {"dateTime": end_time.isoformat(), "timeZone": tz},
+            }
+            if attendees:
+                event_body["attendees"] = [{"email": e} for e in attendees]
+
+            created = (
+                svc.events()
+                .insert(calendarId=cal_id, body=event_body)
+                .execute()
+            )
+
+            self._track_call(_time.time() - call_start, error=False)
+            self.logger.info("Event created (async): %s", summary)
+            return created
+        except Exception as exc:
+            self._track_call(_time.time() - call_start, error=True)
+            self.logger.error(
+                "async_create_event failed: %s", exc, exc_info=True
+            )
+            return None
+
+    async def async_create_meeting(
+        self,
+        user_id: Optional[str] = None,
+        summary: str = "",
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        attendees: Optional[List[str]] = None,
+        description: str = "",
+        tz: str = "Europe/Dublin",
+        calendar_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Async version of create_meeting with OAuth2 + Google Meet support."""
+        import time as _time
+
+        svc = await self._resolve_service(user_id)
+        cal_id = calendar_id or (
+            "primary" if (user_id and svc != self._service) else self.calendar_id
+        )
+        is_oauth = user_id and svc != self._service
+        call_start = _time.time()
+        try:
+            event_body: Dict[str, Any] = {
+                "summary": summary,
+                "description": description,
+                "start": {"dateTime": start_time.isoformat(), "timeZone": tz},
+                "end": {"dateTime": end_time.isoformat(), "timeZone": tz},
+            }
+            if attendees:
+                event_body["attendees"] = [{"email": e} for e in attendees]
+
+            # Google Meet só funciona com OAuth2 (não com Service Account)
+            if is_oauth:
+                event_body["conferenceData"] = {
+                    "createRequest": {
+                        "requestId": f"jarvis-{_time.time_ns()}",
+                        "conferenceSolutionKey": {"type": "hangoutsMeet"},
+                    }
+                }
+
+            created = (
+                svc.events()
+                .insert(
+                    calendarId=cal_id,
+                    body=event_body,
+                    conferenceDataVersion=1 if is_oauth else 0,
+                )
+                .execute()
+            )
+
+            # Extrair Meet link
+            meet_link = ""
+            if is_oauth:
+                conf_data = created.get("conferenceData", {})
+                for ep in conf_data.get("entryPoints", []):
+                    if ep.get("entryPointType") == "video":
+                        meet_link = ep.get("uri", "")
+                        break
+
+            self._track_call(_time.time() - call_start, error=False)
+            return {
+                "id": created.get("id"),
+                "summary": created.get("summary"),
+                "html_link": created.get("htmlLink", ""),
+                "meet_link": meet_link,
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+                "attendees": attendees or [],
+                "status": "created",
+            }
+        except Exception as exc:
+            self._track_call(_time.time() - call_start, error=True)
+            self.logger.error(
+                "async_create_meeting failed: %s", exc, exc_info=True
+            )
+            return None
+
+    async def async_get_next_meeting(
+        self,
+        user_id: Optional[str] = None,
+        calendar_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Async version of get_next_meeting with OAuth2 support."""
+        events = await self.async_get_upcoming_events(
+            user_id=user_id,
+            max_results=10,
+            days_ahead=7,
+            calendar_id=calendar_id,
+        )
+        # Prefer event with attendees
+        for ev in events:
+            if ev.get("attendees"):
+                return ev
+        return events[0] if events else None
 
 
 # ------------------------------------------------------------------
