@@ -194,20 +194,49 @@ async def _run_email_polling() -> None:
                 "telegram_chat_id", user_id
             )
 
-            message = await eps.summarize_for_notification(
+            batch = await eps.summarize_for_notification(
                 new_emails, user_id, lang
             )
-            if not message:
+            if not batch.notifications and not batch.grouped_text:
                 continue
 
             notification_service = get_service("notification")
-            if notification_service:
-                if not notification_service.is_initialized():
-                    await notification_service.initialize()
-                await notification_service.send_message(
-                    "telegram", chat_id, message
-                )
-                notified += 1
+            if not notification_service:
+                continue
+            if not notification_service.is_initialized():
+                await notification_service.initialize()
+
+            if batch.is_multiple:
+                # Multiple emails: send grouped summary, no buttons
+                if batch.grouped_text:
+                    await notification_service.send_message(
+                        "telegram", chat_id, batch.grouped_text
+                    )
+                    notified += 1
+                # Store basic drafts for future interaction
+                for notif in batch.notifications:
+                    await _store_email_draft(user_id, notif)
+            else:
+                # Single email: rich notification + inline keyboard
+                for notif in batch.notifications:
+                    if not notif.text:
+                        continue
+                    needs_reply = (
+                        notif.analysis.needs_reply
+                        if notif.analysis
+                        else False
+                    )
+                    keyboard = _build_email_keyboard(
+                        notif.email_id, needs_reply, lang
+                    )
+                    await notification_service.send_message(
+                        "telegram",
+                        chat_id,
+                        notif.text,
+                        reply_markup=keyboard,
+                    )
+                    notified += 1
+                    await _store_email_draft(user_id, notif)
 
             await eps.mark_as_notified(
                 user_id, [e["id"] for e in new_emails]
@@ -230,6 +259,34 @@ async def _run_email_polling() -> None:
             polled,
             notified,
         )
+
+
+def _build_email_keyboard(email_id: str, needs_reply: bool, lang: str):
+    """Build inline keyboard for email notification."""
+    from telegram_bot.handlers.email_callback import build_email_keyboard
+
+    return build_email_keyboard(email_id, needs_reply, lang)
+
+
+async def _store_email_draft(user_id: str, notif) -> None:
+    """Store email draft data in Redis for callback handler use."""
+    from telegram_bot.handlers.email_callback import store_email_draft
+
+    draft_data = {
+        "to": notif.from_email,
+        "subject": notif.subject,
+        "thread_id": notif.thread_id,
+        "message_id": notif.message_id,
+        "from_name": notif.from_name,
+        "user_id": notif.user_id,
+        "lang": notif.lang,
+        "suggested_reply": (
+            notif.analysis.suggested_reply
+            if notif.analysis
+            else ""
+        ),
+    }
+    await store_email_draft(user_id, notif.email_id, draft_data)
 
 
 async def main_loop() -> None:

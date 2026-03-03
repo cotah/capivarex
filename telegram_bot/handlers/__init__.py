@@ -3,8 +3,15 @@
 import logging
 from typing import Any
 
-from telegram.ext import Application, MessageHandler, CommandHandler, filters
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
+from .email_callback import handle_email_callback
 from .message import handle_message
 from .voice import handle_voice
 from .document import handle_document
@@ -40,6 +47,11 @@ def register_all_handlers(application: Application, bot: Any) -> None:
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.LOCATION, handle_location))
+
+    # Email inline-button callbacks (pattern: er:action:email_id)
+    application.add_handler(
+        CallbackQueryHandler(handle_email_callback, pattern=r"^er:")
+    )
 
     # Store bot instance in application context
     application.bot_data["capivarax_bot"] = bot

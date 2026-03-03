@@ -1576,6 +1576,145 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "\U0001f4e7 Notifica\u00e7\u00f5es de email: {status}",
         "es": "\U0001f4e7 Notificaciones de email: {status}",
     },
+    # ── Email reply suggestion + inline buttons ──────────────────────────
+    "email_poll_single_reply": {
+        "en": "\U0001f4e7 New email from {sender}\n"
+              "\U0001f4cc Subject: {subject}\n"
+              "\U0001f4dd Summary: {summary}\n\n"
+              "{urgency} Urgency\n"
+              "\U0001f4ac Suggested reply:\n\"{suggested_reply}\"",
+        "pt": "\U0001f4e7 Novo email de {sender}\n"
+              "\U0001f4cc Assunto: {subject}\n"
+              "\U0001f4dd Resumo: {summary}\n\n"
+              "{urgency} Urg\u00eancia\n"
+              "\U0001f4ac Resposta sugerida:\n\"{suggested_reply}\"",
+        "es": "\U0001f4e7 Nuevo email de {sender}\n"
+              "\U0001f4cc Asunto: {subject}\n"
+              "\U0001f4dd Resumen: {summary}\n\n"
+              "{urgency} Urgencia\n"
+              "\U0001f4ac Respuesta sugerida:\n\"{suggested_reply}\"",
+    },
+    "email_poll_single_noreply": {
+        "en": "\U0001f4e7 New email from {sender}\n"
+              "\U0001f4cc Subject: {subject}\n"
+              "\U0001f4dd Summary: {summary}",
+        "pt": "\U0001f4e7 Novo email de {sender}\n"
+              "\U0001f4cc Assunto: {subject}\n"
+              "\U0001f4dd Resumo: {summary}",
+        "es": "\U0001f4e7 Nuevo email de {sender}\n"
+              "\U0001f4cc Asunto: {subject}\n"
+              "\U0001f4dd Resumen: {summary}",
+    },
+    "email_poll_analysis_prompt": {
+        "en": "Analyze this email and respond ONLY with a JSON object."
+              "\n\nFrom: {sender}\nSubject: {subject}\n"
+              "Summary: {summary}\n\nJSON format:\n"
+              '{{"needs_reply": true/false, '
+              '"suggested_reply": "short reply in English '
+              '(empty string if no reply needed)", '
+              '"urgency": "high/medium/low"}}\n\n'
+              "Ignore newsletters, spam, automated notifications."
+              " Only suggest a reply if from a real person.",
+        "pt": "Analyze this email and respond ONLY with a JSON object."
+              "\n\nFrom: {sender}\nSubject: {subject}\n"
+              "Summary: {summary}\n\nJSON format:\n"
+              '{{"needs_reply": true/false, '
+              '"suggested_reply": "resposta curta em portugu\u00eas '
+              '(string vazia se n\u00e3o precisa resposta)", '
+              '"urgency": "high/medium/low"}}\n\n'
+              "Ignore newsletters, spam, automated notifications."
+              " Only suggest a reply if from a real person.",
+        "es": "Analyze this email and respond ONLY with a JSON object."
+              "\n\nFrom: {sender}\nSubject: {subject}\n"
+              "Summary: {summary}\n\nJSON format:\n"
+              '{{"needs_reply": true/false, '
+              '"suggested_reply": "respuesta corta en espa\u00f1ol '
+              '(string vac\u00edo si no necesita respuesta)", '
+              '"urgency": "high/medium/low"}}\n\n'
+              "Ignore newsletters, spam, automated notifications."
+              " Only suggest a reply if from a real person.",
+    },
+    "email_cb_sent": {
+        "en": "\u2705 Reply sent to {sender}!",
+        "pt": "\u2705 Resposta enviada para {sender}!",
+        "es": "\u2705 \u00a1Respuesta enviada a {sender}!",
+    },
+    "email_cb_edit_prompt": {
+        "en": "\u270f\ufe0f Type your reply to {sender}.\n"
+              "Subject: {subject}\n\n"
+              "Send your message and I'll show a preview.",
+        "pt": "\u270f\ufe0f Digite sua resposta para {sender}.\n"
+              "Assunto: {subject}\n\n"
+              "Envie sua mensagem e mostrarei uma pr\u00e9via.",
+        "es": "\u270f\ufe0f Escribe tu respuesta a {sender}.\n"
+              "Asunto: {subject}\n\n"
+              "Env\u00eda tu mensaje y te mostrar\u00e9 "
+              "una vista previa.",
+    },
+    "email_cb_ignored": {
+        "en": "\U0001f515 Email marked as read.",
+        "pt": "\U0001f515 Email marcado como lido.",
+        "es": "\U0001f515 Email marcado como le\u00eddo.",
+    },
+    "email_cb_archived": {
+        "en": "\U0001f5d1\ufe0f Email archived.",
+        "pt": "\U0001f5d1\ufe0f Email arquivado.",
+        "es": "\U0001f5d1\ufe0f Email archivado.",
+    },
+    "email_cb_draft_expired": {
+        "en": "\u26a0\ufe0f This notification has expired. "
+              "Check your email.",
+        "pt": "\u26a0\ufe0f Esta notifica\u00e7\u00e3o expirou. "
+              "Verifique seu email.",
+        "es": "\u26a0\ufe0f Esta notificaci\u00f3n ha expirado. "
+              "Revisa tu email.",
+    },
+    "email_cb_error": {
+        "en": "\u26a0\ufe0f Could not complete the action. "
+              "Try again later.",
+        "pt": "\u26a0\ufe0f N\u00e3o foi poss\u00edvel completar "
+              "a a\u00e7\u00e3o. Tente novamente.",
+        "es": "\u26a0\ufe0f No se pudo completar la acci\u00f3n. "
+              "Int\u00e9ntalo luego.",
+    },
+    "email_cb_send_confirm": {
+        "en": "\U0001f4e4 Send this reply?\n\n"
+              "\"{reply_text}\"\n\nTo: {to}",
+        "pt": "\U0001f4e4 Enviar esta resposta?\n\n"
+              "\"{reply_text}\"\n\nPara: {to}",
+        "es": "\U0001f4e4 \u00bfEnviar esta respuesta?\n\n"
+              "\"{reply_text}\"\n\nPara: {to}",
+    },
+    "email_btn_send": {
+        "en": "\u2705 Send", "pt": "\u2705 Enviar",
+        "es": "\u2705 Enviar",
+    },
+    "email_btn_edit": {
+        "en": "\u270f\ufe0f Edit", "pt": "\u270f\ufe0f Editar",
+        "es": "\u270f\ufe0f Editar",
+    },
+    "email_btn_ignore": {
+        "en": "\u274c Ignore", "pt": "\u274c Ignorar",
+        "es": "\u274c Ignorar",
+    },
+    "email_btn_read": {
+        "en": "\U0001f4d6 Read full",
+        "pt": "\U0001f4d6 Ler completo",
+        "es": "\U0001f4d6 Leer completo",
+    },
+    "email_btn_archive": {
+        "en": "\U0001f5d1\ufe0f Archive",
+        "pt": "\U0001f5d1\ufe0f Arquivar",
+        "es": "\U0001f5d1\ufe0f Archivar",
+    },
+    "email_btn_cancel": {
+        "en": "\u274c Cancel", "pt": "\u274c Cancelar",
+        "es": "\u274c Cancelar",
+    },
+    "email_btn_send_now": {
+        "en": "\U0001f4e4 Send", "pt": "\U0001f4e4 Enviar",
+        "es": "\U0001f4e4 Enviar",
+    },
 }
 
 

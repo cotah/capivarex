@@ -13,9 +13,11 @@ Dependencies (lazy via get_service):
 - OpenAI / Anthropic — LLM summary (optional)
 """
 
+import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from services.core import (
     BaseService,
@@ -48,6 +50,45 @@ ALLOWED_CATEGORIES: Set[str] = {
 MAX_NOTIFICATIONS_PER_CYCLE = 5
 POLL_TIMEOUT_SECONDS = 10
 ROLLING_IDS_WINDOW = 50
+
+
+# ── Data structures ──────────────────────────────────────────────────────────
+
+
+@dataclass
+class EmailAnalysis:
+    """LLM analysis of whether an email needs a reply."""
+
+    needs_reply: bool = False
+    suggested_reply: str = ""
+    urgency: str = "low"  # high / medium / low
+
+
+@dataclass
+class EmailNotification:
+    """Rich notification for a single email."""
+
+    text: str = ""
+    email_id: str = ""
+    thread_id: str = ""
+    message_id: str = ""
+    from_email: str = ""
+    from_name: str = ""
+    subject: str = ""
+    analysis: Optional[EmailAnalysis] = None
+    user_id: str = ""
+    lang: str = "en"
+
+
+@dataclass
+class EmailNotificationBatch:
+    """Container for one polling cycle's notifications."""
+
+    notifications: List[EmailNotification] = field(
+        default_factory=list
+    )
+    is_multiple: bool = False
+    grouped_text: str = ""
 
 
 @register_service("email_polling")
@@ -264,23 +305,105 @@ class EmailPollingService(BaseService):
         emails: List[Dict[str, Any]],
         user_id: str,
         lang: str = "en",
-    ) -> str:
+    ) -> EmailNotificationBatch:
         """
-        Build notification text.
+        Build rich notification batch with LLM analysis.
 
-        - 0 emails → ""
-        - 1 email → single notification with LLM summary
-        - 2+ emails → grouped compact list
+        - 0 emails → empty batch
+        - 1 email → single notification with LLM summary + analysis
+        - 2+ emails → grouped compact list (no per-email analysis)
         """
         if not emails:
-            return ""
+            return EmailNotificationBatch()
 
         if len(emails) == 1:
-            return await self._format_single(
+            notif = await self._format_single_rich(
                 emails[0], user_id, lang
             )
+            return EmailNotificationBatch(
+                notifications=[notif]
+            )
 
-        return self._format_multiple(emails, lang)
+        # Multiple emails: grouped text + basic notifications
+        grouped_text = self._format_multiple(emails, lang)
+        notifications = []
+        for email in emails:
+            notifications.append(
+                EmailNotification(
+                    email_id=email.get("id", ""),
+                    thread_id=email.get("thread_id", ""),
+                    message_id=email.get("message_id", ""),
+                    from_email=email.get("from_email", ""),
+                    from_name=email.get("from_name")
+                    or email.get("from_email", ""),
+                    subject=email.get("subject", ""),
+                    user_id=user_id,
+                    lang=lang,
+                )
+            )
+        return EmailNotificationBatch(
+            notifications=notifications,
+            is_multiple=True,
+            grouped_text=grouped_text,
+        )
+
+    async def _format_single_rich(
+        self,
+        email: Dict[str, Any],
+        user_id: str,
+        lang: str,
+    ) -> EmailNotification:
+        """Format single email with LLM summary + reply analysis."""
+        sender = email.get("from_name") or email.get(
+            "from_email", "Unknown"
+        )
+        subject = email.get("subject", "")
+        snippet = email.get("snippet", "")
+
+        # LLM summary
+        summary = await self._get_llm_summary(
+            email, user_id, lang
+        )
+        if not summary:
+            summary = snippet[:120] if snippet else subject
+
+        # LLM analysis (needs_reply, suggested_reply, urgency)
+        analysis = await self._analyze_email(
+            email, user_id, summary, lang
+        )
+
+        # Build notification text
+        if analysis.needs_reply:
+            text = t(
+                "email_poll_single_reply",
+                lang=lang,
+                sender=sender,
+                subject=subject,
+                summary=summary,
+                urgency=self._urgency_emoji(analysis.urgency),
+                suggested_reply=analysis.suggested_reply,
+            )
+        else:
+            text = t(
+                "email_poll_single_noreply",
+                lang=lang,
+                sender=sender,
+                subject=subject,
+                summary=summary,
+            )
+
+        return EmailNotification(
+            text=text,
+            email_id=email.get("id", ""),
+            thread_id=email.get("thread_id", ""),
+            message_id=email.get("message_id", ""),
+            from_email=email.get("from_email", ""),
+            from_name=sender,
+            subject=subject,
+            analysis=analysis,
+            user_id=user_id,
+            lang=lang,
+        )
 
     async def _format_single(
         self,
@@ -288,14 +411,16 @@ class EmailPollingService(BaseService):
         user_id: str,
         lang: str,
     ) -> str:
-        """Format single email notification with optional LLM summary."""
+        """Format single email notification with optional LLM summary.
+
+        Kept for backward compatibility — prefer _format_single_rich.
+        """
         sender = email.get("from_name") or email.get(
             "from_email", "Unknown"
         )
         subject = email.get("subject", "")
         snippet = email.get("snippet", "")
 
-        # Try LLM summary
         summary = await self._get_llm_summary(
             email, user_id, lang
         )
@@ -331,6 +456,8 @@ class EmailPollingService(BaseService):
             email_list=email_list,
         )
 
+    # ── LLM helpers ───────────────────────────────────────────────────────────
+
     async def _get_llm_summary(
         self,
         email: Dict[str, Any],
@@ -353,7 +480,6 @@ class EmailPollingService(BaseService):
             if not body:
                 return ""
 
-            # Truncate body for prompt
             body_truncated = body[:2000]
 
             prompt = t(
@@ -377,6 +503,75 @@ class EmailPollingService(BaseService):
         except Exception as e:
             logger.debug("LLM summary failed: %s", e)
             return ""
+
+    async def _analyze_email(
+        self,
+        email: Dict[str, Any],
+        user_id: str,
+        summary: str,
+        lang: str,
+    ) -> EmailAnalysis:
+        """Ask LLM to classify email and suggest a reply.
+
+        Returns EmailAnalysis with safe defaults on failure.
+        """
+        ai = self._get_ai()
+        if not ai:
+            return EmailAnalysis()
+
+        try:
+            prompt = t(
+                "email_poll_analysis_prompt",
+                lang=lang,
+                sender=email.get("from_name", ""),
+                subject=email.get("subject", ""),
+                summary=summary,
+            )
+
+            if not ai.is_initialized():
+                await ai.initialize()
+
+            response = await ai.generate_text(
+                prompt=prompt,
+                max_tokens=200,
+                temperature=0.2,
+            )
+            return self._parse_analysis(response or "")
+
+        except Exception as e:
+            logger.debug("Email analysis failed: %s", e)
+            return EmailAnalysis()
+
+    @staticmethod
+    def _parse_analysis(response: str) -> EmailAnalysis:
+        """Parse LLM JSON response into EmailAnalysis."""
+        try:
+            clean = response.strip()
+            if clean.startswith("```"):
+                clean = clean.split("\n", 1)[-1].rsplit(
+                    "```", 1
+                )[0]
+            data = json.loads(clean)
+            return EmailAnalysis(
+                needs_reply=bool(data.get("needs_reply", False)),
+                suggested_reply=str(
+                    data.get("suggested_reply", "")
+                ),
+                urgency=str(
+                    data.get("urgency", "low")
+                ).lower(),
+            )
+        except (json.JSONDecodeError, AttributeError, KeyError):
+            return EmailAnalysis()
+
+    @staticmethod
+    def _urgency_emoji(urgency: str) -> str:
+        """Return colored circle emoji for urgency level."""
+        return {
+            "high": "\U0001f534",
+            "medium": "\U0001f7e1",
+            "low": "\U0001f7e2",
+        }.get(urgency, "\U0001f7e2")
 
     # ── Enable / Disable ─────────────────────────────────────────────────────
 

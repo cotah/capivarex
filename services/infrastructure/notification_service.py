@@ -22,7 +22,13 @@ class NotificationService(BaseService):
         """Verify the notification service is operational."""
         return True
 
-    async def send_message(self, channel: str, recipient: str, message: str) -> bool:
+    async def send_message(
+        self,
+        channel: str,
+        recipient: str,
+        message: str,
+        reply_markup=None,
+    ) -> bool:
         """
         Send a message through the specified channel.
 
@@ -30,6 +36,7 @@ class NotificationService(BaseService):
             channel: Delivery channel ('telegram', 'app', 'orb').
             recipient: Recipient identifier (e.g. Telegram chat_id).
             message: The message body.
+            reply_markup: Optional InlineKeyboardMarkup for buttons.
 
         Returns:
             True if sent successfully, False otherwise.
@@ -38,7 +45,9 @@ class NotificationService(BaseService):
             # Local import to avoid circular dependency
             from telegram_bot import send_proactive_message
 
-            return await send_proactive_message(recipient, message)
+            return await send_proactive_message(
+                recipient, message, reply_markup=reply_markup
+            )
 
         self.logger.warning("Notification channel '%s' not supported.", channel)
         return False

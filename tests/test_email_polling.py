@@ -10,6 +10,9 @@ import pytest
 from services.core import ServiceUnavailableError
 from services.business.email_polling_service import (
     MAX_NOTIFICATIONS_PER_CYCLE,
+    EmailAnalysis,
+    EmailNotification,
+    EmailNotificationBatch,
     EmailPollingService,
 )
 
@@ -240,7 +243,7 @@ class TestPollNewEmails:
 
 
 class TestSummarize:
-    """Tests for summarize_for_notification."""
+    """Tests for summarize_for_notification (returns EmailNotificationBatch)."""
 
     @pytest.mark.asyncio
     async def test_single_email_with_llm_summary(self):
@@ -260,13 +263,18 @@ class TestSummarize:
             patch.object(svc, "_get_ai", return_value=mock_ai),
             patch.object(svc, "_get_gmail", return_value=mock_gmail),
         ):
-            result = await svc.summarize_for_notification(
+            batch = await svc.summarize_for_notification(
                 [email], "user1", "en"
             )
 
-        assert "Maria" in result
-        assert "Reunião Q3" in result
-        assert "Meeting about Q3 goals" in result
+        assert isinstance(batch, EmailNotificationBatch)
+        assert len(batch.notifications) == 1
+        assert not batch.is_multiple
+        notif = batch.notifications[0]
+        assert "Maria" in notif.text
+        assert "Reunião Q3" in notif.text
+        assert notif.email_id == "msg1"
+        assert isinstance(notif.analysis, EmailAnalysis)
 
     @pytest.mark.asyncio
     async def test_multiple_emails_compact_list(self):
@@ -278,19 +286,24 @@ class TestSummarize:
             _make_email(email_id="3", sender_name="GitHub", subject="PR #42"),
         ]
 
-        result = await svc.summarize_for_notification(emails, "user1", "en")
+        batch = await svc.summarize_for_notification(emails, "user1", "en")
 
-        assert "3 new emails" in result
-        assert "João" in result
-        assert "Maria" in result
-        assert "GitHub" in result
-        assert "PR #42" in result
+        assert isinstance(batch, EmailNotificationBatch)
+        assert batch.is_multiple
+        assert "3 new emails" in batch.grouped_text
+        assert "João" in batch.grouped_text
+        assert "Maria" in batch.grouped_text
+        assert "GitHub" in batch.grouped_text
+        assert "PR #42" in batch.grouped_text
+        assert len(batch.notifications) == 3
 
     @pytest.mark.asyncio
-    async def test_empty_emails_returns_empty(self):
+    async def test_empty_emails_returns_empty_batch(self):
         svc = _build_service()
-        result = await svc.summarize_for_notification([], "user1", "en")
-        assert result == ""
+        batch = await svc.summarize_for_notification([], "user1", "en")
+        assert isinstance(batch, EmailNotificationBatch)
+        assert batch.notifications == []
+        assert batch.grouped_text == ""
 
     @pytest.mark.asyncio
     async def test_single_email_no_ai_uses_snippet(self):
@@ -305,12 +318,13 @@ class TestSummarize:
             patch.object(svc, "_get_ai", return_value=None),
             patch.object(svc, "_get_gmail", return_value=None),
         ):
-            result = await svc.summarize_for_notification(
+            batch = await svc.summarize_for_notification(
                 [email], "user1", "pt"
             )
 
-        assert "Ana" in result
-        assert "Quick snippet" in result
+        assert len(batch.notifications) == 1
+        assert "Ana" in batch.notifications[0].text
+        assert "Quick snippet" in batch.notifications[0].text
 
     @pytest.mark.asyncio
     async def test_multiple_emails_pt_locale(self):
@@ -321,9 +335,10 @@ class TestSummarize:
             _make_email(email_id="2", sender_name="Maria", subject="B"),
         ]
 
-        result = await svc.summarize_for_notification(emails, "user1", "pt")
+        batch = await svc.summarize_for_notification(emails, "user1", "pt")
 
-        assert "2 novos emails" in result
+        assert batch.is_multiple
+        assert "2 novos emails" in batch.grouped_text
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -570,8 +585,25 @@ class TestProactivityIntegration:
 
     @pytest.mark.asyncio
     async def test_run_email_polling_with_new_emails(self):
-        """New emails trigger a Telegram notification."""
+        """New emails trigger a Telegram notification with keyboard."""
         from proactivity_loop import _run_email_polling
+
+        batch = EmailNotificationBatch(
+            notifications=[
+                EmailNotification(
+                    text="New email from João",
+                    email_id="new1",
+                    thread_id="t1",
+                    from_email="joao@test.com",
+                    from_name="João",
+                    subject="Test",
+                    analysis=EmailAnalysis(needs_reply=False),
+                    user_id="u1",
+                    lang="en",
+                )
+            ],
+            is_multiple=False,
+        )
 
         mock_eps = AsyncMock()
         mock_eps.is_initialized.return_value = True
@@ -583,9 +615,7 @@ class TestProactivityIntegration:
         mock_eps.poll_new_emails = AsyncMock(
             return_value=[_make_email(email_id="new1")]
         )
-        mock_eps.summarize_for_notification = AsyncMock(
-            return_value="New email from João"
-        )
+        mock_eps.summarize_for_notification = AsyncMock(return_value=batch)
         mock_eps.mark_as_notified = AsyncMock()
 
         mock_db = AsyncMock()
@@ -601,19 +631,26 @@ class TestProactivityIntegration:
         mock_notif = AsyncMock()
         mock_notif.is_initialized.return_value = True
 
+        mock_redis = AsyncMock()
+
         with patch(
             "proactivity_loop.get_service",
             side_effect=lambda name: {
                 "email_polling": mock_eps,
                 "database": mock_db,
                 "notification": mock_notif,
+                "redis": mock_redis,
             }.get(name),
         ):
             await _run_email_polling()
 
-        mock_notif.send_message.assert_called_once_with(
-            "telegram", "chat_u1", "New email from João"
-        )
+        mock_notif.send_message.assert_called_once()
+        call_args = mock_notif.send_message.call_args
+        assert call_args[0][0] == "telegram"
+        assert call_args[0][1] == "chat_u1"
+        assert call_args[0][2] == "New email from João"
+        # reply_markup keyword should be present
+        assert "reply_markup" in call_args[1]
         mock_eps.mark_as_notified.assert_called_once_with("u1", ["new1"])
 
     @pytest.mark.asyncio

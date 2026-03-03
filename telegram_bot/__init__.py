@@ -9,7 +9,11 @@ from telegram import Bot
 logger = logging.getLogger("capivarex.telegram")
 
 
-async def send_proactive_message(chat_id: str, text: str) -> bool:
+async def send_proactive_message(
+    chat_id: str,
+    text: str,
+    reply_markup=None,
+) -> bool:
     """Send a proactive message to a Telegram chat.
 
     Used by the proactivity loop to push notifications
@@ -18,6 +22,7 @@ async def send_proactive_message(chat_id: str, text: str) -> bool:
     Args:
         chat_id: The Telegram chat ID to send to.
         text: The message text.
+        reply_markup: Optional InlineKeyboardMarkup for buttons.
 
     Returns:
         True if the message was sent successfully, False otherwise.
@@ -29,7 +34,11 @@ async def send_proactive_message(chat_id: str, text: str) -> bool:
 
     try:
         bot_client = Bot(token=token)
-        await bot_client.send_message(chat_id=chat_id, text=text)
+        await bot_client.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+        )
         return True
     except Exception:
         logger.exception("Failed to send proactive message to chat %s", chat_id)

@@ -58,6 +58,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     text: str = update.message.text
+
+    # ── Email edit-mode interception ──────────────────────────────────────
+    try:
+        redis = get_service("redis")
+        if redis:
+            edit_key = f"email:editing:{update.effective_chat.id}"
+            edit_state = await redis.get(edit_key, parse_json=True)
+            if edit_state and isinstance(edit_state, dict):
+                await redis.delete(edit_key)
+                await _handle_email_edit_reply(update, edit_state, text)
+                return
+    except Exception as e:
+        logger.debug("Email edit-mode check failed: %s", e)
+
     user_context: Dict[str, Any] = {
         "user_id": update.effective_user.id,
         "chat_id": update.effective_chat.id,
@@ -149,3 +163,47 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
     await send_agent_response(update, result)
+
+
+async def _handle_email_edit_reply(
+    update: Update,
+    edit_state: Dict[str, Any],
+    user_text: str,
+) -> None:
+    """Process a user-typed email reply from edit mode.
+
+    Updates the draft in Redis with the custom reply text and shows
+    a confirmation keyboard.
+    """
+    from services.i18n import t
+    from telegram_bot.handlers.email_callback import (
+        build_confirm_keyboard,
+        store_email_draft,
+        _DRAFT_PREFIX,
+    )
+
+    user_id = edit_state.get("user_id", "")
+    email_id = edit_state.get("email_id", "")
+    lang = edit_state.get("lang", "en")
+
+    # Update draft with custom reply
+    redis = get_service("redis")
+    if redis:
+        draft = await redis.get(
+            f"{_DRAFT_PREFIX}:{user_id}:{email_id}",
+            parse_json=True,
+        )
+        if draft and isinstance(draft, dict):
+            draft["custom_reply"] = user_text
+            await store_email_draft(user_id, email_id, draft)
+
+    # Show confirmation preview
+    to = edit_state.get("to", "")
+    preview = t(
+        "email_cb_send_confirm",
+        lang=lang,
+        reply_text=user_text[:500],
+        to=to,
+    )
+    keyboard = build_confirm_keyboard(email_id, lang)
+    await update.message.reply_text(preview, reply_markup=keyboard)
