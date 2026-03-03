@@ -355,7 +355,6 @@ class MapsAgent(BaseAgent):
                         "maps_ask_save_location",
                         lang=lang,
                         alias=label,
-                        key=alias_key,
                     ),
                     data={
                         "ask_location": alias_key,
@@ -382,7 +381,6 @@ class MapsAgent(BaseAgent):
                         "maps_ask_save_location",
                         lang=lang,
                         alias=label,
-                        key=alias_key,
                     ),
                     data={
                         "ask_location": alias_key,
