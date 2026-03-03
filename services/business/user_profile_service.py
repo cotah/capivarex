@@ -75,6 +75,7 @@ async def build_user_profile_prompt(user_id: str) -> str:
 
 # ── Trigger keywords (multi-language) ────────────────────────────────────
 _TRIGGERS = [
+    # ── Existing: Personal info ──
     # English
     "my name",
     "i'm called",
@@ -102,6 +103,48 @@ _TRIGGERS = [
     "mi trabajo",
     "trabajo como",
     "trabajo en",
+    # ── NEW: Location triggers (PT) ──
+    "minha casa e",
+    "minha casa fica",
+    "meu endereco e",
+    "moro na",
+    "moro no",
+    "moro perto",
+    "meu trabalho e",
+    "meu trabalho fica",
+    "trabalho em",
+    "trabalho no",
+    "trabalho perto",
+    "minha academia e",
+    "minha academia fica",
+    "minha escola e",
+    "minha faculdade e",
+    "minha faculdade fica",
+    "estudo na",
+    "estudo no",
+    # ── NEW: Location triggers (EN) ──
+    "my home is",
+    "i live in",
+    "i live at",
+    "i live near",
+    "my house is",
+    "my address is",
+    "my work is",
+    "i work at",
+    "i work in",
+    "i work near",
+    "my office is",
+    "my gym is",
+    "my school is",
+    "i study at",
+    # ── NEW: Location triggers (ES) ──
+    "mi casa es",
+    "mi casa esta",
+    "mi direccion es",
+    "mi trabajo es",
+    "mi gimnasio es",
+    "mi escuela es",
+    "estudio en",
 ]
 
 
@@ -137,11 +180,21 @@ async def extract_and_save_personal_info(
         return
 
     extraction_prompt = (
-        "Extract personal info from this message. Return ONLY valid JSON, no markdown.\n"
+        "Extract personal info from this message. "
+        "Return ONLY valid JSON, no markdown.\n"
         "If no personal info found, return {}.\n"
-        "Possible fields: name, birthday, nickname, city, country, address, job, "
-        "interests (as comma-separated string).\n"
-        "Only include fields explicitly mentioned.\n\n"
+        "Possible fields: name, birthday, nickname, city, country, "
+        "address, job, interests (as comma-separated string), "
+        "home_address, work_address, gym_address, school_address.\n"
+        "Only include fields explicitly mentioned.\n"
+        "Examples:\n"
+        '  "moro em Swords, Dublin" -> '
+        '{"city": "Swords", "home_address": "Swords, Dublin"}\n'
+        '  "trabalho no city centre" -> '
+        '{"work_address": "City Centre, Dublin"}\n'
+        '  "minha academia fica no FlyeFit Swords" -> '
+        '{"gym_address": "FlyeFit Swords"}\n'
+        "\n"
         f'Message: "{user_message}"'
     )
 
@@ -204,6 +257,35 @@ async def extract_and_save_personal_info(
                     user_id, {"full_name": extracted["name"]}
                 )
                 logger.info("Updated full_name for user %s", user_id[:8])
+
+        # Also save location aliases if extracted
+        location_fields = {
+            "home_address": "home",
+            "work_address": "work",
+            "gym_address": "gym",
+            "school_address": "school",
+        }
+
+        for field, key in location_fields.items():
+            address = extracted.get(field)
+            if address:
+                try:
+                    from services.business.saved_locations_service import (
+                        get_saved_locations_service,
+                    )
+
+                    loc_svc = get_saved_locations_service()
+                    await loc_svc.save_location(user_id, key, address)
+                    logger.info(
+                        "Auto-saved location '%s'='%s' for user %s",
+                        key,
+                        address,
+                        user_id[:8],
+                    )
+                except Exception as loc_exc:
+                    logger.debug(
+                        "Could not auto-save location: %s", loc_exc
+                    )
 
     except Exception as exc:
         logger.warning("Could not save personal info: %s", exc)

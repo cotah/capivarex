@@ -2072,6 +2072,91 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "• Configurar tu ubicación predeterminada"
         ),
     },
+    # ── Saved Locations ───────────────────────────────────────────────
+    "maps_ask_save_location": {
+        "pt": (
+            "Ainda nao sei onde fica sua **{alias}**.\n"
+            "Qual o endereco? Vou salvar pra proxima vez.\n\n"
+            "_Ex: Rua das Flores 123, Swords, Dublin_"
+        ),
+        "en": (
+            "I don't know where your **{alias}** is yet.\n"
+            "What's the address? I'll save it for next time.\n\n"
+            "_E.g.: 123 Main Street, Swords, Dublin_"
+        ),
+        "es": (
+            "Aun no se donde queda tu **{alias}**.\n"
+            "Cual es la direccion? La guardare para la proxima vez.\n\n"
+            "_Ej: Calle Mayor 123, Swords, Dublin_"
+        ),
+    },
+    "maps_location_saved": {
+        "pt": (
+            "Pronto! Salvei **{alias}** como:\n"
+            "  {address}\n\n"
+            'Da proxima vez, basta dizer *"rota de {alias}"*'
+            ' ou *"rota para {alias}"*.'
+        ),
+        "en": (
+            "Done! I saved **{alias}** as:\n"
+            "  {address}\n\n"
+            'Next time, just say *"route from {alias}"*'
+            ' or *"directions to {alias}"*.'
+        ),
+        "es": (
+            "Listo! Guarde **{alias}** como:\n"
+            "  {address}\n\n"
+            'La proxima vez, solo di *"ruta desde {alias}"*'
+            ' o *"ruta a {alias}"*.'
+        ),
+    },
+    "maps_location_saved_no_coords": {
+        "pt": (
+            "Salvei **{alias}** como:\n"
+            "  {address}\n\n"
+            "Nao consegui verificar o endereco exato, "
+            "mas vou usar na proxima rota."
+        ),
+        "en": (
+            "Saved **{alias}** as:\n"
+            "  {address}\n\n"
+            "I couldn't verify the exact address, "
+            "but I'll use it for your next route."
+        ),
+        "es": (
+            "Guarde **{alias}** como:\n"
+            "  {address}\n\n"
+            "No pude verificar la direccion exacta, "
+            "pero la usare en tu proxima ruta."
+        ),
+    },
+    "maps_saved_locations_list": {
+        "pt": "Seus locais salvos:",
+        "en": "Your saved locations:",
+        "es": "Tus ubicaciones guardadas:",
+    },
+    "maps_no_saved_locations": {
+        "pt": (
+            "Voce ainda nao tem locais salvos.\n"
+            'Diga algo como *"minha casa e em Swords, Dublin"*'
+            " e eu salvo pra voce."
+        ),
+        "en": (
+            "You don't have any saved locations yet.\n"
+            'Say something like *"my home is in Swords, Dublin"*'
+            " and I'll save it."
+        ),
+        "es": (
+            "Aun no tienes ubicaciones guardadas.\n"
+            'Di algo como *"mi casa es en Swords, Dublin"*'
+            " y la guardo."
+        ),
+    },
+    "maps_location_deleted": {
+        "pt": "Local **{alias}** removido.",
+        "en": "Location **{alias}** removed.",
+        "es": "Ubicacion **{alias}** eliminada.",
+    },
 }
 
 

@@ -286,6 +286,40 @@ class MapsAgent(BaseAgent):
             "language": "pt",
         }
 
+    # ── Location Alias Resolution ─────────────────────────────────────
+
+    async def _resolve_location_alias(
+        self,
+        text: str,
+        user_id: str,
+        lang: str,
+    ):
+        """
+        Resolve a location alias to a saved address.
+
+        Returns:
+            tuple: (resolved_address: str | None, alias_key: str | None)
+            - If alias found and saved: (address, key)
+            - If alias found but NOT saved: (None, key)
+            - If not an alias: (None, None)
+        """
+        from services.business.saved_locations_service import (
+            get_saved_locations_service,
+            resolve_alias,
+        )
+
+        key = resolve_alias(text)
+        if not key:
+            return None, None
+
+        svc = get_saved_locations_service()
+        location = await svc.get_location(user_id, key)
+        if location and location.get("address"):
+            return location["address"], key
+
+        # Alias recognized but no saved address
+        return None, key
+
     # ── Action Handlers ───────────────────────────────────────────────
 
     async def _handle_directions(
@@ -295,11 +329,68 @@ class MapsAgent(BaseAgent):
         context: Dict,
         lang: str,
     ) -> AgentResponse:
-        """Handle directions request."""
+        """Handle directions request — with location alias support."""
         origin = intent.get("origin", "")
         destination = intent.get("destination", "")
         mode = intent.get("mode", "drive") or "drive"
+        user_id = context.get("user_id", "")
 
+        # ── Resolve aliases for origin ────────────────────────────────
+        if origin:
+            resolved, alias_key = await self._resolve_location_alias(
+                origin, str(user_id), lang
+            )
+            if resolved:
+                origin = resolved
+            elif alias_key:
+                # Alias recognized but not saved — ask user
+                from services.business.saved_locations_service import (
+                    get_label,
+                )
+
+                label = get_label(alias_key, lang)
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=t(
+                        "maps_ask_save_location",
+                        lang=lang,
+                        alias=label,
+                        key=alias_key,
+                    ),
+                    data={
+                        "ask_location": alias_key,
+                        "direction": "origin",
+                    },
+                )
+
+        # ── Resolve aliases for destination ───────────────────────────
+        if destination:
+            resolved, alias_key = await self._resolve_location_alias(
+                destination, str(user_id), lang
+            )
+            if resolved:
+                destination = resolved
+            elif alias_key:
+                from services.business.saved_locations_service import (
+                    get_label,
+                )
+
+                label = get_label(alias_key, lang)
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=t(
+                        "maps_ask_save_location",
+                        lang=lang,
+                        alias=label,
+                        key=alias_key,
+                    ),
+                    data={
+                        "ask_location": alias_key,
+                        "direction": "destination",
+                    },
+                )
+
+        # ── Fallback: user location / GPS coords ─────────────────────
         if not origin:
             origin = context.get("user_location", "")
         if not origin:
@@ -639,3 +730,45 @@ class MapsAgent(BaseAgent):
             )
 
         return "\n".join(lines)
+
+    # ── Save Location Response ─────────────────────────────────────────
+
+    async def _handle_save_location_response(
+        self,
+        user_id: str,
+        key: str,
+        address: str,
+        lang: str,
+    ) -> AgentResponse:
+        """Save a location and confirm to user."""
+        from services.business.saved_locations_service import (
+            get_saved_locations_service,
+            get_label,
+        )
+
+        svc = get_saved_locations_service()
+        location_data = await svc.save_location(
+            str(user_id), key, address
+        )
+        label = get_label(key, lang)
+
+        if location_data.get("latitude"):
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t(
+                    "maps_location_saved",
+                    lang=lang,
+                    alias=label,
+                    address=address,
+                ),
+            )
+        else:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t(
+                    "maps_location_saved_no_coords",
+                    lang=lang,
+                    alias=label,
+                    address=address,
+                ),
+            )
