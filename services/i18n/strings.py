@@ -1614,7 +1614,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "- TRUE if the sender is a real person AND the email "
             "contains:\n"
             "  * A question expecting an answer\n"
-            "  * A meeting, call, or appointment request\n"
+            "  * An event, meeting, call, or appointment request\n"
             "  * A direct request or ask for action\n"
             "  * A proposal needing confirmation\n"
             "  * A follow-up that expects a response\n"
@@ -1624,8 +1624,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "  * A receipt, confirmation, or status update\n"
             "  * An FYI / informational message not expecting a "
             "response\n\n"
-            "Set meeting_request=true when the email proposes, "
-            "requests, or invites to a meeting, call, or appointment. "
+            "Set event_request=true when the email proposes, "
+            "requests, or invites to ANY event with a date/time: "
+            "meetings, calls, appointments, parties, dinners, "
+            "hangouts, medical appointments, cinema, BBQs, "
+            "or any invitation with a proposed date/time. "
             "Extract proposed_datetime in ISO 8601 format "
             "(e.g. 2026-03-04T15:00:00) using today's date to "
             "resolve relative dates like 'tomorrow'. "
@@ -1635,7 +1638,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             '"suggested_reply": "short reply in English '
             '(empty string if no reply needed)", '
             '"urgency": "high/medium/low", '
-            '"meeting_request": true/false, '
+            '"event_request": true/false, '
             '"proposed_datetime": "ISO 8601 or null", '
             '"proposed_location": "location or empty string"}}\n\n'
             "Respond ONLY with the JSON object, no extra text."
@@ -1648,7 +1651,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "- TRUE if the sender is a real person AND the email "
             "contains:\n"
             "  * A question expecting an answer\n"
-            "  * A meeting, call, or appointment request\n"
+            "  * An event, meeting, call, or appointment request\n"
             "  * A direct request or ask for action\n"
             "  * A proposal needing confirmation\n"
             "  * A follow-up that expects a response\n"
@@ -1658,8 +1661,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "  * A receipt, confirmation, or status update\n"
             "  * An FYI / informational message not expecting a "
             "response\n\n"
-            "Set meeting_request=true when the email proposes, "
-            "requests, or invites to a meeting, call, or appointment. "
+            "Set event_request=true when the email proposes, "
+            "requests, or invites to ANY event with a date/time: "
+            "meetings, calls, appointments, parties, dinners, "
+            "hangouts, medical appointments, cinema, BBQs, "
+            "or any invitation with a proposed date/time. "
             "Extract proposed_datetime in ISO 8601 format "
             "(e.g. 2026-03-04T15:00:00) using today's date to "
             "resolve relative dates like 'amanha'. "
@@ -1669,7 +1675,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             '"suggested_reply": "resposta curta em portugues '
             '(string vazia se nao precisa resposta)", '
             '"urgency": "high/medium/low", '
-            '"meeting_request": true/false, '
+            '"event_request": true/false, '
             '"proposed_datetime": "ISO 8601 or null", '
             '"proposed_location": "local ou string vazia"}}\n\n'
             "Respond ONLY with the JSON object, no extra text."
@@ -1682,7 +1688,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "- TRUE if the sender is a real person AND the email "
             "contains:\n"
             "  * A question expecting an answer\n"
-            "  * A meeting, call, or appointment request\n"
+            "  * An event, meeting, call, or appointment request\n"
             "  * A direct request or ask for action\n"
             "  * A proposal needing confirmation\n"
             "  * A follow-up that expects a response\n"
@@ -1692,8 +1698,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "  * A receipt, confirmation, or status update\n"
             "  * An FYI / informational message not expecting a "
             "response\n\n"
-            "Set meeting_request=true when the email proposes, "
-            "requests, or invites to a meeting, call, or appointment. "
+            "Set event_request=true when the email proposes, "
+            "requests, or invites to ANY event with a date/time: "
+            "meetings, calls, appointments, parties, dinners, "
+            "hangouts, medical appointments, cinema, BBQs, "
+            "or any invitation with a proposed date/time. "
             "Extract proposed_datetime in ISO 8601 format "
             "(e.g. 2026-03-04T15:00:00) using today's date to "
             "resolve relative dates like 'manana'. "
@@ -1703,7 +1712,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             '"suggested_reply": "respuesta corta en espanol '
             '(string vacio si no necesita respuesta)", '
             '"urgency": "high/medium/low", '
-            '"meeting_request": true/false, '
+            '"event_request": true/false, '
             '"proposed_datetime": "ISO 8601 or null", '
             '"proposed_location": "lugar o string vacio"}}\n\n'
             "Respond ONLY with the JSON object, no extra text."
@@ -1713,6 +1722,23 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "en": "\u2705 Reply sent to {sender}!",
         "pt": "\u2705 Resposta enviada para {sender}!",
         "es": "\u2705 \u00a1Respuesta enviada a {sender}!",
+    },
+    "email_cb_sent_with_event": {
+        "en": "\u2705 Reply sent to {sender}! "
+              "\U0001f4c5 Event \"{summary}\" added to calendar.",
+        "pt": "\u2705 Resposta enviada para {sender}! "
+              "\U0001f4c5 Evento \"{summary}\" adicionado \u00e0 agenda.",
+        "es": "\u2705 \u00a1Respuesta enviada a {sender}! "
+              "\U0001f4c5 Evento \"{summary}\" agregado a la agenda.",
+    },
+    "email_cb_sent_event_failed": {
+        "en": "\u2705 Reply sent to {sender}! "
+              "\u26a0\ufe0f Could not create calendar event.",
+        "pt": "\u2705 Resposta enviada para {sender}! "
+              "\u26a0\ufe0f N\u00e3o foi poss\u00edvel criar evento "
+              "na agenda.",
+        "es": "\u2705 \u00a1Respuesta enviada a {sender}! "
+              "\u26a0\ufe0f No se pudo crear el evento en la agenda.",
     },
     "email_cb_edit_prompt": {
         "en": "\u270f\ufe0f Type your reply to {sender}.\n"
@@ -1791,23 +1817,23 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "\U0001f4e4 Enviar",
     },
     # ── Calendar-aware email analysis ─────────────────────────────────
-    "email_poll_single_meeting": {
+    "email_poll_single_event": {
         "en": "\U0001f4e7 New email from {sender}\n"
               "\U0001f4cc Subject: {subject}\n"
               "\U0001f4dd Summary: {summary}\n\n"
-              "\U0001f4c5 Meeting request: {proposed_datetime}\n"
+              "\U0001f4c5 Event detected: {proposed_datetime}\n"
               "{urgency} Urgency\n"
               "\U0001f4ac Suggested reply:\n\"{suggested_reply}\"",
         "pt": "\U0001f4e7 Novo email de {sender}\n"
               "\U0001f4cc Assunto: {subject}\n"
               "\U0001f4dd Resumo: {summary}\n\n"
-              "\U0001f4c5 Pedido de reuni\u00e3o: {proposed_datetime}\n"
+              "\U0001f4c5 Evento detectado: {proposed_datetime}\n"
               "{urgency} Urg\u00eancia\n"
               "\U0001f4ac Resposta sugerida:\n\"{suggested_reply}\"",
         "es": "\U0001f4e7 Nuevo email de {sender}\n"
               "\U0001f4cc Asunto: {subject}\n"
               "\U0001f4dd Resumen: {summary}\n\n"
-              "\U0001f4c5 Solicitud de reuni\u00f3n: "
+              "\U0001f4c5 Evento detectado: "
               "{proposed_datetime}\n"
               "{urgency} Urgencia\n"
               "\U0001f4ac Respuesta sugerida:\n\"{suggested_reply}\"",
@@ -1830,7 +1856,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "email_poll_conflict_reprompt": {
         "en": (
-            "The user received this meeting request email:\n"
+            "The user received this event request email:\n"
             "From: {sender}\nSubject: {subject}\n"
             "Summary: {summary}\n\n"
             "However, the user has a CALENDAR CONFLICT:\n"
@@ -1843,7 +1869,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             '{{"suggested_reply": "the reply text"}}'
         ),
         "pt": (
-            "O utilizador recebeu este email pedindo reuni\u00e3o:\n"
+            "O utilizador recebeu este email com convite para evento:\n"
             "De: {sender}\nAssunto: {subject}\n"
             "Resumo: {summary}\n\n"
             "Por\u00e9m, o utilizador tem CONFLITO NA AGENDA:\n"
@@ -1856,8 +1882,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
             '{{"suggested_reply": "texto da resposta"}}'
         ),
         "es": (
-            "El usuario recibi\u00f3 este email pidiendo "
-            "reuni\u00f3n:\n"
+            "El usuario recibi\u00f3 este email con solicitud "
+            "de evento:\n"
             "De: {sender}\nAsunto: {subject}\n"
             "Resumen: {summary}\n\n"
             "Sin embargo, el usuario tiene CONFLICTO EN AGENDA:\n"
@@ -1904,11 +1930,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "\U0001f4c5 Eventos de hoy:",
     },
     "email_cal_no_datetime": {
-        "en": "\u26a0\ufe0f No date/time detected for this meeting.",
+        "en": "\u26a0\ufe0f No date/time detected for this event.",
         "pt": "\u26a0\ufe0f Nenhuma data/hora detectada para "
-              "esta reuni\u00e3o.",
+              "este evento.",
         "es": "\u26a0\ufe0f No se detect\u00f3 fecha/hora para "
-              "esta reuni\u00f3n.",
+              "este evento.",
     },
     "email_cal_event_created": {
         "en": "\u2705 Event \"{summary}\" added to your calendar!",

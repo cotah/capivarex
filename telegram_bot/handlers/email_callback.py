@@ -132,11 +132,36 @@ async def _handle_send(
         await query.edit_message_text(t("email_cb_error", lang=lang))
         return
 
+    # Auto-create calendar event if draft has proposed_datetime
+    has_proposed_dt = bool(draft.get("proposed_datetime"))
+    event_summary = await _try_create_event(
+        user_id, draft, lang
+    )
+
     await _delete_draft(user_id, email_id)
     sender = draft.get("from_name", draft.get("to", ""))
-    await query.edit_message_text(
-        t("email_cb_sent", lang=lang, sender=sender)
-    )
+
+    if event_summary:
+        await query.edit_message_text(
+            t(
+                "email_cb_sent_with_event",
+                lang=lang,
+                sender=sender,
+                summary=event_summary,
+            )
+        )
+    elif has_proposed_dt:
+        await query.edit_message_text(
+            t(
+                "email_cb_sent_event_failed",
+                lang=lang,
+                sender=sender,
+            )
+        )
+    else:
+        await query.edit_message_text(
+            t("email_cb_sent", lang=lang, sender=sender)
+        )
 
 
 async def _handle_edit(
@@ -314,6 +339,57 @@ async def _handle_cancel(
     await query.edit_message_text(t("email_cb_ignored", lang=lang))
 
 
+async def _try_create_event(
+    user_id: str, draft: dict, lang: str
+) -> Optional[str]:
+    """Try to create a calendar event from draft data.
+
+    Returns the event summary on success, None on failure or if
+    no proposed_datetime is present in the draft.
+    """
+    proposed_dt = draft.get("proposed_datetime")
+    if not proposed_dt:
+        return None
+
+    cal = get_service("calendar")
+    if not cal:
+        return None
+
+    try:
+        start_time = datetime.fromisoformat(proposed_dt)
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        end_time = start_time + timedelta(hours=1)
+    except (ValueError, TypeError):
+        return None
+
+    sender = draft.get("from_name", draft.get("to", ""))
+    subject = draft.get("subject", "")
+    location = draft.get("proposed_location", "")
+    summary = subject if subject else f"Event with {sender}"
+
+    try:
+        result = await cal.async_create_event(
+            user_id=user_id,
+            summary=summary,
+            start_time=start_time,
+            end_time=end_time,
+            location=location,
+            description=f"Re: {subject}",
+        )
+        if result:
+            return summary
+        return None
+    except ServiceUnavailableError:
+        logger.warning(
+            "Calendar not connected for event creation"
+        )
+        return None
+    except Exception as e:
+        logger.warning("Event creation failed: %s", e)
+        return None
+
+
 async def _handle_cal_view(
     *, query, context, user_id, email_id, draft, lang, **_kw
 ) -> None:
@@ -356,7 +432,7 @@ async def _handle_cal_view(
 async def _handle_cal_add(
     *, query, context, user_id, email_id, draft, lang, **_kw
 ) -> None:
-    """Create a calendar event from the meeting request."""
+    """Create a calendar event from the event request."""
     await query.answer()
 
     if not draft:
@@ -365,8 +441,7 @@ async def _handle_cal_add(
         )
         return
 
-    proposed_dt = draft.get("proposed_datetime")
-    if not proposed_dt:
+    if not draft.get("proposed_datetime"):
         await query.edit_message_text(
             t("email_cal_no_datetime", lang=lang)
         )
@@ -379,48 +454,16 @@ async def _handle_cal_add(
         )
         return
 
-    try:
-        start_time = datetime.fromisoformat(proposed_dt)
-        if start_time.tzinfo is None:
-            start_time = start_time.replace(tzinfo=timezone.utc)
-        end_time = start_time + timedelta(hours=1)
-    except (ValueError, TypeError):
-        await query.edit_message_text(
-            t("email_cal_no_datetime", lang=lang)
-        )
-        return
+    event_summary = await _try_create_event(
+        user_id, draft, lang
+    )
 
-    sender = draft.get("from_name", draft.get("to", ""))
-    subject = draft.get("subject", "")
-    location = draft.get("proposed_location", "")
-    summary = f"{subject}" if subject else f"Meeting with {sender}"
-
-    try:
-        result = await cal.async_create_event(
-            user_id=user_id,
-            summary=summary,
-            start_time=start_time,
-            end_time=end_time,
-            location=location,
-        )
-    except ServiceUnavailableError:
-        await query.edit_message_text(
-            t("email_cal_not_connected", lang=lang)
-        )
-        return
-    except Exception as e:
-        logger.warning("cal_add failed: %s", e)
-        await query.edit_message_text(
-            t("email_cb_error", lang=lang)
-        )
-        return
-
-    if result:
+    if event_summary:
         await query.edit_message_text(
             t(
                 "email_cal_event_created",
                 lang=lang,
-                summary=summary,
+                summary=event_summary,
             )
         )
     else:
@@ -480,7 +523,7 @@ def build_email_keyboard(
     email_id: str,
     needs_reply: bool,
     lang: str = "en",
-    meeting_request: bool = False,
+    event_request: bool = False,
 ) -> InlineKeyboardMarkup:
     """Build inline keyboard for an email notification.
 
@@ -488,7 +531,7 @@ def build_email_keyboard(
         email_id: Gmail message ID (used in callback_data).
         needs_reply: Whether the email needs a reply.
         lang: Language code for button labels.
-        meeting_request: Whether this email is a meeting request.
+        event_request: Whether this email is an event request.
 
     Returns:
         InlineKeyboardMarkup with action buttons.
@@ -522,8 +565,8 @@ def build_email_keyboard(
 
     rows = [buttons]
 
-    # Add calendar row for meeting requests
-    if meeting_request and needs_reply:
+    # Add calendar row for event requests
+    if event_request and needs_reply:
         cal_row = [
             InlineKeyboardButton(
                 t("email_btn_cal_view", lang=lang),

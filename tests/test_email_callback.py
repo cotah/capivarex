@@ -107,19 +107,19 @@ class TestParseAnalysis:
     def test_meeting_fields_parsed(self):
         raw = (
             '{"needs_reply": true, "suggested_reply": "OK", '
-            '"urgency": "high", "meeting_request": true, '
+            '"urgency": "high", "event_request": true, '
             '"proposed_datetime": "2026-03-04T15:00:00", '
             '"proposed_location": "office"}'
         )
         result = EmailPollingService._parse_analysis(raw)
-        assert result.meeting_request is True
+        assert result.event_request is True
         assert result.proposed_datetime == "2026-03-04T15:00:00"
         assert result.proposed_location == "office"
 
     def test_no_meeting_fields_default(self):
         raw = '{"needs_reply": false, "suggested_reply": "", "urgency": "low"}'
         result = EmailPollingService._parse_analysis(raw)
-        assert result.meeting_request is False
+        assert result.event_request is False
         assert result.proposed_datetime is None
         assert result.proposed_location == ""
 
@@ -160,7 +160,7 @@ class TestBuildEmailKeyboard:
     def test_meeting_keyboard_two_rows(self):
         """Meeting request adds a second row with calendar buttons."""
         kb = build_email_keyboard(
-            "msg789", needs_reply=True, lang="en", meeting_request=True
+            "msg789", needs_reply=True, lang="en", event_request=True
         )
         assert len(kb.inline_keyboard) == 2
         # First row: Send, Edit, Ignore
@@ -175,7 +175,7 @@ class TestBuildEmailKeyboard:
         """Calendar callback_data must be ≤ 64 bytes."""
         long_id = "a" * 50
         kb = build_email_keyboard(
-            long_id, needs_reply=True, lang="en", meeting_request=True
+            long_id, needs_reply=True, lang="en", event_request=True
         )
         for row in kb.inline_keyboard:
             for btn in row:
@@ -184,7 +184,7 @@ class TestBuildEmailKeyboard:
     def test_meeting_noreply_no_calendar_row(self):
         """No calendar row when needs_reply is False even with meeting."""
         kb = build_email_keyboard(
-            "msg1", needs_reply=False, lang="en", meeting_request=True
+            "msg1", needs_reply=False, lang="en", event_request=True
         )
         assert len(kb.inline_keyboard) == 1
 
@@ -720,3 +720,134 @@ class TestCalendarCallbacks:
         query.edit_message_text.assert_called_once()
         text = query.edit_message_text.call_args[0][0]
         assert "expired" in text.lower() or "expirou" in text.lower()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TestHandleSendAutoEvent
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestHandleSendAutoEvent:
+    """Tests for auto-creating calendar events on send."""
+
+    @pytest.mark.asyncio
+    async def test_send_creates_event(self):
+        """Send with proposed_datetime creates calendar event."""
+        query = _make_query("er:send:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        draft_with_event = {
+            **_DRAFT,
+            "proposed_datetime": "2026-03-04T15:00:00",
+            "proposed_location": "office",
+        }
+        mock_gmail = AsyncMock()
+        mock_gmail.is_initialized.return_value = True
+        mock_cal = AsyncMock()
+        mock_cal.async_create_event = AsyncMock(
+            return_value={"id": "ev1"}
+        )
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=draft_with_event)
+        mock_redis.delete = AsyncMock()
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "gmail": mock_gmail,
+                "calendar": mock_cal,
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        mock_gmail.send_email.assert_called_once()
+        mock_cal.async_create_event.assert_called_once()
+        text = query.edit_message_text.call_args[0][0]
+        assert "Test Subject" in text
+        assert "\U0001f4c5" in text
+
+    @pytest.mark.asyncio
+    async def test_send_no_event_when_no_datetime(self):
+        """Send without proposed_datetime does NOT call calendar."""
+        query = _make_query("er:send:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        mock_gmail = AsyncMock()
+        mock_gmail.is_initialized.return_value = True
+        mock_cal = AsyncMock()
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=_DRAFT)
+        mock_redis.delete = AsyncMock()
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "gmail": mock_gmail,
+                "calendar": mock_cal,
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        mock_gmail.send_email.assert_called_once()
+        mock_cal.async_create_event.assert_not_called()
+        text = query.edit_message_text.call_args[0][0]
+        assert "Sender" in text
+        assert "\U0001f4c5" not in text
+
+    @pytest.mark.asyncio
+    async def test_send_event_fail_still_sends(self):
+        """Calendar failure still shows email sent + warning."""
+        query = _make_query("er:send:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        draft_with_event = {
+            **_DRAFT,
+            "proposed_datetime": "2026-03-04T15:00:00",
+        }
+        mock_gmail = AsyncMock()
+        mock_gmail.is_initialized.return_value = True
+        mock_cal = AsyncMock()
+        mock_cal.async_create_event = AsyncMock(
+            side_effect=Exception("Calendar error")
+        )
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=draft_with_event)
+        mock_redis.delete = AsyncMock()
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "gmail": mock_gmail,
+                "calendar": mock_cal,
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        mock_gmail.send_email.assert_called_once()
+        text = query.edit_message_text.call_args[0][0]
+        assert "\u2705" in text
+        assert "\u26a0\ufe0f" in text

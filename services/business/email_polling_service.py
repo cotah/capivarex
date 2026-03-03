@@ -62,7 +62,7 @@ class EmailAnalysis:
     needs_reply: bool = False
     suggested_reply: str = ""
     urgency: str = "low"  # high / medium / low
-    meeting_request: bool = False
+    event_request: bool = False
     proposed_datetime: Optional[str] = None  # ISO 8601
     proposed_location: str = ""
 
@@ -547,10 +547,10 @@ class EmailPollingService(BaseService):
             email, user_id, summary, lang
         )
 
-        # Calendar conflict check for meeting requests
+        # Calendar conflict check for event requests
         cal_text = ""
         if (
-            analysis.meeting_request
+            analysis.event_request
             and analysis.proposed_datetime
         ):
             cal_info = await self._check_calendar_conflicts(
@@ -578,9 +578,9 @@ class EmailPollingService(BaseService):
                     )
 
         # Build notification text
-        if analysis.meeting_request and analysis.needs_reply:
+        if analysis.event_request and analysis.needs_reply:
             text = t(
-                "email_poll_single_meeting",
+                "email_poll_single_event",
                 lang=lang,
                 sender=sender,
                 subject=subject,
@@ -855,12 +855,12 @@ class EmailPollingService(BaseService):
             analysis = self._parse_analysis(response or "")
             logger.info(
                 "Email analysis result for %s: "
-                "needs_reply=%s, urgency=%s, meeting=%s, "
+                "needs_reply=%s, urgency=%s, event=%s, "
                 "suggested_reply_len=%d, subject=%r",
                 email.get("from_name", "?"),
                 analysis.needs_reply,
                 analysis.urgency,
-                analysis.meeting_request,
+                analysis.event_request,
                 len(analysis.suggested_reply),
                 email.get("subject", ""),
             )
@@ -892,8 +892,11 @@ class EmailPollingService(BaseService):
                 urgency=str(
                     data.get("urgency", "low")
                 ).lower(),
-                meeting_request=bool(
-                    data.get("meeting_request", False)
+                event_request=bool(
+                    data.get(
+                        "event_request",
+                        data.get("meeting_request", False),
+                    )
                 ),
                 proposed_datetime=data.get(
                     "proposed_datetime"

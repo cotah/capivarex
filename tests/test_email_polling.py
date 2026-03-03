@@ -797,7 +797,7 @@ class TestFormatSingleRichMeeting:
             side_effect=[
                 "João wants to meet tomorrow at 3pm",
                 '{"needs_reply": true, "suggested_reply": "OK", '
-                '"urgency": "high", "meeting_request": true, '
+                '"urgency": "high", "event_request": true, '
                 '"proposed_datetime": "2026-03-04T15:00:00", '
                 '"proposed_location": "office"}',
                 '{"suggested_reply": "Tenho compromisso às 15h. '
@@ -826,7 +826,7 @@ class TestFormatSingleRichMeeting:
         ):
             notif = await svc._format_single_rich(email, "u1", "en")
 
-        assert notif.analysis.meeting_request is True
+        assert notif.analysis.event_request is True
         assert "Team standup" in notif.text
         assert "16:00" in notif.text
 
@@ -844,7 +844,7 @@ class TestFormatSingleRichMeeting:
             side_effect=[
                 "Maria wants to meet at 10am",
                 '{"needs_reply": true, "suggested_reply": "Sure!", '
-                '"urgency": "medium", "meeting_request": true, '
+                '"urgency": "medium", "event_request": true, '
                 '"proposed_datetime": "2026-03-04T10:00:00", '
                 '"proposed_location": ""}',
             ]
@@ -871,7 +871,7 @@ class TestFormatSingleRichMeeting:
         ):
             notif = await svc._format_single_rich(email, "u1", "en")
 
-        assert notif.analysis.meeting_request is True
+        assert notif.analysis.event_request is True
         # Should contain the "free" indicator
         assert "\u2705" in notif.text
 
@@ -887,7 +887,7 @@ class TestFormatSingleRichMeeting:
             side_effect=[
                 "Ana wants to have lunch at noon",
                 '{"needs_reply": true, "suggested_reply": "Sure!", '
-                '"urgency": "low", "meeting_request": true, '
+                '"urgency": "low", "event_request": true, '
                 '"proposed_datetime": "2026-03-04T12:00:00", '
                 '"proposed_location": ""}',
             ]
@@ -907,7 +907,7 @@ class TestFormatSingleRichMeeting:
         ):
             notif = await svc._format_single_rich(email, "u1", "en")
 
-        assert notif.analysis.meeting_request is True
+        assert notif.analysis.event_request is True
         # No conflict/free text since calendar was unavailable
         assert "CONFLICT" not in notif.text.upper().replace(
             "\u26a0\ufe0f", ""
@@ -925,7 +925,7 @@ class TestFormatSingleRichMeeting:
             side_effect=[
                 "Carlos sent a report",
                 '{"needs_reply": false, "suggested_reply": "", '
-                '"urgency": "low", "meeting_request": false, '
+                '"urgency": "low", "event_request": false, '
                 '"proposed_datetime": null, "proposed_location": ""}',
             ]
         )
@@ -939,7 +939,7 @@ class TestFormatSingleRichMeeting:
         ):
             notif = await svc._format_single_rich(email, "u1", "en")
 
-        assert notif.analysis.meeting_request is False
+        assert notif.analysis.event_request is False
         assert "Carlos" in notif.text
         assert "FYI Report" in notif.text
 

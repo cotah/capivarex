@@ -226,8 +226,8 @@ async def _run_email_polling() -> None:
                         if notif.analysis
                         else False
                     )
-                    meeting_req = (
-                        notif.analysis.meeting_request
+                    event_req = (
+                        notif.analysis.event_request
                         if notif.analysis
                         else False
                     )
@@ -235,7 +235,7 @@ async def _run_email_polling() -> None:
                         notif.email_id,
                         needs_reply,
                         lang,
-                        meeting_request=meeting_req,
+                        event_request=event_req,
                     )
                     await notification_service.send_message(
                         "telegram",
@@ -273,13 +273,13 @@ def _build_email_keyboard(
     email_id: str,
     needs_reply: bool,
     lang: str,
-    meeting_request: bool = False,
+    event_request: bool = False,
 ):
     """Build inline keyboard for email notification."""
     from telegram_bot.handlers.email_callback import build_email_keyboard
 
     return build_email_keyboard(
-        email_id, needs_reply, lang, meeting_request=meeting_request
+        email_id, needs_reply, lang, event_request=event_request
     )
 
 
