@@ -1483,6 +1483,99 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "Baixa",
         "es": "Baja",
     },
+    # ══════════════════════════════════════════════════════════════════════════
+    # EMAIL POLLING
+    # ══════════════════════════════════════════════════════════════════════════
+    "email_poll_single": {
+        "en": "\U0001f4e7 New email from {sender}\n"
+              "\U0001f4cc Subject: {subject}\n"
+              "\U0001f4dd Summary: {summary}\n\n"
+              "Reply | Ignore | Read full",
+        "pt": "\U0001f4e7 Novo email de {sender}\n"
+              "\U0001f4cc Assunto: {subject}\n"
+              "\U0001f4dd Resumo: {summary}\n\n"
+              "Responder | Ignorar | Ler completo",
+        "es": "\U0001f4e7 Nuevo email de {sender}\n"
+              "\U0001f4cc Asunto: {subject}\n"
+              "\U0001f4dd Resumen: {summary}\n\n"
+              "Responder | Ignorar | Leer completo",
+    },
+    "email_poll_multiple": {
+        "en": "\U0001f4e7 {count} new emails:\n{email_list}\n\n"
+              "Want details on any of these?",
+        "pt": "\U0001f4e7 {count} novos emails:\n{email_list}\n\n"
+              "Quer detalhes de algum?",
+        "es": "\U0001f4e7 {count} nuevos emails:\n{email_list}\n\n"
+              "\u00bfQuieres detalles de alguno?",
+    },
+    "email_poll_summary_prompt": {
+        "en": "Summarize this email in 1-2 short sentences for a notification.\n"
+              "From: {sender}\nSubject: {subject}\n\n{body}",
+        "pt": "Resuma este email em 1-2 frases curtas para uma "
+              "notifica\u00e7\u00e3o.\n"
+              "De: {sender}\nAssunto: {subject}\n\n{body}",
+        "es": "Resume este email en 1-2 frases cortas para una "
+              "notificaci\u00f3n.\n"
+              "De: {sender}\nAsunto: {subject}\n\n{body}",
+    },
+    "email_poll_token_expired": {
+        "en": "\u26a0\ufe0f Your Gmail connection has expired. "
+              "Email notifications are paused.\n"
+              "Please reconnect: say 'connect gmail'.",
+        "pt": "\u26a0\ufe0f A sua conex\u00e3o Gmail expirou. "
+              "Notifica\u00e7\u00f5es de email foram pausadas.\n"
+              "Reconecte: diga 'conectar gmail'.",
+        "es": "\u26a0\ufe0f Tu conexi\u00f3n Gmail ha expirado. "
+              "Las notificaciones de email est\u00e1n pausadas.\n"
+              "Reconecta: di 'conectar gmail'.",
+    },
+    "email_poll_enabled": {
+        "en": "\u2705 Email notifications activated! "
+              "You'll receive alerts for new emails.",
+        "pt": "\u2705 Notifica\u00e7\u00f5es de email ativadas! "
+              "Receber\u00e1 alertas de novos emails.",
+        "es": "\u2705 \u00a1Notificaciones de email activadas! "
+              "Recibir\u00e1s alertas de nuevos emails.",
+    },
+    "email_poll_disabled": {
+        "en": "\U0001f515 Email notifications deactivated.",
+        "pt": "\U0001f515 Notifica\u00e7\u00f5es de email desativadas.",
+        "es": "\U0001f515 Notificaciones de email desactivadas.",
+    },
+    "email_poll_already_enabled": {
+        "en": "Email notifications are already active.",
+        "pt": "Notifica\u00e7\u00f5es de email j\u00e1 "
+              "est\u00e3o ativas.",
+        "es": "Las notificaciones de email ya est\u00e1n activas.",
+    },
+    "email_poll_already_disabled": {
+        "en": "Email notifications are already off.",
+        "pt": "Notifica\u00e7\u00f5es de email j\u00e1 "
+              "est\u00e3o desligadas.",
+        "es": "Las notificaciones de email ya est\u00e1n "
+              "desactivadas.",
+    },
+    "email_poll_not_connected": {
+        "en": "You need to connect Gmail first to enable "
+              "email notifications.",
+        "pt": "Precisa conectar o Gmail primeiro para ativar "
+              "notifica\u00e7\u00f5es.",
+        "es": "Necesitas conectar Gmail primero para activar "
+              "notificaciones.",
+    },
+    "email_poll_error": {
+        "en": "Failed to update email notification settings. "
+              "Try again later.",
+        "pt": "Falha ao atualizar configura\u00e7\u00f5es de "
+              "notifica\u00e7\u00e3o. Tente novamente.",
+        "es": "Error al actualizar configuraci\u00f3n de "
+              "notificaciones. Int\u00e9ntalo luego.",
+    },
+    "email_poll_status": {
+        "en": "\U0001f4e7 Email notifications: {status}",
+        "pt": "\U0001f4e7 Notifica\u00e7\u00f5es de email: {status}",
+        "es": "\U0001f4e7 Notificaciones de email: {status}",
+    },
 }
 
 

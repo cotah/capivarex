@@ -82,6 +82,15 @@ _RE_SUMMARY_ALL = re.compile(
     r"|\b(todos?|últimos?)\b.*\b(resum[eo]|resume?|summarize?)\b",
     re.IGNORECASE,
 )
+_RE_POLL_ENABLE = re.compile(
+    r"\b(ativ|activ|enabl|ligar|habilitar)\w*\b.*\b(notific|poll|alert)",
+    re.IGNORECASE,
+)
+_RE_POLL_DISABLE = re.compile(
+    r"\b(desativ|desactiv|deactiv|disabl|desligar|parar|stop)\w*\b"
+    r".*\b(notific|poll|alert)",
+    re.IGNORECASE,
+)
 
 
 @register_agent("email")
@@ -331,7 +340,14 @@ class EmailAgent(BaseAgent):
         if pending:
             return await self._handle_confirmation(msg, user_id, context, pending, lang)
 
-        # Detectar intenção
+        # Detectar intenção — poll toggle first (before _RE_CONNECT to avoid
+        # conflicts with "ligar/desligar" stems)
+        if _RE_POLL_ENABLE.search(msg):
+            return await self._handle_poll_toggle(user_id, enable=True, lang=lang)
+
+        if _RE_POLL_DISABLE.search(msg):
+            return await self._handle_poll_toggle(user_id, enable=False, lang=lang)
+
         if _RE_CONNECT.search(msg):
             return await self._handle_connect(user_id, lang)
 
@@ -363,6 +379,78 @@ class EmailAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             message=t("email_help", lang=lang),
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # EMAIL NOTIFICATION TOGGLE
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def _handle_poll_toggle(
+        self, user_id: str, *, enable: bool, lang: str
+    ) -> AgentResponse:
+        """Enable or disable email polling notifications."""
+        eps = get_service("email_polling")
+        if not eps:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                message=t("email_poll_error", lang=lang),
+            )
+
+        if not eps.is_initialized():
+            try:
+                await eps.initialize()
+            except Exception:
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    message=t("email_poll_error", lang=lang),
+                )
+
+        if enable:
+            # Verify Gmail is connected first
+            gmail = get_service("gmail")
+            if gmail:
+                try:
+                    if not await gmail.is_connected(user_id):
+                        return AgentResponse(
+                            status=AgentStatus.ERROR,
+                            message=t("email_poll_not_connected", lang=lang),
+                        )
+                except Exception:
+                    pass
+
+            if await eps.is_polling_enabled(user_id):
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    message=t("email_poll_already_enabled", lang=lang),
+                )
+
+            ok = await eps.enable_polling(user_id)
+            if ok:
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    message=t("email_poll_enabled", lang=lang),
+                )
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                message=t("email_poll_error", lang=lang),
+            )
+
+        # Disable
+        if not await eps.is_polling_enabled(user_id):
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                message=t("email_poll_already_disabled", lang=lang),
+            )
+
+        ok = await eps.disable_polling(user_id)
+        if ok:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                message=t("email_poll_disabled", lang=lang),
+            )
+        return AgentResponse(
+            status=AgentStatus.ERROR,
+            message=t("email_poll_error", lang=lang),
         )
 
     # ──────────────────────────────────────────────────────────────────────────

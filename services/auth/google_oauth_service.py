@@ -174,6 +174,22 @@ class GoogleOAuthService:
             "Google OAuth connected: user=%s email=%s", user_id, email
         )
 
+        # Auto-activate email polling for new Gmail connections
+        try:
+            from services.core import get_service as _get_svc
+
+            eps = _get_svc("email_polling")
+            if eps:
+                if not eps.is_initialized():
+                    await eps.initialize()
+                await eps.create_poll_state(user_id)
+        except Exception as _e:
+            logger.warning(
+                "Failed to auto-activate email polling for %s: %s",
+                user_id,
+                _e,
+            )
+
         return {
             "success": True,
             "user_id": user_id,

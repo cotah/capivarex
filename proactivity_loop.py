@@ -79,7 +79,9 @@ async def run_proactivity_cycle() -> None:
             if insight:
                 notifications.append({"type": "insight", "message": insight})
 
-            smartthings_alert = await proactivity_service.check_smartthings_status(user_id)
+            smartthings_alert = await proactivity_service.check_smartthings_status(
+                user_id
+            )
             if smartthings_alert:
                 notifications.append(smartthings_alert)
 
@@ -102,10 +104,15 @@ async def run_proactivity_cycle() -> None:
                 if await proactivity_service.is_notification_allowed(user_id, message):
                     logger.info(f"Sending proactive notification to user {user_id}")
                     notification_service = get_service("notification")
-                    if notification_service and not notification_service.is_initialized():
+                    if (
+                        notification_service
+                        and not notification_service.is_initialized()
+                    ):
                         await notification_service.initialize()
                     if notification_service:
-                        await notification_service.send_message("telegram", chat_id, message)
+                        await notification_service.send_message(
+                            "telegram", chat_id, message
+                        )
                     else:
                         logger.warning("NotificationService not available.")
                     await proactivity_service.record_notification_sent(user_id, message)
@@ -114,6 +121,96 @@ async def run_proactivity_cycle() -> None:
 
         except Exception as e:
             logger.exception(f"Proactivity cycle failed for user {user_id}: {e}")
+
+    # ── Email polling step ───────────────────────────────────────────────────
+    try:
+        await _run_email_polling()
+    except Exception as e:
+        logger.error("Email polling step failed: %s", e)
+
+
+async def _run_email_polling() -> None:
+    """Poll Gmail for new emails and send Telegram notifications."""
+    eps = get_service("email_polling")
+    if not eps:
+        logger.debug("EmailPollingService not available — skipping.")
+        return
+
+    if not eps.is_initialized():
+        try:
+            await eps.initialize()
+        except Exception as e:
+            logger.warning("Failed to initialise email polling: %s", e)
+            return
+
+    db_service = get_service("database")
+    if not db_service or not db_service.is_initialized():
+        return
+
+    try:
+        pollable = await eps.get_pollable_users()
+    except Exception as e:
+        logger.error("get_pollable_users failed: %s", e)
+        return
+
+    polled = 0
+    notified = 0
+
+    for row in pollable:
+        user_id = row["user_id"]
+        try:
+            new_emails = await asyncio.wait_for(
+                eps.poll_new_emails(user_id),
+                timeout=10,
+            )
+            polled += 1
+
+            if not new_emails:
+                continue
+
+            # Resolve user data for lang + chat_id
+            user_data = await db_service.get_user_by_id(user_id)
+            lang = (user_data or {}).get("preferred_language", "en")
+            chat_id = (user_data or {}).get(
+                "telegram_chat_id", user_id
+            )
+
+            message = await eps.summarize_for_notification(
+                new_emails, user_id, lang
+            )
+            if not message:
+                continue
+
+            notification_service = get_service("notification")
+            if notification_service:
+                if not notification_service.is_initialized():
+                    await notification_service.initialize()
+                await notification_service.send_message(
+                    "telegram", chat_id, message
+                )
+                notified += 1
+
+            await eps.mark_as_notified(
+                user_id, [e["id"] for e in new_emails]
+            )
+
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Email polling timed out for user %s", user_id
+            )
+        except Exception as e:
+            logger.error(
+                "Email polling failed for user %s: %s",
+                user_id,
+                e,
+            )
+
+    if polled:
+        logger.info(
+            "Email polling: %d users polled, %d notifications sent",
+            polled,
+            notified,
+        )
 
 
 async def main_loop() -> None:
