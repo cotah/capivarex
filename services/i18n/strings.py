@@ -1943,6 +1943,115 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "\u2705 \u00a1Evento \"{summary}\" agregado a "
               "tu agenda!",
     },
+    # ── Maps Agent ────────────────────────────────────────────────────────
+    "maps_service_unavailable": {
+        "pt": "🗺️ Serviço de mapas indisponível no momento. "
+              "Tente novamente mais tarde.",
+        "en": "🗺️ Maps service is currently unavailable. "
+              "Please try again later.",
+        "es": "🗺️ El servicio de mapas no está disponible. "
+              "Intenta de nuevo más tarde.",
+    },
+    "maps_error": {
+        "pt": "❌ Erro ao processar a solicitação de mapas. "
+              "Tente novamente.",
+        "en": "❌ Error processing maps request. Please try again.",
+        "es": "❌ Error al procesar la solicitud de mapas. "
+              "Intenta de nuevo.",
+    },
+    "maps_need_destination": {
+        "pt": (
+            "📍 Para onde você quer ir? Diga algo como:\n"
+            "• *Como chegar de Dublin a Cork*\n"
+            "• *Rota para o aeroporto a pé*\n"
+            "• *Directions to Heuston Station*"
+        ),
+        "en": (
+            "📍 Where do you want to go? Try something like:\n"
+            "• *Directions from Dublin to Cork*\n"
+            "• *How to get to the airport walking*\n"
+            "• *Route to Heuston Station*"
+        ),
+        "es": (
+            "📍 ¿A dónde quieres ir? Prueba algo como:\n"
+            "• *Cómo llegar de Dublin a Cork*\n"
+            "• *Ruta al aeropuerto caminando*\n"
+            "• *Dirección a Heuston Station*"
+        ),
+    },
+    "maps_need_origin": {
+        "pt": (
+            "📍 De onde você está saindo? Diga algo como:\n"
+            "• *Como chegar de Connolly a Heuston*\n"
+            "Ou configure sua localização padrão."
+        ),
+        "en": (
+            "📍 Where are you starting from? Try something like:\n"
+            "• *Directions from Connolly to Heuston*\n"
+            "Or set your default location."
+        ),
+        "es": (
+            "📍 ¿Desde dónde sales? Prueba algo como:\n"
+            "• *Cómo llegar de Connolly a Heuston*\n"
+            "O configura tu ubicación predeterminada."
+        ),
+    },
+    "maps_need_query": {
+        "pt": "🔍 O que você quer buscar? "
+              "Ex: *farmácia perto de Dublin*",
+        "en": "🔍 What are you looking for? "
+              "e.g. *pharmacy near Dublin*",
+        "es": "🔍 ¿Qué buscas? "
+              "Ej: *farmacia cerca de Dublin*",
+    },
+    "maps_no_results": {
+        "pt": "🔍 Nenhum resultado encontrado para *{query}*. "
+              "Tente com termos diferentes.",
+        "en": "🔍 No results found for *{query}*. "
+              "Try different search terms.",
+        "es": "🔍 No se encontraron resultados para *{query}*. "
+              "Intenta con otros términos.",
+    },
+    "maps_steps_header": {
+        "pt": "🧭 **Passo a passo:**",
+        "en": "🧭 **Step by step:**",
+        "es": "🧭 **Paso a paso:**",
+    },
+    "maps_more_steps": {
+        "pt": "passos adicionais",
+        "en": "more steps",
+        "es": "pasos adicionales",
+    },
+    "maps_results_header": {
+        "pt": "🔍 Resultados para *{query}*:",
+        "en": "🔍 Results for *{query}*:",
+        "es": "🔍 Resultados para *{query}*:",
+    },
+    "maps_open_now": {
+        "pt": "Aberto agora",
+        "en": "Open now",
+        "es": "Abierto ahora",
+    },
+    "maps_closed": {
+        "pt": "Fechado",
+        "en": "Closed",
+        "es": "Cerrado",
+    },
+    "maps_opening_hours": {
+        "pt": "Horário de funcionamento",
+        "en": "Opening hours",
+        "es": "Horario de apertura",
+    },
+    "maps_reviews": {
+        "pt": "Avaliações",
+        "en": "Reviews",
+        "es": "Reseñas",
+    },
+    "maps_view_on_maps": {
+        "pt": "Ver no Google Maps",
+        "en": "View on Google Maps",
+        "es": "Ver en Google Maps",
+    },
 }
 
 

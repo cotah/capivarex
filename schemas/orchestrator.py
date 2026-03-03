@@ -37,6 +37,7 @@ ALLOWED_AGENTS = Literal[
     "travel",
     "twilio",
     "music",
+    "maps",
 ]
 
 

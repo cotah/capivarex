@@ -29,6 +29,7 @@ from .meeting_agent import MeetingAgent
 from .music_agent import MusicAgent
 from .search_agent import SearchAgent
 from .leaving_now_agent import LeavingNowAgent
+from .maps_agent import MapsAgent
 from .mercado_agent import MercadoAgent
 from .notes_agent import NotesAgent
 from .restaurant_agent import RestaurantAgent
@@ -63,6 +64,7 @@ __all__ = [
     "MusicAgent",
     "SearchAgent",
     "LeavingNowAgent",
+    "MapsAgent",
     "MercadoAgent",
     "NotesAgent",
     "RestaurantAgent",

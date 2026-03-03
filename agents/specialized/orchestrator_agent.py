@@ -52,6 +52,7 @@ ALLOWED_AGENTS = {
     "notes",
     "restaurant",
     "email",
+    "maps",  # Google Maps: directions, places, nearby search
     "music",  # Spotify: pesquisa músicas, artistas, álbuns, recomendações
     "transport",  # Transporte público (autocarro, DART, Luas, comboio)
     "travel",  # FIX: Viagens/voos via Duffel (estava no schema mas faltava aqui)

@@ -55,6 +55,7 @@ Available agents:
 - 'music': Search songs, artists, albums on Spotify, top tracks of an artist, music recommendations, playlists. Use for ANY query about music, songs, singers, bands, albums, playlists, or Spotify in ANY language. PT: 'busca música', 'quem é o artista', 'recomenda músicas', 'top músicas de'. EN: 'search song', 'who is the artist', 'recommend music', 'top tracks by'. ES: 'buscar canción', 'quién es el artista', 'recomienda música', 'canciones de', 'top canciones', 'escuchar música', 'álbum de'.
 - 'twilio': Make phone calls, call someone, dial a number, voice call via telephone.
 - 'travel': Flight search (origin, destination, dates), hotel/stay search (location, dates), travel booking, price comparison. Use for ANY query about flights, hotels, accommodation, trips, vacations, travel planning.
+- 'maps': Directions between places, step-by-step navigation, search for places (pharmacy, hospital, gas station, ATM, etc.), nearby POIs, place details. Use for ANY query about directions, routes, "how to get to", "what's nearby", finding places, navigation. Supports multiple travel modes: drive, walk, bike, transit. PT: 'como chegar', 'rota para', 'farmácia perto', 'o que tem perto', 'posto de gasolina', 'hospital mais perto'. EN: 'directions to', 'how to get to', 'nearby pharmacy', 'find gas station'. ES: 'cómo llegar', 'dirección a', 'farmacia cerca', 'qué hay cerca'.
 
 IMPORTANT RULES:
 1. If the user wants to CREATE/SCHEDULE a calendar event → 'meeting' (not 'calendar')
@@ -74,6 +75,7 @@ IMPORTANT RULES:
 14. If the user asks "how much does X cost" or "where can I buy X" → 'search' (not 'research')
 16. If the user wants to connect Google, authorize Google, link Google Calendar, or "conectar google" → 'calendar' (NOT 'search')
 17. If the user asks about their emails, inbox, unread emails, "meus emails", "conectar gmail", "ver inbox" → 'email' (NOT 'search' or 'chat')
+18. If the user asks about directions, routes, how to get somewhere, nearby places, finding specific types of places (pharmacy, hospital, gas station, ATM, parking) → 'maps' (not 'traffic' or 'restaurant'). NOTE: 'traffic' is for traffic CONDITIONS and departure time. 'maps' is for DIRECTIONS, places search, and nearby POIs. 'restaurant' is ONLY for restaurant-specific queries.
 
 Respond ONLY with a JSON object:
 {"agent": "<agent_name>", "reason": "<brief explanation>"}
