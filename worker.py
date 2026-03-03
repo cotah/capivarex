@@ -14,6 +14,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from services.infrastructure.sentry_service import init_sentry  # noqa: E402
+
+init_sentry()
+
 from services.registration import register_all_services  # noqa: E402
 from agents.registration import register_all_agents  # noqa: E402
 
@@ -30,7 +34,10 @@ worker_logger = get_logger("arq_worker")
 
 # --- TAREFAS DO WORKER ---
 
-async def generate_image_task(ctx, prompt: str, user_id: str, user_plan: str = "basic", aspect_ratio: str = "1:1"):
+
+async def generate_image_task(
+    ctx, prompt: str, user_id: str, user_plan: str = "basic", aspect_ratio: str = "1:1"
+):
     """
     Background task to generate an image using the Image service (Google Imagen 4).
 
@@ -127,7 +134,8 @@ async def check_timers(ctx):
             except Exception as e:
                 logger.error(
                     "Failed to notify timer %s: %s",
-                    timer.timer_id, e,
+                    timer.timer_id,
+                    e,
                 )
 
     fired = await timer_service.check_and_fire_due(notify_fn=notify)
@@ -156,6 +164,7 @@ async def check_reminders(ctx):
         message = f"🔔 **Lembrete:** {reminder['message']}"
         if reminder.get("recurrence"):
             from services.business.reminder_service import ReminderService
+
             rec_label = ReminderService.format_recurrence(reminder["recurrence"])
             message += f"\n🔁 _{rec_label}_"
 
@@ -180,6 +189,7 @@ async def check_reminders(ctx):
 
 
 # --- WORKER LIFECYCLE ---
+
 
 async def startup(ctx):
     """Initialize services when the worker starts."""
@@ -218,6 +228,7 @@ class WorkerSettings:
     Uses REDIS_URL for the arq socket connection (required by arq internals).
     The application code itself routes through Upstash REST via RedisService.
     """
+
     functions = [generate_image_task, check_timers, check_reminders]
     cron_jobs = [
         cron(check_timers, second={0, 10, 20, 30, 40, 50}),  # a cada 10s

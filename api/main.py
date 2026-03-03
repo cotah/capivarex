@@ -54,6 +54,11 @@ from api.routes.twilio_stream import router as twilio_stream_router
 # Load environment variables
 load_dotenv()
 
+# Sentry — must be initialised before anything else
+from services.infrastructure.sentry_service import init_sentry  # noqa: E402
+
+init_sentry()
+
 # Explicit service and agent registration
 from services.registration import register_all_services  # noqa: E402
 from agents.registration import register_all_agents  # noqa: E402

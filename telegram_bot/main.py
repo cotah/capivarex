@@ -42,6 +42,11 @@ from telegram_bot.utils.logger import get_logger  # noqa: E402
 from utils.logging_config import setup_logging  # noqa: E402
 
 load_dotenv()
+
+from services.infrastructure.sentry_service import init_sentry  # noqa: E402
+
+init_sentry()
+
 logger = get_logger(__name__)
 
 

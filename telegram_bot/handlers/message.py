@@ -16,6 +16,7 @@ import logging
 import time
 from typing import Dict, Any
 
+import sentry_sdk
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -152,6 +153,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             e,
             exc_info=True,
         )
+        sentry_sdk.capture_exception(e)
         await update.message.reply_text(f"⚠️ Erro inesperado ao processar mensagem: {e}")
         return
 

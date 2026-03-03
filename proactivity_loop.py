@@ -8,6 +8,7 @@ Runs periodic proactivity checks for all users with enabled preferences.
 import asyncio
 from typing import Any, Dict, List
 
+import sentry_sdk
 from pydantic import ValidationError
 
 from schemas.context import UserContext
@@ -42,12 +43,14 @@ async def run_proactivity_cycle() -> None:
         await _run_proactivity_checks()
     except Exception as e:
         logger.error("Proactivity checks failed: %s", e)
+        sentry_sdk.capture_exception(e)
 
     # ── Step 2: Email polling (independent — always runs) ─────────────────
     try:
         await _run_email_polling()
     except Exception as e:
         logger.error("Email polling step failed: %s", e)
+        sentry_sdk.capture_exception(e)
 
 
 async def _run_proactivity_checks() -> None:
@@ -66,6 +69,7 @@ async def _run_proactivity_checks() -> None:
         logger.exception(
             f"CRITICAL: Failed to get users with proactivity enabled from DB. Cycle aborted. Error: {e}"
         )
+        sentry_sdk.capture_exception(e)
         return
 
     if not pref_users:
@@ -144,6 +148,7 @@ async def _run_proactivity_checks() -> None:
 
         except Exception as e:
             logger.exception(f"Proactivity cycle failed for user {user_id}: {e}")
+            sentry_sdk.capture_exception(e)
 
 
 async def _run_email_polling() -> None:
@@ -260,6 +265,7 @@ async def _run_email_polling() -> None:
                 user_id,
                 e,
             )
+            sentry_sdk.capture_exception(e)
 
     if polled:
         logger.info(

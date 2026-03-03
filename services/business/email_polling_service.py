@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
 
+import sentry_sdk
+
 from services.core import (
     BaseService,
     ServiceUnavailableError,
@@ -369,6 +371,7 @@ class EmailPollingService(BaseService):
             logger.warning(
                 "poll_new_emails failed for %s: %s", user_id, e
             )
+            sentry_sdk.capture_exception(e)
             return []
 
         # Filter: only NEW (not in known_ids)
@@ -872,6 +875,7 @@ class EmailPollingService(BaseService):
                 email.get("subject", "?"),
                 e,
             )
+            sentry_sdk.capture_exception(e)
             return EmailAnalysis()
 
     @staticmethod
