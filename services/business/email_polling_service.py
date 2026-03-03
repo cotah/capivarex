@@ -440,8 +440,21 @@ class EmailPollingService(BaseService):
         - 1 email → single notification with LLM summary + analysis
         - 2+ emails → grouped compact list (no per-email analysis)
         """
+        logger.info(
+            "summarize_for_notification: %d emails, "
+            "user=%s, lang=%s",
+            len(emails),
+            user_id,
+            lang,
+        )
+
         if not emails:
             return EmailNotificationBatch()
+
+        logger.info(
+            "Notification path: %s",
+            "single" if len(emails) == 1 else "multiple",
+        )
 
         if len(emails) == 1:
             notif = await self._format_single_rich(
@@ -481,6 +494,11 @@ class EmailPollingService(BaseService):
         lang: str,
     ) -> EmailNotification:
         """Format single email with LLM summary + reply analysis."""
+        logger.info(
+            "_format_single_rich called for: %s (id=%s)",
+            email.get("subject", "?"),
+            email.get("id", "?"),
+        )
         sender = email.get("from_name") or email.get(
             "from_email", "Unknown"
         )
@@ -760,6 +778,11 @@ class EmailPollingService(BaseService):
         """
         ai = self._get_ai()
         if not ai:
+            logger.warning(
+                "AI service unavailable, skipping analysis "
+                "for: %s",
+                email.get("subject", "?"),
+            )
             return EmailAnalysis()
 
         try:
@@ -777,25 +800,45 @@ class EmailPollingService(BaseService):
             if not ai.is_initialized():
                 await ai.initialize()
 
+            logger.info(
+                "Calling AI for email analysis: %s "
+                "(sender=%s)",
+                email.get("subject", "?"),
+                email.get("from_name", "?"),
+            )
+
             response = await ai.generate_text(
                 prompt=prompt,
                 max_tokens=300,
                 temperature=0.2,
             )
+
+            logger.info(
+                "AI raw response length=%d for: %s",
+                len(response or ""),
+                email.get("subject", "?"),
+            )
+
             analysis = self._parse_analysis(response or "")
             logger.info(
-                "Email analysis for %s: needs_reply=%s, "
-                "urgency=%s, meeting=%s, subject=%r",
+                "Email analysis result for %s: "
+                "needs_reply=%s, urgency=%s, meeting=%s, "
+                "suggested_reply_len=%d, subject=%r",
                 email.get("from_name", "?"),
                 analysis.needs_reply,
                 analysis.urgency,
                 analysis.meeting_request,
+                len(analysis.suggested_reply),
                 email.get("subject", ""),
             )
             return analysis
 
         except Exception as e:
-            logger.debug("Email analysis failed: %s", e)
+            logger.warning(
+                "Email analysis failed for %s: %s",
+                email.get("subject", "?"),
+                e,
+            )
             return EmailAnalysis()
 
     @staticmethod
