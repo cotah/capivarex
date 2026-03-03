@@ -91,6 +91,39 @@ Examples:
 User message: {message}
 Respond ONLY with JSON, no markdown."""
 
+# Common POI types for generic "what's nearby" queries
+_GENERIC_NEARBY_TYPES = [
+    "restaurant",
+    "cafe",
+    "pharmacy",
+    "supermarket",
+    "gas_station",
+    "bank",
+    "park",
+]
+
+
+def _is_generic_nearby_query(query: str) -> bool:
+    """Check if the query is a generic 'what's nearby' without a specific type."""
+    generic_patterns = [
+        "o que tem perto",
+        "o que há perto",
+        "o que ha perto",
+        "que tem perto",
+        "whats near",
+        "what's near",
+        "what is near",
+        "nearby",
+        "perto de mim",
+        "near me",
+        "que hay cerca",
+        "qué hay cerca",
+        "pontos de interesse",
+        "places of interest",
+    ]
+    lower = query.lower()
+    return any(p in lower for p in generic_patterns)
+
 
 @register_agent("maps")
 class MapsAgent(BaseAgent):
@@ -268,8 +301,14 @@ class MapsAgent(BaseAgent):
         mode = intent.get("mode", "drive") or "drive"
 
         if not origin:
-            # Try user's saved home address
             origin = context.get("user_location", "")
+        if not origin:
+            lat = context.get("latitude")
+            lng = context.get("longitude")
+            if lat and lng:
+                addr = await svc.reverse_geocode(float(lat), float(lng))
+                if addr:
+                    origin = addr
         if not destination:
             return AgentResponse(
                 status=AgentStatus.ERROR,
@@ -278,9 +317,9 @@ class MapsAgent(BaseAgent):
             )
         if not origin:
             return AgentResponse(
-                status=AgentStatus.ERROR,
-                response=t("maps_need_origin", lang=lang),
-                error="No origin provided",
+                status=AgentStatus.SUCCESS,
+                response=t("maps_need_location", lang=lang),
+                data={"request_location": True},
             )
 
         result = await svc.get_directions(
@@ -394,22 +433,34 @@ class MapsAgent(BaseAgent):
         context: Dict,
         lang: str,
     ) -> AgentResponse:
-        """Handle nearby search."""
+        """Handle nearby search with diversified results for generic queries."""
         location_ctx = intent.get("location_context", "")
         place_type = intent.get("place_type", "")
         query = intent.get("query", "")
 
-        # Get coordinates — from location context or user location
+        # Get coordinates — from location context, user lat/lng, or user_location
         coords = None
         if location_ctx:
             coords = await svc.geocode(location_ctx)
+        if not coords:
+            lat = context.get("latitude")
+            lng = context.get("longitude")
+            if lat and lng:
+                coords = {"latitude": float(lat), "longitude": float(lng)}
         if not coords:
             user_loc = context.get("user_location", "")
             if user_loc:
                 coords = await svc.geocode(user_loc)
 
-        # If we have coords, use nearby search; otherwise text search
-        if coords and place_type:
+        # Generic nearby query (e.g. "o que tem perto") — diversified search
+        if not place_type and _is_generic_nearby_query(query) and coords:
+            result = await svc.nearby_search(
+                latitude=coords["latitude"],
+                longitude=coords["longitude"],
+                included_types=_GENERIC_NEARBY_TYPES,
+                max_results=8,
+            )
+        elif coords and place_type:
             result = await svc.nearby_search(
                 latitude=coords["latitude"],
                 longitude=coords["longitude"],

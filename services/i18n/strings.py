@@ -2052,6 +2052,26 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "en": "View on Google Maps",
         "es": "Ver en Google Maps",
     },
+    "maps_need_location": {
+        "pt": (
+            "📍 Não sei sua localização atual. Você pode:\n"
+            "• Compartilhar localização pelo Telegram (clipe > Localização)\n"
+            "• Dizer de onde está saindo: *rota de Connolly a Heuston*\n"
+            "• Configurar sua localização padrão"
+        ),
+        "en": (
+            "📍 I don't know your current location. You can:\n"
+            "• Share your location via Telegram (clip > Location)\n"
+            "• Tell me where you're starting from\n"
+            "• Set a default location"
+        ),
+        "es": (
+            "📍 No sé tu ubicación actual. Puedes:\n"
+            "• Compartir ubicación por Telegram (clip > Ubicación)\n"
+            "• Decirme de dónde sales\n"
+            "• Configurar tu ubicación predeterminada"
+        ),
+    },
 }
 
 

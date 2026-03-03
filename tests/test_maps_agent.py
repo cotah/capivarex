@@ -196,7 +196,9 @@ class TestMapsDirections:
         result = await agent._handle_directions(
             mock_maps_service, intent, base_context, "pt"
         )
-        assert result.status.value == "error"
+        # Now returns SUCCESS with request_location prompt instead of error
+        assert result.status.value == "success"
+        assert result.data.get("request_location") is True
 
     @pytest.mark.asyncio
     async def test_directions_uses_user_location(

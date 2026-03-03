@@ -69,23 +69,49 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     result = await save_location(user_uuid, lat, lng, location_type=location_type)
 
+    # Reverse geocode for human-readable address & save to user_context
+    address = None
+    try:
+        maps_svc = get_service("maps")
+        if maps_svc:
+            if not maps_svc.is_initialized():
+                await maps_svc.initialize()
+            address = await maps_svc.reverse_geocode(lat, lng)
+    except Exception:
+        pass
+
+    # Save structured location context for agents
+    db = get_service("database")
+    if db and user_uuid:
+        try:
+            from datetime import datetime
+
+            await db.save_user_context(user_uuid, "location", {
+                "latitude": lat,
+                "longitude": lng,
+                "address": address or f"{lat},{lng}",
+                "updated_at": datetime.now().isoformat(),
+            })
+        except Exception as exc:
+            logger.error("Error saving location context: %s", exc)
+
     if location_type == "home":
+        addr_line = f"\n📍 {address}" if address else f"\n📍 `{lat:.5f}, {lng:.5f}`"
         msg = (
-            f"🏠 Localização de *casa* guardada!\n"
-            f"📍 `{lat:.5f}, {lng:.5f}`\n\n"
+            f"🏠 Localização de *casa* guardada!{addr_line}\n\n"
             f"Agora posso calcular rotas a partir de casa automaticamente."
         )
     elif location_type == "work":
+        addr_line = f"\n📍 {address}" if address else f"\n📍 `{lat:.5f}, {lng:.5f}`"
         msg = (
-            f"🏢 Localização de *trabalho* guardada!\n"
-            f"📍 `{lat:.5f}, {lng:.5f}`\n\n"
+            f"🏢 Localização de *trabalho* guardada!{addr_line}\n\n"
             f"Agora posso calcular rotas a partir do trabalho automaticamente."
         )
     else:
+        addr_line = address if address else f"{lat:.4f}, {lng:.4f}"
         msg = (
-            f"📍 Localização guardada!\n"
-            f"`{lat:.5f}, {lng:.5f}`\n\n"
-            f"Vou usar esta posição para transportes, restaurantes e muito mais."
+            f"📍 Localização atualizada: *{addr_line}*\n\n"
+            f"Agora posso calcular rotas a partir daqui!"
         )
 
     await update.message.reply_text(

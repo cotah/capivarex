@@ -89,12 +89,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 str(update.effective_user.id)
             )
             if user_row:
+                user_uuid = user_row.get("id") or user_row.get("user_id")
+
                 # Inject preferred_language so agents use correct lang
                 pref_lang = user_row.get("preferred_language")
                 if pref_lang:
                     user_context["user_preferences"] = {
                         "preferred_language": pref_lang,
                     }
+
+                # Location preference (text address from profile)
+                loc_pref = user_row.get("location_preference", "")
+                if loc_pref:
+                    user_context["user_location"] = loc_pref
 
                 from services.business.user_preferences_service import get_location
 
@@ -108,6 +115,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                         loc[0],
                         loc[1],
                     )
+
+                # Saved location context (from Telegram location share)
+                if user_uuid and not user_context.get("latitude"):
+                    saved_loc = await db_svc.get_user_context(
+                        user_uuid, "location"
+                    )
+                    if saved_loc and isinstance(saved_loc, dict):
+                        user_context.setdefault(
+                            "latitude", saved_loc.get("latitude")
+                        )
+                        user_context.setdefault(
+                            "longitude", saved_loc.get("longitude")
+                        )
+                        if (
+                            not user_context.get("user_location")
+                            and saved_loc.get("address")
+                        ):
+                            user_context["user_location"] = saved_loc[
+                                "address"
+                            ]
     except Exception as e:
         logger.warning("Could not enrich context with GPS: %s", e)
 
