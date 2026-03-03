@@ -26,6 +26,7 @@ from .reminder_agent import ReminderAgent
 from .youtube_agent import YouTubeAgent
 from .tracking_agent import TrackingAgent
 from .meeting_agent import MeetingAgent
+from .music_agent import MusicAgent
 from .search_agent import SearchAgent
 from .leaving_now_agent import LeavingNowAgent
 from .mercado_agent import MercadoAgent
@@ -59,6 +60,7 @@ __all__ = [
     "YouTubeAgent",
     "TrackingAgent",
     "MeetingAgent",
+    "MusicAgent",
     "SearchAgent",
     "LeavingNowAgent",
     "MercadoAgent",
