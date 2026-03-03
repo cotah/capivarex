@@ -63,6 +63,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "chat_id": update.effective_chat.id,
         "username": update.effective_user.username,
         "language_code": getattr(update.effective_user, "language_code", None) or "en",
+        "message_text": text,
     }
 
     # ── Enrich context with GPS coordinates from Supabase ───────────────
@@ -73,6 +74,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 str(update.effective_user.id)
             )
             if user_row:
+                # Inject preferred_language so agents use correct lang
+                pref_lang = user_row.get("preferred_language")
+                if pref_lang:
+                    user_context["user_preferences"] = {
+                        "preferred_language": pref_lang,
+                    }
+
                 from services.business.user_preferences_service import get_location
 
                 loc = await get_location(user_row["id"], prefer="last")

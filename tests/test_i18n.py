@@ -2,7 +2,13 @@
 Tests for the i18n package — strings, keywords, prompts.
 """
 
-from services.i18n.strings import t, get_user_lang, STRINGS, SUPPORTED_LANGS
+from services.i18n.strings import (
+    t,
+    get_user_lang,
+    _detect_lang_from_text,
+    STRINGS,
+    SUPPORTED_LANGS,
+)
 from services.i18n.keywords import (
     check_keywords,
     check_keywords_with_phone,
@@ -146,6 +152,73 @@ def test_get_user_lang_priority():
 def test_get_user_lang_unsupported_falls_back():
     assert get_user_lang({"language_code": "ja"}) == "en"
     assert get_user_lang({"language_code": "zh"}) == "en"
+
+
+def test_get_user_lang_message_text_pt():
+    """Auto-detect Portuguese from message text when no other lang source."""
+    ctx = {"message_text": "ativar notifica\u00e7\u00f5es de email"}
+    assert get_user_lang(ctx) == "pt"
+
+
+def test_get_user_lang_message_text_es():
+    """Auto-detect Spanish from message text when no other lang source."""
+    ctx = {"message_text": "activar notificaciones de correo"}
+    assert get_user_lang(ctx) == "es"
+
+
+def test_get_user_lang_message_text_does_not_override_db():
+    """DB preferred_language takes precedence over message text detection."""
+    ctx = {
+        "user_preferences": {"preferred_language": "en"},
+        "message_text": "ativar notifica\u00e7\u00f5es",
+    }
+    assert get_user_lang(ctx) == "en"
+
+
+def test_get_user_lang_message_text_does_not_override_telegram():
+    """Telegram language_code takes precedence over message text detection."""
+    ctx = {
+        "language_code": "es",
+        "message_text": "ativar notifica\u00e7\u00f5es",
+    }
+    assert get_user_lang(ctx) == "es"
+
+
+# ─── _detect_lang_from_text tests ─────────────────────────────────────────
+
+
+def test_detect_lang_pt_ativar():
+    assert _detect_lang_from_text("ativar notifica\u00e7\u00f5es de email") == "pt"
+
+
+def test_detect_lang_pt_desativar():
+    assert _detect_lang_from_text("desativar notifica\u00e7\u00f5es") == "pt"
+
+
+def test_detect_lang_pt_quero():
+    assert _detect_lang_from_text("quero ver meus emails") == "pt"
+
+
+def test_detect_lang_es_activar():
+    assert _detect_lang_from_text("activar notificaciones de correo") == "es"
+
+
+def test_detect_lang_es_quiero():
+    assert _detect_lang_from_text("quiero ver mis correos") == "es"
+
+
+def test_detect_lang_empty():
+    assert _detect_lang_from_text("") == ""
+
+
+def test_detect_lang_english_no_match():
+    """English text should not be detected (returns empty)."""
+    assert _detect_lang_from_text("enable email notifications") == ""
+
+
+def test_detect_lang_ambiguous():
+    """Short ambiguous text returns empty if no clear markers."""
+    assert _detect_lang_from_text("hello") == ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -26,9 +26,32 @@ async def _get_proactivity_service():
 
 
 async def run_proactivity_cycle() -> None:
-    """Execute a proactive verification cycle for all users."""
+    """Execute a proactive verification cycle for all users.
+
+    Runs two independent steps:
+    1. Proactivity checks (insights, SmartThings alerts)
+    2. Email polling (Gmail → Telegram notifications)
+
+    Each step is isolated — a failure or early exit in one
+    does NOT prevent the other from running.
+    """
     logger.info("Starting proactivity cycle...")
 
+    # ── Step 1: Proactivity checks ────────────────────────────────────────
+    try:
+        await _run_proactivity_checks()
+    except Exception as e:
+        logger.error("Proactivity checks failed: %s", e)
+
+    # ── Step 2: Email polling (independent — always runs) ─────────────────
+    try:
+        await _run_email_polling()
+    except Exception as e:
+        logger.error("Email polling step failed: %s", e)
+
+
+async def _run_proactivity_checks() -> None:
+    """Run proactivity insight checks for all users with enabled preferences."""
     db_service = get_service("database")
     if not db_service:
         logger.info("Database service not available.")
@@ -122,12 +145,6 @@ async def run_proactivity_cycle() -> None:
         except Exception as e:
             logger.exception(f"Proactivity cycle failed for user {user_id}: {e}")
 
-    # ── Email polling step ───────────────────────────────────────────────────
-    try:
-        await _run_email_polling()
-    except Exception as e:
-        logger.error("Email polling step failed: %s", e)
-
 
 async def _run_email_polling() -> None:
     """Poll Gmail for new emails and send Telegram notifications."""
@@ -152,6 +169,8 @@ async def _run_email_polling() -> None:
     except Exception as e:
         logger.error("get_pollable_users failed: %s", e)
         return
+
+    logger.info("Email polling: checking %d users", len(pollable))
 
     polled = 0
     notified = 0

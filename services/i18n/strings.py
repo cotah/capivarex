@@ -1627,6 +1627,63 @@ def t(key: str, lang: str = DEFAULT_LANG, **kwargs: Any) -> str:
 # ─── User language detection ──────────────────────────────────────────────────
 
 
+def _detect_lang_from_text(text: str) -> str:
+    """
+    Lightweight language detection from message text.
+
+    Uses common marker words to distinguish Portuguese, Spanish,
+    and English. Returns 2-letter code or "" if uncertain.
+    """
+    if not text:
+        return ""
+    lower = text.lower()
+
+    # Portuguese markers (words unlikely in Spanish/English)
+    _PT_MARKERS = (
+        " de email",
+        "ativar",
+        "desativar",
+        "notifica\u00e7",  # notificaç
+        "\u00e3o",         # ão
+        "\u00e3es",        # ães (notificações)
+        "\u00f5es",        # ões
+        "obrigad",
+        "por favor",
+        "quero",
+        "preciso",
+        "meus ",
+        "minha ",
+        "ligar ",
+        "desligar",
+        "quanto custa",
+        "ajuda",
+    )
+    # Spanish markers (words unlikely in Portuguese/English)
+    _ES_MARKERS = (
+        "activar",
+        "desactivar",
+        "habilitar",
+        "deshabilitar",
+        "quiero",
+        "necesito",
+        "por favor",
+        "gracias",
+        "correo",
+        "mis ",
+        "cu\u00e1nto",  # cuánto
+        "ayuda",
+    )
+
+    pt_hits = sum(1 for m in _PT_MARKERS if m in lower)
+    es_hits = sum(1 for m in _ES_MARKERS if m in lower)
+
+    if pt_hits >= 2 or (pt_hits == 1 and es_hits == 0):
+        return "pt"
+    if es_hits >= 2 or (es_hits == 1 and pt_hits == 0):
+        return "es"
+    return ""
+
+
 def get_user_lang(context: Optional[Dict[str, Any]] = None) -> str:
     """
     Detect user language from context.
@@ -1635,7 +1692,8 @@ def get_user_lang(context: Optional[Dict[str, Any]] = None) -> str:
     1. context["lang"] — explicitly set (e.g., by bot handler)
     2. user_preferences.language — saved preference from DB
     3. context["language_code"] — Telegram language_code
-    4. DEFAULT_LANG ("en")
+    4. Auto-detect from message text (context["message_text"])
+    5. DEFAULT_LANG ("en")
 
     Args:
         context: Agent execution context dict
@@ -1668,5 +1726,12 @@ def get_user_lang(context: Optional[Dict[str, Any]] = None) -> str:
         code = tg_lang[:2].lower()
         if code in SUPPORTED_LANGS:
             return code
+
+    # 4. Auto-detect from message text
+    msg_text = context.get("message_text", "")
+    if msg_text:
+        detected = _detect_lang_from_text(msg_text)
+        if detected:
+            return detected
 
     return DEFAULT_LANG
