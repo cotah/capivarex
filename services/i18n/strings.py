@@ -2136,38 +2136,86 @@ def _detect_lang_from_text(text: str) -> str:
 
     # Portuguese markers (words unlikely in Spanish/English)
     _PT_MARKERS = (
-        " de email",
-        "ativar",
-        "desativar",
-        "notifica\u00e7",  # notificaç
-        "\u00e3o",         # ão
-        "\u00e3es",        # ães (notificações)
-        "\u00f5es",        # ões
-        "obrigad",
-        "por favor",
+        # Greetings / conversational
+        "boa tarde",
+        "bom dia",
+        "boa noite",
+        "tudo bem",
+        "tudo bom",
+        "como vai",
+        "como voc\u00ea",  # como você
+        "como voce",
+        "ol\u00e1",        # olá
+        "oi ",
+        "oi,",
+        "tchau",
+        "at\u00e9 logo",   # até logo
+        "ate logo",
+        "valeu",
+        "beleza",
+        "falou",
+        "e a\u00ed",       # e aí
+        "e ai",
+        # Common verbs/words
+        "voc\u00ea",       # você
+        "voce",
         "quero",
         "preciso",
+        "obrigad",
+        "por favor",
+        "ajuda",
+        "quanto custa",
+        # Pronouns/articles unique to PT
         "meus ",
         "minha ",
+        "minhas ",
+        "meu ",
+        "nosso",
+        "nossa",
+        "daqui",
+        "aqui ",
+        "agora ",
+        "tamb\u00e9m",     # também
+        "tambem",
+        "ent\u00e3o",      # então
+        "entao",
+        # Tech/functional
+        "ativar",
+        "desativar",
         "ligar ",
         "desligar",
-        "quanto custa",
-        "ajuda",
+        " de email",
+        "notifica\u00e7",  # notificaç
+        "\u00e3o",         # ão
+        "\u00e3es",        # ães
+        "\u00f5es",        # ões
     )
     # Spanish markers (words unlikely in Portuguese/English)
     _ES_MARKERS = (
+        # Greetings
+        "buenas tardes",
+        "buenos d\u00edas",  # buenos días
+        "buenos dias",
+        "buenas noches",
+        "c\u00f3mo est\u00e1s",  # cómo estás
+        "como estas",
+        "hola ",
+        "hola,",
+        # Common words
+        "quiero",
+        "necesito",
+        "gracias",
+        "por favor",
+        "ayuda",
+        "cu\u00e1nto",    # cuánto
+        "cuanto",
+        # Functional
         "activar",
         "desactivar",
         "habilitar",
         "deshabilitar",
-        "quiero",
-        "necesito",
-        "por favor",
-        "gracias",
         "correo",
         "mis ",
-        "cu\u00e1nto",  # cuánto
-        "ayuda",
     )
 
     pt_hits = sum(1 for m in _PT_MARKERS if m in lower)

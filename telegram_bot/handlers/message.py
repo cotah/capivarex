@@ -82,6 +82,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     }
 
     # ── Enrich context with GPS coordinates from Supabase ───────────────
+    db_svc = None
+    user_row = None
     try:
         db_svc = get_service("database")
         if db_svc and db_svc.is_initialized():
@@ -137,6 +139,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                             ]
     except Exception as e:
         logger.warning("Could not enrich context with GPS: %s", e)
+
+    # ── Auto-detect and persist language ──────────────────────────────
+    try:
+        from services.i18n.strings import get_user_lang
+
+        detected_lang = get_user_lang(user_context)
+        user_context["lang"] = detected_lang
+
+        # If detected a non-EN lang different from saved pref, persist it
+        if (
+            detected_lang != "en"
+            and db_svc
+            and db_svc.is_initialized()
+            and user_row
+        ):
+            user_uuid_lang = user_row.get("id") or user_row.get("user_id")
+            current_pref = user_row.get("preferred_language")
+            if (
+                user_uuid_lang
+                and (not current_pref or current_pref[:2].lower() != detected_lang)
+            ):
+                await db_svc.update_user_preferences(
+                    user_uuid_lang, {"preferred_language": detected_lang}
+                )
+                logger.info(
+                    "Auto-saved preferred_language=%s for user %s",
+                    detected_lang,
+                    str(user_uuid_lang)[:8],
+                )
+    except Exception as exc:
+        logger.debug("Could not auto-detect/save language: %s", exc)
 
     logger.info(
         "Message from user_id=%s chat_id=%s length=%d",
