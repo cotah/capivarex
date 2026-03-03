@@ -48,6 +48,36 @@ class TestBeforeSend:
         event = {"level": "info"}
         assert _before_send(event, {}) is event
 
+    def test_telegram_conflict_filtered(self):
+        """Telegram Conflict errors during deploys are filtered."""
+        event = {"level": "error"}
+        exc = Exception("Conflict: terminated by other getUpdates request")
+        hint = {"exc_info": (type(exc), exc, None)}
+        assert _before_send(event, hint) is None
+
+    def test_telegram_terminated_fragment_filtered(self):
+        """Messages containing 'terminated by other getUpdates' are filtered."""
+        event = {"level": "error"}
+        exc = Exception(
+            "terminated by other getUpdates request; "
+            "make sure that only one bot instance is running"
+        )
+        hint = {"exc_info": (type(exc), exc, None)}
+        assert _before_send(event, hint) is None
+
+    def test_unrelated_exception_message_passes(self):
+        """Exceptions with unrelated messages should pass through."""
+        event = {"level": "error"}
+        exc = Exception("Something completely different went wrong")
+        hint = {"exc_info": (type(exc), exc, None)}
+        assert _before_send(event, hint) is event
+
+    def test_exc_value_none_passes(self):
+        """When exc_value is None, event should pass through."""
+        event = {"level": "error"}
+        hint = {"exc_info": (ValueError, None, None)}
+        assert _before_send(event, hint) is event
+
 
 class TestInitSentry:
     """Tests for init_sentry() bootstrapping."""

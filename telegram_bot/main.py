@@ -21,8 +21,10 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", message="error reading bcrypt version")
 
 import os  # noqa: E402
+import signal  # noqa: E402
 import asyncio  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
+from telegram.error import Conflict  # noqa: E402
 from telegram.ext import ApplicationBuilder, CommandHandler  # noqa: E402
 
 # Note: Also called in api/main.py. Registry has idempotency guard, safe to call twice.
@@ -97,10 +99,25 @@ def main_sync():
     application.post_init = on_post_init
     application.post_shutdown = on_post_shutdown
 
+    # --- Graceful shutdown on SIGTERM (Railway sends this during deploys) ---
+    def _handle_sigterm(signum, frame):
+        logger.info("SIGTERM received — shutting down gracefully...")
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+
     logger.info("CapivaraX Telegram Bot starting...")
 
-    # This handles the event loop internally — no nesting conflict
-    application.run_polling()
+    try:
+        # run_polling handles its own event loop internally
+        application.run_polling()
+    except Conflict:
+        logger.warning(
+            "Telegram Conflict: another instance is already polling. "
+            "This is expected during rolling deploys — exiting cleanly."
+        )
+    except SystemExit:
+        logger.info("Bot stopped via SystemExit (SIGTERM or manual).")
 
 
 if __name__ == "__main__":

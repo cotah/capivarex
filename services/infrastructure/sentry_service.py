@@ -28,6 +28,13 @@ _IGNORED_EXCEPTIONS = (
     SystemExit,
 )
 
+# Substrings in exception messages that indicate expected transient
+# errors (e.g. Telegram Conflict during Railway rolling deploys).
+_IGNORED_MESSAGE_FRAGMENTS = (
+    "terminated by other getUpdates",
+    "Conflict: terminated by other",
+)
+
 
 def _before_send(event, hint):
     """Filter noisy events before they reach Sentry."""
@@ -43,6 +50,12 @@ def _before_send(event, hint):
         exc_type = exc_info[0]
         if exc_type and issubclass(exc_type, _IGNORED_EXCEPTIONS):
             return None
+        # Drop Telegram Conflict errors (expected during deploys)
+        exc_value = exc_info[1]
+        if exc_value:
+            msg = str(exc_value)
+            if any(f in msg for f in _IGNORED_MESSAGE_FRAGMENTS):
+                return None
 
     return event
 
