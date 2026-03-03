@@ -667,6 +667,283 @@ class TestProactivityIntegration:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TestCheckCalendarConflicts
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCheckCalendarConflicts:
+    """Tests for _check_calendar_conflicts."""
+
+    @pytest.mark.asyncio
+    async def test_conflict_detected(self):
+        svc = _build_service()
+        mock_cal = AsyncMock()
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "summary": "Team standup",
+                    "start": "2026-03-04T15:00:00+00:00",
+                    "end": "2026-03-04T16:00:00+00:00",
+                },
+            ]
+        )
+        with patch.object(svc, "_get_calendar", return_value=mock_cal):
+            result = await svc._check_calendar_conflicts(
+                "u1", "2026-03-04T15:00:00"
+            )
+        assert result is not None
+        assert result["has_conflict"] is True
+        assert result["conflicting_event"] == "Team standup"
+        assert "15:00" in result["conflict_time"]
+
+    @pytest.mark.asyncio
+    async def test_no_conflict(self):
+        svc = _build_service()
+        mock_cal = AsyncMock()
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "summary": "Early meeting",
+                    "start": "2026-03-04T09:00:00+00:00",
+                    "end": "2026-03-04T10:00:00+00:00",
+                },
+            ]
+        )
+        with patch.object(svc, "_get_calendar", return_value=mock_cal):
+            result = await svc._check_calendar_conflicts(
+                "u1", "2026-03-04T15:00:00"
+            )
+        assert result is not None
+        assert result["has_conflict"] is False
+        assert result["conflicting_event"] == ""
+
+    @pytest.mark.asyncio
+    async def test_calendar_unavailable(self):
+        svc = _build_service()
+        with patch.object(svc, "_get_calendar", return_value=None):
+            result = await svc._check_calendar_conflicts(
+                "u1", "2026-03-04T15:00:00"
+            )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_user_not_connected(self):
+        svc = _build_service()
+        mock_cal = AsyncMock()
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            side_effect=ServiceUnavailableError("not connected")
+        )
+        with patch.object(svc, "_get_calendar", return_value=mock_cal):
+            result = await svc._check_calendar_conflicts(
+                "u1", "2026-03-04T15:00:00"
+            )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_invalid_datetime(self):
+        svc = _build_service()
+        mock_cal = AsyncMock()
+        with patch.object(svc, "_get_calendar", return_value=mock_cal):
+            result = await svc._check_calendar_conflicts(
+                "u1", "not-a-date"
+            )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_free_slots_found(self):
+        svc = _build_service()
+        mock_cal = AsyncMock()
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "summary": "Blocked",
+                    "start": "2026-03-04T15:00:00+00:00",
+                    "end": "2026-03-04T16:00:00+00:00",
+                },
+            ]
+        )
+        with patch.object(svc, "_get_calendar", return_value=mock_cal):
+            result = await svc._check_calendar_conflicts(
+                "u1", "2026-03-04T15:00:00"
+            )
+        assert result is not None
+        assert isinstance(result["free_slots_today"], list)
+        assert len(result["free_slots_today"]) > 0
+        # 15:00 and 15:30 should NOT be in free slots
+        assert "15:00" not in result["free_slots_today"]
+        assert "15:30" not in result["free_slots_today"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TestFormatSingleRichMeeting
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestFormatSingleRichMeeting:
+    """Tests for _format_single_rich with meeting requests."""
+
+    @pytest.mark.asyncio
+    async def test_meeting_with_conflict(self):
+        svc = _build_service()
+        email = _make_email(
+            subject="Reunião amanhã",
+            sender_name="João",
+        )
+        mock_ai = AsyncMock()
+        mock_ai.is_initialized.return_value = True
+        # 1st call: _get_llm_summary, 2nd: _analyze_email, 3rd: _reprompt
+        mock_ai.generate_text = AsyncMock(
+            side_effect=[
+                "João wants to meet tomorrow at 3pm",
+                '{"needs_reply": true, "suggested_reply": "OK", '
+                '"urgency": "high", "meeting_request": true, '
+                '"proposed_datetime": "2026-03-04T15:00:00", '
+                '"proposed_location": "office"}',
+                '{"suggested_reply": "Tenho compromisso às 15h. '
+                'Podemos às 16h?"}',
+            ]
+        )
+        mock_gmail = AsyncMock()
+        mock_gmail.get_email_body = AsyncMock(
+            return_value="Meeting tomorrow at 3pm?"
+        )
+        conflict = {
+            "has_conflict": True,
+            "conflicting_event": "Team standup",
+            "conflict_time": "15:00-16:00",
+            "next_free_slot": "16:00",
+            "free_slots_today": ["16:00", "17:00"],
+        }
+        with (
+            patch.object(svc, "_get_ai", return_value=mock_ai),
+            patch.object(svc, "_get_gmail", return_value=mock_gmail),
+            patch.object(
+                svc,
+                "_check_calendar_conflicts",
+                return_value=conflict,
+            ),
+        ):
+            notif = await svc._format_single_rich(email, "u1", "en")
+
+        assert notif.analysis.meeting_request is True
+        assert "Team standup" in notif.text
+        assert "16:00" in notif.text
+
+    @pytest.mark.asyncio
+    async def test_meeting_no_conflict(self):
+        svc = _build_service()
+        email = _make_email(
+            subject="Meeting",
+            sender_name="Maria",
+        )
+        mock_ai = AsyncMock()
+        mock_ai.is_initialized.return_value = True
+        # 1st: summary, 2nd: analysis (no reprompt needed)
+        mock_ai.generate_text = AsyncMock(
+            side_effect=[
+                "Maria wants to meet at 10am",
+                '{"needs_reply": true, "suggested_reply": "Sure!", '
+                '"urgency": "medium", "meeting_request": true, '
+                '"proposed_datetime": "2026-03-04T10:00:00", '
+                '"proposed_location": ""}',
+            ]
+        )
+        mock_gmail = AsyncMock()
+        mock_gmail.get_email_body = AsyncMock(
+            return_value="Can we meet at 10am?"
+        )
+        no_conflict = {
+            "has_conflict": False,
+            "conflicting_event": "",
+            "conflict_time": "",
+            "next_free_slot": "10:00",
+            "free_slots_today": ["10:00", "11:00"],
+        }
+        with (
+            patch.object(svc, "_get_ai", return_value=mock_ai),
+            patch.object(svc, "_get_gmail", return_value=mock_gmail),
+            patch.object(
+                svc,
+                "_check_calendar_conflicts",
+                return_value=no_conflict,
+            ),
+        ):
+            notif = await svc._format_single_rich(email, "u1", "en")
+
+        assert notif.analysis.meeting_request is True
+        # Should contain the "free" indicator
+        assert "\u2705" in notif.text
+
+    @pytest.mark.asyncio
+    async def test_meeting_no_calendar(self):
+        """Meeting detected but calendar unavailable — no cal text appended."""
+        svc = _build_service()
+        email = _make_email(subject="Lunch?", sender_name="Ana")
+        mock_ai = AsyncMock()
+        mock_ai.is_initialized.return_value = True
+        # 1st: summary, 2nd: analysis
+        mock_ai.generate_text = AsyncMock(
+            side_effect=[
+                "Ana wants to have lunch at noon",
+                '{"needs_reply": true, "suggested_reply": "Sure!", '
+                '"urgency": "low", "meeting_request": true, '
+                '"proposed_datetime": "2026-03-04T12:00:00", '
+                '"proposed_location": ""}',
+            ]
+        )
+        mock_gmail = AsyncMock()
+        mock_gmail.get_email_body = AsyncMock(
+            return_value="Lunch at noon?"
+        )
+        with (
+            patch.object(svc, "_get_ai", return_value=mock_ai),
+            patch.object(svc, "_get_gmail", return_value=mock_gmail),
+            patch.object(
+                svc,
+                "_check_calendar_conflicts",
+                return_value=None,
+            ),
+        ):
+            notif = await svc._format_single_rich(email, "u1", "en")
+
+        assert notif.analysis.meeting_request is True
+        # No conflict/free text since calendar was unavailable
+        assert "CONFLICT" not in notif.text.upper().replace(
+            "\u26a0\ufe0f", ""
+        )
+
+    @pytest.mark.asyncio
+    async def test_non_meeting_unchanged(self):
+        """Non-meeting email is unchanged from previous behavior."""
+        svc = _build_service()
+        email = _make_email(subject="FYI Report", sender_name="Carlos")
+        mock_ai = AsyncMock()
+        mock_ai.is_initialized.return_value = True
+        # 1st: summary, 2nd: analysis
+        mock_ai.generate_text = AsyncMock(
+            side_effect=[
+                "Carlos sent a report",
+                '{"needs_reply": false, "suggested_reply": "", '
+                '"urgency": "low", "meeting_request": false, '
+                '"proposed_datetime": null, "proposed_location": ""}',
+            ]
+        )
+        mock_gmail = AsyncMock()
+        mock_gmail.get_email_body = AsyncMock(
+            return_value="Attached is the report."
+        )
+        with (
+            patch.object(svc, "_get_ai", return_value=mock_ai),
+            patch.object(svc, "_get_gmail", return_value=mock_gmail),
+        ):
+            notif = await svc._format_single_rich(email, "u1", "en")
+
+        assert notif.analysis.meeting_request is False
+        assert "Carlos" in notif.text
+        assert "FYI Report" in notif.text
+
+
 class TestPollToggleIntent:
     """Tests for email notification toggle via EmailAgent."""
 

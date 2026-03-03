@@ -226,8 +226,16 @@ async def _run_email_polling() -> None:
                         if notif.analysis
                         else False
                     )
+                    meeting_req = (
+                        notif.analysis.meeting_request
+                        if notif.analysis
+                        else False
+                    )
                     keyboard = _build_email_keyboard(
-                        notif.email_id, needs_reply, lang
+                        notif.email_id,
+                        needs_reply,
+                        lang,
+                        meeting_request=meeting_req,
                     )
                     await notification_service.send_message(
                         "telegram",
@@ -261,17 +269,25 @@ async def _run_email_polling() -> None:
         )
 
 
-def _build_email_keyboard(email_id: str, needs_reply: bool, lang: str):
+def _build_email_keyboard(
+    email_id: str,
+    needs_reply: bool,
+    lang: str,
+    meeting_request: bool = False,
+):
     """Build inline keyboard for email notification."""
     from telegram_bot.handlers.email_callback import build_email_keyboard
 
-    return build_email_keyboard(email_id, needs_reply, lang)
+    return build_email_keyboard(
+        email_id, needs_reply, lang, meeting_request=meeting_request
+    )
 
 
 async def _store_email_draft(user_id: str, notif) -> None:
     """Store email draft data in Redis for callback handler use."""
     from telegram_bot.handlers.email_callback import store_email_draft
 
+    analysis = notif.analysis
     draft_data = {
         "to": notif.from_email,
         "subject": notif.subject,
@@ -281,9 +297,13 @@ async def _store_email_draft(user_id: str, notif) -> None:
         "user_id": notif.user_id,
         "lang": notif.lang,
         "suggested_reply": (
-            notif.analysis.suggested_reply
-            if notif.analysis
-            else ""
+            analysis.suggested_reply if analysis else ""
+        ),
+        "proposed_datetime": (
+            analysis.proposed_datetime if analysis else None
+        ),
+        "proposed_location": (
+            analysis.proposed_location if analysis else ""
         ),
     }
     await store_email_draft(user_id, notif.email_id, draft_data)

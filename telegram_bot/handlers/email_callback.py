@@ -10,6 +10,7 @@ Draft data is stored in Redis with key ``email:draft:{user_id}:{email_id}``
 """
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from telegram import (
@@ -19,7 +20,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from services.core import get_service
+from services.core import ServiceUnavailableError, get_service
 from services.i18n import t
 
 logger = logging.getLogger("capivarex.telegram.handlers.email_callback")
@@ -66,6 +67,8 @@ async def handle_email_callback(
         "archive": _handle_archive,
         "confirm": _handle_confirm,
         "cancel": _handle_cancel,
+        "cal_view": _handle_cal_view,
+        "cal_add": _handle_cal_add,
     }
 
     handler = handlers.get(action)
@@ -311,6 +314,121 @@ async def _handle_cancel(
     await query.edit_message_text(t("email_cb_ignored", lang=lang))
 
 
+async def _handle_cal_view(
+    *, query, context, user_id, email_id, draft, lang, **_kw
+) -> None:
+    """Show today's calendar events."""
+    await query.answer()
+
+    cal = get_service("calendar")
+    if not cal:
+        await query.edit_message_text(
+            t("email_cal_unavailable", lang=lang)
+        )
+        return
+
+    try:
+        events = await cal.async_get_today_events(user_id)
+    except ServiceUnavailableError:
+        await query.edit_message_text(
+            t("email_cal_not_connected", lang=lang)
+        )
+        return
+    except Exception as e:
+        logger.warning("cal_view failed: %s", e)
+        await query.edit_message_text(
+            t("email_cal_unavailable", lang=lang)
+        )
+        return
+
+    if not events:
+        await query.edit_message_text(
+            t("email_cal_no_events", lang=lang)
+        )
+        return
+
+    lines = [t("email_cal_today_header", lang=lang)]
+    for ev in events:
+        lines.append(cal.format_event_for_briefing(ev))
+    await query.edit_message_text("\n".join(lines))
+
+
+async def _handle_cal_add(
+    *, query, context, user_id, email_id, draft, lang, **_kw
+) -> None:
+    """Create a calendar event from the meeting request."""
+    await query.answer()
+
+    if not draft:
+        await query.edit_message_text(
+            t("email_cb_draft_expired", lang=lang)
+        )
+        return
+
+    proposed_dt = draft.get("proposed_datetime")
+    if not proposed_dt:
+        await query.edit_message_text(
+            t("email_cal_no_datetime", lang=lang)
+        )
+        return
+
+    cal = get_service("calendar")
+    if not cal:
+        await query.edit_message_text(
+            t("email_cal_unavailable", lang=lang)
+        )
+        return
+
+    try:
+        start_time = datetime.fromisoformat(proposed_dt)
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        end_time = start_time + timedelta(hours=1)
+    except (ValueError, TypeError):
+        await query.edit_message_text(
+            t("email_cal_no_datetime", lang=lang)
+        )
+        return
+
+    sender = draft.get("from_name", draft.get("to", ""))
+    subject = draft.get("subject", "")
+    location = draft.get("proposed_location", "")
+    summary = f"{subject}" if subject else f"Meeting with {sender}"
+
+    try:
+        result = await cal.async_create_event(
+            user_id=user_id,
+            summary=summary,
+            start_time=start_time,
+            end_time=end_time,
+            location=location,
+        )
+    except ServiceUnavailableError:
+        await query.edit_message_text(
+            t("email_cal_not_connected", lang=lang)
+        )
+        return
+    except Exception as e:
+        logger.warning("cal_add failed: %s", e)
+        await query.edit_message_text(
+            t("email_cb_error", lang=lang)
+        )
+        return
+
+    if result:
+        await query.edit_message_text(
+            t(
+                "email_cal_event_created",
+                lang=lang,
+                summary=summary,
+            )
+        )
+    else:
+        await query.edit_message_text(
+            t("email_cb_error", lang=lang)
+        )
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -362,6 +480,7 @@ def build_email_keyboard(
     email_id: str,
     needs_reply: bool,
     lang: str = "en",
+    meeting_request: bool = False,
 ) -> InlineKeyboardMarkup:
     """Build inline keyboard for an email notification.
 
@@ -369,6 +488,7 @@ def build_email_keyboard(
         email_id: Gmail message ID (used in callback_data).
         needs_reply: Whether the email needs a reply.
         lang: Language code for button labels.
+        meeting_request: Whether this email is a meeting request.
 
     Returns:
         InlineKeyboardMarkup with action buttons.
@@ -400,7 +520,23 @@ def build_email_keyboard(
             ),
         ]
 
-    return InlineKeyboardMarkup([buttons])
+    rows = [buttons]
+
+    # Add calendar row for meeting requests
+    if meeting_request and needs_reply:
+        cal_row = [
+            InlineKeyboardButton(
+                t("email_btn_cal_view", lang=lang),
+                callback_data=f"er:cal_view:{email_id}",
+            ),
+            InlineKeyboardButton(
+                t("email_btn_cal_add", lang=lang),
+                callback_data=f"er:cal_add:{email_id}",
+            ),
+        ]
+        rows.append(cal_row)
+
+    return InlineKeyboardMarkup(rows)
 
 
 def build_confirm_keyboard(

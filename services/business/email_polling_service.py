@@ -16,7 +16,7 @@ Dependencies (lazy via get_service):
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
 
 from services.core import (
@@ -62,6 +62,9 @@ class EmailAnalysis:
     needs_reply: bool = False
     suggested_reply: str = ""
     urgency: str = "low"  # high / medium / low
+    meeting_request: bool = False
+    proposed_datetime: Optional[str] = None  # ISO 8601
+    proposed_location: str = ""
 
 
 @dataclass
@@ -122,6 +125,130 @@ class EmailPollingService(BaseService):
     @staticmethod
     def _get_ai():
         return get_service("openai") or get_service("anthropic")
+
+    @staticmethod
+    def _get_calendar():
+        return get_service("calendar")
+
+    # ── Calendar conflict check ───────────────────────────────────────────
+
+    async def _check_calendar_conflicts(
+        self,
+        user_id: str,
+        proposed_dt: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Check if a proposed meeting time conflicts with calendar events.
+
+        Returns dict with conflict info, or None if calendar is unavailable.
+        """
+        cal = self._get_calendar()
+        if not cal:
+            return None
+
+        # Parse proposed datetime
+        try:
+            proposed = datetime.fromisoformat(proposed_dt)
+        except (ValueError, TypeError):
+            logger.debug(
+                "Invalid proposed_datetime: %r", proposed_dt
+            )
+            return None
+
+        # Make timezone-aware if naive
+        if proposed.tzinfo is None:
+            proposed = proposed.replace(tzinfo=timezone.utc)
+
+        proposed_end = proposed + timedelta(hours=1)
+
+        # Fetch upcoming events
+        try:
+            events = await cal.async_get_upcoming_events(
+                user_id=user_id, max_results=20, days_ahead=2
+            )
+        except ServiceUnavailableError:
+            logger.debug(
+                "Calendar not connected for user %s", user_id
+            )
+            return None
+        except Exception as e:
+            logger.warning(
+                "Calendar fetch failed for %s: %s", user_id, e
+            )
+            return None
+
+        # Check for overlap
+        conflict_event = None
+        conflict_time = ""
+        for ev in events:
+            ev_start_raw = ev.get("start", "")
+            ev_end_raw = ev.get("end", "")
+            try:
+                ev_start = datetime.fromisoformat(
+                    str(ev_start_raw).replace("Z", "+00:00")
+                )
+                ev_end = datetime.fromisoformat(
+                    str(ev_end_raw).replace("Z", "+00:00")
+                )
+            except (ValueError, TypeError):
+                continue
+
+            # Overlap: proposed < ev_end AND proposed_end > ev_start
+            if proposed < ev_end and proposed_end > ev_start:
+                conflict_event = ev.get("summary", "Event")
+                s = ev_start.strftime("%H:%M")
+                e = ev_end.strftime("%H:%M")
+                conflict_time = f"{s}-{e}"
+                break
+
+        # Find free 30-min slots (09:00-18:00 on the proposed day)
+        proposed_day = proposed.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        free_slots = []
+        for h in range(9, 18):
+            for m in (0, 30):
+                slot_start = proposed_day.replace(
+                    hour=h, minute=m, tzinfo=proposed.tzinfo
+                )
+                slot_end = slot_start + timedelta(minutes=30)
+                # Skip past slots
+                if slot_end <= datetime.now(timezone.utc):
+                    continue
+                is_free = True
+                for ev in events:
+                    try:
+                        es = datetime.fromisoformat(
+                            str(ev.get("start", "")).replace(
+                                "Z", "+00:00"
+                            )
+                        )
+                        ee = datetime.fromisoformat(
+                            str(ev.get("end", "")).replace(
+                                "Z", "+00:00"
+                            )
+                        )
+                        if slot_start < ee and slot_end > es:
+                            is_free = False
+                            break
+                    except (ValueError, TypeError):
+                        continue
+                if is_free:
+                    free_slots.append(slot_start.strftime("%H:%M"))
+                    if len(free_slots) >= 5:
+                        break
+            if len(free_slots) >= 5:
+                break
+
+        has_conflict = conflict_event is not None
+        next_free = free_slots[0] if free_slots else None
+
+        return {
+            "has_conflict": has_conflict,
+            "conflicting_event": conflict_event or "",
+            "conflict_time": conflict_time,
+            "next_free_slot": next_free,
+            "free_slots_today": free_slots,
+        }
 
     # ── Pollable users ───────────────────────────────────────────────────────
 
@@ -372,15 +499,62 @@ class EmailPollingService(BaseService):
             email, user_id, summary, lang
         )
 
+        # Calendar conflict check for meeting requests
+        cal_text = ""
+        if (
+            analysis.meeting_request
+            and analysis.proposed_datetime
+        ):
+            cal_info = await self._check_calendar_conflicts(
+                user_id, analysis.proposed_datetime
+            )
+            if cal_info is not None:
+                if cal_info["has_conflict"]:
+                    free = ", ".join(
+                        cal_info.get("free_slots_today", [])
+                    ) or "—"
+                    cal_text = t(
+                        "email_cal_conflict",
+                        lang=lang,
+                        event=cal_info["conflicting_event"],
+                        time=cal_info["conflict_time"],
+                        free_slots=free,
+                    )
+                    # Re-prompt LLM for smarter reply
+                    analysis = await self._reprompt_with_conflict(
+                        email, summary, cal_info, analysis, lang
+                    )
+                else:
+                    cal_text = t(
+                        "email_cal_free", lang=lang
+                    )
+
         # Build notification text
-        if analysis.needs_reply:
+        if analysis.meeting_request and analysis.needs_reply:
+            text = t(
+                "email_poll_single_meeting",
+                lang=lang,
+                sender=sender,
+                subject=subject,
+                summary=summary,
+                proposed_datetime=(
+                    analysis.proposed_datetime or "?"
+                ),
+                urgency=self._urgency_emoji(
+                    analysis.urgency
+                ),
+                suggested_reply=analysis.suggested_reply,
+            )
+        elif analysis.needs_reply:
             text = t(
                 "email_poll_single_reply",
                 lang=lang,
                 sender=sender,
                 subject=subject,
                 summary=summary,
-                urgency=self._urgency_emoji(analysis.urgency),
+                urgency=self._urgency_emoji(
+                    analysis.urgency
+                ),
                 suggested_reply=analysis.suggested_reply,
             )
         else:
@@ -391,6 +565,10 @@ class EmailPollingService(BaseService):
                 subject=subject,
                 summary=summary,
             )
+
+        # Append calendar info if present
+        if cal_text:
+            text = f"{text}\n\n{cal_text}"
 
         return EmailNotification(
             text=text,
@@ -404,6 +582,71 @@ class EmailPollingService(BaseService):
             user_id=user_id,
             lang=lang,
         )
+
+    async def _reprompt_with_conflict(
+        self,
+        email: Dict[str, Any],
+        summary: str,
+        cal_info: Dict[str, Any],
+        analysis: EmailAnalysis,
+        lang: str,
+    ) -> EmailAnalysis:
+        """Re-prompt LLM with conflict info for a smarter reply."""
+        ai = self._get_ai()
+        if not ai:
+            return analysis
+
+        free = ", ".join(
+            cal_info.get("free_slots_today", [])
+        ) or "—"
+        try:
+            prompt = t(
+                "email_poll_conflict_reprompt",
+                lang=lang,
+                sender=email.get("from_name", ""),
+                subject=email.get("subject", ""),
+                summary=summary,
+                conflict_event=cal_info.get(
+                    "conflicting_event", ""
+                ),
+                conflict_time=cal_info.get(
+                    "conflict_time", ""
+                ),
+                free_slots=free,
+            )
+
+            if not ai.is_initialized():
+                await ai.initialize()
+
+            response = await ai.generate_text(
+                prompt=prompt,
+                max_tokens=200,
+                temperature=0.3,
+            )
+
+            if response:
+                clean = response.strip()
+                if clean.startswith("```"):
+                    clean = clean.split("\n", 1)[
+                        -1
+                    ].rsplit("```", 1)[0]
+                data = json.loads(clean)
+                new_reply = str(
+                    data.get("suggested_reply", "")
+                )
+                if new_reply:
+                    analysis.suggested_reply = new_reply
+                    logger.info(
+                        "Re-prompted reply with conflict "
+                        "info for %s",
+                        email.get("from_name", "?"),
+                    )
+        except Exception as e:
+            logger.debug(
+                "Conflict re-prompt failed: %s", e
+            )
+
+        return analysis
 
     async def _format_single(
         self,
@@ -526,6 +769,9 @@ class EmailPollingService(BaseService):
                 sender=email.get("from_name", ""),
                 subject=email.get("subject", ""),
                 summary=summary,
+                today=datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%d"
+                ),
             )
 
             if not ai.is_initialized():
@@ -533,10 +779,20 @@ class EmailPollingService(BaseService):
 
             response = await ai.generate_text(
                 prompt=prompt,
-                max_tokens=200,
+                max_tokens=300,
                 temperature=0.2,
             )
-            return self._parse_analysis(response or "")
+            analysis = self._parse_analysis(response or "")
+            logger.info(
+                "Email analysis for %s: needs_reply=%s, "
+                "urgency=%s, meeting=%s, subject=%r",
+                email.get("from_name", "?"),
+                analysis.needs_reply,
+                analysis.urgency,
+                analysis.meeting_request,
+                email.get("subject", ""),
+            )
+            return analysis
 
         except Exception as e:
             logger.debug("Email analysis failed: %s", e)
@@ -560,8 +816,27 @@ class EmailPollingService(BaseService):
                 urgency=str(
                     data.get("urgency", "low")
                 ).lower(),
+                meeting_request=bool(
+                    data.get("meeting_request", False)
+                ),
+                proposed_datetime=data.get(
+                    "proposed_datetime"
+                ),
+                proposed_location=str(
+                    data.get("proposed_location", "")
+                ),
             )
-        except (json.JSONDecodeError, AttributeError, KeyError):
+        except (
+            json.JSONDecodeError,
+            AttributeError,
+            KeyError,
+        ) as exc:
+            logger.warning(
+                "Failed to parse email analysis JSON: "
+                "%s — raw=%r",
+                exc,
+                response[:200],
+            )
             return EmailAnalysis()
 
     @staticmethod

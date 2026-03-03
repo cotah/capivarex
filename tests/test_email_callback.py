@@ -104,6 +104,25 @@ class TestParseAnalysis:
         assert result.suggested_reply == ""
         assert result.urgency == "low"
 
+    def test_meeting_fields_parsed(self):
+        raw = (
+            '{"needs_reply": true, "suggested_reply": "OK", '
+            '"urgency": "high", "meeting_request": true, '
+            '"proposed_datetime": "2026-03-04T15:00:00", '
+            '"proposed_location": "office"}'
+        )
+        result = EmailPollingService._parse_analysis(raw)
+        assert result.meeting_request is True
+        assert result.proposed_datetime == "2026-03-04T15:00:00"
+        assert result.proposed_location == "office"
+
+    def test_no_meeting_fields_default(self):
+        raw = '{"needs_reply": false, "suggested_reply": "", "urgency": "low"}'
+        result = EmailPollingService._parse_analysis(raw)
+        assert result.meeting_request is False
+        assert result.proposed_datetime is None
+        assert result.proposed_location == ""
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TestBuildEmailKeyboard
@@ -137,6 +156,37 @@ class TestBuildEmailKeyboard:
         for row in kb.inline_keyboard:
             for btn in row:
                 assert len(btn.callback_data.encode()) <= 64
+
+    def test_meeting_keyboard_two_rows(self):
+        """Meeting request adds a second row with calendar buttons."""
+        kb = build_email_keyboard(
+            "msg789", needs_reply=True, lang="en", meeting_request=True
+        )
+        assert len(kb.inline_keyboard) == 2
+        # First row: Send, Edit, Ignore
+        assert len(kb.inline_keyboard[0]) == 3
+        # Second row: Calendar, Add event
+        cal_row = kb.inline_keyboard[1]
+        assert len(cal_row) == 2
+        assert "er:cal_view:msg789" in cal_row[0].callback_data
+        assert "er:cal_add:msg789" in cal_row[1].callback_data
+
+    def test_meeting_callback_data_size(self):
+        """Calendar callback_data must be ≤ 64 bytes."""
+        long_id = "a" * 50
+        kb = build_email_keyboard(
+            long_id, needs_reply=True, lang="en", meeting_request=True
+        )
+        for row in kb.inline_keyboard:
+            for btn in row:
+                assert len(btn.callback_data.encode()) <= 64
+
+    def test_meeting_noreply_no_calendar_row(self):
+        """No calendar row when needs_reply is False even with meeting."""
+        kb = build_email_keyboard(
+            "msg1", needs_reply=False, lang="en", meeting_request=True
+        )
+        assert len(kb.inline_keyboard) == 1
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -455,3 +505,218 @@ class TestUrgencyEmoji:
 
     def test_unknown_returns_green(self):
         assert EmailPollingService._urgency_emoji("xyz") == "\U0001f7e2"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TestCalendarCallbacks
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCalendarCallbacks:
+    """Tests for cal_view and cal_add callback handlers."""
+
+    @pytest.mark.asyncio
+    async def test_cal_view_shows_events(self):
+        """cal_view: shows today's events."""
+        query = _make_query("er:cal_view:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        mock_cal = AsyncMock()
+        mock_cal.async_get_today_events = AsyncMock(
+            return_value=[
+                {"summary": "Standup", "start": "2026-03-03T09:00:00+00:00", "end": "2026-03-03T09:30:00+00:00", "location": ""},
+                {"summary": "Lunch", "start": "2026-03-03T12:00:00+00:00", "end": "2026-03-03T13:00:00+00:00", "location": ""},
+            ]
+        )
+        mock_cal.format_event_for_briefing = MagicMock(
+            side_effect=lambda ev: f"* {ev['summary']}"
+        )
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=_DRAFT)
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "calendar": mock_cal,
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        query.edit_message_text.assert_called_once()
+        text = query.edit_message_text.call_args[0][0]
+        assert "Standup" in text
+        assert "Lunch" in text
+
+    @pytest.mark.asyncio
+    async def test_cal_view_no_events(self):
+        """cal_view: shows no-events message."""
+        query = _make_query("er:cal_view:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        mock_cal = AsyncMock()
+        mock_cal.async_get_today_events = AsyncMock(return_value=[])
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=_DRAFT)
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "calendar": mock_cal,
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        query.edit_message_text.assert_called_once()
+        # Should say no events
+        text = query.edit_message_text.call_args[0][0]
+        assert "no event" in text.lower() or "nenhum" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_cal_view_not_connected(self):
+        """cal_view: shows not-connected when ServiceUnavailableError."""
+        from services.core import ServiceUnavailableError
+
+        query = _make_query("er:cal_view:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        mock_cal = AsyncMock()
+        mock_cal.async_get_today_events = AsyncMock(
+            side_effect=ServiceUnavailableError("not connected")
+        )
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=_DRAFT)
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "calendar": mock_cal,
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        query.edit_message_text.assert_called_once()
+        text = query.edit_message_text.call_args[0][0]
+        assert "not connected" in text.lower() or "não conectado" in text.lower() or "Calendar" in text
+
+    @pytest.mark.asyncio
+    async def test_cal_add_creates_event(self):
+        """cal_add: creates event from draft."""
+        query = _make_query("er:cal_add:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        draft_with_meeting = {
+            **_DRAFT,
+            "proposed_datetime": "2026-03-04T15:00:00",
+            "proposed_location": "office",
+        }
+        mock_cal = AsyncMock()
+        mock_cal.async_create_event = AsyncMock(
+            return_value={"id": "event1"}
+        )
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=draft_with_meeting)
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "calendar": mock_cal,
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        mock_cal.async_create_event.assert_called_once()
+        call_kw = mock_cal.async_create_event.call_args[1]
+        assert call_kw["user_id"] == "uuid-1"
+        assert call_kw["location"] == "office"
+        query.edit_message_text.assert_called_once()
+        text = query.edit_message_text.call_args[0][0]
+        assert "\u2705" in text  # success emoji
+
+    @pytest.mark.asyncio
+    async def test_cal_add_no_datetime(self):
+        """cal_add: shows error when no proposed_datetime in draft."""
+        query = _make_query("er:cal_add:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        draft_no_dt = {**_DRAFT}  # no proposed_datetime
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=draft_no_dt)
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        query.edit_message_text.assert_called_once()
+        text = query.edit_message_text.call_args[0][0]
+        assert "date" in text.lower() or "hora" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_cal_add_expired_draft(self):
+        """cal_add: shows expired when draft is gone."""
+        query = _make_query("er:cal_add:msg1")
+        update = _make_update(query)
+        context = MagicMock()
+
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=None)
+        mock_db = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_user_by_telegram_id = AsyncMock(
+            return_value={"id": "uuid-1"}
+        )
+
+        with patch(
+            "telegram_bot.handlers.email_callback.get_service",
+            side_effect=lambda name: {
+                "redis": mock_redis,
+                "database": mock_db,
+            }.get(name),
+        ):
+            await handle_email_callback(update, context)
+
+        query.edit_message_text.assert_called_once()
+        text = query.edit_message_text.call_args[0][0]
+        assert "expired" in text.lower() or "expirou" in text.lower()

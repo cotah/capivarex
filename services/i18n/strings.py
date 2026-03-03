@@ -1606,33 +1606,108 @@ STRINGS: Dict[str, Dict[str, str]] = {
               "\U0001f4dd Resumen: {summary}",
     },
     "email_poll_analysis_prompt": {
-        "en": "Analyze this email and respond ONLY with a JSON object."
-              "\n\nFrom: {sender}\nSubject: {subject}\n"
-              "Summary: {summary}\n\nJSON format:\n"
-              '{{"needs_reply": true/false, '
-              '"suggested_reply": "short reply in English '
-              '(empty string if no reply needed)", '
-              '"urgency": "high/medium/low"}}\n\n'
-              "Ignore newsletters, spam, automated notifications."
-              " Only suggest a reply if from a real person.",
-        "pt": "Analyze this email and respond ONLY with a JSON object."
-              "\n\nFrom: {sender}\nSubject: {subject}\n"
-              "Summary: {summary}\n\nJSON format:\n"
-              '{{"needs_reply": true/false, '
-              '"suggested_reply": "resposta curta em portugu\u00eas '
-              '(string vazia se n\u00e3o precisa resposta)", '
-              '"urgency": "high/medium/low"}}\n\n'
-              "Ignore newsletters, spam, automated notifications."
-              " Only suggest a reply if from a real person.",
-        "es": "Analyze this email and respond ONLY with a JSON object."
-              "\n\nFrom: {sender}\nSubject: {subject}\n"
-              "Summary: {summary}\n\nJSON format:\n"
-              '{{"needs_reply": true/false, '
-              '"suggested_reply": "respuesta corta en espa\u00f1ol '
-              '(string vac\u00edo si no necesita respuesta)", '
-              '"urgency": "high/medium/low"}}\n\n'
-              "Ignore newsletters, spam, automated notifications."
-              " Only suggest a reply if from a real person.",
+        "en": (
+            "Analyze this email and respond ONLY with a JSON object.\n\n"
+            "From: {sender}\nSubject: {subject}\n"
+            "Summary: {summary}\nToday's date: {today}\n\n"
+            "Rules for needs_reply:\n"
+            "- TRUE if the sender is a real person AND the email "
+            "contains:\n"
+            "  * A question expecting an answer\n"
+            "  * A meeting, call, or appointment request\n"
+            "  * A direct request or ask for action\n"
+            "  * A proposal needing confirmation\n"
+            "  * A follow-up that expects a response\n"
+            "- FALSE if the email is:\n"
+            "  * A newsletter, marketing, or automated notification\n"
+            "  * From a noreply@ or system address\n"
+            "  * A receipt, confirmation, or status update\n"
+            "  * An FYI / informational message not expecting a "
+            "response\n\n"
+            "Set meeting_request=true when the email proposes, "
+            "requests, or invites to a meeting, call, or appointment. "
+            "Extract proposed_datetime in ISO 8601 format "
+            "(e.g. 2026-03-04T15:00:00) using today's date to "
+            "resolve relative dates like 'tomorrow'. "
+            "Extract proposed_location if mentioned.\n\n"
+            "JSON format:\n"
+            '{{"needs_reply": true/false, '
+            '"suggested_reply": "short reply in English '
+            '(empty string if no reply needed)", '
+            '"urgency": "high/medium/low", '
+            '"meeting_request": true/false, '
+            '"proposed_datetime": "ISO 8601 or null", '
+            '"proposed_location": "location or empty string"}}\n\n'
+            "Respond ONLY with the JSON object, no extra text."
+        ),
+        "pt": (
+            "Analyze this email and respond ONLY with a JSON object.\n\n"
+            "From: {sender}\nSubject: {subject}\n"
+            "Summary: {summary}\nToday's date: {today}\n\n"
+            "Rules for needs_reply:\n"
+            "- TRUE if the sender is a real person AND the email "
+            "contains:\n"
+            "  * A question expecting an answer\n"
+            "  * A meeting, call, or appointment request\n"
+            "  * A direct request or ask for action\n"
+            "  * A proposal needing confirmation\n"
+            "  * A follow-up that expects a response\n"
+            "- FALSE if the email is:\n"
+            "  * A newsletter, marketing, or automated notification\n"
+            "  * From a noreply@ or system address\n"
+            "  * A receipt, confirmation, or status update\n"
+            "  * An FYI / informational message not expecting a "
+            "response\n\n"
+            "Set meeting_request=true when the email proposes, "
+            "requests, or invites to a meeting, call, or appointment. "
+            "Extract proposed_datetime in ISO 8601 format "
+            "(e.g. 2026-03-04T15:00:00) using today's date to "
+            "resolve relative dates like 'amanha'. "
+            "Extract proposed_location if mentioned.\n\n"
+            "JSON format:\n"
+            '{{"needs_reply": true/false, '
+            '"suggested_reply": "resposta curta em portugues '
+            '(string vazia se nao precisa resposta)", '
+            '"urgency": "high/medium/low", '
+            '"meeting_request": true/false, '
+            '"proposed_datetime": "ISO 8601 or null", '
+            '"proposed_location": "local ou string vazia"}}\n\n'
+            "Respond ONLY with the JSON object, no extra text."
+        ),
+        "es": (
+            "Analyze this email and respond ONLY with a JSON object.\n\n"
+            "From: {sender}\nSubject: {subject}\n"
+            "Summary: {summary}\nToday's date: {today}\n\n"
+            "Rules for needs_reply:\n"
+            "- TRUE if the sender is a real person AND the email "
+            "contains:\n"
+            "  * A question expecting an answer\n"
+            "  * A meeting, call, or appointment request\n"
+            "  * A direct request or ask for action\n"
+            "  * A proposal needing confirmation\n"
+            "  * A follow-up that expects a response\n"
+            "- FALSE if the email is:\n"
+            "  * A newsletter, marketing, or automated notification\n"
+            "  * From a noreply@ or system address\n"
+            "  * A receipt, confirmation, or status update\n"
+            "  * An FYI / informational message not expecting a "
+            "response\n\n"
+            "Set meeting_request=true when the email proposes, "
+            "requests, or invites to a meeting, call, or appointment. "
+            "Extract proposed_datetime in ISO 8601 format "
+            "(e.g. 2026-03-04T15:00:00) using today's date to "
+            "resolve relative dates like 'manana'. "
+            "Extract proposed_location if mentioned.\n\n"
+            "JSON format:\n"
+            '{{"needs_reply": true/false, '
+            '"suggested_reply": "respuesta corta en espanol '
+            '(string vacio si no necesita respuesta)", '
+            '"urgency": "high/medium/low", '
+            '"meeting_request": true/false, '
+            '"proposed_datetime": "ISO 8601 or null", '
+            '"proposed_location": "lugar o string vacio"}}\n\n'
+            "Respond ONLY with the JSON object, no extra text."
+        ),
     },
     "email_cb_sent": {
         "en": "\u2705 Reply sent to {sender}!",
@@ -1714,6 +1789,133 @@ STRINGS: Dict[str, Dict[str, str]] = {
     "email_btn_send_now": {
         "en": "\U0001f4e4 Send", "pt": "\U0001f4e4 Enviar",
         "es": "\U0001f4e4 Enviar",
+    },
+    # ── Calendar-aware email analysis ─────────────────────────────────
+    "email_poll_single_meeting": {
+        "en": "\U0001f4e7 New email from {sender}\n"
+              "\U0001f4cc Subject: {subject}\n"
+              "\U0001f4dd Summary: {summary}\n\n"
+              "\U0001f4c5 Meeting request: {proposed_datetime}\n"
+              "{urgency} Urgency\n"
+              "\U0001f4ac Suggested reply:\n\"{suggested_reply}\"",
+        "pt": "\U0001f4e7 Novo email de {sender}\n"
+              "\U0001f4cc Assunto: {subject}\n"
+              "\U0001f4dd Resumo: {summary}\n\n"
+              "\U0001f4c5 Pedido de reuni\u00e3o: {proposed_datetime}\n"
+              "{urgency} Urg\u00eancia\n"
+              "\U0001f4ac Resposta sugerida:\n\"{suggested_reply}\"",
+        "es": "\U0001f4e7 Nuevo email de {sender}\n"
+              "\U0001f4cc Asunto: {subject}\n"
+              "\U0001f4dd Resumen: {summary}\n\n"
+              "\U0001f4c5 Solicitud de reuni\u00f3n: "
+              "{proposed_datetime}\n"
+              "{urgency} Urgencia\n"
+              "\U0001f4ac Respuesta sugerida:\n\"{suggested_reply}\"",
+    },
+    "email_cal_conflict": {
+        "en": "\u26a0\ufe0f Calendar conflict! You have "
+              "\"{event}\" at {time}.\n"
+              "\U0001f552 Available slots: {free_slots}",
+        "pt": "\u26a0\ufe0f Conflito na agenda! Voc\u00ea tem "
+              "\"{event}\" \u00e0s {time}.\n"
+              "\U0001f552 Hor\u00e1rios livres: {free_slots}",
+        "es": "\u26a0\ufe0f \u00a1Conflicto en agenda! Tienes "
+              "\"{event}\" a las {time}.\n"
+              "\U0001f552 Horarios libres: {free_slots}",
+    },
+    "email_cal_free": {
+        "en": "\u2705 Time slot is free on your calendar.",
+        "pt": "\u2705 Hor\u00e1rio livre na sua agenda.",
+        "es": "\u2705 Horario libre en tu agenda.",
+    },
+    "email_poll_conflict_reprompt": {
+        "en": (
+            "The user received this meeting request email:\n"
+            "From: {sender}\nSubject: {subject}\n"
+            "Summary: {summary}\n\n"
+            "However, the user has a CALENDAR CONFLICT:\n"
+            "- Existing event: \"{conflict_event}\" at "
+            "{conflict_time}\n"
+            "- Available slots today: {free_slots}\n\n"
+            "Write a polite reply suggesting an alternative time "
+            "from the free slots. "
+            "Respond ONLY with JSON:\n"
+            '{{"suggested_reply": "the reply text"}}'
+        ),
+        "pt": (
+            "O utilizador recebeu este email pedindo reuni\u00e3o:\n"
+            "De: {sender}\nAssunto: {subject}\n"
+            "Resumo: {summary}\n\n"
+            "Por\u00e9m, o utilizador tem CONFLITO NA AGENDA:\n"
+            "- Evento existente: \"{conflict_event}\" \u00e0s "
+            "{conflict_time}\n"
+            "- Hor\u00e1rios livres hoje: {free_slots}\n\n"
+            "Escreva uma resposta educada sugerindo um hor\u00e1rio "
+            "alternativo dos hor\u00e1rios livres. "
+            "Responda APENAS com JSON:\n"
+            '{{"suggested_reply": "texto da resposta"}}'
+        ),
+        "es": (
+            "El usuario recibi\u00f3 este email pidiendo "
+            "reuni\u00f3n:\n"
+            "De: {sender}\nAsunto: {subject}\n"
+            "Resumen: {summary}\n\n"
+            "Sin embargo, el usuario tiene CONFLICTO EN AGENDA:\n"
+            "- Evento existente: \"{conflict_event}\" a las "
+            "{conflict_time}\n"
+            "- Horarios libres hoy: {free_slots}\n\n"
+            "Escribe una respuesta educada sugiriendo un horario "
+            "alternativo de los horarios libres. "
+            "Responde SOLO con JSON:\n"
+            '{{"suggested_reply": "texto de la respuesta"}}'
+        ),
+    },
+    "email_btn_cal_view": {
+        "en": "\U0001f4c5 Calendar",
+        "pt": "\U0001f4c5 Agenda",
+        "es": "\U0001f4c5 Agenda",
+    },
+    "email_btn_cal_add": {
+        "en": "\u2795 Add event",
+        "pt": "\u2795 Criar evento",
+        "es": "\u2795 Crear evento",
+    },
+    "email_cal_unavailable": {
+        "en": "\u26a0\ufe0f Calendar service unavailable.",
+        "pt": "\u26a0\ufe0f Servi\u00e7o de agenda indispon\u00edvel.",
+        "es": "\u26a0\ufe0f Servicio de agenda no disponible.",
+    },
+    "email_cal_not_connected": {
+        "en": "\u26a0\ufe0f Google Calendar not connected. "
+              "Connect it first to use calendar features.",
+        "pt": "\u26a0\ufe0f Google Calendar n\u00e3o conectado. "
+              "Conecte primeiro para usar a agenda.",
+        "es": "\u26a0\ufe0f Google Calendar no conectado. "
+              "Con\u00e9ctalo primero para usar la agenda.",
+    },
+    "email_cal_no_events": {
+        "en": "\U0001f4c5 No events today.",
+        "pt": "\U0001f4c5 Nenhum evento hoje.",
+        "es": "\U0001f4c5 Sin eventos hoy.",
+    },
+    "email_cal_today_header": {
+        "en": "\U0001f4c5 Today's events:",
+        "pt": "\U0001f4c5 Eventos de hoje:",
+        "es": "\U0001f4c5 Eventos de hoy:",
+    },
+    "email_cal_no_datetime": {
+        "en": "\u26a0\ufe0f No date/time detected for this meeting.",
+        "pt": "\u26a0\ufe0f Nenhuma data/hora detectada para "
+              "esta reuni\u00e3o.",
+        "es": "\u26a0\ufe0f No se detect\u00f3 fecha/hora para "
+              "esta reuni\u00f3n.",
+    },
+    "email_cal_event_created": {
+        "en": "\u2705 Event \"{summary}\" added to your calendar!",
+        "pt": "\u2705 Evento \"{summary}\" adicionado \u00e0 "
+              "sua agenda!",
+        "es": "\u2705 \u00a1Evento \"{summary}\" agregado a "
+              "tu agenda!",
     },
 }
 
