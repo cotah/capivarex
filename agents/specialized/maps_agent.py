@@ -167,6 +167,11 @@ class MapsAgent(BaseAgent):
             intent = await self._classify_intent(prompt)
             action = intent.get("action", "search_place")
 
+            # Use detected language from intent if available
+            detected_lang = intent.get("language", "")
+            if detected_lang and detected_lang in ("pt", "en", "es"):
+                lang = detected_lang
+
             if action == "directions":
                 return await self._handle_directions(
                     maps_svc, intent, context, lang
