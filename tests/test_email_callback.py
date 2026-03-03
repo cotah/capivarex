@@ -252,7 +252,7 @@ class TestAnalyzeEmail:
 
         mock_ai = AsyncMock()
         mock_ai.is_initialized.return_value = True
-        mock_ai.generate_text = AsyncMock(
+        mock_ai.chat_completion = AsyncMock(
             return_value='{"needs_reply": true, "suggested_reply": "Got it!", "urgency": "medium"}'
         )
 

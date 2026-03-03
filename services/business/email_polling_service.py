@@ -127,6 +127,36 @@ class EmailPollingService(BaseService):
         return get_service("openai") or get_service("anthropic")
 
     @staticmethod
+    async def _call_llm(
+        ai,
+        prompt: str,
+        max_tokens: int = 200,
+        temperature: float = 0.3,
+    ) -> str:
+        """Call the correct text-generation method on the AI service.
+
+        OpenAIService exposes ``chat_completion(messages=...)``;
+        AnthropicService exposes ``generate_code(prompt=...)``.
+        """
+        if hasattr(ai, "chat_completion"):
+            return await ai.chat_completion(
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        if hasattr(ai, "generate_code"):
+            return await ai.generate_code(
+                prompt=prompt,
+                max_tokens=max_tokens,
+            )
+        raise AttributeError(
+            f"{type(ai).__name__} has no compatible "
+            "text generation method"
+        )
+
+    @staticmethod
     def _get_calendar():
         return get_service("calendar")
 
@@ -636,7 +666,8 @@ class EmailPollingService(BaseService):
             if not ai.is_initialized():
                 await ai.initialize()
 
-            response = await ai.generate_text(
+            response = await self._call_llm(
+                ai,
                 prompt=prompt,
                 max_tokens=200,
                 temperature=0.3,
@@ -754,7 +785,8 @@ class EmailPollingService(BaseService):
             if not ai.is_initialized():
                 await ai.initialize()
 
-            response = await ai.generate_text(
+            response = await self._call_llm(
+                ai,
                 prompt=prompt,
                 max_tokens=100,
                 temperature=0.3,
@@ -807,7 +839,8 @@ class EmailPollingService(BaseService):
                 email.get("from_name", "?"),
             )
 
-            response = await ai.generate_text(
+            response = await self._call_llm(
+                ai,
                 prompt=prompt,
                 max_tokens=300,
                 temperature=0.2,

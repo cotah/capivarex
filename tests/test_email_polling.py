@@ -252,7 +252,7 @@ class TestSummarize:
         email = _make_email(subject="Reunião Q3", sender_name="Maria")
         mock_ai = AsyncMock()
         mock_ai.is_initialized.return_value = True
-        mock_ai.generate_text = AsyncMock(
+        mock_ai.chat_completion = AsyncMock(
             return_value="Meeting about Q3 goals."
         )
 
@@ -793,7 +793,7 @@ class TestFormatSingleRichMeeting:
         mock_ai = AsyncMock()
         mock_ai.is_initialized.return_value = True
         # 1st call: _get_llm_summary, 2nd: _analyze_email, 3rd: _reprompt
-        mock_ai.generate_text = AsyncMock(
+        mock_ai.chat_completion = AsyncMock(
             side_effect=[
                 "João wants to meet tomorrow at 3pm",
                 '{"needs_reply": true, "suggested_reply": "OK", '
@@ -840,7 +840,7 @@ class TestFormatSingleRichMeeting:
         mock_ai = AsyncMock()
         mock_ai.is_initialized.return_value = True
         # 1st: summary, 2nd: analysis (no reprompt needed)
-        mock_ai.generate_text = AsyncMock(
+        mock_ai.chat_completion = AsyncMock(
             side_effect=[
                 "Maria wants to meet at 10am",
                 '{"needs_reply": true, "suggested_reply": "Sure!", '
@@ -883,7 +883,7 @@ class TestFormatSingleRichMeeting:
         mock_ai = AsyncMock()
         mock_ai.is_initialized.return_value = True
         # 1st: summary, 2nd: analysis
-        mock_ai.generate_text = AsyncMock(
+        mock_ai.chat_completion = AsyncMock(
             side_effect=[
                 "Ana wants to have lunch at noon",
                 '{"needs_reply": true, "suggested_reply": "Sure!", '
@@ -921,7 +921,7 @@ class TestFormatSingleRichMeeting:
         mock_ai = AsyncMock()
         mock_ai.is_initialized.return_value = True
         # 1st: summary, 2nd: analysis
-        mock_ai.generate_text = AsyncMock(
+        mock_ai.chat_completion = AsyncMock(
             side_effect=[
                 "Carlos sent a report",
                 '{"needs_reply": false, "suggested_reply": "", '
