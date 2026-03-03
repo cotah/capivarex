@@ -14,7 +14,6 @@ Dependencies (lazy via get_service):
 """
 
 import json
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -26,8 +25,9 @@ from services.core import (
     register_service,
 )
 from services.i18n import t
+from utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
