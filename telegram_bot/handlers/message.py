@@ -265,7 +265,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                                 "direction", "origin"
                             ),
                             "original_query": text,
-                            "user_id": user_context.get("user_id", ""),
+                            "user_id": (
+                                str(
+                                    user_row.get("id")
+                                    or user_row.get("user_id")
+                                )
+                                if user_row
+                                else str(
+                                    user_context.get("user_id", "")
+                                )
+                            ),
                             "lang": user_context.get("lang", "en"),
                         },
                         expire_seconds=300,  # 5 minutes TTL
