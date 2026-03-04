@@ -123,6 +123,9 @@ async def send_agent_response(
             media_type = "image"
         elif result.data.get("video_path") or result.data.get("video_paths"):
             media_type = "video"
+        elif result.data.get("document_path"):
+            media_type = "document"
+            file_path = result.data.get("document_path")
 
     # Send media if we have a valid file
     if file_path and os.path.isfile(file_path):
@@ -149,6 +152,21 @@ async def send_agent_response(
                 with open(file_path, "rb") as f:
                     await update.message.reply_video(video=f)
                 logger.info("Sent video file: %s", file_path)
+                return
+
+            elif media_type == "document":
+                with open(file_path, "rb") as f:
+                    filename = (
+                        result.metadata.get("filename", os.path.basename(file_path))
+                        if result.metadata
+                        else os.path.basename(file_path)
+                    )
+                    await update.message.reply_document(
+                        document=f,
+                        filename=filename,
+                        caption=result.response or "",
+                    )
+                logger.info("Sent document file: %s", file_path)
                 return
 
         except Exception as e:

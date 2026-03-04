@@ -2490,6 +2490,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "📊 {summary}\n\n💡 Conecta o teu Gmail para receber o relatório por email.",
         "es": "📊 {summary}\n\n💡 Conecta tu Gmail para recibir el informe por email.",
     },
+    "mercado_export_generating": {
+        "en": "📊 Generating your Excel report...",
+        "pt": "📊 A gerar o teu relatório Excel...",
+        "es": "📊 Generando tu informe Excel...",
+    },
 }
 
 

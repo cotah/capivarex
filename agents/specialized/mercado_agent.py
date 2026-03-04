@@ -55,6 +55,11 @@ _RE_RANKING = re.compile(
     r"ranking\s+(?:de\s+)?mercados?|onde\s+(?:eu\s+)?gast(?:o|ei)\s+mais|qual\s+mercado\s+(?:[eé]\s+)?mais\s+(?:barato|caro)",
     re.IGNORECASE,
 )
+_RE_EXPORT = re.compile(
+    r"(?:export(?:ar)?|excel|baixar?\s+relat[oó]rio|download\s+report)"
+    r"(?:\s+(.+))?",
+    re.IGNORECASE,
+)
 
 
 @register_agent("mercado")
@@ -112,7 +117,9 @@ class MercadoAgent(BaseAgent):
                 )
                 return AgentResponse(
                     status=status,
-                    response=result.get("mensagem", t("mercado_receipt_failed", lang=lang)),
+                    response=result.get(
+                        "mensagem", t("mercado_receipt_failed", lang=lang)
+                    ),
                     data=result,
                 )
 
@@ -121,10 +128,14 @@ class MercadoAgent(BaseAgent):
                 chat_id = str(context.get("chat_id", "unknown"))
                 mes = context.get("mes")
                 ano = context.get("ano")
-                result = await svc.relatorio_mensal(chat_id, mes=mes, ano=ano, lang=lang)
+                result = await svc.relatorio_mensal(
+                    chat_id, mes=mes, ano=ano, lang=lang
+                )
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", t("mercado_report_error", lang=lang)),
+                    response=result.get(
+                        "mensagem", t("mercado_report_error", lang=lang)
+                    ),
                     data=result,
                 )
 
@@ -134,8 +145,56 @@ class MercadoAgent(BaseAgent):
                 result = await svc.ranking_mercados(chat_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", t("mercado_ranking_error", lang=lang)),
+                    response=result.get(
+                        "mensagem", t("mercado_ranking_error", lang=lang)
+                    ),
                     data=result,
+                )
+
+            # ── Exportar Excel ────────────────────────────────────────────────
+            m_export = _RE_EXPORT.match(texto)
+            if m_export:
+                import tempfile
+
+                # Parse optional month
+                month_text = (m_export.group(1) or "").strip()
+                mes, ano = None, None
+
+                if month_text:
+                    mes = self._parse_month(month_text, lang)
+
+                result = await svc.gerar_excel_mensal(
+                    chat_id=user_id, mes=mes, ano=ano, lang=lang
+                )
+
+                if not result.get("sucesso"):
+                    return AgentResponse(
+                        status=AgentStatus.ERROR,
+                        response=result.get(
+                            "mensagem", t("mercado_report_error", lang=lang)
+                        ),
+                    )
+
+                # Save bytes to temp file
+                excel_bytes = result["excel_bytes"]
+                filename = result["filename"]
+                resumo = result.get("resumo", "")
+
+                tmp = tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".xlsx", prefix="mercado_"
+                )
+                tmp.write(excel_bytes)
+                tmp.close()
+
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=f"📊 {resumo}",
+                    data={"document_path": tmp.name},
+                    metadata={
+                        "type": "document",
+                        "file_path": tmp.name,
+                        "filename": filename,
+                    },
                 )
 
             # ── Comparar produto ──────────────────────────────────────────────
@@ -146,7 +205,9 @@ class MercadoAgent(BaseAgent):
                 result = await svc.comparar_produto(produto, chat_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", t("mercado_compare_error", lang=lang)),
+                    response=result.get(
+                        "mensagem", t("mercado_compare_error", lang=lang)
+                    ),
                     data=result,
                 )
 
@@ -164,7 +225,9 @@ class MercadoAgent(BaseAgent):
                 result = await svc.limpar_lista(user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", t("mercado_clear_error", lang=lang)),
+                    response=result.get(
+                        "mensagem", t("mercado_clear_error", lang=lang)
+                    ),
                     data=result,
                 )
 
@@ -184,7 +247,9 @@ class MercadoAgent(BaseAgent):
                 result = await svc.remover(item, user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", t("mercado_what_to_remove", lang=lang)),
+                    response=result.get(
+                        "mensagem", t("mercado_what_to_remove", lang=lang)
+                    ),
                     data=result,
                 )
 
@@ -195,7 +260,9 @@ class MercadoAgent(BaseAgent):
                 result = await svc.adicionar(itens, user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", t("mercado_what_to_add", lang=lang)),
+                    response=result.get(
+                        "mensagem", t("mercado_what_to_add", lang=lang)
+                    ),
                     data=result,
                 )
 
@@ -234,6 +301,64 @@ class MercadoAgent(BaseAgent):
             "market_ranking",
             "price_alerts",
         ]
+
+    @staticmethod
+    def _parse_month(text: str, lang: str = "en") -> Optional[int]:
+        """Parse month name or number from text. Returns 1-12 or None."""
+        text = text.lower().strip()
+
+        # Try numeric
+        try:
+            n = int(text)
+            if 1 <= n <= 12:
+                return n
+        except ValueError:
+            pass
+
+        # Month name mapping (all 3 languages)
+        months = {
+            "january": 1,
+            "february": 2,
+            "march": 3,
+            "april": 4,
+            "may": 5,
+            "june": 6,
+            "july": 7,
+            "august": 8,
+            "september": 9,
+            "october": 10,
+            "november": 11,
+            "december": 12,
+            "janeiro": 1,
+            "fevereiro": 2,
+            "março": 3,
+            "marco": 3,
+            "abril": 4,
+            "maio": 5,
+            "junho": 6,
+            "julho": 7,
+            "agosto": 8,
+            "setembro": 9,
+            "outubro": 10,
+            "novembro": 11,
+            "dezembro": 12,
+            "enero": 1,
+            "febrero": 2,
+            "marzo": 3,
+            "mayo": 5,
+            "junio": 6,
+            "julio": 7,
+            "septiembre": 9,
+            "octubre": 10,
+            "noviembre": 11,
+            "diciembre": 12,
+        }
+
+        for name, num in months.items():
+            if name in text:
+                return num
+
+        return None
 
     @staticmethod
     def _ajuda() -> str:
