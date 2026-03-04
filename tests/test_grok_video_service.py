@@ -219,3 +219,86 @@ class TestGrokVideoService:
 
         assert "latency_seconds" in result
         assert isinstance(result["latency_seconds"], float)
+
+
+class TestDetectAspectRatio:
+    """Tests for _detect_aspect_ratio static method."""
+
+    def _make_image_bytes(self, width: int, height: int) -> bytes:
+        """Create minimal PNG bytes with given dimensions."""
+        from io import BytesIO
+
+        from PIL import Image
+
+        img = Image.new("RGB", (width, height), color="red")
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def test_landscape_16_9(self):
+        data = self._make_image_bytes(1920, 1080)
+        assert GrokVideoService._detect_aspect_ratio(data) == "16:9"
+
+    def test_portrait_9_16(self):
+        data = self._make_image_bytes(1080, 1920)
+        assert GrokVideoService._detect_aspect_ratio(data) == "9:16"
+
+    def test_square_1_1(self):
+        data = self._make_image_bytes(1000, 1000)
+        assert GrokVideoService._detect_aspect_ratio(data) == "1:1"
+
+    def test_ratio_4_3(self):
+        data = self._make_image_bytes(1600, 1200)
+        assert GrokVideoService._detect_aspect_ratio(data) == "4:3"
+
+    def test_ratio_3_4(self):
+        data = self._make_image_bytes(1200, 1600)
+        assert GrokVideoService._detect_aspect_ratio(data) == "3:4"
+
+    def test_ratio_3_2(self):
+        data = self._make_image_bytes(1500, 1000)
+        assert GrokVideoService._detect_aspect_ratio(data) == "3:2"
+
+    def test_ratio_2_3(self):
+        data = self._make_image_bytes(1000, 1500)
+        assert GrokVideoService._detect_aspect_ratio(data) == "2:3"
+
+    def test_invalid_bytes_fallback(self):
+        """Invalid image bytes should fallback to 16:9."""
+        assert (
+            GrokVideoService._detect_aspect_ratio(b"not an image")
+            == "16:9"
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_detection_in_image_to_video(
+        self, fake_image_bytes
+    ):
+        """image_to_video with aspect_ratio='auto' calls detection."""
+        svc = GrokVideoService()
+        svc._initialized = True
+        svc.client = MagicMock()
+
+        mock_response = MagicMock()
+        mock_response.url = "https://vidgen.x.ai/test/v.mp4"
+        mock_response.duration = 8
+        mock_response.respect_moderation = True
+        svc.client.video.generate = MagicMock(
+            return_value=mock_response
+        )
+
+        with patch.object(
+            svc, "_download_video", new_callable=AsyncMock
+        ) as dl, patch.object(
+            GrokVideoService,
+            "_detect_aspect_ratio",
+            return_value="4:3",
+        ) as detect:
+            dl.return_value = "/tmp/v.mp4"
+            await svc.image_to_video(
+                image_data=fake_image_bytes, prompt="test"
+            )
+
+        detect.assert_called_once_with(fake_image_bytes)
+        call_args = svc.client.video.generate.call_args
+        assert call_args.kwargs.get("aspect_ratio") == "4:3"

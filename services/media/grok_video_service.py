@@ -62,12 +62,42 @@ class GrokVideoService(BaseService):
     async def _health_check(self) -> bool:
         return self.client is not None
 
+    @staticmethod
+    def _detect_aspect_ratio(image_data: bytes) -> str:
+        """Detect closest supported aspect ratio from image bytes."""
+        from io import BytesIO
+
+        from PIL import Image
+
+        try:
+            img = Image.open(BytesIO(image_data))
+            w, h = img.size
+        except Exception:
+            return "16:9"  # fallback
+
+        ratio = w / h
+
+        # Grok supported ratios and their numeric values
+        supported = [
+            ("1:1", 1.0),
+            ("3:2", 1.5),
+            ("4:3", 1.333),
+            ("16:9", 1.778),
+            ("2:3", 0.667),
+            ("3:4", 0.75),
+            ("9:16", 0.5625),
+        ]
+
+        # Find closest match
+        closest = min(supported, key=lambda x: abs(x[1] - ratio))
+        return closest[0]
+
     async def image_to_video(
         self,
         image_data: bytes,
         prompt: str = "",
         duration: int = 8,
-        aspect_ratio: str = "16:9",
+        aspect_ratio: str = "auto",
         resolution: str = "720p",
         mime_type: str = "image/jpeg",
     ) -> Dict[str, Any]:
@@ -78,7 +108,8 @@ class GrokVideoService(BaseService):
             image_data: Raw image bytes
             prompt: Motion/style instructions (optional)
             duration: Video length 1-15 seconds
-            aspect_ratio: 16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3
+            aspect_ratio: "auto" to detect from image, or explicit
+                          (16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3)
             resolution: 720p or 480p
             mime_type: Image MIME type
 
@@ -87,6 +118,10 @@ class GrokVideoService(BaseService):
         """
         if not self.client:
             await self.initialize()
+
+        # Auto-detect aspect ratio from image dimensions
+        if aspect_ratio == "auto" or not aspect_ratio:
+            aspect_ratio = self._detect_aspect_ratio(image_data)
 
         start_time = time.time()
         try:
