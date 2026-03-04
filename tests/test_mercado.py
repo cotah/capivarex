@@ -677,6 +677,7 @@ class TestProcessarNota:
 
     @pytest.mark.asyncio
     async def test_processar_nota_gpt4_sucesso(self):
+        """Gemini fails, GPT-4 succeeds."""
         svc = self._make_svc()
         nota_raw = {
             "mercado": "Lidl",
@@ -693,6 +694,9 @@ class TestProcessarNota:
         }
 
         with (
+            patch.object(
+                svc, "_extrair_gemini", new_callable=AsyncMock, return_value=None
+            ),
             patch.object(
                 svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=nota_raw
             ),
@@ -713,7 +717,7 @@ class TestProcessarNota:
 
     @pytest.mark.asyncio
     async def test_processar_nota_fallback_google_vision(self):
-        """Se GPT-4 falhar, deve usar Google Vision como fallback."""
+        """Gemini and GPT-4 fail, Google Vision succeeds."""
         svc = self._make_svc()
         nota_raw = {
             "mercado": "Aldi",
@@ -730,6 +734,9 @@ class TestProcessarNota:
         }
 
         with (
+            patch.object(
+                svc, "_extrair_gemini", new_callable=AsyncMock, return_value=None
+            ),
             patch.object(
                 svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=None
             ),
@@ -755,7 +762,7 @@ class TestProcessarNota:
 
     @pytest.mark.asyncio
     async def test_processar_nota_gpt4_sem_itens_fallback(self):
-        """GPT-4 retorna nota sem itens → fallback para Google Vision."""
+        """GPT-4 retorna nota sem itens -> fallback para Google Vision."""
         svc = self._make_svc()
         nota_vazia = {"mercado": "Lidl", "data": "22/02/2026", "total": 0, "itens": []}
         nota_ok = {
@@ -773,6 +780,9 @@ class TestProcessarNota:
         }
 
         with (
+            patch.object(
+                svc, "_extrair_gemini", new_callable=AsyncMock, return_value=None
+            ),
             patch.object(
                 svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=nota_vazia
             ),
@@ -793,11 +803,14 @@ class TestProcessarNota:
             assert result["sucesso"] is True
 
     @pytest.mark.asyncio
-    async def test_processar_nota_ambos_falham(self):
-        """Ambos GPT-4 e Google Vision falham → erro gracioso."""
+    async def test_processar_nota_todos_falham(self):
+        """All three OCR providers fail -> graceful error."""
         svc = self._make_svc()
 
         with (
+            patch.object(
+                svc, "_extrair_gemini", new_callable=AsyncMock, return_value=None
+            ),
             patch.object(
                 svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=None
             ),
@@ -1647,3 +1660,185 @@ class TestCategorizacaoCompleta:
 
         assert _categorizar("Bife de Peru") == "Carnes"
         assert _categorizar("Carne Picada") == "Carnes"
+
+
+# ── Testes: _extrair_gemini ──────────────────────────────────────────────────
+
+
+class TestExtrairGemini:
+    """Tests for Gemini OCR extraction."""
+
+    def _make_svc(self):
+        import logging
+
+        from services.business.mercado_service import MercadoService
+
+        svc = MercadoService.__new__(MercadoService)
+        svc.name = "mercado"
+        svc.logger = logging.getLogger("test.mercado")
+        svc._initialized = True
+        svc._http = AsyncMock()
+        return svc
+
+    @pytest.mark.asyncio
+    async def test_gemini_success(self):
+        """Gemini returns valid receipt data."""
+        import json
+
+        svc = self._make_svc()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": json.dumps(
+                                    {
+                                        "mercado": "Lidl",
+                                        "data": "04/03/2026",
+                                        "total": 25.50,
+                                        "itens": [
+                                            {
+                                                "produto": "Leite",
+                                                "quantidade": 2,
+                                                "unidade": "un",
+                                                "preco_total": 1.98,
+                                                "preco_unitario": 0.99,
+                                            },
+                                            {
+                                                "produto": "Pao",
+                                                "quantidade": 1,
+                                                "unidade": "un",
+                                                "preco_total": 0.89,
+                                                "preco_unitario": 0.89,
+                                            },
+                                        ],
+                                    }
+                                )
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        svc._http.post = AsyncMock(return_value=mock_response)
+
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}):
+            result = await svc._extrair_gemini(b"fake_image", "image/jpeg")
+
+        assert result is not None
+        assert result["mercado"] == "Lidl"
+        assert len(result["itens"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_gemini_no_api_key(self):
+        """Returns None when GEMINI_API_KEY not set."""
+        svc = self._make_svc()
+        with patch.dict("os.environ", {}, clear=True):
+            result = await svc._extrair_gemini(b"fake", "image/jpeg")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gemini_http_error(self):
+        """Returns None on HTTP error."""
+        svc = self._make_svc()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        svc._http.post = AsyncMock(return_value=mock_response)
+
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}):
+            result = await svc._extrair_gemini(b"fake", "image/jpeg")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gemini_invalid_json(self):
+        """Returns None when Gemini returns invalid JSON."""
+        svc = self._make_svc()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "candidates": [
+                {"content": {"parts": [{"text": "not json"}]}}
+            ]
+        }
+        svc._http.post = AsyncMock(return_value=mock_response)
+
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}):
+            result = await svc._extrair_gemini(b"fake", "image/jpeg")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gemini_empty_text(self):
+        """Returns None when Gemini returns empty text."""
+        svc = self._make_svc()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": ""}]}}]
+        }
+        svc._http.post = AsyncMock(return_value=mock_response)
+
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}):
+            result = await svc._extrair_gemini(b"fake", "image/jpeg")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_processar_nota_gemini_primary(self):
+        """processar_nota uses Gemini as primary."""
+        svc = self._make_svc()
+        nota = {
+            "mercado": "Aldi",
+            "data": "01/03/2026",
+            "total": 10.0,
+            "itens": [
+                {
+                    "produto": "Arroz",
+                    "quantidade": 1,
+                    "unidade": "un",
+                    "preco_total": 1.50,
+                    "preco_unitario": 1.50,
+                }
+            ],
+        }
+        svc._extrair_gemini = AsyncMock(return_value=nota)
+        svc._extrair_gpt4 = AsyncMock()  # should NOT be called
+        svc._guardar_compra = AsyncMock(return_value="123")
+        svc._verificar_alertas = AsyncMock(return_value=[])
+
+        result = await svc.processar_nota(b"img", "chat1")
+
+        svc._extrair_gemini.assert_called_once()
+        svc._extrair_gpt4.assert_not_called()
+        assert result["sucesso"] is True
+
+    @pytest.mark.asyncio
+    async def test_processar_nota_gemini_fails_gpt4_fallback(self):
+        """Falls back to GPT-4 when Gemini fails."""
+        svc = self._make_svc()
+        nota = {
+            "mercado": "Pingo Doce",
+            "data": "01/03/2026",
+            "total": 5.0,
+            "itens": [
+                {
+                    "produto": "Banana",
+                    "quantidade": 1,
+                    "unidade": "un",
+                    "preco_total": 0.50,
+                    "preco_unitario": 0.50,
+                }
+            ],
+        }
+        svc._extrair_gemini = AsyncMock(return_value=None)
+        svc._extrair_gpt4 = AsyncMock(return_value=nota)
+        svc._guardar_compra = AsyncMock(return_value="456")
+        svc._verificar_alertas = AsyncMock(return_value=[])
+
+        result = await svc.processar_nota(b"img", "chat2")
+
+        svc._extrair_gemini.assert_called_once()
+        svc._extrair_gpt4.assert_called_once()
+        assert result["sucesso"] is True

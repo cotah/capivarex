@@ -491,11 +491,24 @@ class MercadoService(BaseService):
             "Processando nota fiscal chat_id=%s", chat_id
         )
 
-        nota = await self._extrair_gpt4(
+        # 1) Gemini 2.5 Flash (primario — 16x mais barato)
+        nota = await self._extrair_gemini(
             image_data, mime_type
         )
-        fonte = "gpt4_vision"
+        fonte = "gemini_flash"
 
+        # 2) GPT-4o Vision (fallback 1)
+        if not nota or not nota.get("itens"):
+            self.logger.warning(
+                "Gemini OCR falhou, tentando "
+                "GPT-4 Vision"
+            )
+            nota = await self._extrair_gpt4(
+                image_data, mime_type
+            )
+            fonte = "gpt4_vision"
+
+        # 3) Google Vision OCR (fallback 2)
         if not nota or not nota.get("itens"):
             self.logger.warning(
                 "GPT-4 Vision falhou, tentando "
@@ -527,6 +540,92 @@ class MercadoService(BaseService):
         return self._formatar_resposta_nota(
             nota, alertas, compra_id
         )
+
+    async def _extrair_gemini(
+        self, image_data: bytes, mime_type: str
+    ) -> Optional[Dict[str, Any]]:
+        """Extrai dados da nota via Gemini 2.5 Flash (primario, mais barato)."""
+        try:
+            import json
+            import os
+
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if not api_key:
+                self.logger.warning(
+                    "GEMINI_API_KEY not set, skipping Gemini OCR"
+                )
+                return None
+
+            b64 = base64.b64encode(image_data).decode()
+
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": _VISION_PROMPT},
+                            {
+                                "inline_data": {
+                                    "mime_type": mime_type,
+                                    "data": b64,
+                                }
+                            },
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.1,
+                    "maxOutputTokens": 2000,
+                    "responseMimeType": "application/json",
+                },
+            }
+
+            resp = await self._http.post(
+                "https://generativelanguage.googleapis.com"
+                "/v1beta/models/"
+                "gemini-2.5-flash-preview-05-20"
+                ":generateContent"
+                f"?key={api_key}",
+                json=payload,
+                timeout=30.0,
+            )
+
+            if resp.status_code != 200:
+                self.logger.warning(
+                    "Gemini OCR HTTP %d: %s",
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                return None
+
+            data = resp.json()
+            text = (
+                data.get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+                .strip()
+            )
+
+            if not text:
+                return None
+
+            text = (
+                text.replace("```json", "")
+                .replace("```", "")
+                .strip()
+            )
+            result = json.loads(text)
+
+            self.logger.info(
+                "Gemini OCR: %d itens extraidos, mercado=%s",
+                len(result.get("itens", [])),
+                result.get("mercado", "?"),
+            )
+            return result
+
+        except Exception as e:
+            self.logger.error("Gemini OCR error: %s", e)
+            return None
 
     async def _extrair_gpt4(
         self, image_data: bytes, mime_type: str
