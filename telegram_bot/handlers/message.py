@@ -88,7 +88,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 )
                 return
     except Exception as e:
-        logger.debug("Pending location check failed: %s", e)
+        logger.warning("Pending location check failed: %s", e)
 
     user_context: Dict[str, Any] = {
         "user_id": update.effective_user.id,
@@ -244,6 +244,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # ── Save pending location if agent asks for it ──────────────────────
     # When MapsAgent returns data={"ask_location": "home"}, save state
     # in Redis so next user message is captured as the address answer.
+    logger.info(
+        "Result check: has_data=%s, data_keys=%s",
+        bool(result and result.data),
+        list(result.data.keys()) if result and result.data else "none",
+    )
     if result and hasattr(result, "data") and result.data:
         if result.data.get("ask_location"):
             try:
@@ -273,7 +278,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                         text[:40],
                     )
             except Exception as e:
-                logger.debug("Could not save pending location: %s", e)
+                logger.warning("Could not save pending location: %s", e)
 
     await send_agent_response(update, result)
 
