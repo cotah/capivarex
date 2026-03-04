@@ -80,7 +80,7 @@ class VideoAgent(BaseAgent):
                 image_data=image_data,
                 prompt=video_prompt,
                 duration=duration,
-                aspect_ratio=ratio,
+                aspect_ratio="auto",
                 mime_type=image_mime,
             )
 
