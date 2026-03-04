@@ -2495,6 +2495,16 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "📊 A gerar o teu relatório Excel...",
         "es": "📊 Generando tu informe Excel...",
     },
+    "mercado_ocr_low_confidence": {
+        "en": "\n⚠️ _Some prices may be inaccurate. Check the receipt if something looks wrong._",
+        "pt": "\n⚠️ _Alguns preços podem estar incorretos. Verifica a nota se algo parecer errado._",
+        "es": "\n⚠️ _Algunos precios pueden ser inexactos. Revisa el recibo si algo parece incorrecto._",
+    },
+    "mercado_ocr_medium_confidence": {
+        "en": "\n💡 _Minor discrepancies detected. Prices are approximate._",
+        "pt": "\n💡 _Pequenas discrepâncias detectadas. Preços são aproximados._",
+        "es": "\n💡 _Pequeñas discrepancias detectadas. Los precios son aproximados._",
+    },
 }
 
 

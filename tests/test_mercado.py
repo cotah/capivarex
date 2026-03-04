@@ -1222,7 +1222,7 @@ class TestVerificarAlertas:
         mock_supabase.is_initialized.return_value = True
         mock_supabase.client = mock_db
 
-        itens = [{"produto": "Leite Mimosa", "preco_unitario": 1.30}]  # 30% subida
+        itens = [{"produto": "Leite Mimosa", "preco_unitario": 1.80}]  # 80% subida, €0.80 diff
 
         with patch("services.get_service", return_value=mock_supabase):
             alertas = await svc._verificar_alertas(itens, "chat1")

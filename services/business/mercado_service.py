@@ -141,19 +141,23 @@ _CAT_I18N = {
 }
 
 _VISION_PROMPT = (
-    "Analisa esta nota/recibo de supermercado e extrai "
-    "TODOS os itens comprados.\n\n"
-    "Responde APENAS com JSON válido, sem markdown, "
-    "sem explicações:\n\n"
+    "You are an expert receipt/invoice OCR system. "
+    "Analyze this supermarket receipt image and extract ALL purchased items.\n\n"
+    "CRITICAL RULES for accurate extraction:\n"
+    "1. Each item's price must come from the SAME LINE as the product name.\n"
+    "2. Do NOT assign a price from an adjacent line to a different product.\n"
+    "3. If a product spans multiple lines, its price is on the LAST line of that product.\n"
+    "4. Discount lines (negative values) should be IGNORED — do not create items for discounts.\n"
+    "5. The sum of all preco_total values MUST equal the receipt total (within €0.05).\n"
+    "6. If you cannot confidently read a price, set it to null rather than guessing.\n\n"
+    "Respond ONLY with valid JSON, no markdown, no explanations:\n\n"
     "{\n"
-    '  "mercado": "Nome do supermercado '
-    '(ex: Lidl, Aldi, Continente, Pingo Doce)",\n'
-    '  "data": "DD/MM/AAAA ou null se não visível",\n'
+    '  "mercado": "Store name (e.g. Lidl, Aldi, Tesco, Dunnes)",\n'
+    '  "data": "DD/MM/YYYY or null if not visible",\n'
     '  "total": 0.00,\n'
     '  "itens": [\n'
     "    {\n"
-    '      "produto": "Nome do produto normalizado '
-    'em português",\n'
+    '      "produto": "Product name normalized (keep original language)",\n'
     '      "quantidade": 1,\n'
     '      "unidade": "un/kg/L",\n'
     '      "preco_total": 0.00,\n'
@@ -161,13 +165,11 @@ _VISION_PROMPT = (
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "Regras:\n"
-    '- Normaliza nomes: "LT MIMOSA MEIO-GORD" → '
-    '"Leite Mimosa Meio-Gordo"\n'
-    "- Se não conseguires ler algum valor, usa null\n"
+    "Additional rules:\n"
+    "- Normalize abbreviated names: 'LT MIMOSA MEIO-GORD' → 'Leite Mimosa Meio-Gordo'\n"
     "- preco_unitario = preco_total / quantidade\n"
-    "- Inclui TODOS os itens, mesmo os que não "
-    "consegues ler bem"
+    "- Include ALL items, even partially readable ones\n"
+    "- VERIFY: sum of all preco_total should match the total on the receipt"
 )
 
 
@@ -518,6 +520,15 @@ class MercadoService(BaseService):
             }
 
         nota = self._normalizar_nota(nota)
+        nota = self._validar_ocr(nota)
+
+        # Log confidence
+        if nota.get("ocr_confidence") != "high":
+            self.logger.warning(
+                "OCR confidence: %s | warnings: %s",
+                nota.get("ocr_confidence"),
+                nota.get("ocr_warnings"),
+            )
 
         # Verificar duplicata antes de guardar
         duplicada = await self._verificar_duplicata(
@@ -779,6 +790,114 @@ class MercadoService(BaseService):
         data["itens"] = itens_ok
         return data
 
+    def _validar_ocr(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Post-OCR validation and correction.
+
+        Checks:
+        1. Sum of items vs receipt total (tolerance €0.10)
+        2. Items with null/zero prices
+        3. Suspicious duplicate prices in adjacent items
+        4. Individual item price > total
+        5. Negative prices (discount lines that slipped through)
+
+        Returns:
+            Updated data dict with:
+            - 'ocr_warnings': list of warning strings
+            - 'ocr_confidence': 'high' | 'medium' | 'low'
+            - Items corrected where possible
+        """
+        warnings: List[str] = []
+        itens = data.get("itens", [])
+        total_receipt = float(data.get("total") or 0)
+
+        # ── Check 1: Sum vs total ────────────────────────────
+        soma_itens = sum(float(i.get("preco_total") or 0) for i in itens)
+
+        if total_receipt > 0 and abs(soma_itens - total_receipt) > 0.10:
+            diff = abs(soma_itens - total_receipt)
+            warnings.append(
+                f"Sum mismatch: items={soma_itens:.2f}, "
+                f"receipt={total_receipt:.2f}, diff={diff:.2f}"
+            )
+
+            # If sum is way off but total exists, trust the total
+            # and flag the data as low confidence
+            if diff > total_receipt * 0.15:  # >15% off
+                data["ocr_confidence"] = "low"
+            else:
+                data["ocr_confidence"] = "medium"
+
+        # ── Check 2: Null/zero prices ────────────────────────
+        null_prices = [i for i in itens if not i.get("preco_total")]
+        if null_prices:
+            warnings.append(f"{len(null_prices)} item(s) with no price")
+            # Try to calculate from total if only 1 item missing
+            if len(null_prices) == 1 and total_receipt > 0:
+                known_sum = sum(
+                    float(i.get("preco_total") or 0)
+                    for i in itens
+                    if i.get("preco_total")
+                )
+                missing_price = round(total_receipt - known_sum, 2)
+                if missing_price > 0:
+                    null_prices[0]["preco_total"] = missing_price
+                    null_prices[0]["preco_unitario"] = round(
+                        missing_price / float(null_prices[0].get("quantidade") or 1),
+                        4,
+                    )
+                    warnings.append(
+                        f"Inferred price for "
+                        f"'{null_prices[0]['produto']}': €{missing_price:.2f}"
+                    )
+
+        # ── Check 3: Duplicate adjacent prices ───────────────
+        for i in range(len(itens) - 1):
+            p1 = float(itens[i].get("preco_total") or 0)
+            p2 = float(itens[i + 1].get("preco_total") or 0)
+            if p1 > 0 and p1 == p2:
+                # Same price for adjacent items is suspicious
+                # (could be legitimate but worth flagging)
+                warnings.append(
+                    f"Duplicate adjacent price €{p1:.2f}: "
+                    f"'{itens[i]['produto']}' and '{itens[i + 1]['produto']}'"
+                )
+
+        # ── Check 4: Price > total ───────────────────────────
+        if total_receipt > 0:
+            for item in itens:
+                p = float(item.get("preco_total") or 0)
+                if p > total_receipt:
+                    warnings.append(
+                        f"Item price €{p:.2f} > receipt total "
+                        f"€{total_receipt:.2f}: '{item['produto']}'"
+                    )
+                    # This is clearly wrong — null it out
+                    item["preco_total"] = 0
+                    item["preco_unitario"] = 0
+
+        # ── Check 5: Negative prices ─────────────────────────
+        data["itens"] = [i for i in itens if float(i.get("preco_total") or 0) >= 0]
+        removed = len(itens) - len(data["itens"])
+        if removed:
+            warnings.append(f"Removed {removed} discount/negative line(s)")
+
+        # ── Confidence score ─────────────────────────────────
+        if "ocr_confidence" not in data:
+            if not warnings:
+                data["ocr_confidence"] = "high"
+            elif len(warnings) <= 2:
+                data["ocr_confidence"] = "medium"
+            else:
+                data["ocr_confidence"] = "low"
+
+        data["ocr_warnings"] = warnings
+
+        if warnings:
+            self.logger.info("OCR validation warnings: %s", "; ".join(warnings))
+
+        return data
+
     async def _verificar_duplicata(
         self,
         chat_id: str,
@@ -918,7 +1037,10 @@ class MercadoService(BaseService):
                 if preco_anterior <= 0:
                     continue
                 variacao = (preco_atual - preco_anterior) / preco_anterior
-                if variacao >= PRICE_ALERT_THRESHOLD:
+                # Only alert for increases > 20% AND price difference > €0.50
+                # (small absolute differences are likely OCR noise)
+                diff_abs = abs(preco_atual - preco_anterior)
+                if variacao >= PRICE_ALERT_THRESHOLD and diff_abs > 0.50:
                     alertas.append(
                         t(
                             "mercado_price_alert_item",
@@ -971,6 +1093,12 @@ class MercadoService(BaseService):
                 "",
                 t("mercado_price_alerts_header", lang=lang),
             ] + alertas
+
+        # OCR confidence warnings
+        if nota.get("ocr_confidence") == "low":
+            linhas.append(t("mercado_ocr_low_confidence", lang=lang))
+        elif nota.get("ocr_confidence") == "medium" and nota.get("ocr_warnings"):
+            linhas.append(t("mercado_ocr_medium_confidence", lang=lang))
 
         linhas += [
             "",
