@@ -285,6 +285,8 @@ MERCADO_KEYWORDS: Dict[str, List[str]] = {
         "exportar relatorio",
         "baixar relatório",
         "baixar relatorio",
+        "lista de voz",
+        "adicionar por voz",
     ],
     "en": [
         "shopping list",
@@ -300,6 +302,8 @@ MERCADO_KEYWORDS: Dict[str, List[str]] = {
         "export excel",
         "export report",
         "download report",
+        "voice shopping list",
+        "add by voice",
     ],
     "es": [
         "lista de compras",
@@ -314,6 +318,8 @@ MERCADO_KEYWORDS: Dict[str, List[str]] = {
         "exportar excel",
         "exportar informe",
         "descargar informe",
+        "lista por voz",
+        "añadir por voz",
     ],
 }
 

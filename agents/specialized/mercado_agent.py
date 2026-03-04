@@ -60,6 +60,13 @@ _RE_EXPORT = re.compile(
     r"(?:\s+(.+))?",
     re.IGNORECASE,
 )
+_RE_VOICE_LIST = re.compile(
+    r"(?:preciso\s+(?:de\s+)?|comprar?\s*|quero\s+|falta[m]?\s+|"
+    r"traz(?:er)?\s+|pega[r]?\s+|p[oõ]e\s+na\s+lista\s*|"
+    r"need\s+|buy\s+|get\s+|i\s+need\s+|necesito\s+|comprar\s+)"
+    r"(.+)",
+    re.IGNORECASE,
+)
 
 
 @register_agent("mercado")
@@ -253,6 +260,43 @@ class MercadoAgent(BaseAgent):
                     data=result,
                 )
 
+            # ── Voice shopping list (smart parsing) ───────────────────────
+            is_voice = context.get("source") == "voice"
+
+            if is_voice:
+                # Try voice-specific patterns first
+                m_voice = _RE_VOICE_LIST.search(texto)
+                voice_items_text = m_voice.group(1) if m_voice else texto
+
+                # Parse natural speech into items
+                items = self._parse_voice_items(voice_items_text)
+
+                if items and len(items) >= 1:
+                    # Join with commas for the service
+                    items_str = ", ".join(items)
+                    result = await svc.adicionar(
+                        items_str, user_id=user_id, lang=lang
+                    )
+
+                    # Build confirmation message
+                    items_display = "\n".join(
+                        f"  ✅ {item.title()}" for item in items
+                    )
+
+                    msg = t(
+                        "mercado_voice_added",
+                        lang=lang,
+                        items=items_display,
+                        count=len(items),
+                    )
+
+                    return AgentResponse(
+                        status=AgentStatus.SUCCESS,
+                        response=msg,
+                        data=result,
+                    )
+                # If no items parsed from voice, fall through to normal handling
+
             # ── Adicionar item(s) ─────────────────────────────────────────────
             m = _RE_ADICIONAR.search(texto)
             if m:
@@ -301,6 +345,68 @@ class MercadoAgent(BaseAgent):
             "market_ranking",
             "price_alerts",
         ]
+
+    @staticmethod
+    def _parse_voice_items(text: str) -> List[str]:
+        """
+        Parse natural speech into individual shopping items.
+
+        Handles:
+        - Commas: "leite, pão, ovos"
+        - Conjunctions: "leite e pão e ovos"
+        - "também": "leite, também pão"
+        - Mixed: "leite, pão e ovos, queijo"
+        - Filler words: "uns", "umas", "um", "uma", "o", "a", "os", "as"
+        - Quantities: "2 leites" → "2 leites" (keep as-is)
+
+        Returns:
+            List of cleaned item strings
+        """
+        # Normalize
+        t = text.strip().rstrip("?!.")
+
+        # Remove common filler words/phrases
+        fillers = [
+            r"\btambém\b", r"\btambem\b", r"\balso\b", r"\btambién\b",
+            r"\buns?\b", r"\bumas?\b",
+            r"\bpor\s+favor\b", r"\bplease\b", r"\bpor\s+fa\b",
+            r"\bpreciso\s+(?:de\s+)?", r"\bquero\s+", r"\bfalta[m]?\s+",
+            r"\bneed\s+", r"\bi\s+need\s+", r"\bnecesito\s+",
+            r"\bcomprar?\s+", r"\btraz(?:er)?\s+", r"\bpega[r]?\s+",
+            r"\bbuy\s+", r"\bget\s+",
+        ]
+        for filler in fillers:
+            t = re.sub(filler, " ", t, flags=re.IGNORECASE)
+
+        # Split on commas first
+        parts = re.split(r",\s*", t)
+
+        # Then split each part on conjunctions (e, and, y, ou, or, o)
+        items: List[str] = []
+        for part in parts:
+            sub = re.split(
+                r"\s+(?:e|and|y|ou|or|o)\s+",
+                part.strip(),
+                flags=re.IGNORECASE,
+            )
+            items.extend(sub)
+
+        # Clean up
+        cleaned: List[str] = []
+        for item in items:
+            item = item.strip()
+            # Remove leading articles
+            item = re.sub(
+                r"^(?:o|a|os|as|the|el|la|los|las)\s+",
+                "",
+                item,
+                flags=re.IGNORECASE,
+            )
+            item = item.strip()
+            if item and len(item) > 1:  # Skip single chars
+                cleaned.append(item)
+
+        return cleaned
 
     @staticmethod
     def _parse_month(text: str, lang: str = "en") -> Optional[int]:

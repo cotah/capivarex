@@ -2533,6 +2533,19 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "\n💡 _Pequenas discrepâncias detectadas. Preços são aproximados._",
         "es": "\n💡 _Pequeñas discrepancias detectadas. Los precios son aproximados._",
     },
+    # ══════════════════════════════════════════════════════════════
+    # Voice Shopping List
+    # ══════════════════════════════════════════════════════════════
+    "mercado_voice_added": {
+        "en": "🎤 Got your list:\n{items}\n\n✅ {count} item(s) added to your shopping list!",
+        "pt": "🎤 Entendi a tua lista:\n{items}\n\n✅ {count} item(s) adicionado(s) à lista de compras!",
+        "es": "🎤 Entendí tu lista:\n{items}\n\n✅ {count} artículo(s) añadido(s) a la lista de compras!",
+    },
+    "mercado_voice_empty": {
+        "en": "🎤 I couldn't identify any items in your audio. Try saying something like: 'milk, bread and eggs'.",
+        "pt": "🎤 Não consegui identificar itens no teu áudio. Tenta dizer algo como: 'leite, pão e ovos'.",
+        "es": "🎤 No pude identificar artículos en tu audio. Intenta decir algo como: 'leche, pan y huevos'.",
+    },
 }
 
 
