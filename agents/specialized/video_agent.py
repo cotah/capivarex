@@ -62,6 +62,50 @@ class VideoAgent(BaseAgent):
                 error="Empty video prompt",
             )
 
+        # ── Image-to-video via Grok Imagine ─────────────────────────
+        image_data: bytes | None = context.get("image_data")
+        if image_data:
+            image_mime: str = context.get("image_mime", "image/jpeg")
+            grok_svc = get_service("grok_video")
+            if not grok_svc:
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response="Servico de video Grok nao disponivel.",
+                    error="GrokVideoService unavailable",
+                )
+            if not grok_svc.is_initialized():
+                await grok_svc.initialize()
+
+            result = await grok_svc.image_to_video(
+                image_data=image_data,
+                prompt=video_prompt,
+                duration=duration,
+                aspect_ratio=ratio,
+                mime_type=image_mime,
+            )
+
+            if isinstance(result, dict) and not result.get("success"):
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response=result.get(
+                        "error", "Erro ao gerar video da foto."
+                    ),
+                    error=result.get("error"),
+                    data=result,
+                )
+
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="Video gerado com sucesso a partir da foto!",
+                data=result,
+                metadata={
+                    "type": "video",
+                    "file_path": result.get("video_path"),
+                    "format": "mp4",
+                },
+            )
+
+        # ── Text-to-video via Veo (existing logic) ──────────────────
         try:
             # Get video service from registry
             video_svc = get_service("video")

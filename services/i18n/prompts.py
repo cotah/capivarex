@@ -43,7 +43,7 @@ Available agents:
 - 'weather': Weather questions, forecasts, temperature, climate conditions.
 - 'finance': Stock quotes, financial data, market data, investments.
 - 'image': Create, generate, or draw a VISUAL IMAGE (photo, illustration, drawing).
-- 'video': Create, generate, or produce a VIDEO.
+- 'video': Create, generate, or produce a VIDEO. Also: animate a photo, turn image/photo into video, make a photo move, create video from picture, bring photo to life.
 - 'voice': Convert text to AUDIO/VOICE (speak, narrate, read aloud), or transcribe audio to text.
 - 'calendar': Questions about schedule, calendar, meetings, appointments, events (view, list, check). Also: connect/link/authorize Google account, connect Google Calendar.
 - 'meeting': CREATE or SCHEDULE new meetings and events in the calendar.

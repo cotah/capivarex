@@ -64,6 +64,7 @@ def register_all_services() -> None:
     from .integrations.gmail_service import GmailService  # noqa: F401
 
     # Serviços de Mídia
+    from .media.grok_video_service import GrokVideoService  # noqa: F401
     from .media.image_service import ImageService  # noqa: F401
     from .media.video_service import VideoService  # noqa: F401
     from .media.whisper_service import WhisperService  # noqa: F401
