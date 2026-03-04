@@ -72,7 +72,7 @@ async def _classify_photo(
         ],
         "generationConfig": {
             "temperature": 0.0,
-            "maxOutputTokens": 50,
+            "maxOutputTokens": 256,
         },
     }
 
@@ -81,7 +81,7 @@ async def _classify_photo(
             resp = await http.post(
                 "https://generativelanguage.googleapis.com"
                 "/v1beta/models/"
-                "gemini-2.5-flash"
+                "gemini-2.0-flash-lite"
                 ":generateContent"
                 f"?key={api_key}",
                 json=payload,
