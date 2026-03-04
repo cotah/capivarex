@@ -48,12 +48,8 @@ class GmailService(BaseService):
     async def _initialize(self) -> None:
         oauth = get_google_oauth()
         if not oauth.is_configured:
-            raise ServiceUnavailableError(
-                t("gmail_oauth_not_configured")
-            )
-        self.logger.info(
-            "GmailService initialized (OAuth2 via GoogleOAuthService)"
-        )
+            raise ServiceUnavailableError(t("gmail_oauth_not_configured"))
+        self.logger.info("GmailService initialized (OAuth2 via GoogleOAuthService)")
 
     async def _health_check(self) -> bool:
         return get_google_oauth().is_configured
@@ -82,9 +78,7 @@ class GmailService(BaseService):
         oauth = get_google_oauth()
         access_token = await oauth.get_valid_access_token(user_id)
         if not access_token:
-            raise ServiceUnavailableError(
-                t("gmail_not_connected")
-            )
+            raise ServiceUnavailableError(t("gmail_not_connected"))
 
         url = f"{GMAIL_API_BASE}/{endpoint}"
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -104,17 +98,13 @@ class GmailService(BaseService):
 
         if resp.status_code == 401:
             self._track_call(latency, error=True)
-            raise ServiceUnavailableError(
-                t("gmail_token_expired")
-            )
+            raise ServiceUnavailableError(t("gmail_token_expired"))
         if resp.status_code == 204:
             self._track_call(latency, error=False)
             return {"success": True}
         if resp.status_code not in (200, 201):
             self._track_call(latency, error=True)
-            raise RuntimeError(
-                f"Gmail API {resp.status_code}: {resp.text[:200]}"
-            )
+            raise RuntimeError(f"Gmail API {resp.status_code}: {resp.text[:200]}")
 
         self._track_call(latency, error=False)
         return resp.json()
@@ -156,17 +146,13 @@ class GmailService(BaseService):
         if q_parts:
             params["q"] = " ".join(q_parts)
 
-        data = await self._api(
-            user_id, "GET", "messages", params=params
-        )
+        data = await self._api(user_id, "GET", "messages", params=params)
         message_refs = data.get("messages", [])
 
         # Buscar detalhes de cada email
         emails = []
         for ref in message_refs[:max_results]:
-            detail = await self._get_message_metadata(
-                user_id, ref["id"]
-            )
+            detail = await self._get_message_metadata(user_id, ref["id"])
             if detail:
                 emails.append(detail)
 
@@ -204,12 +190,8 @@ class GmailService(BaseService):
                 "id": data["id"],
                 "thread_id": data.get("threadId", ""),
                 "message_id": headers.get("message-id", ""),
-                "from_email": _extract_email(
-                    headers.get("from", "")
-                ),
-                "from_name": _extract_name(
-                    headers.get("from", "")
-                ),
+                "from_email": _extract_email(headers.get("from", "")),
+                "from_name": _extract_name(headers.get("from", "")),
                 "to": headers.get("to", ""),
                 "subject": headers.get("subject", t("gmail_no_subject")),
                 "date": headers.get("date", ""),
@@ -219,16 +201,12 @@ class GmailService(BaseService):
                 "account": "gmail",
             }
         except Exception as e:
-            logger.warning(
-                "Error getting email %s: %s", message_id, e
-            )
+            logger.warning("Error getting email %s: %s", message_id, e)
             return None
 
     # ── Ler Email Completo ──────────────────────────────────────────────────
 
-    async def get_email_body(
-        self, user_id: str, message_id: str
-    ) -> str:
+    async def get_email_body(self, user_id: str, message_id: str) -> str:
         """Obtém corpo completo de um email (text/plain preferido)."""
         data = await self._api(
             user_id,
@@ -276,21 +254,19 @@ class GmailService(BaseService):
         if thread_id:
             payload["threadId"] = thread_id
 
-        result = await self._api(
-            user_id, "POST", "messages/send", json_data=payload
-        )
+        result = await self._api(user_id, "POST", "messages/send", json_data=payload)
 
         self.logger.info(
             "Email sent: user=%s to=%s subject=%s",
-            user_id, to, subject,
+            user_id,
+            to,
+            subject,
         )
         return result
 
     # ── Acções sobre Emails ─────────────────────────────────────────────────
 
-    async def mark_as_read(
-        self, user_id: str, message_id: str
-    ) -> None:
+    async def mark_as_read(self, user_id: str, message_id: str) -> None:
         """Marca email como lido."""
         await self._api(
             user_id,
@@ -299,9 +275,7 @@ class GmailService(BaseService):
             json_data={"removeLabelIds": ["UNREAD"]},
         )
 
-    async def mark_as_unread(
-        self, user_id: str, message_id: str
-    ) -> None:
+    async def mark_as_unread(self, user_id: str, message_id: str) -> None:
         """Marca email como não lido."""
         await self._api(
             user_id,
@@ -310,9 +284,7 @@ class GmailService(BaseService):
             json_data={"addLabelIds": ["UNREAD"]},
         )
 
-    async def archive(
-        self, user_id: str, message_id: str
-    ) -> None:
+    async def archive(self, user_id: str, message_id: str) -> None:
         """Arquiva email (remove da inbox)."""
         await self._api(
             user_id,
@@ -321,17 +293,62 @@ class GmailService(BaseService):
             json_data={"removeLabelIds": ["INBOX"]},
         )
 
-    async def trash(
-        self, user_id: str, message_id: str
-    ) -> None:
+    async def trash(self, user_id: str, message_id: str) -> None:
         """Move email para o lixo."""
-        await self._api(
-            user_id, "POST", f"messages/{message_id}/trash"
-        )
+        await self._api(user_id, "POST", f"messages/{message_id}/trash")
 
     async def get_profile(self, user_id: str) -> Dict[str, Any]:
         """Obtém perfil Gmail (email, total de mensagens)."""
         return await self._api(user_id, "GET", "profile")
+
+    async def send_email_with_attachment(
+        self,
+        user_id: str,
+        to: str,
+        subject: str,
+        body: str,
+        attachment_bytes: bytes,
+        attachment_filename: str,
+        attachment_mime: str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ) -> Dict[str, Any]:
+        """
+        Send email with a file attachment via Gmail API.
+
+        Args:
+            user_id: User UUID for OAuth2
+            to: Recipient email
+            subject: Email subject
+            body: Email body (plain text)
+            attachment_bytes: Raw file bytes
+            attachment_filename: Filename for attachment (e.g. "report.xlsx")
+            attachment_mime: MIME type of attachment
+
+        Returns:
+            Dict with id, threadId, labelIds
+        """
+        from email import encoders
+        from email.mime.base import MIMEBase
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart()
+        msg["to"] = to
+        msg["subject"] = subject
+
+        # Body
+        msg.attach(MIMEText(body, "plain"))
+
+        # Attachment
+        part = MIMEBase(*attachment_mime.split("/", 1))
+        part.set_payload(attachment_bytes)
+        encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f'attachment; filename="{attachment_filename}"',
+        )
+        msg.attach(part)
+
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        return await self._api(user_id, "POST", "messages/send", json_data={"raw": raw})
 
     async def get_unread_count(self, user_id: str) -> int:
         """Conta emails não lidos na inbox."""
@@ -372,9 +389,7 @@ def _extract_body(payload: Dict[str, Any]) -> str:
     if mime_type == "text/plain":
         data = payload.get("body", {}).get("data", "")
         if data:
-            return base64.urlsafe_b64decode(data).decode(
-                "utf-8", errors="replace"
-            )
+            return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
 
     # Multipart — procurar text/plain nas parts
     for part in payload.get("parts", []):
@@ -386,9 +401,7 @@ def _extract_body(payload: Dict[str, Any]) -> str:
     if mime_type == "text/html":
         data = payload.get("body", {}).get("data", "")
         if data:
-            html = base64.urlsafe_b64decode(data).decode(
-                "utf-8", errors="replace"
-            )
+            html = base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
             # Strip HTML tags básico
             return re.sub(r"<[^>]+>", "", html).strip()
 

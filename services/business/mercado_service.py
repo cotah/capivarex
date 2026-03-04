@@ -35,46 +35,92 @@ PRICE_ALERT_THRESHOLD = 0.20  # 20% de subida dispara alerta
 # ── Categorias automáticas ─────────────────────────────────────
 _CATEGORIAS: Dict[str, List[str]] = {
     "Laticínios": [
-        "leite", "manteiga", "queijo", "iogurte",
-        "natas", "requeijão",
+        "leite",
+        "manteiga",
+        "queijo",
+        "iogurte",
+        "natas",
+        "requeijão",
     ],
     "Padaria": [
-        "pão", "bolo", "croissant", "broa", "torrada",
+        "pão",
+        "bolo",
+        "croissant",
+        "broa",
+        "torrada",
     ],
     "Carnes": [
-        "frango", "carne", "bife", "peru",
-        "porco", "vaca", "alheira",
+        "frango",
+        "carne",
+        "bife",
+        "peru",
+        "porco",
+        "vaca",
+        "alheira",
     ],
     "Peixe": [
-        "peixe", "bacalhau", "atum", "sardinha",
-        "salmão", "camarão",
+        "peixe",
+        "bacalhau",
+        "atum",
+        "sardinha",
+        "salmão",
+        "camarão",
     ],
     "Frutas": [
-        "maçã", "banana", "laranja", "uva",
-        "morango", "pera", "limão",
+        "maçã",
+        "banana",
+        "laranja",
+        "uva",
+        "morango",
+        "pera",
+        "limão",
     ],
     "Legumes": [
-        "alface", "tomate", "cenoura", "cebola",
-        "batata", "alho",
+        "alface",
+        "tomate",
+        "cenoura",
+        "cebola",
+        "batata",
+        "alho",
     ],
     "Bebidas": [
-        "água", "sumo", "cerveja", "vinho",
-        "refrigerante", "café",
+        "água",
+        "sumo",
+        "cerveja",
+        "vinho",
+        "refrigerante",
+        "café",
     ],
     "Limpeza": [
-        "detergente", "sabão", "lixívia", "amaciador",
+        "detergente",
+        "sabão",
+        "lixívia",
+        "amaciador",
     ],
     "Higiene": [
-        "shampoo", "gel", "pasta",
-        "desodorizante", "papel higiénico",
+        "shampoo",
+        "gel",
+        "pasta",
+        "desodorizante",
+        "papel higiénico",
     ],
     "Mercearia": [
-        "arroz", "massa", "feijão", "lentilha",
-        "grão", "açúcar", "farinha", "óleo", "azeite",
+        "arroz",
+        "massa",
+        "feijão",
+        "lentilha",
+        "grão",
+        "açúcar",
+        "farinha",
+        "óleo",
+        "azeite",
     ],
     "Ovos": ["ovo", "ovos"],
     "Snacks": [
-        "bolacha", "chips", "chocolate", "biscoito",
+        "bolacha",
+        "chips",
+        "chocolate",
+        "biscoito",
     ],
 }
 
@@ -152,22 +198,15 @@ class MercadoService(BaseService):
         from services import get_service
 
         self._db = get_service("database")
-        self.logger.info(
-            "MercadoService initialized (Supabase mode)"
-        )
+        self.logger.info("MercadoService initialized (Supabase mode)")
 
     async def _health_check(self) -> bool:
-        return (
-            self._db is not None
-            and self._db.is_initialized()
-        )
+        return self._db is not None and self._db.is_initialized()
 
     def _get_client(self):
         """Retorna o cliente Supabase."""
         if not self._db or not self._db.is_initialized():
-            raise ServiceUnavailableError(
-                "Database service not available"
-            )
+            raise ServiceUnavailableError("Database service not available")
         return self._db.get_client()
 
     # ── Lista de compras (via Supabase) ────────────────
@@ -183,14 +222,10 @@ class MercadoService(BaseService):
         import re
 
         itens_list = re.split(r"[,;\n]|\se\s", itens)
-        itens_list = [
-            i.strip() for i in itens_list if i.strip()
-        ]
+        itens_list = [i.strip() for i in itens_list if i.strip()]
 
         if not itens_list:
-            return {
-                "mensagem": t("mercado_what_to_add", lang=lang)
-            }
+            return {"mensagem": t("mercado_what_to_add", lang=lang)}
 
         db = self._get_client()
         adicionados = []
@@ -200,17 +235,17 @@ class MercadoService(BaseService):
             try:
                 await asyncio.get_event_loop().run_in_executor(
                     None,
-                    lambda i=item: db.table(
-                        "shopping_list"
-                    )
-                    .insert(
-                        {
-                            "user_id": user_id,
-                            "item": i,
-                            "status": "pendente",
-                        }
-                    )
-                    .execute(),
+                    lambda i=item: (
+                        db.table("shopping_list")
+                        .insert(
+                            {
+                                "user_id": user_id,
+                                "item": i,
+                                "status": "pendente",
+                            }
+                        )
+                        .execute()
+                    ),
                 )
                 adicionados.append(item)
             except Exception as e:
@@ -233,12 +268,11 @@ class MercadoService(BaseService):
         if adicionados:
             mensagem += t("mercado_added", lang=lang, items=", ".join(adicionados))
         if duplicados:
-            mensagem += t("mercado_already_in_list", lang=lang, items=", ".join(duplicados))
+            mensagem += t(
+                "mercado_already_in_list", lang=lang, items=", ".join(duplicados)
+            )
         mensagem += t("mercado_current_list", lang=lang, total=len(lista))
-        mensagem += "\n".join(
-            f"{i+1}. {item}"
-            for i, item in enumerate(lista)
-        )
+        mensagem += "\n".join(f"{i + 1}. {item}" for i, item in enumerate(lista))
 
         return {
             "action": "adicionar",
@@ -259,10 +293,7 @@ class MercadoService(BaseService):
             mensagem = t("mercado_list_empty", lang=lang)
         else:
             mensagem = t("mercado_list_header", lang=lang, total=len(lista))
-            mensagem += "\n".join(
-                f"{i+1}. {item}"
-                for i, item in enumerate(lista)
-            )
+            mensagem += "\n".join(f"{i + 1}. {item}" for i, item in enumerate(lista))
             mensagem += t("mercado_list_footer", lang=lang)
 
         return {
@@ -291,22 +322,20 @@ class MercadoService(BaseService):
         db = self._get_client()
 
         try:
-            result = (
-                await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: db.table("shopping_list")
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: (
+                    db.table("shopping_list")
                     .delete()
                     .eq("user_id", user_id)
                     .eq("status", "pendente")
                     .ilike("item", item)
-                    .execute(),
-                )
+                    .execute()
+                ),
             )
             removeu = bool(result.data)
         except Exception as e:
-            self.logger.warning(
-                "Erro ao remover '%s': %s", item, e
-            )
+            self.logger.warning("Erro ao remover '%s': %s", item, e)
             removeu = False
 
         lista = await self._get_lista(user_id)
@@ -341,39 +370,35 @@ class MercadoService(BaseService):
             try:
                 await asyncio.get_event_loop().run_in_executor(
                     None,
-                    lambda: db.table(
-                        "shopping_list_history"
-                    )
-                    .insert(
-                        {
-                            "user_id": user_id,
-                            "items": lista,
-                        }
-                    )
-                    .execute(),
+                    lambda: (
+                        db.table("shopping_list_history")
+                        .insert(
+                            {
+                                "user_id": user_id,
+                                "items": lista,
+                            }
+                        )
+                        .execute()
+                    ),
                 )
             except Exception as e:
-                self.logger.warning(
-                    "Erro ao guardar histórico: %s", e
-                )
+                self.logger.warning("Erro ao guardar histórico: %s", e)
 
         # Limpar lista
         try:
             await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: db.table("shopping_list")
-                .delete()
-                .eq("user_id", user_id)
-                .eq("status", "pendente")
-                .execute(),
+                lambda: (
+                    db.table("shopping_list")
+                    .delete()
+                    .eq("user_id", user_id)
+                    .eq("status", "pendente")
+                    .execute()
+                ),
             )
         except Exception as e:
-            self.logger.error(
-                "Erro ao limpar lista: %s", e
-            )
-            return {
-                "mensagem": t("mercado_clear_error", lang=lang)
-            }
+            self.logger.error("Erro ao limpar lista: %s", e)
+            return {"mensagem": t("mercado_clear_error", lang=lang)}
 
         return {
             "action": "limpar",
@@ -391,24 +416,20 @@ class MercadoService(BaseService):
         db = self._get_client()
 
         try:
-            result = (
-                await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: db.table(
-                        "shopping_list_history"
-                    )
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: (
+                    db.table("shopping_list_history")
                     .select("items, cleared_at")
                     .eq("user_id", user_id)
                     .order("cleared_at", desc=True)
                     .limit(5)
-                    .execute(),
-                )
+                    .execute()
+                ),
             )
             historico = result.data or []
         except Exception as e:
-            self.logger.warning(
-                "Erro ao buscar histórico: %s", e
-            )
+            self.logger.warning("Erro ao buscar histórico: %s", e)
             historico = []
 
         if not historico:
@@ -421,14 +442,10 @@ class MercadoService(BaseService):
                 if isinstance(items, list):
                     items_str = ", ".join(items[:10])
                     if len(items) > 10:
-                        items_str += (
-                            f" (+{len(items) - 10})"
-                        )
+                        items_str += f" (+{len(items) - 10})"
                 else:
                     items_str = str(items)
-                mensagem += (
-                    f"{i + 1}. {data}: {items_str}\n"
-                )
+                mensagem += f"{i + 1}. {data}: {items_str}\n"
 
         return {
             "action": "historico",
@@ -436,32 +453,26 @@ class MercadoService(BaseService):
             "mensagem": mensagem,
         }
 
-    async def _get_lista(
-        self, user_id: str = "default"
-    ) -> List[str]:
+    async def _get_lista(self, user_id: str = "default") -> List[str]:
         """Helper: retorna lista de itens pendentes."""
         import asyncio
 
         db = self._get_client()
         try:
-            result = (
-                await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: db.table("shopping_list")
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: (
+                    db.table("shopping_list")
                     .select("item")
                     .eq("user_id", user_id)
                     .eq("status", "pendente")
                     .order("created_at")
-                    .execute(),
-                )
+                    .execute()
+                ),
             )
-            return [
-                r["item"] for r in (result.data or [])
-            ]
+            return [r["item"] for r in (result.data or [])]
         except Exception as e:
-            self.logger.warning(
-                "Erro ao buscar lista: %s", e
-            )
+            self.logger.warning("Erro ao buscar lista: %s", e)
             return []
 
     # ═══════════════════════════════════════════════════
@@ -482,36 +493,22 @@ class MercadoService(BaseService):
         GPT-4 Vision primeiro, Google Vision como fallback.
         Guarda no Supabase e verifica alertas de preço.
         """
-        self.logger.info(
-            "Processando nota fiscal chat_id=%s", chat_id
-        )
+        self.logger.info("Processando nota fiscal chat_id=%s", chat_id)
 
         # 1) Gemini 2.5 Flash (primario — 16x mais barato)
-        nota = await self._extrair_gemini(
-            image_data, mime_type
-        )
+        nota = await self._extrair_gemini(image_data, mime_type)
         fonte = "gemini_flash"
 
         # 2) GPT-4o Vision (fallback 1)
         if not nota or not nota.get("itens"):
-            self.logger.warning(
-                "Gemini OCR falhou, tentando "
-                "GPT-4 Vision"
-            )
-            nota = await self._extrair_gpt4(
-                image_data, mime_type
-            )
+            self.logger.warning("Gemini OCR falhou, tentando GPT-4 Vision")
+            nota = await self._extrair_gpt4(image_data, mime_type)
             fonte = "gpt4_vision"
 
         # 3) Google Vision OCR (fallback 2)
         if not nota or not nota.get("itens"):
-            self.logger.warning(
-                "GPT-4 Vision falhou, tentando "
-                "Google Vision"
-            )
-            nota = await self._extrair_google_vision(
-                image_data
-            )
+            self.logger.warning("GPT-4 Vision falhou, tentando Google Vision")
+            nota = await self._extrair_google_vision(image_data)
             fonte = "google_vision"
 
         if not nota or not nota.get("itens"):
@@ -541,16 +538,10 @@ class MercadoService(BaseService):
                 ),
             }
 
-        compra_id = await self._guardar_compra(
-            nota, chat_id, fonte
-        )
-        alertas = await self._verificar_alertas(
-            nota["itens"], chat_id, lang=lang
-        )
+        compra_id = await self._guardar_compra(nota, chat_id, fonte)
+        alertas = await self._verificar_alertas(nota["itens"], chat_id, lang=lang)
 
-        return self._formatar_resposta_nota(
-            nota, alertas, compra_id, lang=lang
-        )
+        return self._formatar_resposta_nota(nota, alertas, compra_id, lang=lang)
 
     async def _extrair_gemini(
         self, image_data: bytes, mime_type: str
@@ -562,9 +553,7 @@ class MercadoService(BaseService):
 
             api_key = os.environ.get("GEMINI_API_KEY")
             if not api_key:
-                self.logger.warning(
-                    "GEMINI_API_KEY not set, skipping Gemini OCR"
-                )
+                self.logger.warning("GEMINI_API_KEY not set, skipping Gemini OCR")
                 return None
 
             b64 = base64.b64encode(image_data).decode()
@@ -621,11 +610,7 @@ class MercadoService(BaseService):
             if not text:
                 return None
 
-            text = (
-                text.replace("```json", "")
-                .replace("```", "")
-                .strip()
-            )
+            text = text.replace("```json", "").replace("```", "").strip()
             result = json.loads(text)
 
             self.logger.info(
@@ -649,59 +634,42 @@ class MercadoService(BaseService):
             from services import get_service
 
             openai_svc = get_service("openai")
-            if (
-                not openai_svc
-                or not openai_svc.is_initialized()
-            ):
+            if not openai_svc or not openai_svc.is_initialized():
                 return None
 
             b64 = base64.b64encode(image_data).decode()
             client = openai_svc.client
 
-            response = (
-                await client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": _VISION_PROMPT,
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": _VISION_PROMPT,
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": (f"data:{mime_type};base64,{b64}"),
+                                    "detail": "high",
                                 },
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": (
-                                            f"data:{mime_type}"
-                                            f";base64,{b64}"
-                                        ),
-                                        "detail": "high",
-                                    },
-                                },
-                            ],
-                        }
-                    ],
-                    max_completion_tokens=2000,
-                    temperature=0.1,
-                )
+                            },
+                        ],
+                    }
+                ],
+                max_completion_tokens=2000,
+                temperature=0.1,
             )
 
-            text = (
-                response.choices[0]
-                .message.content.strip()
-            )
-            text = (
-                text.replace("```json", "")
-                .replace("```", "")
-                .strip()
-            )
+            text = response.choices[0].message.content.strip()
+            text = text.replace("```json", "").replace("```", "").strip()
             return json.loads(text)
 
         except Exception as e:
-            self.logger.error(
-                "GPT-4 Vision error: %s", e
-            )
+            self.logger.error("GPT-4 Vision error: %s", e)
             return None
 
     async def _extrair_google_vision(
@@ -713,15 +681,12 @@ class MercadoService(BaseService):
 
             b64 = base64.b64encode(image_data).decode()
             resp = await self._http.post(
-                "https://vision.googleapis.com"
-                "/v1/images:annotate",
+                "https://vision.googleapis.com/v1/images:annotate",
                 json={
                     "requests": [
                         {
                             "image": {"content": b64},
-                            "features": [
-                                {"type": "TEXT_DETECTION"}
-                            ],
+                            "features": [{"type": "TEXT_DETECTION"}],
                         }
                     ]
                 },
@@ -741,49 +706,30 @@ class MercadoService(BaseService):
             from services import get_service
 
             openai_svc = get_service("openai")
-            if (
-                not openai_svc
-                or not openai_svc.is_initialized()
-            ):
+            if not openai_svc or not openai_svc.is_initialized():
                 return None
 
-            prompt = (
-                f"{_VISION_PROMPT}\n\n"
-                f"Texto OCR extraído:\n{text_ocr}"
+            prompt = f"{_VISION_PROMPT}\n\nTexto OCR extraído:\n{text_ocr}"
+            response = await openai_svc.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+                max_completion_tokens=2000,
+                temperature=0.1,
             )
-            response = (
-                await openai_svc.client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                    max_completion_tokens=2000,
-                    temperature=0.1,
-                )
-            )
-            raw = (
-                response.choices[0]
-                .message.content.strip()
-            )
-            raw = (
-                raw.replace("```json", "")
-                .replace("```", "")
-                .strip()
-            )
+            raw = response.choices[0].message.content.strip()
+            raw = raw.replace("```json", "").replace("```", "").strip()
             return json.loads(raw)
 
         except Exception as e:
-            self.logger.error(
-                "Google Vision fallback error: %s", e
-            )
+            self.logger.error("Google Vision fallback error: %s", e)
             return None
 
-    def _normalizar_nota(
-        self, data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _normalizar_nota(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Normaliza dados extraídos."""
         data_raw = data.get("data")
         data_obj = date.today()
@@ -794,9 +740,7 @@ class MercadoService(BaseService):
                 "%Y-%m-%d",
             ):
                 try:
-                    data_obj = datetime.strptime(
-                        data_raw, fmt
-                    ).date()
+                    data_obj = datetime.strptime(data_raw, fmt).date()
                     break
                 except ValueError:
                     continue
@@ -804,10 +748,7 @@ class MercadoService(BaseService):
 
         if not data.get("total"):
             data["total"] = round(
-                sum(
-                    float(i.get("preco_total") or 0)
-                    for i in data.get("itens", [])
-                ),
+                sum(float(i.get("preco_total") or 0) for i in data.get("itens", [])),
                 2,
             )
 
@@ -819,12 +760,8 @@ class MercadoService(BaseService):
             if not item.get("produto"):
                 continue
             qtd = float(item.get("quantidade") or 1)
-            p_total = float(
-                item.get("preco_total") or 0
-            )
-            p_unit = float(
-                item.get("preco_unitario") or 0
-            )
+            p_total = float(item.get("preco_total") or 0)
+            p_unit = float(item.get("preco_unitario") or 0)
             if p_unit == 0 and p_total > 0 and qtd > 0:
                 p_unit = round(p_total / qtd, 4)
             if p_total == 0 and p_unit > 0:
@@ -834,12 +771,8 @@ class MercadoService(BaseService):
                     "preco_total": p_total,
                     "preco_unitario": p_unit,
                     "quantidade": qtd,
-                    "unidade": (
-                        item.get("unidade") or "un"
-                    ),
-                    "categoria": _categorizar(
-                        item["produto"]
-                    ),
+                    "unidade": (item.get("unidade") or "un"),
+                    "categoria": _categorizar(item["produto"]),
                 }
             )
             itens_ok.append(item)
@@ -858,10 +791,7 @@ class MercadoService(BaseService):
             from services import get_service
 
             supabase_svc = get_service("database")
-            if (
-                not supabase_svc
-                or not supabase_svc.is_initialized()
-            ):
+            if not supabase_svc or not supabase_svc.is_initialized():
                 return False
 
             db = supabase_svc.client
@@ -882,9 +812,7 @@ class MercadoService(BaseService):
             return bool(result.data)
 
         except Exception as e:
-            self.logger.warning(
-                "Erro ao verificar duplicata: %s", e
-            )
+            self.logger.warning("Erro ao verificar duplicata: %s", e)
             return False
 
     async def _guardar_compra(
@@ -898,14 +826,8 @@ class MercadoService(BaseService):
             from services import get_service
 
             supabase_svc = get_service("database")
-            if (
-                not supabase_svc
-                or not supabase_svc.is_initialized()
-            ):
-                self.logger.warning(
-                    "Supabase não disponível — "
-                    "compra não guardada"
-                )
+            if not supabase_svc or not supabase_svc.is_initialized():
+                self.logger.warning("Supabase não disponível — compra não guardada")
                 return None
 
             db = supabase_svc.client
@@ -916,12 +838,8 @@ class MercadoService(BaseService):
                     {
                         "chat_id": chat_id,
                         "mercado": nota["mercado"],
-                        "data_compra": (
-                            nota["data_obj"].isoformat()
-                        ),
-                        "total": float(
-                            nota.get("total") or 0
-                        ),
+                        "data_compra": (nota["data_obj"].isoformat()),
+                        "total": float(nota.get("total") or 0),
                         "fonte_extracao": fonte,
                     }
                 )
@@ -935,33 +853,22 @@ class MercadoService(BaseService):
                     "chat_id": chat_id,
                     "produto": i["produto"],
                     "categoria": i["categoria"],
-                    "quantidade": float(
-                        i["quantidade"]
-                    ),
+                    "quantidade": float(i["quantidade"]),
                     "unidade": i["unidade"],
-                    "preco_total": float(
-                        i["preco_total"]
-                    ),
-                    "preco_unitario": float(
-                        i["preco_unitario"]
-                    ),
+                    "preco_total": float(i["preco_total"]),
+                    "preco_unitario": float(i["preco_unitario"]),
                     "mercado": nota["mercado"],
-                    "data_compra": (
-                        nota["data_obj"].isoformat()
-                    ),
+                    "data_compra": (nota["data_obj"].isoformat()),
                 }
                 for i in nota["itens"]
                 if float(i.get("preco_total") or 0) > 0
             ]
 
             if itens_payload:
-                db.table("mercado_itens").insert(
-                    itens_payload
-                ).execute()
+                db.table("mercado_itens").insert(itens_payload).execute()
 
             self.logger.info(
-                "Compra guardada: id=%s, %d itens, "
-                "€%.2f",
+                "Compra guardada: id=%s, %d itens, €%.2f",
                 compra_id,
                 len(itens_payload),
                 nota.get("total", 0),
@@ -985,25 +892,17 @@ class MercadoService(BaseService):
             from services import get_service
 
             supabase_svc = get_service("database")
-            if (
-                not supabase_svc
-                or not supabase_svc.is_initialized()
-            ):
+            if not supabase_svc or not supabase_svc.is_initialized():
                 return alertas
             db = supabase_svc.client
 
             for item in itens:
-                preco_atual = float(
-                    item.get("preco_unitario") or 0
-                )
+                preco_atual = float(item.get("preco_unitario") or 0)
                 if preco_atual <= 0:
                     continue
                 res = (
                     db.table("mercado_itens")
-                    .select(
-                        "preco_unitario, mercado, "
-                        "data_compra"
-                    )
+                    .select("preco_unitario, mercado, data_compra")
                     .eq("chat_id", chat_id)
                     .ilike(
                         "produto",
@@ -1015,15 +914,10 @@ class MercadoService(BaseService):
                 )
                 if not res.data:
                     continue
-                preco_anterior = float(
-                    res.data[0]["preco_unitario"]
-                )
+                preco_anterior = float(res.data[0]["preco_unitario"])
                 if preco_anterior <= 0:
                     continue
-                variacao = (
-                    (preco_atual - preco_anterior)
-                    / preco_anterior
-                )
+                variacao = (preco_atual - preco_anterior) / preco_anterior
                 if variacao >= PRICE_ALERT_THRESHOLD:
                     alertas.append(
                         t(
@@ -1036,9 +930,7 @@ class MercadoService(BaseService):
                         )
                     )
         except Exception as e:
-            self.logger.warning(
-                "Erro ao verificar alertas: %s", e
-            )
+            self.logger.warning("Erro ao verificar alertas: %s", e)
         return alertas
 
     def _formatar_resposta_nota(
@@ -1055,25 +947,24 @@ class MercadoService(BaseService):
 
         linhas = [
             t("mercado_receipt_header", lang=lang, mercado=mercado),
-            t("mercado_receipt_date_summary", lang=lang, date=data_str, count=len(itens), total=f"{total:.2f}"),
+            t(
+                "mercado_receipt_date_summary",
+                lang=lang,
+                date=data_str,
+                count=len(itens),
+                total=f"{total:.2f}",
+            ),
             "",
             t("mercado_items_header", lang=lang),
         ]
         for item in itens[:15]:
             linha = f" • {item['produto']}"
             if float(item.get("quantidade", 1)) != 1:
-                linha += (
-                    f" ×{item['quantidade']:.0f}"
-                    f"{item.get('unidade', '')}"
-                )
-            linha += (
-                f" — €{item.get('preco_total', 0):.2f}"
-            )
+                linha += f" ×{item['quantidade']:.0f}{item.get('unidade', '')}"
+            linha += f" — €{item.get('preco_total', 0):.2f}"
             linhas.append(linha)
         if len(itens) > 15:
-            linhas.append(
-                t("mercado_more_items", lang=lang, count=len(itens) - 15)
-            )
+            linhas.append(t("mercado_more_items", lang=lang, count=len(itens) - 15))
 
         if alertas:
             linhas += [
@@ -1129,7 +1020,12 @@ class MercadoService(BaseService):
             if not compras:
                 nome_mes = self._nome_mes(mes, lang=lang)
                 return {
-                    "mensagem": t("mercado_no_purchases_month", lang=lang, month=nome_mes, year=ano)
+                    "mensagem": t(
+                        "mercado_no_purchases_month",
+                        lang=lang,
+                        month=nome_mes,
+                        year=ano,
+                    )
                 }
 
             por_mercado: Dict[str, Dict] = {}
@@ -1160,17 +1056,9 @@ class MercadoService(BaseService):
                 t("mercado_spending_by_store", lang=lang),
             ]
             medalhas = ["🥇", "🥈", "🥉"]
-            for i, (mercado, dados) in enumerate(
-                ranking
-            ):
-                emoji = (
-                    medalhas[i] if i < 3 else " "
-                )
-                pct = (
-                    (dados["total"] / total_geral * 100)
-                    if total_geral
-                    else 0
-                )
+            for i, (mercado, dados) in enumerate(ranking):
+                emoji = medalhas[i] if i < 3 else " "
+                pct = (dados["total"] / total_geral * 100) if total_geral else 0
                 linhas.append(
                     f"{emoji} *{mercado}*: "
                     f"€{dados['total']:.2f} "
@@ -1189,14 +1077,8 @@ class MercadoService(BaseService):
             if res2.data:
                 cats: Dict[str, float] = {}
                 for item in res2.data:
-                    cat = item.get(
-                        "categoria", "Outros"
-                    )
-                    cats[cat] = cats.get(
-                        cat, 0
-                    ) + float(
-                        item.get("preco_total") or 0
-                    )
+                    cat = item.get("categoria", "Outros")
+                    cats[cat] = cats.get(cat, 0) + float(item.get("preco_total") or 0)
                 top = sorted(
                     cats.items(),
                     key=lambda x: x[1],
@@ -1208,9 +1090,7 @@ class MercadoService(BaseService):
                 ]
                 for cat, val in top:
                     cat_key = _CAT_I18N.get(cat, "cat_other")
-                    linhas.append(
-                        f" • {t(cat_key, lang=lang)}: €{val:.2f}"
-                    )
+                    linhas.append(f" • {t(cat_key, lang=lang)}: €{val:.2f}")
 
             return {
                 "mensagem": "\n".join(linhas),
@@ -1223,9 +1103,7 @@ class MercadoService(BaseService):
                 e,
                 exc_info=True,
             )
-            return {
-                "mensagem": t("mercado_report_error", lang=lang)
-            }
+            return {"mensagem": t("mercado_report_error", lang=lang)}
 
     async def comparar_produto(
         self, produto: str, chat_id: str, lang: str = "en"
@@ -1237,10 +1115,7 @@ class MercadoService(BaseService):
             db = get_service("database").client
             res = (
                 db.table("mercado_itens")
-                .select(
-                    "mercado, preco_unitario, "
-                    "data_compra, unidade"
-                )
+                .select("mercado, preco_unitario, data_compra, unidade")
                 .eq("chat_id", chat_id)
                 .ilike("produto", f"%{produto}%")
                 .order("data_compra", desc=True)
@@ -1254,26 +1129,17 @@ class MercadoService(BaseService):
 
             por_mercado: Dict[str, List[float]] = {}
             for i in itens:
-                p = float(
-                    i.get("preco_unitario") or 0
-                )
+                p = float(i.get("preco_unitario") or 0)
                 if p > 0:
-                    por_mercado.setdefault(
-                        i["mercado"], []
-                    ).append(p)
+                    por_mercado.setdefault(i["mercado"], []).append(p)
 
             if not por_mercado:
                 return {
                     "mensagem": t("mercado_no_price_data", lang=lang, product=produto)
                 }
 
-            medias = {
-                m: round(sum(ps) / len(ps), 2)
-                for m, ps in por_mercado.items()
-            }
-            ranking = sorted(
-                medias.items(), key=lambda x: x[1]
-            )
+            medias = {m: round(sum(ps) / len(ps), 2) for m, ps in por_mercado.items()}
+            ranking = sorted(medias.items(), key=lambda x: x[1])
             mais_barato = ranking[0]
             mais_caro = ranking[-1]
             poupanca = mais_caro[1] - mais_barato[1]
@@ -1283,18 +1149,8 @@ class MercadoService(BaseService):
                 t("mercado_compare_header", lang=lang, product=produto),
                 "",
             ]
-            for i, (mercado, preco) in enumerate(
-                ranking
-            ):
-                emoji = (
-                    "✅"
-                    if i == 0
-                    else (
-                        "❌"
-                        if i == len(ranking) - 1
-                        else "➡️"
-                    )
-                )
+            for i, (mercado, preco) in enumerate(ranking):
+                emoji = "✅" if i == 0 else ("❌" if i == len(ranking) - 1 else "➡️")
                 n = len(por_mercado[mercado])
                 linhas.append(
                     f"{emoji} *{mercado}*: "
@@ -1305,7 +1161,13 @@ class MercadoService(BaseService):
             if len(ranking) > 1 and poupanca > 0.01:
                 linhas += [
                     "",
-                    t("mercado_compare_savings", lang=lang, store=mais_barato[0], amount=f"{poupanca:.2f}", expensive_store=mais_caro[0]),
+                    t(
+                        "mercado_compare_savings",
+                        lang=lang,
+                        store=mais_barato[0],
+                        amount=f"{poupanca:.2f}",
+                        expensive_store=mais_caro[0],
+                    ),
                 ]
 
             return {
@@ -1320,13 +1182,9 @@ class MercadoService(BaseService):
                 e,
                 exc_info=True,
             )
-            return {
-                "mensagem": t("mercado_compare_error", lang=lang)
-            }
+            return {"mensagem": t("mercado_compare_error", lang=lang)}
 
-    async def ranking_mercados(
-        self, chat_id: str, lang: str = "en"
-    ) -> Dict[str, Any]:
+    async def ranking_mercados(self, chat_id: str, lang: str = "en") -> Dict[str, Any]:
         """Ranking geral de mercados."""
         try:
             from services import get_service
@@ -1340,9 +1198,7 @@ class MercadoService(BaseService):
             )
             compras = res.data or []
             if not compras:
-                return {
-                    "mensagem": t("mercado_no_ranking_data", lang=lang)
-                }
+                return {"mensagem": t("mercado_no_ranking_data", lang=lang)}
 
             totais: Dict[str, Dict] = {}
             for c in compras:
@@ -1361,31 +1217,17 @@ class MercadoService(BaseService):
                 key=lambda x: x[1]["total"],
                 reverse=True,
             )
-            total_geral = sum(
-                v["total"] for _, v in ranking
-            )
+            total_geral = sum(v["total"] for _, v in ranking)
 
             linhas = [
                 t("mercado_ranking_header", lang=lang),
                 "",
             ]
             medalhas = ["🥇", "🥈", "🥉"]
-            for i, (mercado, dados) in enumerate(
-                ranking
-            ):
-                emoji = (
-                    medalhas[i]
-                    if i < 3
-                    else f"{i + 1}."
-                )
-                pct = (
-                    (dados["total"] / total_geral * 100)
-                    if total_geral
-                    else 0
-                )
-                ticket = (
-                    dados["total"] / dados["visitas"]
-                )
+            for i, (mercado, dados) in enumerate(ranking):
+                emoji = medalhas[i] if i < 3 else f"{i + 1}."
+                pct = (dados["total"] / total_geral * 100) if total_geral else 0
+                ticket = dados["total"] / dados["visitas"]
                 linhas.append(
                     f"{emoji} *{mercado}*\n"
                     f" 💶 €{dados['total']:.2f} "
@@ -1411,9 +1253,285 @@ class MercadoService(BaseService):
                 e,
                 exc_info=True,
             )
+            return {"mensagem": t("mercado_ranking_error", lang=lang)}
+
+    async def gerar_excel_mensal(
+        self, chat_id: str, mes: int = None, ano: int = None, lang: str = "en"
+    ) -> Dict[str, Any]:
+        """Generate monthly Excel report with all purchases."""
+        import asyncio
+        import io
+        from datetime import datetime
+
+        try:
+            import openpyxl
+            from openpyxl.styles import Border, Font, PatternFill, Side
+            from openpyxl.utils import get_column_letter
+        except ImportError:
+            return {"sucesso": False, "mensagem": t("mercado_report_error", lang=lang)}
+
+        now = datetime.now()
+        if mes is None:
+            if now.month == 1:
+                mes, ano = 12, now.year - 1
+            else:
+                mes, ano = now.month - 1, now.year
+        if ano is None:
+            ano = now.year
+
+        nome_mes = self._nome_mes(mes, lang=lang)
+
+        # Fetch purchases
+        db = self._get_client()
+        start = f"{ano}-{mes:02d}-01"
+        end = f"{ano + 1}-01-01" if mes == 12 else f"{ano}-{mes + 1:02d}-01"
+
+        compras = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: (
+                db.table("mercado_compras")
+                .select("*")
+                .eq("chat_id", chat_id)
+                .gte("data_compra", start)
+                .lt("data_compra", end)
+                .order("data_compra")
+                .execute()
+            ),
+        )
+
+        if not compras.data:
             return {
-                "mensagem": t("mercado_ranking_error", lang=lang)
+                "sucesso": False,
+                "mensagem": t(
+                    "mercado_no_purchases_month", lang=lang, month=nome_mes, year=ano
+                ),
             }
+
+        compra_ids = [c["id"] for c in compras.data]
+        itens = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: (
+                db.table("mercado_itens")
+                .select("*")
+                .in_("compra_id", compra_ids)
+                .order("compra_id,produto")
+                .execute()
+            ),
+        )
+
+        # ── Styles ───────────────────────────────────────────────
+        header_font = Font(bold=True, size=12, color="FFFFFF")
+        header_fill = PatternFill(
+            start_color="2E86AB", end_color="2E86AB", fill_type="solid"
+        )
+        currency_fmt = "€#,##0.00"
+        thin_border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+        )
+
+        wb = openpyxl.Workbook()
+
+        # ── Sheet 1: Summary ─────────────────────────────────────
+        ws = wb.active
+        ws.title = (
+            "Summary" if lang == "en" else ("Resumo" if lang == "pt" else "Resumen")
+        )
+
+        ws.merge_cells("A1:D1")
+        ws["A1"].value = f"{nome_mes} {ano}"
+        ws["A1"].font = Font(bold=True, size=16, color="2E86AB")
+
+        total_gasto = sum(float(c.get("total") or 0) for c in compras.data)
+        mercados = set(c.get("mercado", "") for c in compras.data)
+        total_itens = len(itens.data) if itens.data else 0
+
+        labels = {
+            "en": ["Total Spent", "Stores", "Purchases", "Items"],
+            "pt": ["Total Gasto", "Mercados", "Compras", "Itens"],
+            "es": ["Total Gastado", "Tiendas", "Compras", "Artículos"],
+        }
+        lbl = labels.get(lang, labels["en"])
+        values = [total_gasto, len(mercados), len(compras.data), total_itens]
+        for i, (label, v) in enumerate(zip(lbl, values)):
+            ws[f"A{i + 3}"] = label
+            cell = ws[f"B{i + 3}"]
+            cell.value = v
+            if i == 0:
+                cell.number_format = currency_fmt
+                cell.font = Font(bold=True, size=14)
+
+        # Spending by store table
+        row = 8
+        ws[f"A{row}"] = (
+            "Spending by Store"
+            if lang == "en"
+            else ("Gastos por Mercado" if lang == "pt" else "Gastos por Tienda")
+        )
+        ws[f"A{row}"].font = Font(bold=True, size=12)
+        row += 1
+
+        store_headers = {
+            "en": ["Store", "Total", "Visits"],
+            "pt": ["Mercado", "Total", "Visitas"],
+            "es": ["Tienda", "Total", "Visitas"],
+        }
+        for col, h in enumerate(store_headers.get(lang, store_headers["en"]), 1):
+            cell = ws.cell(row=row, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+        row += 1
+
+        gastos: Dict[str, Dict[str, Any]] = {}
+        for c in compras.data:
+            m = c.get("mercado", "?")
+            if m not in gastos:
+                gastos[m] = {"total": 0, "visitas": 0}
+            gastos[m]["total"] += float(c.get("total") or 0)
+            gastos[m]["visitas"] += 1
+
+        for m, d in sorted(gastos.items(), key=lambda x: -x[1]["total"]):
+            ws.cell(row=row, column=1, value=m).border = thin_border
+            c_cell = ws.cell(row=row, column=2, value=d["total"])
+            c_cell.number_format = currency_fmt
+            c_cell.border = thin_border
+            ws.cell(row=row, column=3, value=d["visitas"]).border = thin_border
+            row += 1
+
+        for col_idx in range(1, 5):
+            ws.column_dimensions[get_column_letter(col_idx)].width = 20
+
+        # ── Sheet 2: Items ───────────────────────────────────────
+        ws2 = wb.create_sheet(title="Items" if lang == "en" else "Itens")
+        item_headers = {
+            "en": ["Date", "Store", "Product", "Price", "Category"],
+            "pt": ["Data", "Mercado", "Produto", "Preço", "Categoria"],
+            "es": ["Fecha", "Tienda", "Producto", "Precio", "Categoría"],
+        }
+        for col, h in enumerate(item_headers.get(lang, item_headers["en"]), 1):
+            cell = ws2.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+
+        compra_map = {c["id"]: c for c in compras.data}
+        row = 2
+        for item in itens.data or []:
+            compra = compra_map.get(item.get("compra_id"), {})
+            ws2.cell(
+                row=row, column=1, value=compra.get("data_compra", "")
+            ).border = thin_border
+            ws2.cell(
+                row=row, column=2, value=compra.get("mercado", "")
+            ).border = thin_border
+            ws2.cell(
+                row=row, column=3, value=item.get("produto", "")
+            ).border = thin_border
+            price_cell = ws2.cell(
+                row=row, column=4, value=float(item.get("preco") or 0)
+            )
+            price_cell.number_format = currency_fmt
+            price_cell.border = thin_border
+            cat_pt = item.get("categoria", "Outros")
+            cat_key = _CAT_I18N.get(cat_pt, "cat_other")
+            ws2.cell(
+                row=row, column=5, value=t(cat_key, lang=lang)
+            ).border = thin_border
+            row += 1
+
+        for col_idx in range(1, 6):
+            ws2.column_dimensions[get_column_letter(col_idx)].width = 18
+
+        # ── Sheet 3: Price Comparison (if 2+ stores) ─────────────
+        if len(mercados) > 1:
+            ws3 = wb.create_sheet(
+                title="Price Compare" if lang == "en" else "Comparação"
+            )
+            cmp_headers = {
+                "en": [
+                    "Product",
+                    "Cheapest",
+                    "Min Price",
+                    "Expensive",
+                    "Max Price",
+                    "Savings",
+                ],
+                "pt": [
+                    "Produto",
+                    "Mais Barato",
+                    "Menor Preço",
+                    "Mais Caro",
+                    "Maior Preço",
+                    "Poupança",
+                ],
+                "es": [
+                    "Producto",
+                    "Más Barato",
+                    "Precio Min",
+                    "Más Caro",
+                    "Precio Max",
+                    "Ahorro",
+                ],
+            }
+            for col, h in enumerate(cmp_headers.get(lang, cmp_headers["en"]), 1):
+                cell = ws3.cell(row=1, column=col, value=h)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.border = thin_border
+
+            price_map: Dict[str, Dict[str, float]] = {}
+            for item in itens.data or []:
+                compra = compra_map.get(item.get("compra_id"), {})
+                prod = item.get("produto", "").lower()
+                store = compra.get("mercado", "")
+                price = float(item.get("preco") or 0)
+                if prod and store and price > 0:
+                    if prod not in price_map:
+                        price_map[prod] = {}
+                    if store not in price_map[prod] or price < price_map[prod][store]:
+                        price_map[prod][store] = price
+
+            row = 2
+            for prod, stores in sorted(price_map.items()):
+                if len(stores) < 2:
+                    continue
+                cheapest = min(stores, key=stores.get)
+                expensive = max(stores, key=stores.get)
+                savings = stores[expensive] - stores[cheapest]
+                ws3.cell(row=row, column=1, value=prod.title()).border = thin_border
+                ws3.cell(row=row, column=2, value=cheapest).border = thin_border
+                min_cell = ws3.cell(row=row, column=3, value=stores[cheapest])
+                min_cell.number_format = currency_fmt
+                min_cell.border = thin_border
+                ws3.cell(row=row, column=4, value=expensive).border = thin_border
+                max_cell = ws3.cell(row=row, column=5, value=stores[expensive])
+                max_cell.number_format = currency_fmt
+                max_cell.border = thin_border
+                sav_cell = ws3.cell(row=row, column=6, value=savings)
+                sav_cell.number_format = currency_fmt
+                sav_cell.border = thin_border
+                sav_cell.font = Font(color="008000", bold=True)
+                row += 1
+
+            for col_idx in range(1, 7):
+                ws3.column_dimensions[get_column_letter(col_idx)].width = 20
+
+        # ── Save to bytes ────────────────────────────────────────
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        excel_bytes = buffer.getvalue()
+        buffer.close()
+
+        filename = f"mercado_report_{ano}_{mes:02d}.xlsx"
+        return {
+            "sucesso": True,
+            "excel_bytes": excel_bytes,
+            "filename": filename,
+            "resumo": f"{nome_mes} {ano}: €{total_gasto:.2f} | {len(compras.data)} purchases | {total_itens} items | {len(mercados)} stores",
+        }
 
     def _nome_mes(self, mes: int, lang: str = "en") -> str:
         """Get localized month name."""
