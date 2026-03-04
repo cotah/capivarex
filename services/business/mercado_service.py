@@ -25,6 +25,7 @@ from services.core import (
     register_service,
     ServiceUnavailableError,
 )
+from services.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,22 @@ _CATEGORIAS: Dict[str, List[str]] = {
     "Snacks": [
         "bolacha", "chips", "chocolate", "biscoito",
     ],
+}
+
+_CAT_I18N = {
+    "Laticínios": "cat_dairy",
+    "Padaria": "cat_bakery",
+    "Carnes": "cat_meat",
+    "Peixe": "cat_fish",
+    "Frutas": "cat_fruit",
+    "Legumes": "cat_vegetables",
+    "Bebidas": "cat_drinks",
+    "Limpeza": "cat_cleaning",
+    "Higiene": "cat_hygiene",
+    "Mercearia": "cat_grocery",
+    "Ovos": "cat_eggs",
+    "Snacks": "cat_snacks",
+    "Outros": "cat_other",
 }
 
 _VISION_PROMPT = (
@@ -159,6 +176,7 @@ class MercadoService(BaseService):
         self,
         itens: str,
         user_id: str = "default",
+        lang: str = "en",
     ) -> Dict[str, Any]:
         """Adiciona item(s) à lista de compras."""
         import asyncio
@@ -171,7 +189,7 @@ class MercadoService(BaseService):
 
         if not itens_list:
             return {
-                "mensagem": "❓ Que itens queres adicionar?"
+                "mensagem": t("mercado_what_to_add", lang=lang)
             }
 
         db = self._get_client()
@@ -213,16 +231,10 @@ class MercadoService(BaseService):
 
         mensagem = ""
         if adicionados:
-            mensagem += (
-                f"✅ Adicionado: {', '.join(adicionados)}"
-            )
+            mensagem += t("mercado_added", lang=lang, items=", ".join(adicionados))
         if duplicados:
-            mensagem += (
-                f"\n⚠️ Já na lista: {', '.join(duplicados)}"
-            )
-        mensagem += (
-            f"\n\n📋 Lista actual ({len(lista)} itens):\n"
-        )
+            mensagem += t("mercado_already_in_list", lang=lang, items=", ".join(duplicados))
+        mensagem += t("mercado_current_list", lang=lang, total=len(lista))
         mensagem += "\n".join(
             f"{i+1}. {item}"
             for i, item in enumerate(lista)
@@ -238,28 +250,20 @@ class MercadoService(BaseService):
         }
 
     async def ver_lista(
-        self, user_id: str = "default"
+        self, user_id: str = "default", lang: str = "en"
     ) -> Dict[str, Any]:
         """Mostra a lista de compras actual."""
         lista = await self._get_lista(user_id)
 
         if not lista:
-            mensagem = (
-                "🛒 A tua lista de compras está vazia."
-                "\n\nDiz-me o que devo adicionar!"
-            )
+            mensagem = t("mercado_list_empty", lang=lang)
         else:
-            mensagem = (
-                f"🛒 *Lista de Compras* "
-                f"({len(lista)} itens):\n\n"
-            )
+            mensagem = t("mercado_list_header", lang=lang, total=len(lista))
             mensagem += "\n".join(
                 f"{i+1}. {item}"
                 for i, item in enumerate(lista)
             )
-            mensagem += (
-                '\n\n_Diz "limpar lista" quando terminares._'
-            )
+            mensagem += t("mercado_list_footer", lang=lang)
 
         return {
             "action": "lista",
@@ -272,6 +276,7 @@ class MercadoService(BaseService):
         self,
         item: str,
         user_id: str = "default",
+        lang: str = "en",
     ) -> Dict[str, Any]:
         """Remove um item da lista."""
         import asyncio
@@ -280,7 +285,7 @@ class MercadoService(BaseService):
             return {
                 "action": "remover",
                 "erro": True,
-                "mensagem": "❓ Qual item queres remover?",
+                "mensagem": t("mercado_what_to_remove", lang=lang),
             }
 
         db = self._get_client()
@@ -307,14 +312,9 @@ class MercadoService(BaseService):
         lista = await self._get_lista(user_id)
 
         if removeu:
-            mensagem = (
-                f'🗑️ "{item}" removido.'
-                f"\n\n📋 Restam {len(lista)} itens."
-            )
+            mensagem = t("mercado_item_removed", lang=lang, item=item, total=len(lista))
         else:
-            mensagem = (
-                f'❌ "{item}" não encontrado na lista.'
-            )
+            mensagem = t("mercado_item_not_found", lang=lang, item=item)
 
         return {
             "action": "remover",
@@ -326,7 +326,7 @@ class MercadoService(BaseService):
         }
 
     async def limpar_lista(
-        self, user_id: str = "default"
+        self, user_id: str = "default", lang: str = "en"
     ) -> Dict[str, Any]:
         """Limpa a lista toda e guarda no histórico."""
         import asyncio
@@ -372,22 +372,18 @@ class MercadoService(BaseService):
                 "Erro ao limpar lista: %s", e
             )
             return {
-                "mensagem": "❌ Erro ao limpar a lista."
+                "mensagem": t("mercado_clear_error", lang=lang)
             }
 
         return {
             "action": "limpar",
             "totalRemovido": total_antes,
             "lista": [],
-            "mensagem": (
-                f"🗑️ Lista limpa! {total_antes} "
-                f"item(s) removido(s).\n\n"
-                "✅ Prontos para a próxima compra!"
-            ),
+            "mensagem": t("mercado_list_cleared", lang=lang, total=total_antes),
         }
 
     async def historico_lista(
-        self, user_id: str = "default"
+        self, user_id: str = "default", lang: str = "en"
     ) -> Dict[str, Any]:
         """Mostra o histórico de listas limpas."""
         import asyncio
@@ -416,11 +412,9 @@ class MercadoService(BaseService):
             historico = []
 
         if not historico:
-            mensagem = (
-                "📖 Sem histórico de compras ainda."
-            )
+            mensagem = t("mercado_no_history", lang=lang)
         else:
-            mensagem = "📖 *Últimas compras:*\n\n"
+            mensagem = t("mercado_history_header", lang=lang)
             for i, h in enumerate(historico):
                 data = h.get("cleared_at", "")[:10]
                 items = h.get("items", [])
@@ -481,6 +475,7 @@ class MercadoService(BaseService):
         image_data: bytes,
         chat_id: str,
         mime_type: str = "image/jpeg",
+        lang: str = "en",
     ) -> Dict[str, Any]:
         """
         Processa foto de nota fiscal.
@@ -522,11 +517,7 @@ class MercadoService(BaseService):
         if not nota or not nota.get("itens"):
             return {
                 "sucesso": False,
-                "mensagem": (
-                    "❌ Não consegui ler a nota fiscal."
-                    "\n\n💡 Dicas: boa iluminação, nota "
-                    "plana, câmera estável."
-                ),
+                "mensagem": t("mercado_receipt_failed", lang=lang),
             }
 
         nota = self._normalizar_nota(nota)
@@ -542,12 +533,11 @@ class MercadoService(BaseService):
             return {
                 "sucesso": True,
                 "duplicada": True,
-                "mensagem": (
-                    f"⚠️ Esta nota do *{nota['mercado']}* "
-                    f"(€{nota.get('total', 0):.2f}) "
-                    "já foi registada anteriormente."
-                    "\n\n"
-                    "Nenhum dado duplicado foi guardado."
+                "mensagem": t(
+                    "mercado_duplicate_receipt",
+                    lang=lang,
+                    mercado=nota["mercado"],
+                    total=f"{nota.get('total', 0):.2f}",
                 ),
             }
 
@@ -555,11 +545,11 @@ class MercadoService(BaseService):
             nota, chat_id, fonte
         )
         alertas = await self._verificar_alertas(
-            nota["itens"], chat_id
+            nota["itens"], chat_id, lang=lang
         )
 
         return self._formatar_resposta_nota(
-            nota, alertas, compra_id
+            nota, alertas, compra_id, lang=lang
         )
 
     async def _extrair_gemini(
@@ -987,7 +977,7 @@ class MercadoService(BaseService):
             return None
 
     async def _verificar_alertas(
-        self, itens: List[Dict], chat_id: str
+        self, itens: List[Dict], chat_id: str, lang: str = "en"
     ) -> List[str]:
         """Detecta subidas de preço > 20%."""
         alertas: List[str] = []
@@ -1036,10 +1026,14 @@ class MercadoService(BaseService):
                 )
                 if variacao >= PRICE_ALERT_THRESHOLD:
                     alertas.append(
-                        f"⚠️ *{item['produto']}* "
-                        f"subiu {variacao:.0%} "
-                        f"(era €{preco_anterior:.2f}, "
-                        f"agora €{preco_atual:.2f})"
+                        t(
+                            "mercado_price_alert_item",
+                            lang=lang,
+                            product=item["produto"],
+                            pct=f"{variacao * 100:.0f}",
+                            old=f"{preco_anterior:.2f}",
+                            new=f"{preco_atual:.2f}",
+                        )
                     )
         except Exception as e:
             self.logger.warning(
@@ -1052,6 +1046,7 @@ class MercadoService(BaseService):
         nota: Dict[str, Any],
         alertas: List[str],
         compra_id: Optional[str],
+        lang: str = "en",
     ) -> Dict[str, Any]:
         itens = nota["itens"]
         mercado = nota["mercado"]
@@ -1059,13 +1054,10 @@ class MercadoService(BaseService):
         total = nota.get("total", 0)
 
         linhas = [
-            f"🧾 *Nota registada — {mercado}*",
-            (
-                f"📅 {data_str} · {len(itens)} itens "
-                f"· *€{total:.2f}*"
-            ),
+            t("mercado_receipt_header", lang=lang, mercado=mercado),
+            t("mercado_receipt_date_summary", lang=lang, date=data_str, count=len(itens), total=f"{total:.2f}"),
             "",
-            "📋 *Itens:*",
+            t("mercado_items_header", lang=lang),
         ]
         for item in itens[:15]:
             linha = f" • {item['produto']}"
@@ -1080,25 +1072,19 @@ class MercadoService(BaseService):
             linhas.append(linha)
         if len(itens) > 15:
             linhas.append(
-                f" _...e mais {len(itens) - 15} itens_"
+                t("mercado_more_items", lang=lang, count=len(itens) - 15)
             )
 
         if alertas:
             linhas += [
                 "",
-                "🔔 *Alertas de preço:*",
+                t("mercado_price_alerts_header", lang=lang),
             ] + alertas
 
         linhas += [
             "",
-            (
-                "_Usa 'relatório mensal' para ver "
-                "gastos do mês._"
-            ),
-            (
-                "_Usa 'comparar [produto]' para ver "
-                "onde é mais barato._"
-            ),
+            t("mercado_tip_report", lang=lang),
+            t("mercado_tip_compare", lang=lang),
         ]
 
         return {
@@ -1118,6 +1104,7 @@ class MercadoService(BaseService):
         chat_id: str,
         mes: Optional[int] = None,
         ano: Optional[int] = None,
+        lang: str = "en",
     ) -> Dict[str, Any]:
         """Relatório de gastos do mês."""
         try:
@@ -1140,14 +1127,9 @@ class MercadoService(BaseService):
             compras = res.data or []
 
             if not compras:
-                nome_mes = self._nome_mes(mes)
+                nome_mes = self._nome_mes(mes, lang=lang)
                 return {
-                    "mensagem": (
-                        "📊 Sem compras registadas em "
-                        f"{nome_mes} {ano}.\n\n"
-                        "Tira uma foto da próxima "
-                        "nota fiscal!"
-                    )
+                    "mensagem": t("mercado_no_purchases_month", lang=lang, month=nome_mes, year=ano)
                 }
 
             por_mercado: Dict[str, Dict] = {}
@@ -1169,19 +1151,13 @@ class MercadoService(BaseService):
                 key=lambda x: x[1]["total"],
                 reverse=True,
             )
-            nome_mes = self._nome_mes(mes)
+            nome_mes = self._nome_mes(mes, lang=lang)
             linhas = [
-                f"📊 *Relatório — {nome_mes} {ano}*",
-                (
-                    "💶 Total gasto: "
-                    f"*€{total_geral:.2f}*"
-                ),
-                (
-                    "🏪 Mercados visitados: "
-                    f"{len(por_mercado)}"
-                ),
+                t("mercado_report_header", lang=lang, month=nome_mes, year=ano),
+                t("mercado_total_spent", lang=lang, total=f"{total_geral:.2f}"),
+                t("mercado_stores_visited", lang=lang, count=len(por_mercado)),
                 "",
-                "🏆 *Gastos por mercado:*",
+                t("mercado_spending_by_store", lang=lang),
             ]
             medalhas = ["🥇", "🥈", "🥉"]
             for i, (mercado, dados) in enumerate(
@@ -1199,7 +1175,7 @@ class MercadoService(BaseService):
                     f"{emoji} *{mercado}*: "
                     f"€{dados['total']:.2f} "
                     f"({pct:.0f}%) — "
-                    f"{dados['visitas']} visita(s)"
+                    + t("mercado_visit_count", lang=lang, count=dados["visitas"])
                 )
 
             res2 = (
@@ -1228,11 +1204,12 @@ class MercadoService(BaseService):
                 )[:5]
                 linhas += [
                     "",
-                    "🛒 *Top categorias:*",
+                    t("mercado_top_categories", lang=lang),
                 ]
                 for cat, val in top:
+                    cat_key = _CAT_I18N.get(cat, "cat_other")
                     linhas.append(
-                        f" • {cat}: €{val:.2f}"
+                        f" • {t(cat_key, lang=lang)}: €{val:.2f}"
                     )
 
             return {
@@ -1247,14 +1224,11 @@ class MercadoService(BaseService):
                 exc_info=True,
             )
             return {
-                "mensagem": (
-                    "❌ Erro ao gerar relatório. "
-                    "Tente novamente."
-                )
+                "mensagem": t("mercado_report_error", lang=lang)
             }
 
     async def comparar_produto(
-        self, produto: str, chat_id: str
+        self, produto: str, chat_id: str, lang: str = "en"
     ) -> Dict[str, Any]:
         """Compara preços entre mercados."""
         try:
@@ -1275,12 +1249,7 @@ class MercadoService(BaseService):
             itens = res.data or []
             if not itens:
                 return {
-                    "mensagem": (
-                        "🔍 Ainda não tenho dados "
-                        f"sobre *{produto}*.\n\n"
-                        "Regista algumas notas "
-                        "fiscais primeiro!"
-                    )
+                    "mensagem": t("mercado_no_data_product", lang=lang, product=produto)
                 }
 
             por_mercado: Dict[str, List[float]] = {}
@@ -1295,10 +1264,7 @@ class MercadoService(BaseService):
 
             if not por_mercado:
                 return {
-                    "mensagem": (
-                        "❌ Sem dados de preço "
-                        f"para *{produto}*."
-                    )
+                    "mensagem": t("mercado_no_price_data", lang=lang, product=produto)
                 }
 
             medias = {
@@ -1314,10 +1280,7 @@ class MercadoService(BaseService):
             unidade = itens[0].get("unidade", "un")
 
             linhas = [
-                (
-                    "💰 *Comparação de preços "
-                    f"— {produto}*"
-                ),
+                t("mercado_compare_header", lang=lang, product=produto),
                 "",
             ]
             for i, (mercado, preco) in enumerate(
@@ -1336,18 +1299,13 @@ class MercadoService(BaseService):
                 linhas.append(
                     f"{emoji} *{mercado}*: "
                     f"€{preco:.2f}/{unidade} "
-                    f"({n} compra(s))"
+                    f"({t('mercado_purchase_count', lang=lang, count=n)})"
                 )
 
             if len(ranking) > 1 and poupanca > 0.01:
                 linhas += [
                     "",
-                    (
-                        f"💡 No *{mais_barato[0]}* "
-                        f"poupas *€{poupanca:.2f}* "
-                        f"por {unidade} vs "
-                        f"*{mais_caro[0]}*."
-                    ),
+                    t("mercado_compare_savings", lang=lang, store=mais_barato[0], amount=f"{poupanca:.2f}", expensive_store=mais_caro[0]),
                 ]
 
             return {
@@ -1363,13 +1321,11 @@ class MercadoService(BaseService):
                 exc_info=True,
             )
             return {
-                "mensagem": (
-                    "❌ Erro ao comparar preços."
-                )
+                "mensagem": t("mercado_compare_error", lang=lang)
             }
 
     async def ranking_mercados(
-        self, chat_id: str
+        self, chat_id: str, lang: str = "en"
     ) -> Dict[str, Any]:
         """Ranking geral de mercados."""
         try:
@@ -1385,10 +1341,7 @@ class MercadoService(BaseService):
             compras = res.data or []
             if not compras:
                 return {
-                    "mensagem": (
-                        "📊 Ainda sem histórico. "
-                        "Regista a primeira nota!"
-                    )
+                    "mensagem": t("mercado_no_ranking_data", lang=lang)
                 }
 
             totais: Dict[str, Dict] = {}
@@ -1413,10 +1366,7 @@ class MercadoService(BaseService):
             )
 
             linhas = [
-                (
-                    "🏪 *Ranking de Mercados "
-                    "(histórico total)*"
-                ),
+                t("mercado_ranking_header", lang=lang),
                 "",
             ]
             medalhas = ["🥇", "🥈", "🥉"]
@@ -1440,16 +1390,14 @@ class MercadoService(BaseService):
                     f"{emoji} *{mercado}*\n"
                     f" 💶 €{dados['total']:.2f} "
                     f"({pct:.0f}%) · "
-                    f"{dados['visitas']} visita(s) "
-                    f"· ticket médio €{ticket:.2f}"
+                    + t("mercado_visit_count", lang=lang, count=dados["visitas"])
+                    + " · "
+                    + t("mercado_avg_ticket", lang=lang, amount=f"{ticket:.2f}")
                 )
             if len(ranking) > 1:
                 linhas += [
                     "",
-                    (
-                        "💡 Onde gastas menos: "
-                        f"*{ranking[-1][0]}*"
-                    ),
+                    t("mercado_cheapest_store", lang=lang, store=ranking[-1][0]),
                 ]
 
             return {
@@ -1464,24 +1412,9 @@ class MercadoService(BaseService):
                 exc_info=True,
             )
             return {
-                "mensagem": "❌ Erro ao gerar ranking."
+                "mensagem": t("mercado_ranking_error", lang=lang)
             }
 
-    @staticmethod
-    def _nome_mes(mes: int) -> str:
-        nomes = [
-            "",
-            "Janeiro",
-            "Fevereiro",
-            "Março",
-            "Abril",
-            "Maio",
-            "Junho",
-            "Julho",
-            "Agosto",
-            "Setembro",
-            "Outubro",
-            "Novembro",
-            "Dezembro",
-        ]
-        return nomes[mes] if 1 <= mes <= 12 else str(mes)
+    def _nome_mes(self, mes: int, lang: str = "en") -> str:
+        """Get localized month name."""
+        return t(f"month_{mes}", lang=lang) if 1 <= mes <= 12 else str(mes)

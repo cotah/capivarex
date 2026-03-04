@@ -105,14 +105,14 @@ class MercadoAgent(BaseAgent):
                 chat_id = str(context.get("chat_id", "unknown"))
                 mime_type = context.get("image_mime", "image/jpeg")
                 result = await svc.processar_nota(
-                    image_data, chat_id, mime_type=mime_type
+                    image_data, chat_id, mime_type=mime_type, lang=lang
                 )
                 status = (
                     AgentStatus.SUCCESS if result.get("sucesso") else AgentStatus.ERROR
                 )
                 return AgentResponse(
                     status=status,
-                    response=result.get("mensagem", "❌ Erro ao processar nota."),
+                    response=result.get("mensagem", t("mercado_receipt_failed", lang=lang)),
                     data=result,
                 )
 
@@ -121,20 +121,20 @@ class MercadoAgent(BaseAgent):
                 chat_id = str(context.get("chat_id", "unknown"))
                 mes = context.get("mes")
                 ano = context.get("ano")
-                result = await svc.relatorio_mensal(chat_id, mes=mes, ano=ano)
+                result = await svc.relatorio_mensal(chat_id, mes=mes, ano=ano, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao gerar relatório."),
+                    response=result.get("mensagem", t("mercado_report_error", lang=lang)),
                     data=result,
                 )
 
             # ── Ranking de mercados ───────────────────────────────────────────
             if _RE_RANKING.search(texto):
                 chat_id = str(context.get("chat_id", "unknown"))
-                result = await svc.ranking_mercados(chat_id)
+                result = await svc.ranking_mercados(chat_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao gerar ranking."),
+                    response=result.get("mensagem", t("mercado_ranking_error", lang=lang)),
                     data=result,
                 )
 
@@ -143,37 +143,37 @@ class MercadoAgent(BaseAgent):
             if m:
                 produto = m.group(1).strip().rstrip("?!.")
                 chat_id = str(context.get("chat_id", "unknown"))
-                result = await svc.comparar_produto(produto, chat_id)
+                result = await svc.comparar_produto(produto, chat_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao comparar."),
+                    response=result.get("mensagem", t("mercado_compare_error", lang=lang)),
                     data=result,
                 )
 
             # ── Histórico da lista ────────────────────────────────────────────
             if _RE_HISTORICO_LISTA.search(texto):
-                result = await svc.historico_lista(user_id=user_id)
+                result = await svc.historico_lista(user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao obter histórico."),
+                    response=result.get("mensagem", t("mercado_no_history", lang=lang)),
                     data=result,
                 )
 
             # ── Limpar lista ──────────────────────────────────────────────────
             if _RE_LIMPAR.search(texto):
-                result = await svc.limpar_lista(user_id=user_id)
+                result = await svc.limpar_lista(user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao limpar."),
+                    response=result.get("mensagem", t("mercado_clear_error", lang=lang)),
                     data=result,
                 )
 
             # ── Ver lista ─────────────────────────────────────────────────────
             if _RE_VER.search(texto):
-                result = await svc.ver_lista(user_id=user_id)
+                result = await svc.ver_lista(user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao obter lista."),
+                    response=result.get("mensagem", t("mercado_list_empty", lang=lang)),
                     data=result,
                 )
 
@@ -181,10 +181,10 @@ class MercadoAgent(BaseAgent):
             m = _RE_REMOVER.search(texto)
             if m:
                 item = m.group(1).strip().rstrip("?!.,")
-                result = await svc.remover(item, user_id=user_id)
+                result = await svc.remover(item, user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao remover."),
+                    response=result.get("mensagem", t("mercado_what_to_remove", lang=lang)),
                     data=result,
                 )
 
@@ -192,16 +192,16 @@ class MercadoAgent(BaseAgent):
             m = _RE_ADICIONAR.search(texto)
             if m:
                 itens = m.group(1).strip().rstrip("?!.,")
-                result = await svc.adicionar(itens, user_id=user_id)
+                result = await svc.adicionar(itens, user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get("mensagem", "❌ Erro ao adicionar."),
+                    response=result.get("mensagem", t("mercado_what_to_add", lang=lang)),
                     data=result,
                 )
 
             # ── Fallback: tenta adicionar o texto directamente ────────────────
             if texto and len(texto) < 150:
-                result = await svc.adicionar(texto, user_id=user_id)
+                result = await svc.adicionar(texto, user_id=user_id, lang=lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=result.get("mensagem", self._ajuda()),

@@ -157,7 +157,7 @@ class TestIntencoes:
         ctx = {"image_data": b"fake_image_bytes", "chat_id": "chat123"}
         result = await agent.execute("", ctx)
         svc.processar_nota.assert_called_once_with(
-            b"fake_image_bytes", "chat123", mime_type="image/jpeg"
+            b"fake_image_bytes", "chat123", mime_type="image/jpeg", lang="en"
         )
         assert result.status == AgentStatus.SUCCESS
 
@@ -167,7 +167,7 @@ class TestIntencoes:
         agent, svc = mercado_agent
         result = await agent.execute("bananas", {})
         svc.adicionar.assert_called_once_with(
-            "bananas", user_id="default"
+            "bananas", user_id="default", lang="en"
         )
         assert result.status == AgentStatus.SUCCESS
 
@@ -180,10 +180,7 @@ class TestIntencoes:
         with patch("agents.specialized.mercado_agent.get_service", return_value=None):
             result = await agent.execute("ver lista", {})
         assert result.status == AgentStatus.ERROR
-        assert (
-            "não disponível" in result.response.lower()
-            or "unavailable" in result.response.lower()
-        )
+        assert "unavailable" in result.response.lower()
 
     @pytest.mark.asyncio
     async def test_ajuda_texto_longo(self, mercado_agent):
@@ -400,10 +397,10 @@ class TestNomeMes:
 
     def test_meses_validos(self):
         svc = self._make_svc()
-        assert svc._nome_mes(1) == "Janeiro"
-        assert svc._nome_mes(2) == "Fevereiro"
-        assert svc._nome_mes(6) == "Junho"
-        assert svc._nome_mes(12) == "Dezembro"
+        assert svc._nome_mes(1) == "January"
+        assert svc._nome_mes(2) == "February"
+        assert svc._nome_mes(6) == "June"
+        assert svc._nome_mes(12) == "December"
 
     def test_mes_invalido(self):
         svc = self._make_svc()
@@ -478,11 +475,11 @@ class TestFormatarRespostaNota:
                 },
             ],
         }
-        alertas = ["⚠️ *Arroz* subiu 25% (era €2.00, agora €2.50)"]
+        alertas = ["⚠️ *Arroz* went up 25% (was €2.00, now €2.50)"]
         result = svc._formatar_resposta_nota(nota, alertas=alertas, compra_id="x1")
         assert result["alertas"] == alertas
-        assert "Alertas de preço" in result["mensagem"]
-        assert "subiu 25%" in result["mensagem"]
+        assert "Price alerts" in result["mensagem"]
+        assert "went up 25%" in result["mensagem"]
 
     def test_formato_mais_de_15_itens(self):
         from datetime import date
@@ -507,7 +504,7 @@ class TestFormatarRespostaNota:
         }
         result = svc._formatar_resposta_nota(nota, alertas=[], compra_id=None)
         assert result["n_itens"] == 20
-        assert "...e mais 5 itens" in result["mensagem"]
+        assert "...and 5 more items" in result["mensagem"]
         assert result["compra_id"] is None
 
     def test_formato_quantidade_1_sem_multiplicador(self):
@@ -588,7 +585,7 @@ class TestSupabaseList:
         ):
             result = await svc.ver_lista(user_id="u1")
             assert result["total"] == 0
-            assert "vazia" in result["mensagem"]
+            assert "empty" in result["mensagem"]
 
     @pytest.mark.asyncio
     async def test_ver_lista_with_items(self):
@@ -829,7 +826,7 @@ class TestProcessarNota:
         ):
             result = await svc.processar_nota(b"img", "chat1")
             assert result["sucesso"] is False
-            assert "Não consegui ler" in result["mensagem"]
+            assert "Could not read the receipt" in result["mensagem"]
 
 
 # ── Testes: _extrair_gpt4 ──────────────────────────────────────────────────
@@ -1230,7 +1227,7 @@ class TestVerificarAlertas:
         with patch("services.get_service", return_value=mock_supabase):
             alertas = await svc._verificar_alertas(itens, "chat1")
             assert len(alertas) == 1
-            assert "subiu" in alertas[0]
+            assert "went up" in alertas[0]
 
     @pytest.mark.asyncio
     async def test_sem_alerta_preco_estavel(self):
@@ -1376,7 +1373,7 @@ class TestRelatorioMensal:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.relatorio_mensal("chat1", mes=2, ano=2026)
-            assert "Relatório" in result["mensagem"]
+            assert "Report" in result["mensagem"]
             assert "Lidl" in result["mensagem"]
             assert "total" in result
 
@@ -1402,7 +1399,7 @@ class TestRelatorioMensal:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.relatorio_mensal("chat1", mes=2, ano=2026)
-            assert "Sem compras" in result["mensagem"]
+            assert "No purchases" in result["mensagem"]
 
     @pytest.mark.asyncio
     async def test_relatorio_exception(self):
@@ -1410,7 +1407,7 @@ class TestRelatorioMensal:
 
         with patch("services.get_service", side_effect=RuntimeError("DB error")):
             result = await svc.relatorio_mensal("chat1")
-            assert "Erro" in result["mensagem"]
+            assert "Error" in result["mensagem"]
 
 
 # ── Testes: comparar_produto ────────────────────────────────────────────────
@@ -1467,7 +1464,7 @@ class TestCompararProduto:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.comparar_produto("leite", "chat1")
-            assert "Comparação" in result["mensagem"]
+            assert "Price comparison" in result["mensagem"]
             assert "poupanca" in result
 
     @pytest.mark.asyncio
@@ -1492,10 +1489,7 @@ class TestCompararProduto:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.comparar_produto("xyz", "chat1")
-            assert (
-                "não tenho dados" in result["mensagem"].lower()
-                or "Ainda" in result["mensagem"]
-            )
+            assert "don't have data" in result["mensagem"]
 
     @pytest.mark.asyncio
     async def test_comparar_sem_precos_validos(self):
@@ -1526,7 +1520,7 @@ class TestCompararProduto:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.comparar_produto("leite", "chat1")
-            assert "Sem dados de preço" in result["mensagem"]
+            assert "No price data" in result["mensagem"]
 
     @pytest.mark.asyncio
     async def test_comparar_exception(self):
@@ -1534,7 +1528,7 @@ class TestCompararProduto:
 
         with patch("services.get_service", side_effect=RuntimeError("DB")):
             result = await svc.comparar_produto("leite", "chat1")
-            assert "Erro" in result["mensagem"]
+            assert "Error" in result["mensagem"]
 
 
 # ── Testes: ranking_mercados ────────────────────────────────────────────────
@@ -1575,9 +1569,9 @@ class TestRankingMercados:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.ranking_mercados("chat1")
-            assert "Ranking" in result["mensagem"]
+            assert "Store Ranking" in result["mensagem"]
             assert "ranking" in result
-            assert "Onde gastas menos" in result["mensagem"]
+            assert "Where you spend least" in result["mensagem"]
 
     @pytest.mark.asyncio
     async def test_ranking_sem_dados(self):
@@ -1599,10 +1593,7 @@ class TestRankingMercados:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.ranking_mercados("chat1")
-            assert (
-                "sem histórico" in result["mensagem"].lower()
-                or "Ainda" in result["mensagem"]
-            )
+            assert "No purchase history" in result["mensagem"]
 
     @pytest.mark.asyncio
     async def test_ranking_exception(self):
@@ -1610,7 +1601,7 @@ class TestRankingMercados:
 
         with patch("services.get_service", side_effect=RuntimeError("DB")):
             result = await svc.ranking_mercados("chat1")
-            assert "Erro" in result["mensagem"]
+            assert "Error" in result["mensagem"]
 
     @pytest.mark.asyncio
     async def test_ranking_mercado_unico(self):
@@ -1633,8 +1624,8 @@ class TestRankingMercados:
 
         with patch("services.get_service", return_value=mock_supabase):
             result = await svc.ranking_mercados("chat1")
-            assert "Ranking" in result["mensagem"]
-            assert "Onde gastas menos" not in result["mensagem"]
+            assert "Store Ranking" in result["mensagem"]
+            assert "Where you spend least" not in result["mensagem"]
 
 
 # ── Testes: mais categorias ────────────────────────────────────────────────
@@ -1987,6 +1978,6 @@ class TestVerificarDuplicata:
 
         assert result["sucesso"] is True
         assert result["duplicada"] is True
-        assert "já foi registada" in result["mensagem"]
+        assert "was already registered" in result["mensagem"]
         svc._guardar_compra.assert_not_called()
         svc._verificar_alertas.assert_not_called()

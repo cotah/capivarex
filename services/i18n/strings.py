@@ -2244,6 +2244,264 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "Não foi possível consultar o clima.",
         "es": "No fue posible consultar el clima.",
     },
+    # ══════════════════════════════════════════════════════════════
+    # Mercado — Shopping List
+    # ══════════════════════════════════════════════════════════════
+    "mercado_what_to_add": {
+        "en": "❓ What items do you want to add?",
+        "pt": "❓ Que itens queres adicionar?",
+        "es": "❓ ¿Qué productos quieres añadir?",
+    },
+    "mercado_added": {
+        "en": "✅ Added: {items}",
+        "pt": "✅ Adicionado: {items}",
+        "es": "✅ Añadido: {items}",
+    },
+    "mercado_already_in_list": {
+        "en": "\n⚠️ Already in list: {items}",
+        "pt": "\n⚠️ Já na lista: {items}",
+        "es": "\n⚠️ Ya en la lista: {items}",
+    },
+    "mercado_current_list": {
+        "en": "\n\n📋 Current list ({total} items):\n",
+        "pt": "\n\n📋 Lista actual ({total} itens):\n",
+        "es": "\n\n📋 Lista actual ({total} artículos):\n",
+    },
+    "mercado_list_empty": {
+        "en": "🛒 Your shopping list is empty.\n\nTell me what to add!",
+        "pt": "🛒 A tua lista de compras está vazia.\n\nDiz-me o que devo adicionar!",
+        "es": "🛒 Tu lista de compras está vacía.\n\n¡Dime qué añadir!",
+    },
+    "mercado_list_header": {
+        "en": "🛒 *Shopping List* ({total} items):\n\n",
+        "pt": "🛒 *Lista de Compras* ({total} itens):\n\n",
+        "es": "🛒 *Lista de Compras* ({total} artículos):\n\n",
+    },
+    "mercado_list_footer": {
+        "en": '\n\n_Say "clear list" when you\'re done._',
+        "pt": '\n\n_Diz "limpar lista" quando terminares._',
+        "es": '\n\n_Di "limpiar lista" cuando termines._',
+    },
+    "mercado_what_to_remove": {
+        "en": "❓ Which item do you want to remove?",
+        "pt": "❓ Qual item queres remover?",
+        "es": "❓ ¿Qué producto quieres eliminar?",
+    },
+    "mercado_item_removed": {
+        "en": '🗑️ "{item}" removed.\n\n📋 {total} items remaining.',
+        "pt": '🗑️ "{item}" removido.\n\n📋 Restam {total} itens.',
+        "es": '🗑️ "{item}" eliminado.\n\n📋 Quedan {total} artículos.',
+    },
+    "mercado_item_not_found": {
+        "en": '❌ "{item}" not found in the list.',
+        "pt": '❌ "{item}" não encontrado na lista.',
+        "es": '❌ "{item}" no encontrado en la lista.',
+    },
+    "mercado_list_cleared": {
+        "en": "🗑️ List cleared! {total} item(s) removed.\n\n✅ Ready for the next shopping trip!",
+        "pt": "🗑️ Lista limpa! {total} item(s) removido(s).\n\n✅ Prontos para a próxima compra!",
+        "es": "🗑️ ¡Lista limpia! {total} artículo(s) eliminado(s).\n\n✅ ¡Listos para la próxima compra!",
+    },
+    "mercado_clear_error": {
+        "en": "❌ Error clearing the list.",
+        "pt": "❌ Erro ao limpar a lista.",
+        "es": "❌ Error al limpiar la lista.",
+    },
+    "mercado_no_history": {
+        "en": "📖 No shopping history yet.",
+        "pt": "📖 Sem histórico de compras ainda.",
+        "es": "📖 Sin historial de compras aún.",
+    },
+    "mercado_history_header": {
+        "en": "📖 *Recent purchases:*\n\n",
+        "pt": "📖 *Últimas compras:*\n\n",
+        "es": "📖 *Últimas compras:*\n\n",
+    },
+    # ══════════════════════════════════════════════════════════════
+    # Mercado — Receipt Processing
+    # ══════════════════════════════════════════════════════════════
+    "mercado_receipt_failed": {
+        "en": "❌ Could not read the receipt.\n\n💡 Tips: good lighting, flat receipt, steady camera.",
+        "pt": "❌ Não consegui ler a nota fiscal.\n\n💡 Dicas: boa iluminação, nota plana, câmera estável.",
+        "es": "❌ No pude leer el recibo.\n\n💡 Consejos: buena iluminación, recibo plano, cámara estable.",
+    },
+    "mercado_duplicate_receipt": {
+        "en": "⚠️ This receipt from *{mercado}* (€{total}) was already registered.\n\nNo duplicate data was saved.",
+        "pt": "⚠️ Esta nota do *{mercado}* (€{total}) já foi registada anteriormente.\n\nNenhum dado duplicado foi guardado.",
+        "es": "⚠️ Este recibo de *{mercado}* (€{total}) ya fue registrado.\n\nNo se guardaron datos duplicados.",
+    },
+    "mercado_receipt_header": {
+        "en": "🧾 *Receipt registered — {mercado}*",
+        "pt": "🧾 *Nota registada — {mercado}*",
+        "es": "🧾 *Recibo registrado — {mercado}*",
+    },
+    "mercado_receipt_date_summary": {
+        "en": "📅 {date} · {count} items · *€{total}*",
+        "pt": "📅 {date} · {count} itens · *€{total}*",
+        "es": "📅 {date} · {count} artículos · *€{total}*",
+    },
+    "mercado_items_header": {
+        "en": "📋 *Items:*",
+        "pt": "📋 *Itens:*",
+        "es": "📋 *Artículos:*",
+    },
+    "mercado_more_items": {
+        "en": " _...and {count} more items_",
+        "pt": " _...e mais {count} itens_",
+        "es": " _...y {count} artículos más_",
+    },
+    "mercado_price_alerts_header": {
+        "en": "🔔 *Price alerts:*",
+        "pt": "🔔 *Alertas de preço:*",
+        "es": "🔔 *Alertas de precio:*",
+    },
+    "mercado_price_alert_item": {
+        "en": "⚠️ *{product}* went up {pct}% (was €{old}, now €{new})",
+        "pt": "⚠️ *{product}* subiu {pct}% (era €{old}, agora €{new})",
+        "es": "⚠️ *{product}* subió {pct}% (era €{old}, ahora €{new})",
+    },
+    "mercado_tip_report": {
+        "en": "_Use 'monthly report' to see this month's spending._",
+        "pt": "_Usa 'relatório mensal' para ver gastos do mês._",
+        "es": "_Usa 'informe mensual' para ver los gastos del mes._",
+    },
+    "mercado_tip_compare": {
+        "en": "_Use 'compare [product]' to find the cheapest store._",
+        "pt": "_Usa 'comparar [produto]' para ver onde é mais barato._",
+        "es": "_Usa 'comparar [producto]' para ver dónde es más barato._",
+    },
+    # ══════════════════════════════════════════════════════════════
+    # Mercado — Reports
+    # ══════════════════════════════════════════════════════════════
+    "mercado_no_purchases_month": {
+        "en": "📊 No purchases recorded in {month} {year}.\n\nTake a photo of your next receipt!",
+        "pt": "📊 Sem compras registadas em {month} {year}.\n\nTira uma foto da próxima nota fiscal!",
+        "es": "📊 Sin compras registradas en {month} {year}.\n\n¡Toma una foto del próximo recibo!",
+    },
+    "mercado_report_header": {
+        "en": "📊 *Report — {month} {year}*",
+        "pt": "📊 *Relatório — {month} {year}*",
+        "es": "📊 *Informe — {month} {year}*",
+    },
+    "mercado_total_spent": {
+        "en": "💶 Total spent: *€{total}*",
+        "pt": "💶 Total gasto: *€{total}*",
+        "es": "💶 Total gastado: *€{total}*",
+    },
+    "mercado_stores_visited": {
+        "en": "🏪 Stores visited: {count}",
+        "pt": "🏪 Mercados visitados: {count}",
+        "es": "🏪 Tiendas visitadas: {count}",
+    },
+    "mercado_spending_by_store": {
+        "en": "🏆 *Spending by store:*",
+        "pt": "🏆 *Gastos por mercado:*",
+        "es": "🏆 *Gastos por tienda:*",
+    },
+    "mercado_top_categories": {
+        "en": "🛒 *Top categories:*",
+        "pt": "🛒 *Top categorias:*",
+        "es": "🛒 *Top categorías:*",
+    },
+    "mercado_report_error": {
+        "en": "❌ Error generating report. Try again.",
+        "pt": "❌ Erro ao gerar relatório. Tente novamente.",
+        "es": "❌ Error al generar el informe. Inténtalo de nuevo.",
+    },
+    # ══════════════════════════════════════════════════════════════
+    # Mercado — Compare & Ranking
+    # ══════════════════════════════════════════════════════════════
+    "mercado_no_data_product": {
+        "en": "🔍 I don't have data about *{product}* yet.\n\nRegister some receipts first!",
+        "pt": "🔍 Ainda não tenho dados sobre *{product}*.\n\nRegista algumas notas fiscais primeiro!",
+        "es": "🔍 Aún no tengo datos sobre *{product}*.\n\n¡Registra algunos recibos primero!",
+    },
+    "mercado_no_price_data": {
+        "en": "❌ No price data for *{product}*.",
+        "pt": "❌ Sem dados de preço para *{product}*.",
+        "es": "❌ Sin datos de precio para *{product}*.",
+    },
+    "mercado_compare_header": {
+        "en": "💰 *Price comparison — {product}*",
+        "pt": "💰 *Comparação de preços — {product}*",
+        "es": "💰 *Comparación de precios — {product}*",
+    },
+    "mercado_compare_savings": {
+        "en": "💡 At *{store}* you save *€{amount}* per unit vs *{expensive_store}*.",
+        "pt": "💡 No *{store}* poupas *€{amount}* por unidade vs *{expensive_store}*.",
+        "es": "💡 En *{store}* ahorras *€{amount}* por unidad vs *{expensive_store}*.",
+    },
+    "mercado_compare_error": {
+        "en": "❌ Error comparing prices.",
+        "pt": "❌ Erro ao comparar preços.",
+        "es": "❌ Error al comparar precios.",
+    },
+    "mercado_no_ranking_data": {
+        "en": "📊 No purchase history yet. Register your first receipt!",
+        "pt": "📊 Ainda sem histórico. Regista a primeira nota!",
+        "es": "📊 Sin historial aún. ¡Registra tu primer recibo!",
+    },
+    "mercado_ranking_header": {
+        "en": "🏪 *Store Ranking (all-time)*",
+        "pt": "🏪 *Ranking de Mercados (histórico total)*",
+        "es": "🏪 *Ranking de Tiendas (histórico total)*",
+    },
+    "mercado_cheapest_store": {
+        "en": "💡 Where you spend least: *{store}*",
+        "pt": "💡 Onde gastas menos: *{store}*",
+        "es": "💡 Donde gastas menos: *{store}*",
+    },
+    "mercado_ranking_error": {
+        "en": "❌ Error generating ranking.",
+        "pt": "❌ Erro ao gerar ranking.",
+        "es": "❌ Error al generar el ranking.",
+    },
+    "mercado_visit_count": {
+        "en": "{count} visit(s)",
+        "pt": "{count} visita(s)",
+        "es": "{count} visita(s)",
+    },
+    "mercado_avg_ticket": {
+        "en": "avg ticket €{amount}",
+        "pt": "ticket médio €{amount}",
+        "es": "ticket promedio €{amount}",
+    },
+    "mercado_purchase_count": {
+        "en": "{count} purchase(s)",
+        "pt": "{count} compra(s)",
+        "es": "{count} compra(s)",
+    },
+    # ══════════════════════════════════════════════════════════════
+    # Mercado — Month names
+    # ══════════════════════════════════════════════════════════════
+    "month_1": {"en": "January", "pt": "Janeiro", "es": "Enero"},
+    "month_2": {"en": "February", "pt": "Fevereiro", "es": "Febrero"},
+    "month_3": {"en": "March", "pt": "Março", "es": "Marzo"},
+    "month_4": {"en": "April", "pt": "Abril", "es": "Abril"},
+    "month_5": {"en": "May", "pt": "Maio", "es": "Mayo"},
+    "month_6": {"en": "June", "pt": "Junho", "es": "Junio"},
+    "month_7": {"en": "July", "pt": "Julho", "es": "Julio"},
+    "month_8": {"en": "August", "pt": "Agosto", "es": "Agosto"},
+    "month_9": {"en": "September", "pt": "Setembro", "es": "Septiembre"},
+    "month_10": {"en": "October", "pt": "Outubro", "es": "Octubre"},
+    "month_11": {"en": "November", "pt": "Novembro", "es": "Noviembre"},
+    "month_12": {"en": "December", "pt": "Dezembro", "es": "Diciembre"},
+    # ══════════════════════════════════════════════════════════════
+    # Mercado — Categories (display names, NOT matching keywords)
+    # ══════════════════════════════════════════════════════════════
+    "cat_dairy": {"en": "Dairy", "pt": "Laticínios", "es": "Lácteos"},
+    "cat_bakery": {"en": "Bakery", "pt": "Padaria", "es": "Panadería"},
+    "cat_meat": {"en": "Meat", "pt": "Carnes", "es": "Carnes"},
+    "cat_fish": {"en": "Fish", "pt": "Peixe", "es": "Pescado"},
+    "cat_fruit": {"en": "Fruit", "pt": "Frutas", "es": "Frutas"},
+    "cat_vegetables": {"en": "Vegetables", "pt": "Legumes", "es": "Verduras"},
+    "cat_drinks": {"en": "Drinks", "pt": "Bebidas", "es": "Bebidas"},
+    "cat_cleaning": {"en": "Cleaning", "pt": "Limpeza", "es": "Limpieza"},
+    "cat_hygiene": {"en": "Hygiene", "pt": "Higiene", "es": "Higiene"},
+    "cat_grocery": {"en": "Grocery", "pt": "Mercearia", "es": "Comestibles"},
+    "cat_eggs": {"en": "Eggs", "pt": "Ovos", "es": "Huevos"},
+    "cat_snacks": {"en": "Snacks", "pt": "Snacks", "es": "Snacks"},
+    "cat_other": {"en": "Other", "pt": "Outros", "es": "Otros"},
 }
 
 
