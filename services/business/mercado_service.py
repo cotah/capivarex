@@ -576,6 +576,7 @@ class MercadoService(BaseService):
                     "temperature": 0.1,
                     "maxOutputTokens": 2000,
                     "responseMimeType": "application/json",
+                    "thinkingConfig": {"thinkingBudget": 0},
                 },
             }
 
