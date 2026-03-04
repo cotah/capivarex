@@ -701,6 +701,9 @@ class TestProcessarNota:
                 svc, "_extrair_gpt4", new_callable=AsyncMock, return_value=nota_raw
             ),
             patch.object(
+                svc, "_verificar_duplicata", new_callable=AsyncMock, return_value=False
+            ),
+            patch.object(
                 svc,
                 "_guardar_compra",
                 new_callable=AsyncMock,
@@ -747,6 +750,9 @@ class TestProcessarNota:
                 return_value=nota_raw,
             ),
             patch.object(
+                svc, "_verificar_duplicata", new_callable=AsyncMock, return_value=False
+            ),
+            patch.object(
                 svc,
                 "_guardar_compra",
                 new_callable=AsyncMock,
@@ -791,6 +797,9 @@ class TestProcessarNota:
                 "_extrair_google_vision",
                 new_callable=AsyncMock,
                 return_value=nota_ok,
+            ),
+            patch.object(
+                svc, "_verificar_duplicata", new_callable=AsyncMock, return_value=False
             ),
             patch.object(
                 svc, "_guardar_compra", new_callable=AsyncMock, return_value="c3"
@@ -1805,6 +1814,7 @@ class TestExtrairGemini:
         }
         svc._extrair_gemini = AsyncMock(return_value=nota)
         svc._extrair_gpt4 = AsyncMock()  # should NOT be called
+        svc._verificar_duplicata = AsyncMock(return_value=False)
         svc._guardar_compra = AsyncMock(return_value="123")
         svc._verificar_alertas = AsyncMock(return_value=[])
 
@@ -1834,6 +1844,7 @@ class TestExtrairGemini:
         }
         svc._extrair_gemini = AsyncMock(return_value=None)
         svc._extrair_gpt4 = AsyncMock(return_value=nota)
+        svc._verificar_duplicata = AsyncMock(return_value=False)
         svc._guardar_compra = AsyncMock(return_value="456")
         svc._verificar_alertas = AsyncMock(return_value=[])
 
@@ -1842,3 +1853,140 @@ class TestExtrairGemini:
         svc._extrair_gemini.assert_called_once()
         svc._extrair_gpt4.assert_called_once()
         assert result["sucesso"] is True
+
+
+# ── Testes: _verificar_duplicata ─────────────────────────────────────────────
+
+
+class TestVerificarDuplicata:
+    """Tests for duplicate receipt detection."""
+
+    def _make_svc(self):
+        import logging
+
+        from services.business.mercado_service import MercadoService
+
+        svc = MercadoService.__new__(MercadoService)
+        svc.name = "mercado"
+        svc.logger = logging.getLogger("test.mercado")
+        svc._initialized = True
+        svc._http = AsyncMock()
+        return svc
+
+    @pytest.mark.asyncio
+    async def test_duplicata_found(self):
+        """Returns True when duplicate exists."""
+        svc = self._make_svc()
+        from datetime import date
+
+        mock_result = MagicMock()
+        mock_result.data = [{"id": "existing-123"}]
+
+        mock_query = MagicMock()
+        mock_query.select.return_value = mock_query
+        mock_query.eq.return_value = mock_query
+        mock_query.limit.return_value = mock_query
+        mock_query.execute.return_value = mock_result
+
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.client.table.return_value = mock_query
+
+        with patch(
+            "services.get_service",
+            return_value=mock_db,
+        ):
+            result = await svc._verificar_duplicata(
+                "chat1", "Lidl", date(2026, 3, 4), 25.50
+            )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_duplicata_not_found(self):
+        """Returns False when no duplicate."""
+        svc = self._make_svc()
+        from datetime import date
+
+        mock_result = MagicMock()
+        mock_result.data = []
+
+        mock_query = MagicMock()
+        mock_query.select.return_value = mock_query
+        mock_query.eq.return_value = mock_query
+        mock_query.limit.return_value = mock_query
+        mock_query.execute.return_value = mock_result
+
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.client.table.return_value = mock_query
+
+        with patch(
+            "services.get_service",
+            return_value=mock_db,
+        ):
+            result = await svc._verificar_duplicata(
+                "chat1", "Lidl", date(2026, 3, 4), 25.50
+            )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_duplicata_exception_returns_false(self):
+        """Returns False on exception (let it save)."""
+        svc = self._make_svc()
+        from datetime import date
+
+        with patch(
+            "services.get_service",
+            side_effect=Exception("db down"),
+        ):
+            result = await svc._verificar_duplicata(
+                "chat1", "Lidl", date(2026, 3, 4), 10.0
+            )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_duplicata_no_db_returns_false(self):
+        """Returns False when database unavailable."""
+        svc = self._make_svc()
+        from datetime import date
+
+        with patch(
+            "services.get_service",
+            return_value=None,
+        ):
+            result = await svc._verificar_duplicata(
+                "chat1", "Lidl", date(2026, 3, 4), 5.0
+            )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_processar_nota_duplicata_skips_save(self):
+        """Duplicate receipt returns warning, does NOT save."""
+        svc = self._make_svc()
+        nota = {
+            "mercado": "Lidl",
+            "data": "04/03/2026",
+            "total": 25.50,
+            "itens": [
+                {
+                    "produto": "Leite",
+                    "quantidade": 1,
+                    "preco_total": 1.09,
+                    "preco_unitario": 1.09,
+                }
+            ],
+        }
+        svc._extrair_gemini = AsyncMock(return_value=nota)
+        svc._verificar_duplicata = AsyncMock(
+            return_value=True
+        )
+        svc._guardar_compra = AsyncMock()
+        svc._verificar_alertas = AsyncMock()
+
+        result = await svc.processar_nota(b"img", "chat1")
+
+        assert result["sucesso"] is True
+        assert result["duplicada"] is True
+        assert "já foi registada" in result["mensagem"]
+        svc._guardar_compra.assert_not_called()
+        svc._verificar_alertas.assert_not_called()

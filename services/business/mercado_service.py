@@ -530,6 +530,27 @@ class MercadoService(BaseService):
             }
 
         nota = self._normalizar_nota(nota)
+
+        # Verificar duplicata antes de guardar
+        duplicada = await self._verificar_duplicata(
+            chat_id=chat_id,
+            mercado=nota["mercado"],
+            data_compra=nota["data_obj"],
+            total=float(nota.get("total") or 0),
+        )
+        if duplicada:
+            return {
+                "sucesso": True,
+                "duplicada": True,
+                "mensagem": (
+                    f"⚠️ Esta nota do *{nota['mercado']}* "
+                    f"(€{nota.get('total', 0):.2f}) "
+                    "já foi registada anteriormente."
+                    "\n\n"
+                    "Nenhum dado duplicado foi guardado."
+                ),
+            }
+
         compra_id = await self._guardar_compra(
             nota, chat_id, fonte
         )
@@ -834,6 +855,47 @@ class MercadoService(BaseService):
             itens_ok.append(item)
         data["itens"] = itens_ok
         return data
+
+    async def _verificar_duplicata(
+        self,
+        chat_id: str,
+        mercado: str,
+        data_compra,
+        total: float,
+    ) -> bool:
+        """Verifica se nota já foi registada (mesmo mercado + data + total)."""
+        try:
+            from services import get_service
+
+            supabase_svc = get_service("database")
+            if (
+                not supabase_svc
+                or not supabase_svc.is_initialized()
+            ):
+                return False
+
+            db = supabase_svc.client
+
+            result = (
+                db.table("mercado_compras")
+                .select("id")
+                .eq("chat_id", chat_id)
+                .eq("mercado", mercado)
+                .eq(
+                    "data_compra",
+                    data_compra.isoformat(),
+                )
+                .eq("total", total)
+                .limit(1)
+                .execute()
+            )
+            return bool(result.data)
+
+        except Exception as e:
+            self.logger.warning(
+                "Erro ao verificar duplicata: %s", e
+            )
+            return False
 
     async def _guardar_compra(
         self,
