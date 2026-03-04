@@ -108,7 +108,7 @@ class ImageAgent(BaseAgent):
         # If queue mode is requested and Redis is available, enqueue the task
         if use_queue:
             return await self._enqueue_image_task(
-                enhanced_prompt, user_id, user_plan, aspect_ratio
+                enhanced_prompt, user_id, user_plan, aspect_ratio, lang
             )
 
         try:
@@ -135,14 +135,14 @@ class ImageAgent(BaseAgent):
                 if not success:
                     return AgentResponse(
                         status=AgentStatus.ERROR,
-                        response=result.get("error", "Erro ao gerar imagem."),
+                        response=result.get("error", t("image_gen_error", lang=lang)),
                         error=result.get("error", "Image generation failed"),
                         data=result,
                     )
 
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response="Imagem gerada com sucesso!",
+                    response=t("image_gen_success", lang=lang),
                     data=result,
                     metadata={
                         "type": "image",
@@ -153,7 +153,7 @@ class ImageAgent(BaseAgent):
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Imagem gerada com sucesso!",
+                response=t("image_gen_success", lang=lang),
                 data={"success": True, "result": result},
                 metadata={"type": "image"},
             )
@@ -162,7 +162,7 @@ class ImageAgent(BaseAgent):
             self.logger.error(f"ImageAgent failed: {e}", exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao gerar imagem: {str(e)}",
+                response=t("image_gen_error_detail", lang=lang, error=str(e)),
                 error=str(e),
             )
 
@@ -172,6 +172,7 @@ class ImageAgent(BaseAgent):
         user_id: str,
         user_plan: str,
         aspect_ratio: str,
+        lang: str = "en",
     ) -> AgentResponse:
         """Enqueue image generation as a background task via arq + Upstash REST."""
         try:
@@ -194,7 +195,7 @@ class ImageAgent(BaseAgent):
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Entendido! Estou gerando sua imagem em segundo plano. Avisarei quando estiver pronta!",
+                response=t("image_gen_background", lang=lang),
                 data={"queued": True, "prompt": prompt},
                 metadata={"type": "image_queued"},
             )
@@ -229,7 +230,7 @@ class ImageAgent(BaseAgent):
 
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response="Entendido! Estou gerando sua imagem em segundo plano. Avisarei quando estiver pronta!",
+                    response=t("image_gen_background", lang=lang),
                     data={"queued": True, "prompt": prompt},
                     metadata={"type": "image_queued"},
                 )

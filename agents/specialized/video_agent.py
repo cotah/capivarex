@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
+from services.i18n import t, get_user_lang
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class VideoAgent(BaseAgent):
         Returns:
             AgentResponse with video generation result
         """
+        lang = get_user_lang(context)
         video_prompt = str(context.get("prompt") or prompt).strip()
         image_path = context.get("image_path")
         user_plan = str(context.get("user_plan") or "basic")
@@ -58,7 +60,7 @@ class VideoAgent(BaseAgent):
         if not video_prompt:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Prompt de video vazio.",
+                response=t("video_empty_prompt", lang=lang),
                 error="Empty video prompt",
             )
 
@@ -70,7 +72,7 @@ class VideoAgent(BaseAgent):
             if not grok_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Servico de video Grok nao disponivel.",
+                    response=t("video_grok_unavailable", lang=lang),
                     error="GrokVideoService unavailable",
                 )
             if not grok_svc.is_initialized():
@@ -88,7 +90,7 @@ class VideoAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response=result.get(
-                        "error", "Erro ao gerar video da foto."
+                        "error", t("video_grok_error", lang=lang)
                     ),
                     error=result.get("error"),
                     data=result,
@@ -96,7 +98,7 @@ class VideoAgent(BaseAgent):
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Video gerado com sucesso a partir da foto!",
+                response=t("video_grok_success", lang=lang),
                 data=result,
                 metadata={
                     "type": "video",
@@ -112,7 +114,7 @@ class VideoAgent(BaseAgent):
             if not video_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Servico de geracao de video nao disponivel.",
+                    response=t("video_veo_unavailable", lang=lang),
                     error="Video service not available",
                 )
 
@@ -140,14 +142,14 @@ class VideoAgent(BaseAgent):
                 if not success:
                     return AgentResponse(
                         status=AgentStatus.ERROR,
-                        response=result.get("error", "Erro ao gerar video."),
+                        response=result.get("error", t("video_veo_error", lang=lang)),
                         error=result.get("error", "Video generation failed"),
                         data=result,
                     )
 
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response="Video gerado com sucesso!",
+                    response=t("video_veo_success", lang=lang),
                     data=result,
                     metadata={
                         "type": "video",
@@ -158,7 +160,7 @@ class VideoAgent(BaseAgent):
 
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Video gerado com sucesso!",
+                response=t("video_veo_success", lang=lang),
                 data={"success": True, "result": result},
                 metadata={"type": "video"},
             )
@@ -168,7 +170,7 @@ class VideoAgent(BaseAgent):
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao gerar video: {str(e)}",
+                response=t("video_general_error", lang=lang, error=str(e)),
                 error=str(e),
             )
 

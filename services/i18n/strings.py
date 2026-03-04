@@ -2157,6 +2157,93 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "en": "Location **{alias}** removed.",
         "es": "Ubicacion **{alias}** eliminada.",
     },
+    # ══════════════════════════════════════════════════════════════
+    # Video Agent
+    # ══════════════════════════════════════════════════════════════
+    "video_empty_prompt": {
+        "en": "Please describe the video you want or send a photo.",
+        "pt": "Envie uma foto ou descreva o vídeo que deseja.",
+        "es": "Envía una foto o describe el video que deseas.",
+    },
+    "video_grok_unavailable": {
+        "en": "Grok video service not available.",
+        "pt": "Serviço de vídeo Grok não disponível.",
+        "es": "Servicio de video Grok no disponible.",
+    },
+    "video_grok_error": {
+        "en": "Error generating video from photo.",
+        "pt": "Erro ao gerar vídeo da foto.",
+        "es": "Error al generar video de la foto.",
+    },
+    "video_grok_success": {
+        "en": "🎬 Video generated from your photo!",
+        "pt": "🎬 Vídeo gerado com sucesso a partir da foto!",
+        "es": "🎬 ¡Video generado a partir de la foto!",
+    },
+    "video_veo_unavailable": {
+        "en": "Video generation service not available.",
+        "pt": "Serviço de geração de vídeo não disponível.",
+        "es": "Servicio de generación de video no disponible.",
+    },
+    "video_veo_error": {
+        "en": "Error generating video.",
+        "pt": "Erro ao gerar vídeo.",
+        "es": "Error al generar video.",
+    },
+    "video_veo_success": {
+        "en": "🎬 Video generated!",
+        "pt": "🎬 Vídeo gerado com sucesso!",
+        "es": "🎬 ¡Video generado!",
+    },
+    "video_general_error": {
+        "en": "Error generating video: {error}",
+        "pt": "Erro ao gerar vídeo: {error}",
+        "es": "Error al generar video: {error}",
+    },
+    # ══════════════════════════════════════════════════════════════
+    # Image Agent
+    # ══════════════════════════════════════════════════════════════
+    "image_gen_success": {
+        "en": "🎨 Image generated!",
+        "pt": "🎨 Imagem gerada com sucesso!",
+        "es": "🎨 ¡Imagen generada!",
+    },
+    "image_gen_error": {
+        "en": "Error generating image.",
+        "pt": "Erro ao gerar imagem.",
+        "es": "Error al generar imagen.",
+    },
+    "image_gen_error_detail": {
+        "en": "Error generating image: {error}",
+        "pt": "Erro ao gerar imagem: {error}",
+        "es": "Error al generar imagen: {error}",
+    },
+    "image_gen_background": {
+        "en": "Got it! Generating your image in the background. I'll let you know when it's ready!",
+        "pt": "Entendido! Estou gerando sua imagem em segundo plano. Avisarei quando estiver pronta!",
+        "es": "¡Entendido! Estoy generando tu imagen en segundo plano. ¡Te avisaré cuando esté lista!",
+    },
+    # ══════════════════════════════════════════════════════════════
+    # Photo Handler
+    # ══════════════════════════════════════════════════════════════
+    "bot_not_initialized": {
+        "en": "Bot not initialized.",
+        "pt": "Bot não inicializado.",
+        "es": "Bot no inicializado.",
+    },
+    "photo_processing_error": {
+        "en": "❌ Error processing the image. Try again with a clearer photo.",
+        "pt": "❌ Erro ao processar a imagem. Tente novamente com uma foto mais nítida.",
+        "es": "❌ Error al procesar la imagen. Inténtalo de nuevo con una foto más nítida.",
+    },
+    # ══════════════════════════════════════════════════════════════
+    # Weather Agent
+    # ══════════════════════════════════════════════════════════════
+    "weather_query_error": {
+        "en": "Could not check the weather.",
+        "pt": "Não foi possível consultar o clima.",
+        "es": "No fue posible consultar el clima.",
+    },
 }
 
 

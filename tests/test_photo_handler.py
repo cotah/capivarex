@@ -86,7 +86,7 @@ class TestHandlePhoto:
             MockRP.return_value.process = AsyncMock(return_value=True)
             await handle_photo(update, ctx)
 
-        update.message.reply_text.assert_awaited_once_with("Bot não inicializado.")
+        update.message.reply_text.assert_awaited_once_with("Bot not initialized.")
 
     @pytest.mark.asyncio
     async def test_no_photos_in_message(self):

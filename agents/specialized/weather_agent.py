@@ -326,7 +326,7 @@ class WeatherAgent(BaseAgent):
             )
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Não foi possível consultar o clima.",
+                response=t("weather_query_error", lang=lang),
                 error=str(e),
                 metadata={"prompt": prompt},
             )

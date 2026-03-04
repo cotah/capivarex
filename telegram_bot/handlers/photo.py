@@ -5,6 +5,7 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from services.i18n import t
 from telegram_bot.utils.response_sender import send_agent_response
 from utils.request_processor import RequestProcessor
 
@@ -144,7 +145,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     bot = context.application.bot_data.get("capivarax_bot")
     if not bot:
         logger.warning("Photo received but bot not initialised yet")
-        await update.message.reply_text("Bot não inicializado.")
+        await update.message.reply_text(t("bot_not_initialized", lang="en"))
         return
 
     # Telegram sends multiple resolutions — pick the largest (last in list)
@@ -200,5 +201,5 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         logger.error("Error processing photo: %s", e, exc_info=True)
         await update.message.reply_text(
-            "❌ Erro ao processar a imagem. Tente novamente com uma foto mais nítida."
+            t("photo_processing_error", lang="en")
         )
