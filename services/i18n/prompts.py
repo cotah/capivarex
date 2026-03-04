@@ -60,7 +60,7 @@ Available agents:
 - 'search': Search the internet, find general information, Google, find places, stores, restaurants, news.
 - 'transport': Public transport in Ireland: bus, Bus Éireann, Dublin Bus, DART, Luas, Irish Rail, NTA, stop schedules, next public transport trip.
 - 'leaving_now': When should I leave, departure time, how long to get there, departure calculation for event.
-- 'mercado': Shopping list, supermarket, receipt, add/remove items, spending report, compare prices, store ranking.
+- 'mercado': Shopping list, supermarket, receipt, add/remove items, spending report, compare prices, store ranking, export excel, download report, exportar relatório.
 - 'notes': Personal notepad: write, save, list, search, pin, delete notes.
 - 'restaurant': Restaurant concierge: suggest, search, filter restaurants by location, cuisine type, rating, open now, details, phone, hours, reviews.
 - 'email': Email management: read, list, summarize, reply, ignore Gmail and Hotmail/Outlook emails, unread, how many emails, connect Gmail, my emails, check inbox.
