@@ -2495,6 +2495,34 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "📊 A gerar o teu relatório Excel...",
         "es": "📊 Generando tu informe Excel...",
     },
+    # ══════════════════════════════════════════════════════════════
+    # Interactive Report
+    # ══════════════════════════════════════════════════════════════
+    "mercado_interactive_choose_month": {
+        "en": "📊 Choose a month to see your report:",
+        "pt": "📊 Escolha o mês para ver o relatório:",
+        "es": "📊 Elige el mes para ver tu informe:",
+    },
+    "mercado_btn_export": {
+        "en": "📥 Export Excel",
+        "pt": "📥 Exportar Excel",
+        "es": "📥 Exportar Excel",
+    },
+    "mercado_btn_ranking": {
+        "en": "🏪 Store Ranking",
+        "pt": "🏪 Ranking Mercados",
+        "es": "🏪 Ranking Tiendas",
+    },
+    "mercado_btn_back": {
+        "en": "◀️ Back",
+        "pt": "◀️ Voltar",
+        "es": "◀️ Volver",
+    },
+    "mercado_excel_sent": {
+        "en": "✅ Excel report sent above!",
+        "pt": "✅ Relatório Excel enviado acima!",
+        "es": "✅ ¡Informe Excel enviado arriba!",
+    },
     "mercado_ocr_low_confidence": {
         "en": "\n⚠️ _Some prices may be inaccurate. Check the receipt if something looks wrong._",
         "pt": "\n⚠️ _Alguns preços podem estar incorretos. Verifica a nota se algo parecer errado._",

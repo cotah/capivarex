@@ -127,6 +127,17 @@ async def send_agent_response(
             media_type = "document"
             file_path = result.data.get("document_path")
 
+    # Inline keyboard response (no file needed)
+    if media_type == "inline_keyboard":
+        reply_markup = result.metadata.get("reply_markup") if result.metadata else None
+        if reply_markup:
+            await update.message.reply_text(
+                result.response or "📊",
+                reply_markup=reply_markup,
+            )
+            logger.info("Sent inline keyboard response")
+            return
+
     # Send media if we have a valid file
     if file_path and os.path.isfile(file_path):
         try:

@@ -134,8 +134,10 @@ class TestIntencoes:
     async def test_relatorio_mensal(self, mercado_agent):
         agent, svc = mercado_agent
         result = await agent.execute("relatório mensal", {"chat_id": "chat123"})
-        svc.relatorio_mensal.assert_called_once()
+        # Now returns inline keyboard instead of calling service directly
         assert result.status == AgentStatus.SUCCESS
+        assert result.metadata.get("type") == "inline_keyboard"
+        assert result.metadata.get("reply_markup") is not None
 
     @pytest.mark.asyncio
     async def test_comparar_produto(self, mercado_agent):

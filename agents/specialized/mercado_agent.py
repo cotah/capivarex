@@ -123,20 +123,20 @@ class MercadoAgent(BaseAgent):
                     data=result,
                 )
 
-            # ── Relatório mensal ──────────────────────────────────────────────
+            # ── Relatório mensal (interativo) ──────────────────────────────
             if _RE_RELATORIO.search(texto):
-                chat_id = str(context.get("chat_id", "unknown"))
-                mes = context.get("mes")
-                ano = context.get("ano")
-                result = await svc.relatorio_mensal(
-                    chat_id, mes=mes, ano=ano, lang=lang
+                from telegram_bot.handlers.mercado_callback import (
+                    build_months_keyboard,
                 )
+
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=result.get(
-                        "mensagem", t("mercado_report_error", lang=lang)
-                    ),
-                    data=result,
+                    response=t("mercado_interactive_choose_month", lang=lang),
+                    data={"inline_keyboard": True},
+                    metadata={
+                        "type": "inline_keyboard",
+                        "reply_markup": build_months_keyboard(lang),
+                    },
                 )
 
             # ── Ranking de mercados ───────────────────────────────────────────

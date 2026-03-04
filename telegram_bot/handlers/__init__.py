@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 
 from .email_callback import handle_email_callback
+from .mercado_callback import handle_mercado_callback
 from .message import handle_message
 from .voice import handle_voice
 from .document import handle_document
@@ -51,6 +52,11 @@ def register_all_handlers(application: Application, bot: Any) -> None:
     # Email inline-button callbacks (pattern: er:action:email_id)
     application.add_handler(
         CallbackQueryHandler(handle_email_callback, pattern=r"^er:")
+    )
+
+    # Mercado inline-button callbacks (pattern: mr:action:params)
+    application.add_handler(
+        CallbackQueryHandler(handle_mercado_callback, pattern=r"^mr:")
     )
 
     # Store bot instance in application context
