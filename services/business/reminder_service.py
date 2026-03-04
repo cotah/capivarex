@@ -48,6 +48,7 @@ def _next_occurrence(remind_at: datetime, recurrence: str) -> Optional[datetime]
         except ValueError:
             # Ex: 31 de janeiro → 28/29 de fevereiro
             import calendar
+
             last_day = calendar.monthrange(year, month)[1]
             return remind_at.replace(year=year, month=month, day=last_day)
     return None
@@ -72,9 +73,12 @@ class ReminderService(BaseService):
 
     async def _initialize(self) -> None:
         from services.core import get_service
+
         self._db = get_service("database")
         if not self._db:
-            raise ServiceUnavailableError("DatabaseService indisponível para ReminderService")
+            raise ServiceUnavailableError(
+                "DatabaseService indisponível para ReminderService"
+            )
         if not self._db.is_initialized():
             await self._db.initialize()
 
@@ -130,7 +134,9 @@ class ReminderService(BaseService):
         if not message:
             raise ValueError("A mensagem do lembrete não pode ser vazia.")
         if len(message) > MAX_MESSAGE_LENGTH:
-            raise ValueError(f"Mensagem muito longa (máximo {MAX_MESSAGE_LENGTH} chars).")
+            raise ValueError(
+                f"Mensagem muito longa (máximo {MAX_MESSAGE_LENGTH} chars)."
+            )
 
         if not isinstance(remind_at, datetime):
             raise ValueError("remind_at deve ser um objeto datetime.")
@@ -159,8 +165,7 @@ class ReminderService(BaseService):
 
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
-            None,
-            lambda: self._client().table(REMINDER_TABLE).insert(payload).execute()
+            None, lambda: self._client().table(REMINDER_TABLE).insert(payload).execute()
         )
 
         if not response.data:
@@ -169,7 +174,9 @@ class ReminderService(BaseService):
         reminder = response.data[0]
         self.logger.info(
             "Reminder created: %s for user %s at %s",
-            reminder["id"], user_id, remind_at.isoformat()
+            reminder["id"],
+            user_id,
+            remind_at.isoformat(),
         )
         return reminder
 
@@ -188,25 +195,29 @@ class ReminderService(BaseService):
         # Verifica que pertence ao usuário
         check = await loop.run_in_executor(
             None,
-            lambda: self._client()
+            lambda: (
+                self._client()
                 .table(REMINDER_TABLE)
                 .select("id")
                 .eq("id", reminder_id)
                 .eq("user_id", str(user_id))
                 .eq("cancelled", False)
                 .execute()
+            ),
         )
         if not check.data:
             return False
 
         await loop.run_in_executor(
             None,
-            lambda: self._client()
+            lambda: (
+                self._client()
                 .table(REMINDER_TABLE)
                 .update({"cancelled": True})
                 .eq("id", reminder_id)
                 .eq("user_id", str(user_id))
                 .execute()
+            ),
         )
         self.logger.info("Reminder %s cancelled for user %s", reminder_id, user_id)
         return True
@@ -282,7 +293,27 @@ class ReminderService(BaseService):
             )
 
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, _fetch_due)
+        try:
+            response = await loop.run_in_executor(
+                None, _fetch_due
+            )
+        except Exception as e:
+            self.logger.warning(
+                "Supabase _fetch_due failed, retrying: %s",
+                e,
+            )
+            try:
+                await asyncio.sleep(2)
+                response = await loop.run_in_executor(
+                    None, _fetch_due
+                )
+            except Exception as e2:
+                self.logger.error(
+                    "Supabase _fetch_due retry failed: %s",
+                    e2,
+                )
+                return []
+
         due_reminders = response.data or []
 
         if not due_reminders:
@@ -298,11 +329,13 @@ class ReminderService(BaseService):
                 # Marca como fired
                 await loop.run_in_executor(
                     None,
-                    lambda r=reminder: self._client()
+                    lambda r=reminder: (
+                        self._client()
                         .table(REMINDER_TABLE)
                         .update({"fired": True})
                         .eq("id", r["id"])
                         .execute()
+                    ),
                 )
 
                 # Recorrência: cria próxima entrada
@@ -322,10 +355,14 @@ class ReminderService(BaseService):
                         )
 
                 fired.append(reminder)
-                self.logger.info("Reminder %s fired for user %s", reminder["id"], reminder["user_id"])
+                self.logger.info(
+                    "Reminder %s fired for user %s", reminder["id"], reminder["user_id"]
+                )
 
             except Exception as e:
-                self.logger.error("Failed to process reminder %s: %s", reminder["id"], e)
+                self.logger.error(
+                    "Failed to process reminder %s: %s", reminder["id"], e
+                )
 
         return fired
 
