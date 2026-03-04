@@ -73,6 +73,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except Exception as e:
         logger.debug("Email edit-mode check failed: %s", e)
 
+    # ── Pending location save interception ──────────────────────────────
+    # Same pattern as email edit-mode: if a maps agent asked "where is
+    # your home?", the user's next message is the address answer.
+    try:
+        redis = get_service("redis")
+        if redis:
+            pending_key = f"pending:location:{update.effective_chat.id}"
+            pending = await redis.get(pending_key, parse_json=True)
+            if pending and isinstance(pending, dict):
+                await redis.delete(pending_key)
+                await _handle_pending_location_save(
+                    update, context, pending, text
+                )
+                return
+    except Exception as e:
+        logger.debug("Pending location check failed: %s", e)
+
     user_context: Dict[str, Any] = {
         "user_id": update.effective_user.id,
         "chat_id": update.effective_chat.id,
@@ -224,6 +241,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user_context["user_id"],
     )
 
+    # ── Save pending location if agent asks for it ──────────────────────
+    # When MapsAgent returns data={"ask_location": "home"}, save state
+    # in Redis so next user message is captured as the address answer.
+    if result and hasattr(result, "data") and result.data:
+        if result.data.get("ask_location"):
+            try:
+                redis_svc = get_service("redis")
+                if redis_svc:
+                    pending_key = (
+                        f"pending:location:{update.effective_chat.id}"
+                    )
+                    await redis_svc.set(
+                        pending_key,
+                        {
+                            "key": result.data["ask_location"],
+                            "direction": result.data.get(
+                                "direction", "origin"
+                            ),
+                            "original_query": text,
+                            "user_id": user_context.get("user_id", ""),
+                            "lang": user_context.get("lang", "en"),
+                        },
+                        expire_seconds=300,  # 5 minutes TTL
+                    )
+                    logger.info(
+                        "Saved pending location '%s' for chat %s"
+                        " (original: %s)",
+                        result.data["ask_location"],
+                        update.effective_chat.id,
+                        text[:40],
+                    )
+            except Exception as e:
+                logger.debug("Could not save pending location: %s", e)
+
     await send_agent_response(update, result)
 
 
@@ -269,3 +320,179 @@ async def _handle_email_edit_reply(
     )
     keyboard = build_confirm_keyboard(email_id, lang)
     await update.message.reply_text(preview, reply_markup=keyboard)
+
+
+async def _handle_pending_location_save(
+    update: Update,
+    tg_context: ContextTypes.DEFAULT_TYPE,
+    pending: Dict[str, Any],
+    address_text: str,
+) -> None:
+    """
+    Handle user's address reply when bot asked for a location.
+
+    Saves the location, confirms to user, then re-runs the original
+    query so the conversation flows naturally.
+
+    Example flow:
+        User: "rota de casa ao trabalho"
+        Bot:  "Onde e sua Casa? Qual o endereco?"    ← pending saved
+        User: "Swords, Dublin"                        ← intercepted HERE
+        Bot:  "Salvei Casa como: Swords, Dublin"      ← confirm
+        Bot:  "Onde e seu Trabalho? Qual o endereco?" ← re-run next gap
+    """
+    from services.business.saved_locations_service import (
+        get_saved_locations_service,
+        get_label,
+    )
+    from services.i18n import t
+
+    key = pending.get("key", "")
+    user_id = str(pending.get("user_id", ""))
+    lang = pending.get("lang", "en")
+    original_query = pending.get("original_query", "")
+
+    if not key or not user_id:
+        logger.warning("Invalid pending location data: %s", pending)
+        return
+
+    # ── 1. Save the location ─────────────────────────────────────────
+    loc_svc = get_saved_locations_service()
+    location_data = await loc_svc.save_location(
+        user_id, key, address_text
+    )
+    label = get_label(key, lang)
+
+    # ── 2. Confirm to user ───────────────────────────────────────────
+    if location_data.get("latitude"):
+        confirm_msg = t(
+            "maps_location_saved",
+            lang=lang,
+            alias=label,
+            address=address_text,
+        )
+    else:
+        confirm_msg = t(
+            "maps_location_saved_no_coords",
+            lang=lang,
+            alias=label,
+            address=address_text,
+        )
+    await update.message.reply_text(confirm_msg)
+
+    # ── 3. Re-run original query (location now saved) ────────────────
+    if not original_query:
+        return
+
+    bot = tg_context.application.bot_data.get("capivarax_bot")
+    if not bot:
+        return
+
+    logger.info(
+        "Re-running original query after location save: '%s'",
+        original_query[:60],
+    )
+
+    # Send typing indicator for natural feel
+    try:
+        await update.message.chat.send_action("typing")
+    except Exception:
+        pass
+
+    # Build fresh user_context (same as handle_message does)
+    user_context: Dict[str, Any] = {
+        "user_id": update.effective_user.id,
+        "chat_id": update.effective_chat.id,
+        "username": update.effective_user.username,
+        "language_code": getattr(
+            update.effective_user, "language_code", None
+        )
+        or "en",
+        "message_text": original_query,
+        "lang": lang,
+    }
+
+    # Enrich with DB data (simplified — GPS + preferences)
+    try:
+        db_svc = get_service("database")
+        if db_svc and db_svc.is_initialized():
+            user_row = await db_svc.get_user_by_telegram_id(
+                str(update.effective_user.id)
+            )
+            if user_row:
+                pref_lang = user_row.get("preferred_language")
+                if pref_lang:
+                    user_context["user_preferences"] = {
+                        "preferred_language": pref_lang,
+                    }
+                loc_pref = user_row.get("location_preference", "")
+                if loc_pref:
+                    user_context["user_location"] = loc_pref
+
+                user_uuid = (
+                    user_row.get("id") or user_row.get("user_id")
+                )
+                if user_uuid:
+                    # Fetch saved GPS location
+                    saved_loc = await db_svc.get_user_context(
+                        user_uuid, "location"
+                    )
+                    if saved_loc and isinstance(saved_loc, dict):
+                        user_context.setdefault(
+                            "latitude", saved_loc.get("latitude")
+                        )
+                        user_context.setdefault(
+                            "longitude", saved_loc.get("longitude")
+                        )
+    except Exception as e:
+        logger.debug("Could not enrich re-run context: %s", e)
+
+    # Re-process the original query
+    try:
+        result = await bot.process_message(
+            original_query, user_context
+        )
+    except Exception as e:
+        logger.error(
+            "Error re-running query after location save: %s", e
+        )
+        return
+
+    if not result:
+        return
+
+    # ── 4. Check if the NEW result also asks for a location ──────────
+    # e.g., "casa" is now saved but "trabalho" still unknown
+    if (
+        hasattr(result, "data")
+        and result.data
+        and result.data.get("ask_location")
+    ):
+        try:
+            redis_svc = get_service("redis")
+            if redis_svc:
+                new_pending_key = (
+                    f"pending:location:{update.effective_chat.id}"
+                )
+                await redis_svc.set(
+                    new_pending_key,
+                    {
+                        "key": result.data["ask_location"],
+                        "direction": result.data.get(
+                            "direction", "origin"
+                        ),
+                        "original_query": original_query,
+                        "user_id": user_id,
+                        "lang": lang,
+                    },
+                    expire_seconds=300,
+                )
+                logger.info(
+                    "Chained pending location: now asking for '%s'",
+                    result.data["ask_location"],
+                )
+        except Exception as e:
+            logger.debug("Could not save chained pending: %s", e)
+
+    # ── 5. Send the result ───────────────────────────────────────────
+    await send_agent_response(update, result)
