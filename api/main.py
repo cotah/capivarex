@@ -15,6 +15,7 @@ import asyncio
 import contextlib
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -70,9 +71,11 @@ register_all_agents()
 # TIMER / REMINDER BACKGROUND LOOP
 # ====================================================================
 
+from services.i18n import t  # noqa: E402
 from utils.logger import get_logger  # noqa: E402
 
 _bg_logger = get_logger("timer_loop")
+_monthly_report_sent: set = set()  # tracks "{year}-{month}" to avoid re-sending
 
 
 async def _timer_loop() -> None:
@@ -137,6 +140,137 @@ async def _timer_loop() -> None:
 
         except Exception as e:
             _bg_logger.error("Timer loop error: %s", e, exc_info=True)
+
+        # --- Monthly Mercado Excel Report (day 1 of month, 9 AM) ---
+        try:
+            now_dt = datetime.now()
+            month_key = f"{now_dt.year}-{now_dt.month}"
+
+            if (
+                now_dt.day == 1
+                and now_dt.hour == 9
+                and month_key not in _monthly_report_sent
+            ):
+                _monthly_report_sent.add(month_key)
+                _bg_logger.info("Monthly report trigger — generating reports...")
+
+                mercado_svc = get_service("mercado")
+                gmail_svc = get_service("gmail")
+                notification_svc = get_service("notification")
+
+                if mercado_svc:
+                    if not mercado_svc.is_initialized():
+                        await mercado_svc.initialize()
+
+                    if gmail_svc and not gmail_svc.is_initialized():
+                        await gmail_svc.initialize()
+
+                    # Get all users
+                    db = mercado_svc._get_client()
+                    users_result = (
+                        db.table("users")
+                        .select("id,telegram_chat_id,email,preferred_language")
+                        .execute()
+                    )
+
+                    for user in users_result.data or []:
+                        user_id = user.get("id")
+                        chat_id = user.get("telegram_chat_id")
+                        email = user.get("email")
+                        lang = user.get("preferred_language", "en")
+
+                        if not chat_id:
+                            continue
+
+                        try:
+                            # Generate Excel for previous month
+                            result = await mercado_svc.gerar_excel_mensal(
+                                chat_id=str(chat_id), lang=lang
+                            )
+
+                            if not result.get("sucesso"):
+                                continue  # No purchases, skip
+
+                            excel_bytes = result["excel_bytes"]
+                            filename = result["filename"]
+                            resumo = result["resumo"]
+
+                            # Determine month name for subject
+                            prev_month = now_dt.month - 1 if now_dt.month > 1 else 12
+                            prev_year = (
+                                now_dt.year if now_dt.month > 1 else now_dt.year - 1
+                            )
+                            month_name = t(f"month_{prev_month}", lang=lang)
+
+                            email_sent = False
+
+                            # Send via Gmail if connected
+                            if gmail_svc and email and user_id:
+                                try:
+                                    connected = await gmail_svc.is_connected(user_id)
+                                    if connected:
+                                        profile = await gmail_svc.get_profile(user_id)
+                                        user_email = profile.get("emailAddress", email)
+
+                                        subject = t(
+                                            "mercado_excel_subject",
+                                            lang=lang,
+                                            month=month_name,
+                                            year=prev_year,
+                                        )
+                                        body = t(
+                                            "mercado_excel_email_body",
+                                            lang=lang,
+                                            summary=resumo,
+                                        )
+
+                                        await gmail_svc.send_email_with_attachment(
+                                            user_id=user_id,
+                                            to=user_email,
+                                            subject=subject,
+                                            body=body,
+                                            attachment_bytes=excel_bytes,
+                                            attachment_filename=filename,
+                                        )
+                                        email_sent = True
+                                        _bg_logger.info(
+                                            "Monthly report emailed to user %s",
+                                            user_id,
+                                        )
+                                except Exception as e:
+                                    _bg_logger.warning(
+                                        "Email report failed for user %s: %s",
+                                        user_id,
+                                        e,
+                                    )
+
+                            # Notify via Telegram
+                            if notification_svc:
+                                if not notification_svc.is_initialized():
+                                    await notification_svc.initialize()
+
+                                tg_key = (
+                                    "mercado_excel_telegram_with_email"
+                                    if email_sent
+                                    else "mercado_excel_telegram_no_email"
+                                )
+                                tg_msg = t(tg_key, lang=lang, summary=resumo)
+
+                                await notification_svc.send_notification(
+                                    "telegram", str(chat_id), tg_msg
+                                )
+
+                        except Exception as e:
+                            _bg_logger.warning(
+                                "Monthly report failed for chat %s: %s",
+                                chat_id,
+                                e,
+                            )
+
+                    _bg_logger.info("Monthly report cycle complete.")
+
+        except Exception as e:
+            _bg_logger.error("Monthly report check error: %s", e)
 
         await asyncio.sleep(10)  # verifica a cada 10 segundos
 

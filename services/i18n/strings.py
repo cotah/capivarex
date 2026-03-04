@@ -923,12 +923,9 @@ STRINGS: Dict[str, Dict[str, str]] = {
     # CALENDAR AGENT (expanded)
     # ══════════════════════════════════════════════════════════════════════════
     "cal_already_connected": {
-        "en": "Your Google account is already connected! "
-        "Calendar and Gmail active.",
-        "pt": "A tua conta Google já está conectada! "
-        "Calendar e Gmail activos.",
-        "es": "¡Tu cuenta de Google ya está conectada! "
-        "Calendar y Gmail activos.",
+        "en": "Your Google account is already connected! Calendar and Gmail active.",
+        "pt": "A tua conta Google já está conectada! Calendar e Gmail activos.",
+        "es": "¡Tu cuenta de Google ya está conectada! Calendar y Gmail activos.",
     },
     "cal_connect_link": {
         "en": "Click the link to connect your Google account "
@@ -1033,8 +1030,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "Por favor, especifica cuándo quieres agendar.",
     },
     "cal_event_validation_error": {
-        "en": "Error processing event data: {error}. "
-        "Please use a valid format.",
+        "en": "Error processing event data: {error}. Please use a valid format.",
         "pt": "Erro ao processar dados do evento: {error}. "
         "Por favor, usa um formato válido.",
         "es": "Error al procesar datos del evento: {error}. "
@@ -1076,8 +1072,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "No se encontraron eventos futuros con ubicación.",
     },
     "cal_event_all_day": {
-        "en": "The event '{summary}' is an all-day event, "
-        "with no specific time.",
+        "en": "The event '{summary}' is an all-day event, with no specific time.",
         "pt": "O evento '{summary}' é um evento de dia inteiro, "
         "sem horário específico.",
         "es": "El evento '{summary}' es un evento de todo el día, "
@@ -1177,12 +1172,9 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "❌ No fue posible generar el enlace de conexión. {error}",
     },
     "email_already_connected": {
-        "en": "✅ Your Gmail is already connected! "
-        "Say 'show my emails' to view.",
-        "pt": "✅ O teu Gmail já está conectado! "
-        "Diz 'mostra os meus emails' para ver.",
-        "es": "✅ ¡Tu Gmail ya está conectado! "
-        "Di 'muestra mis emails' para ver.",
+        "en": "✅ Your Gmail is already connected! Say 'show my emails' to view.",
+        "pt": "✅ O teu Gmail já está conectado! Diz 'mostra os meus emails' para ver.",
+        "es": "✅ ¡Tu Gmail ya está conectado! Di 'muestra mis emails' para ver.",
     },
     "email_connect_link": {
         "en": "🔗 To connect your Gmail, click the link:\n{auth_url}"
@@ -1213,8 +1205,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "\n✅ ¡Sin emails por leer!",
     },
     "email_not_found": {
-        "en": "❌ Couldn't find the email. "
-        "Show the list first with 'show my emails'?",
+        "en": "❌ Couldn't find the email. Show the list first with 'show my emails'?",
         "pt": "❌ Não encontrei o email. "
         "Podes mostrar a lista primeiro com 'mostra os meus emails'?",
         "es": "❌ No encontré el email. "
@@ -1232,8 +1223,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "📌 **Asunto:** {subject}\n\n{summary}",
     },
     "email_no_email_to_reply": {
-        "en": "❌ Couldn't find any email to reply to. "
-        "Say 'show my emails' first.",
+        "en": "❌ Couldn't find any email to reply to. Say 'show my emails' first.",
         "pt": "❌ Não encontrei nenhum email para responder. "
         "Diz 'mostra os meus emails' primeiro.",
         "es": "❌ No encontré ningún email para responder. "
@@ -1342,10 +1332,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "Gmail no conectado.",
     },
     "email_need_connect_first": {
-        "en": "You need to connect your Gmail first. "
-        "Click the link to authorize.",
-        "pt": "Precisas conectar o teu Gmail primeiro. "
-        "Clica no link para autorizar.",
+        "en": "You need to connect your Gmail first. Click the link to authorize.",
+        "pt": "Precisas conectar o teu Gmail primeiro. Clica no link para autorizar.",
         "es": "Necesitas conectar tu Gmail primero. "
         "Haz clic en el enlace para autorizar.",
     },
@@ -1488,54 +1476,54 @@ STRINGS: Dict[str, Dict[str, str]] = {
     # ══════════════════════════════════════════════════════════════════════════
     "email_poll_single": {
         "en": "\U0001f4e7 New email from {sender}\n"
-              "\U0001f4cc Subject: {subject}\n"
-              "\U0001f4dd Summary: {summary}\n\n"
-              "Reply | Ignore | Read full",
+        "\U0001f4cc Subject: {subject}\n"
+        "\U0001f4dd Summary: {summary}\n\n"
+        "Reply | Ignore | Read full",
         "pt": "\U0001f4e7 Novo email de {sender}\n"
-              "\U0001f4cc Assunto: {subject}\n"
-              "\U0001f4dd Resumo: {summary}\n\n"
-              "Responder | Ignorar | Ler completo",
+        "\U0001f4cc Assunto: {subject}\n"
+        "\U0001f4dd Resumo: {summary}\n\n"
+        "Responder | Ignorar | Ler completo",
         "es": "\U0001f4e7 Nuevo email de {sender}\n"
-              "\U0001f4cc Asunto: {subject}\n"
-              "\U0001f4dd Resumen: {summary}\n\n"
-              "Responder | Ignorar | Leer completo",
+        "\U0001f4cc Asunto: {subject}\n"
+        "\U0001f4dd Resumen: {summary}\n\n"
+        "Responder | Ignorar | Leer completo",
     },
     "email_poll_multiple": {
         "en": "\U0001f4e7 {count} new emails:\n{email_list}\n\n"
-              "Want details on any of these?",
+        "Want details on any of these?",
         "pt": "\U0001f4e7 {count} novos emails:\n{email_list}\n\n"
-              "Quer detalhes de algum?",
+        "Quer detalhes de algum?",
         "es": "\U0001f4e7 {count} nuevos emails:\n{email_list}\n\n"
-              "\u00bfQuieres detalles de alguno?",
+        "\u00bfQuieres detalles de alguno?",
     },
     "email_poll_summary_prompt": {
         "en": "Summarize this email in 1-2 short sentences for a notification.\n"
-              "From: {sender}\nSubject: {subject}\n\n{body}",
+        "From: {sender}\nSubject: {subject}\n\n{body}",
         "pt": "Resuma este email em 1-2 frases curtas para uma "
-              "notifica\u00e7\u00e3o.\n"
-              "De: {sender}\nAssunto: {subject}\n\n{body}",
+        "notifica\u00e7\u00e3o.\n"
+        "De: {sender}\nAssunto: {subject}\n\n{body}",
         "es": "Resume este email en 1-2 frases cortas para una "
-              "notificaci\u00f3n.\n"
-              "De: {sender}\nAsunto: {subject}\n\n{body}",
+        "notificaci\u00f3n.\n"
+        "De: {sender}\nAsunto: {subject}\n\n{body}",
     },
     "email_poll_token_expired": {
         "en": "\u26a0\ufe0f Your Gmail connection has expired. "
-              "Email notifications are paused.\n"
-              "Please reconnect: say 'connect gmail'.",
+        "Email notifications are paused.\n"
+        "Please reconnect: say 'connect gmail'.",
         "pt": "\u26a0\ufe0f A sua conex\u00e3o Gmail expirou. "
-              "Notifica\u00e7\u00f5es de email foram pausadas.\n"
-              "Reconecte: diga 'conectar gmail'.",
+        "Notifica\u00e7\u00f5es de email foram pausadas.\n"
+        "Reconecte: diga 'conectar gmail'.",
         "es": "\u26a0\ufe0f Tu conexi\u00f3n Gmail ha expirado. "
-              "Las notificaciones de email est\u00e1n pausadas.\n"
-              "Reconecta: di 'conectar gmail'.",
+        "Las notificaciones de email est\u00e1n pausadas.\n"
+        "Reconecta: di 'conectar gmail'.",
     },
     "email_poll_enabled": {
         "en": "\u2705 Email notifications activated! "
-              "You'll receive alerts for new emails.",
+        "You'll receive alerts for new emails.",
         "pt": "\u2705 Notifica\u00e7\u00f5es de email ativadas! "
-              "Receber\u00e1 alertas de novos emails.",
+        "Receber\u00e1 alertas de novos emails.",
         "es": "\u2705 \u00a1Notificaciones de email activadas! "
-              "Recibir\u00e1s alertas de nuevos emails.",
+        "Recibir\u00e1s alertas de nuevos emails.",
     },
     "email_poll_disabled": {
         "en": "\U0001f515 Email notifications deactivated.",
@@ -1544,32 +1532,25 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "email_poll_already_enabled": {
         "en": "Email notifications are already active.",
-        "pt": "Notifica\u00e7\u00f5es de email j\u00e1 "
-              "est\u00e3o ativas.",
+        "pt": "Notifica\u00e7\u00f5es de email j\u00e1 est\u00e3o ativas.",
         "es": "Las notificaciones de email ya est\u00e1n activas.",
     },
     "email_poll_already_disabled": {
         "en": "Email notifications are already off.",
-        "pt": "Notifica\u00e7\u00f5es de email j\u00e1 "
-              "est\u00e3o desligadas.",
-        "es": "Las notificaciones de email ya est\u00e1n "
-              "desactivadas.",
+        "pt": "Notifica\u00e7\u00f5es de email j\u00e1 est\u00e3o desligadas.",
+        "es": "Las notificaciones de email ya est\u00e1n desactivadas.",
     },
     "email_poll_not_connected": {
-        "en": "You need to connect Gmail first to enable "
-              "email notifications.",
-        "pt": "Precisa conectar o Gmail primeiro para ativar "
-              "notifica\u00e7\u00f5es.",
-        "es": "Necesitas conectar Gmail primero para activar "
-              "notificaciones.",
+        "en": "You need to connect Gmail first to enable email notifications.",
+        "pt": "Precisa conectar o Gmail primeiro para ativar notifica\u00e7\u00f5es.",
+        "es": "Necesitas conectar Gmail primero para activar notificaciones.",
     },
     "email_poll_error": {
-        "en": "Failed to update email notification settings. "
-              "Try again later.",
+        "en": "Failed to update email notification settings. Try again later.",
         "pt": "Falha ao atualizar configura\u00e7\u00f5es de "
-              "notifica\u00e7\u00e3o. Tente novamente.",
+        "notifica\u00e7\u00e3o. Tente novamente.",
         "es": "Error al actualizar configuraci\u00f3n de "
-              "notificaciones. Int\u00e9ntalo luego.",
+        "notificaciones. Int\u00e9ntalo luego.",
     },
     "email_poll_status": {
         "en": "\U0001f4e7 Email notifications: {status}",
@@ -1579,31 +1560,31 @@ STRINGS: Dict[str, Dict[str, str]] = {
     # ── Email reply suggestion + inline buttons ──────────────────────────
     "email_poll_single_reply": {
         "en": "\U0001f4e7 New email from {sender}\n"
-              "\U0001f4cc Subject: {subject}\n"
-              "\U0001f4dd Summary: {summary}\n\n"
-              "{urgency} Urgency\n"
-              "\U0001f4ac Suggested reply:\n\"{suggested_reply}\"",
+        "\U0001f4cc Subject: {subject}\n"
+        "\U0001f4dd Summary: {summary}\n\n"
+        "{urgency} Urgency\n"
+        '\U0001f4ac Suggested reply:\n"{suggested_reply}"',
         "pt": "\U0001f4e7 Novo email de {sender}\n"
-              "\U0001f4cc Assunto: {subject}\n"
-              "\U0001f4dd Resumo: {summary}\n\n"
-              "{urgency} Urg\u00eancia\n"
-              "\U0001f4ac Resposta sugerida:\n\"{suggested_reply}\"",
+        "\U0001f4cc Assunto: {subject}\n"
+        "\U0001f4dd Resumo: {summary}\n\n"
+        "{urgency} Urg\u00eancia\n"
+        '\U0001f4ac Resposta sugerida:\n"{suggested_reply}"',
         "es": "\U0001f4e7 Nuevo email de {sender}\n"
-              "\U0001f4cc Asunto: {subject}\n"
-              "\U0001f4dd Resumen: {summary}\n\n"
-              "{urgency} Urgencia\n"
-              "\U0001f4ac Respuesta sugerida:\n\"{suggested_reply}\"",
+        "\U0001f4cc Asunto: {subject}\n"
+        "\U0001f4dd Resumen: {summary}\n\n"
+        "{urgency} Urgencia\n"
+        '\U0001f4ac Respuesta sugerida:\n"{suggested_reply}"',
     },
     "email_poll_single_noreply": {
         "en": "\U0001f4e7 New email from {sender}\n"
-              "\U0001f4cc Subject: {subject}\n"
-              "\U0001f4dd Summary: {summary}",
+        "\U0001f4cc Subject: {subject}\n"
+        "\U0001f4dd Summary: {summary}",
         "pt": "\U0001f4e7 Novo email de {sender}\n"
-              "\U0001f4cc Assunto: {subject}\n"
-              "\U0001f4dd Resumo: {summary}",
+        "\U0001f4cc Assunto: {subject}\n"
+        "\U0001f4dd Resumo: {summary}",
         "es": "\U0001f4e7 Nuevo email de {sender}\n"
-              "\U0001f4cc Asunto: {subject}\n"
-              "\U0001f4dd Resumen: {summary}",
+        "\U0001f4cc Asunto: {subject}\n"
+        "\U0001f4dd Resumen: {summary}",
     },
     "email_poll_analysis_prompt": {
         "en": (
@@ -1725,32 +1706,32 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "email_cb_sent_with_event": {
         "en": "\u2705 Reply sent to {sender}! "
-              "\U0001f4c5 Event \"{summary}\" added to calendar.",
+        '\U0001f4c5 Event "{summary}" added to calendar.',
         "pt": "\u2705 Resposta enviada para {sender}! "
-              "\U0001f4c5 Evento \"{summary}\" adicionado \u00e0 agenda.",
+        '\U0001f4c5 Evento "{summary}" adicionado \u00e0 agenda.',
         "es": "\u2705 \u00a1Respuesta enviada a {sender}! "
-              "\U0001f4c5 Evento \"{summary}\" agregado a la agenda.",
+        '\U0001f4c5 Evento "{summary}" agregado a la agenda.',
     },
     "email_cb_sent_event_failed": {
         "en": "\u2705 Reply sent to {sender}! "
-              "\u26a0\ufe0f Could not create calendar event.",
+        "\u26a0\ufe0f Could not create calendar event.",
         "pt": "\u2705 Resposta enviada para {sender}! "
-              "\u26a0\ufe0f N\u00e3o foi poss\u00edvel criar evento "
-              "na agenda.",
+        "\u26a0\ufe0f N\u00e3o foi poss\u00edvel criar evento "
+        "na agenda.",
         "es": "\u2705 \u00a1Respuesta enviada a {sender}! "
-              "\u26a0\ufe0f No se pudo crear el evento en la agenda.",
+        "\u26a0\ufe0f No se pudo crear el evento en la agenda.",
     },
     "email_cb_edit_prompt": {
         "en": "\u270f\ufe0f Type your reply to {sender}.\n"
-              "Subject: {subject}\n\n"
-              "Send your message and I'll show a preview.",
+        "Subject: {subject}\n\n"
+        "Send your message and I'll show a preview.",
         "pt": "\u270f\ufe0f Digite sua resposta para {sender}.\n"
-              "Assunto: {subject}\n\n"
-              "Envie sua mensagem e mostrarei uma pr\u00e9via.",
+        "Assunto: {subject}\n\n"
+        "Envie sua mensagem e mostrarei uma pr\u00e9via.",
         "es": "\u270f\ufe0f Escribe tu respuesta a {sender}.\n"
-              "Asunto: {subject}\n\n"
-              "Env\u00eda tu mensaje y te mostrar\u00e9 "
-              "una vista previa.",
+        "Asunto: {subject}\n\n"
+        "Env\u00eda tu mensaje y te mostrar\u00e9 "
+        "una vista previa.",
     },
     "email_cb_ignored": {
         "en": "\U0001f515 Email marked as read.",
@@ -1763,39 +1744,34 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "\U0001f5d1\ufe0f Email archivado.",
     },
     "email_cb_draft_expired": {
-        "en": "\u26a0\ufe0f This notification has expired. "
-              "Check your email.",
-        "pt": "\u26a0\ufe0f Esta notifica\u00e7\u00e3o expirou. "
-              "Verifique seu email.",
-        "es": "\u26a0\ufe0f Esta notificaci\u00f3n ha expirado. "
-              "Revisa tu email.",
+        "en": "\u26a0\ufe0f This notification has expired. Check your email.",
+        "pt": "\u26a0\ufe0f Esta notifica\u00e7\u00e3o expirou. Verifique seu email.",
+        "es": "\u26a0\ufe0f Esta notificaci\u00f3n ha expirado. Revisa tu email.",
     },
     "email_cb_error": {
-        "en": "\u26a0\ufe0f Could not complete the action. "
-              "Try again later.",
+        "en": "\u26a0\ufe0f Could not complete the action. Try again later.",
         "pt": "\u26a0\ufe0f N\u00e3o foi poss\u00edvel completar "
-              "a a\u00e7\u00e3o. Tente novamente.",
-        "es": "\u26a0\ufe0f No se pudo completar la acci\u00f3n. "
-              "Int\u00e9ntalo luego.",
+        "a a\u00e7\u00e3o. Tente novamente.",
+        "es": "\u26a0\ufe0f No se pudo completar la acci\u00f3n. Int\u00e9ntalo luego.",
     },
     "email_cb_send_confirm": {
-        "en": "\U0001f4e4 Send this reply?\n\n"
-              "\"{reply_text}\"\n\nTo: {to}",
-        "pt": "\U0001f4e4 Enviar esta resposta?\n\n"
-              "\"{reply_text}\"\n\nPara: {to}",
-        "es": "\U0001f4e4 \u00bfEnviar esta respuesta?\n\n"
-              "\"{reply_text}\"\n\nPara: {to}",
+        "en": '\U0001f4e4 Send this reply?\n\n"{reply_text}"\n\nTo: {to}',
+        "pt": '\U0001f4e4 Enviar esta resposta?\n\n"{reply_text}"\n\nPara: {to}',
+        "es": '\U0001f4e4 \u00bfEnviar esta respuesta?\n\n"{reply_text}"\n\nPara: {to}',
     },
     "email_btn_send": {
-        "en": "\u2705 Send", "pt": "\u2705 Enviar",
+        "en": "\u2705 Send",
+        "pt": "\u2705 Enviar",
         "es": "\u2705 Enviar",
     },
     "email_btn_edit": {
-        "en": "\u270f\ufe0f Edit", "pt": "\u270f\ufe0f Editar",
+        "en": "\u270f\ufe0f Edit",
+        "pt": "\u270f\ufe0f Editar",
         "es": "\u270f\ufe0f Editar",
     },
     "email_btn_ignore": {
-        "en": "\u274c Ignore", "pt": "\u274c Ignorar",
+        "en": "\u274c Ignore",
+        "pt": "\u274c Ignorar",
         "es": "\u274c Ignorar",
     },
     "email_btn_read": {
@@ -1809,45 +1785,47 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "\U0001f5d1\ufe0f Archivar",
     },
     "email_btn_cancel": {
-        "en": "\u274c Cancel", "pt": "\u274c Cancelar",
+        "en": "\u274c Cancel",
+        "pt": "\u274c Cancelar",
         "es": "\u274c Cancelar",
     },
     "email_btn_send_now": {
-        "en": "\U0001f4e4 Send", "pt": "\U0001f4e4 Enviar",
+        "en": "\U0001f4e4 Send",
+        "pt": "\U0001f4e4 Enviar",
         "es": "\U0001f4e4 Enviar",
     },
     # ── Calendar-aware email analysis ─────────────────────────────────
     "email_poll_single_event": {
         "en": "\U0001f4e7 New email from {sender}\n"
-              "\U0001f4cc Subject: {subject}\n"
-              "\U0001f4dd Summary: {summary}\n\n"
-              "\U0001f4c5 Event detected: {proposed_datetime}\n"
-              "{urgency} Urgency\n"
-              "\U0001f4ac Suggested reply:\n\"{suggested_reply}\"",
+        "\U0001f4cc Subject: {subject}\n"
+        "\U0001f4dd Summary: {summary}\n\n"
+        "\U0001f4c5 Event detected: {proposed_datetime}\n"
+        "{urgency} Urgency\n"
+        '\U0001f4ac Suggested reply:\n"{suggested_reply}"',
         "pt": "\U0001f4e7 Novo email de {sender}\n"
-              "\U0001f4cc Assunto: {subject}\n"
-              "\U0001f4dd Resumo: {summary}\n\n"
-              "\U0001f4c5 Evento detectado: {proposed_datetime}\n"
-              "{urgency} Urg\u00eancia\n"
-              "\U0001f4ac Resposta sugerida:\n\"{suggested_reply}\"",
+        "\U0001f4cc Assunto: {subject}\n"
+        "\U0001f4dd Resumo: {summary}\n\n"
+        "\U0001f4c5 Evento detectado: {proposed_datetime}\n"
+        "{urgency} Urg\u00eancia\n"
+        '\U0001f4ac Resposta sugerida:\n"{suggested_reply}"',
         "es": "\U0001f4e7 Nuevo email de {sender}\n"
-              "\U0001f4cc Asunto: {subject}\n"
-              "\U0001f4dd Resumen: {summary}\n\n"
-              "\U0001f4c5 Evento detectado: "
-              "{proposed_datetime}\n"
-              "{urgency} Urgencia\n"
-              "\U0001f4ac Respuesta sugerida:\n\"{suggested_reply}\"",
+        "\U0001f4cc Asunto: {subject}\n"
+        "\U0001f4dd Resumen: {summary}\n\n"
+        "\U0001f4c5 Evento detectado: "
+        "{proposed_datetime}\n"
+        "{urgency} Urgencia\n"
+        '\U0001f4ac Respuesta sugerida:\n"{suggested_reply}"',
     },
     "email_cal_conflict": {
         "en": "\u26a0\ufe0f Calendar conflict! You have "
-              "\"{event}\" at {time}.\n"
-              "\U0001f552 Available slots: {free_slots}",
+        '"{event}" at {time}.\n'
+        "\U0001f552 Available slots: {free_slots}",
         "pt": "\u26a0\ufe0f Conflito na agenda! Voc\u00ea tem "
-              "\"{event}\" \u00e0s {time}.\n"
-              "\U0001f552 Hor\u00e1rios livres: {free_slots}",
+        '"{event}" \u00e0s {time}.\n'
+        "\U0001f552 Hor\u00e1rios livres: {free_slots}",
         "es": "\u26a0\ufe0f \u00a1Conflicto en agenda! Tienes "
-              "\"{event}\" a las {time}.\n"
-              "\U0001f552 Horarios libres: {free_slots}",
+        '"{event}" a las {time}.\n'
+        "\U0001f552 Horarios libres: {free_slots}",
     },
     "email_cal_free": {
         "en": "\u2705 Time slot is free on your calendar.",
@@ -1860,7 +1838,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "From: {sender}\nSubject: {subject}\n"
             "Summary: {summary}\n\n"
             "However, the user has a CALENDAR CONFLICT:\n"
-            "- Existing event: \"{conflict_event}\" at "
+            '- Existing event: "{conflict_event}" at '
             "{conflict_time}\n"
             "- Available slots today: {free_slots}\n\n"
             "Write a polite reply suggesting an alternative time "
@@ -1873,7 +1851,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "De: {sender}\nAssunto: {subject}\n"
             "Resumo: {summary}\n\n"
             "Por\u00e9m, o utilizador tem CONFLITO NA AGENDA:\n"
-            "- Evento existente: \"{conflict_event}\" \u00e0s "
+            '- Evento existente: "{conflict_event}" \u00e0s '
             "{conflict_time}\n"
             "- Hor\u00e1rios livres hoje: {free_slots}\n\n"
             "Escreva uma resposta educada sugerindo um hor\u00e1rio "
@@ -1887,7 +1865,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "De: {sender}\nAsunto: {subject}\n"
             "Resumen: {summary}\n\n"
             "Sin embargo, el usuario tiene CONFLICTO EN AGENDA:\n"
-            "- Evento existente: \"{conflict_event}\" a las "
+            '- Evento existente: "{conflict_event}" a las '
             "{conflict_time}\n"
             "- Horarios libres hoy: {free_slots}\n\n"
             "Escribe una respuesta educada sugiriendo un horario "
@@ -1913,11 +1891,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "email_cal_not_connected": {
         "en": "\u26a0\ufe0f Google Calendar not connected. "
-              "Connect it first to use calendar features.",
+        "Connect it first to use calendar features.",
         "pt": "\u26a0\ufe0f Google Calendar n\u00e3o conectado. "
-              "Conecte primeiro para usar a agenda.",
+        "Conecte primeiro para usar a agenda.",
         "es": "\u26a0\ufe0f Google Calendar no conectado. "
-              "Con\u00e9ctalo primero para usar la agenda.",
+        "Con\u00e9ctalo primero para usar la agenda.",
     },
     "email_cal_no_events": {
         "en": "\U0001f4c5 No events today.",
@@ -1931,33 +1909,24 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "email_cal_no_datetime": {
         "en": "\u26a0\ufe0f No date/time detected for this event.",
-        "pt": "\u26a0\ufe0f Nenhuma data/hora detectada para "
-              "este evento.",
-        "es": "\u26a0\ufe0f No se detect\u00f3 fecha/hora para "
-              "este evento.",
+        "pt": "\u26a0\ufe0f Nenhuma data/hora detectada para este evento.",
+        "es": "\u26a0\ufe0f No se detect\u00f3 fecha/hora para este evento.",
     },
     "email_cal_event_created": {
-        "en": "\u2705 Event \"{summary}\" added to your calendar!",
-        "pt": "\u2705 Evento \"{summary}\" adicionado \u00e0 "
-              "sua agenda!",
-        "es": "\u2705 \u00a1Evento \"{summary}\" agregado a "
-              "tu agenda!",
+        "en": '\u2705 Event "{summary}" added to your calendar!',
+        "pt": '\u2705 Evento "{summary}" adicionado \u00e0 sua agenda!',
+        "es": '\u2705 \u00a1Evento "{summary}" agregado a tu agenda!',
     },
     # ── Maps Agent ────────────────────────────────────────────────────────
     "maps_service_unavailable": {
-        "pt": "🗺️ Serviço de mapas indisponível no momento. "
-              "Tente novamente mais tarde.",
-        "en": "🗺️ Maps service is currently unavailable. "
-              "Please try again later.",
-        "es": "🗺️ El servicio de mapas no está disponible. "
-              "Intenta de nuevo más tarde.",
+        "pt": "🗺️ Serviço de mapas indisponível no momento. Tente novamente mais tarde.",
+        "en": "🗺️ Maps service is currently unavailable. Please try again later.",
+        "es": "🗺️ El servicio de mapas no está disponible. Intenta de nuevo más tarde.",
     },
     "maps_error": {
-        "pt": "❌ Erro ao processar a solicitação de mapas. "
-              "Tente novamente.",
+        "pt": "❌ Erro ao processar a solicitação de mapas. Tente novamente.",
         "en": "❌ Error processing maps request. Please try again.",
-        "es": "❌ Error al procesar la solicitud de mapas. "
-              "Intenta de nuevo.",
+        "es": "❌ Error al procesar la solicitud de mapas. Intenta de nuevo.",
     },
     "maps_need_destination": {
         "pt": (
@@ -1997,20 +1966,16 @@ STRINGS: Dict[str, Dict[str, str]] = {
         ),
     },
     "maps_need_query": {
-        "pt": "🔍 O que você quer buscar? "
-              "Ex: *farmácia perto de Dublin*",
-        "en": "🔍 What are you looking for? "
-              "e.g. *pharmacy near Dublin*",
-        "es": "🔍 ¿Qué buscas? "
-              "Ej: *farmacia cerca de Dublin*",
+        "pt": "🔍 O que você quer buscar? Ex: *farmácia perto de Dublin*",
+        "en": "🔍 What are you looking for? e.g. *pharmacy near Dublin*",
+        "es": "🔍 ¿Qué buscas? Ej: *farmacia cerca de Dublin*",
     },
     "maps_no_results": {
         "pt": "🔍 Nenhum resultado encontrado para *{query}*. "
-              "Tente com termos diferentes.",
-        "en": "🔍 No results found for *{query}*. "
-              "Try different search terms.",
+        "Tente com termos diferentes.",
+        "en": "🔍 No results found for *{query}*. Try different search terms.",
         "es": "🔍 No se encontraron resultados para *{query}*. "
-              "Intenta con otros términos.",
+        "Intenta con otros términos.",
     },
     "maps_steps_header": {
         "pt": "🧭 **Passo a passo:**",
@@ -2502,6 +2467,29 @@ STRINGS: Dict[str, Dict[str, str]] = {
     "cat_eggs": {"en": "Eggs", "pt": "Ovos", "es": "Huevos"},
     "cat_snacks": {"en": "Snacks", "pt": "Snacks", "es": "Snacks"},
     "cat_other": {"en": "Other", "pt": "Outros", "es": "Otros"},
+    # ══════════════════════════════════════════════════════════════
+    # Monthly Excel Report
+    # ══════════════════════════════════════════════════════════════
+    "mercado_excel_subject": {
+        "en": "🧾 Monthly Shopping Report — {month} {year}",
+        "pt": "🧾 Relatório Mensal de Compras — {month} {year}",
+        "es": "🧾 Informe Mensual de Compras — {month} {year}",
+    },
+    "mercado_excel_email_body": {
+        "en": "Your monthly shopping report is attached.\n\n{summary}\n\nSee the Excel file for full details.",
+        "pt": "Seu relatório mensal de compras está em anexo.\n\n{summary}\n\nVeja o ficheiro Excel para detalhes.",
+        "es": "Tu informe mensual de compras está adjunto.\n\n{summary}\n\nVer el archivo Excel para más detalles.",
+    },
+    "mercado_excel_telegram_with_email": {
+        "en": "📊 {summary}\n\n📧 Excel report sent to your email!",
+        "pt": "📊 {summary}\n\n📧 Relatório Excel enviado para o seu email!",
+        "es": "📊 {summary}\n\n📧 ¡Informe Excel enviado a tu email!",
+    },
+    "mercado_excel_telegram_no_email": {
+        "en": "📊 {summary}\n\n💡 Connect your Gmail to receive the report by email.",
+        "pt": "📊 {summary}\n\n💡 Conecta o teu Gmail para receber o relatório por email.",
+        "es": "📊 {summary}\n\n💡 Conecta tu Gmail para recibir el informe por email.",
+    },
 }
 
 
@@ -2575,19 +2563,19 @@ def _detect_lang_from_text(text: str) -> str:
         "como vai",
         "como voc\u00ea",  # como você
         "como voce",
-        "ol\u00e1",        # olá
+        "ol\u00e1",  # olá
         "oi ",
         "oi,",
         "tchau",
-        "at\u00e9 logo",   # até logo
+        "at\u00e9 logo",  # até logo
         "ate logo",
         "valeu",
         "beleza",
         "falou",
-        "e a\u00ed",       # e aí
+        "e a\u00ed",  # e aí
         "e ai",
         # Common verbs/words
-        "voc\u00ea",       # você
+        "voc\u00ea",  # você
         "voce",
         "quero",
         "preciso",
@@ -2605,9 +2593,9 @@ def _detect_lang_from_text(text: str) -> str:
         "daqui",
         "aqui ",
         "agora ",
-        "tamb\u00e9m",     # também
+        "tamb\u00e9m",  # também
         "tambem",
-        "ent\u00e3o",      # então
+        "ent\u00e3o",  # então
         "entao",
         # Tech/functional
         "ativar",
@@ -2616,9 +2604,9 @@ def _detect_lang_from_text(text: str) -> str:
         "desligar",
         " de email",
         "notifica\u00e7",  # notificaç
-        "\u00e3o",         # ão
-        "\u00e3es",        # ães
-        "\u00f5es",        # ões
+        "\u00e3o",  # ão
+        "\u00e3es",  # ães
+        "\u00f5es",  # ões
     )
     # Spanish markers (words unlikely in Portuguese/English)
     _ES_MARKERS = (
@@ -2637,7 +2625,7 @@ def _detect_lang_from_text(text: str) -> str:
         "gracias",
         "por favor",
         "ayuda",
-        "cu\u00e1nto",    # cuánto
+        "cu\u00e1nto",  # cuánto
         "cuanto",
         # Functional
         "activar",
