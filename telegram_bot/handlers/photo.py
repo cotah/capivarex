@@ -11,6 +11,115 @@ from utils.request_processor import RequestProcessor
 logger = logging.getLogger("capivarex.telegram.handlers.photo")
 
 
+async def _classify_photo(
+    image_data: bytes, mime_type: str = "image/jpeg"
+) -> str:
+    """
+    Use Gemini Flash to classify photo content for smart routing.
+
+    Returns a descriptive prompt that helps the orchestrator route correctly.
+    Cost: ~$0.001 per call, ~1s latency.
+    """
+    import base64
+    import os
+
+    import httpx
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        logger.warning(
+            "GEMINI_API_KEY not set, cannot classify photo"
+        )
+        return "processar imagem"
+
+    b64 = base64.b64encode(image_data).decode()
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": (
+                            "Classify this image in ONE short "
+                            "sentence in English. "
+                            "Be specific. Examples:\n"
+                            "- 'This is a supermarket receipt "
+                            "or grocery bill'\n"
+                            "- 'This is a document or "
+                            "invoice'\n"
+                            "- 'This is a photo of a "
+                            "person'\n"
+                            "- 'This is a landscape or "
+                            "scenery photo'\n"
+                            "- 'This is a photo of food'\n"
+                            "- 'This is a screenshot of a "
+                            "code or app'\n"
+                            "- 'This is a photo of an "
+                            "object'\n"
+                            "Respond with ONLY the "
+                            "classification sentence, "
+                            "nothing else."
+                        )
+                    },
+                    {
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": b64,
+                        }
+                    },
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.0,
+            "maxOutputTokens": 50,
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as http:
+            resp = await http.post(
+                "https://generativelanguage.googleapis.com"
+                "/v1beta/models/"
+                "gemini-2.5-flash-preview-05-20"
+                ":generateContent"
+                f"?key={api_key}",
+                json=payload,
+            )
+
+        if resp.status_code != 200:
+            logger.warning(
+                "Gemini classify HTTP %d",
+                resp.status_code,
+            )
+            return "processar imagem"
+
+        text = (
+            resp.json()
+            .get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+            .strip()
+        )
+
+        if text:
+            logger.info("Photo classified: %s", text)
+            return (
+                "The user sent a photo. "
+                f"{text}. "
+                "Process it accordingly."
+            )
+
+        return "processar imagem"
+
+    except Exception as e:
+        logger.warning(
+            "Photo classification failed: %s", e
+        )
+        return "processar imagem"
+
+
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle photo messages sent by the user.
@@ -76,10 +185,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "image_mime": "image/jpeg",
         }
 
-        # Route through the orchestrator — MercadoAgent will pick it up
-        # if the caption mentions "nota" / "recibo", otherwise falls back
-        # to a generic image description via ImageAgent.
-        prompt = caption if caption else "processar imagem"
+        # Route through the orchestrator.
+        # If caption exists, use it directly.
+        # Otherwise, classify the photo via Gemini Flash for smart routing.
+        if caption:
+            prompt = caption
+        else:
+            prompt = await _classify_photo(bytes(image_bytes))
 
         result = await bot.process_message(prompt, user_context)
         await send_agent_response(update, result)
