@@ -568,6 +568,58 @@ class QuotaService(BaseService):
         except Exception as e:
             self.logger.error("Erro ao incrementar %s/%s: %s", tenant_id, resource, e)
 
+        # Sync tenant_usage to keep both systems consistent
+        try:
+            period_start = _utcnow().replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            ).isoformat()
+            existing = await self._loop().run_in_executor(
+                None,
+                lambda: (
+                    self._client()
+                    .table("tenant_usage")
+                    .select("id, used")
+                    .eq("tenant_id", f"user-{tenant_id}")
+                    .eq("resource", "gpt_tokens")
+                    .gte("period_start", period_start)
+                    .execute()
+                ),
+            )
+            now_iso = _utcnow().isoformat()
+            if existing.data:
+                await self._loop().run_in_executor(
+                    None,
+                    lambda: (
+                        self._client()
+                        .table("tenant_usage")
+                        .update(
+                            {"used": existing.data[0]["used"] + 1,
+                             "updated_at": now_iso}
+                        )
+                        .eq("id", existing.data[0]["id"])
+                        .execute()
+                    ),
+                )
+            else:
+                await self._loop().run_in_executor(
+                    None,
+                    lambda: (
+                        self._client()
+                        .table("tenant_usage")
+                        .insert({
+                            "tenant_id": f"user-{tenant_id}",
+                            "resource": "gpt_tokens",
+                            "used": 1,
+                            "period_start": period_start,
+                            "created_at": now_iso,
+                            "updated_at": now_iso,
+                        })
+                        .execute()
+                    ),
+                )
+        except Exception:
+            pass  # quota sync is best-effort, never block the main flow
+
     async def _log_usage(self, tenant_id: str, resource: str, amount: int, plan: str) -> None:
         try:
             await self._loop().run_in_executor(
