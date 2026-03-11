@@ -233,7 +233,7 @@ async def webapp_chat(
                         .eq("conversation_id", conversation_id)
                         .execute()
                     )
-                    if msg_count.count == 1:
+                    if msg_count.count == 2:
                         raw_title = body.message.split("\n\n")[0][:50]
                         title = raw_title + (
                             "..."
@@ -331,7 +331,7 @@ async def webapp_chat(
                 .eq("conversation_id", conversation_id)
                 .execute()
             )
-            if msg_count.count == 1:
+            if msg_count.count == 2:
                 raw_title = body.message[:50]
                 title = raw_title + ("..." if len(body.message) > 50 else "")
                 db.table("webapp_conversations").update(
