@@ -1,0 +1,47 @@
+# =============================================================================
+# Multi-stage production Dockerfile for CapivaraX Bot API
+# Stage 1: Builder — installs all dependencies
+# Stage 2: Runtime — copies only what's needed, runs as non-root user
+# =============================================================================
+
+# --------------- Stage 1: Builder ---------------
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt gunicorn
+
+# --------------- Stage 2: Runtime ---------------
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install minimal system dependencies (curl for health checks, git for GitService, ffmpeg for pydub)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Create a non-root user for running the application
+RUN groupadd --gid 1001 appgroup \
+    && useradd --uid 1001 --gid appgroup --shell /bin/false --create-home appuser
+
+# Copy application code
+COPY . .
+
+# Ensure the non-root user owns the app directory
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+EXPOSE 8000
+
+# Run with gunicorn (multi-worker, production-grade)
+CMD ["gunicorn", "-c", "gunicorn_conf.py", "api.main:app"]

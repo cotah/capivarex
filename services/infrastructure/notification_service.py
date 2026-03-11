@@ -1,0 +1,53 @@
+# services/infrastructure/notification_service.py
+"""
+NotificationService — abstract notification delivery layer.
+
+Currently supports Telegram; designed so additional channels
+(push notifications, in-app, Orb, etc.) can be added later
+without touching the callers.
+"""
+
+from services.core import BaseService, register_service
+
+
+@register_service("notification")
+class NotificationService(BaseService):
+    """Delivers notifications through pluggable channels."""
+
+    async def _initialize(self):
+        """Load notification configuration and connect to backends."""
+        self.logger.info("NotificationService ready")
+
+    async def _health_check(self) -> bool:
+        """Verify the notification service is operational."""
+        return True
+
+    async def send_message(
+        self,
+        channel: str,
+        recipient: str,
+        message: str,
+        reply_markup=None,
+    ) -> bool:
+        """
+        Send a message through the specified channel.
+
+        Args:
+            channel: Delivery channel ('telegram', 'app', 'orb').
+            recipient: Recipient identifier (e.g. Telegram chat_id).
+            message: The message body.
+            reply_markup: Optional InlineKeyboardMarkup for buttons.
+
+        Returns:
+            True if sent successfully, False otherwise.
+        """
+        if channel == "telegram":
+            # Local import to avoid circular dependency
+            from telegram_bot import send_proactive_message
+
+            return await send_proactive_message(
+                recipient, message, reply_markup=reply_markup
+            )
+
+        self.logger.warning("Notification channel '%s' not supported.", channel)
+        return False

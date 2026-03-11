@@ -1,0 +1,55 @@
+### Teste 1: Chat
+POST http://localhost:8000/api/chat/stream
+Content-Type: application/json
+
+{
+  "message": "Olá, tudo bem?"
+}
+
+### Teste 2: Weather
+POST http://localhost:8000/api/chat/stream
+Content-Type: application/json
+
+{
+  "message": "Qual a previsão do tempo para São Paulo?"
+}
+
+### Teste 3: Finance
+POST http://localhost:8000/api/chat/stream
+Content-Type: application/json
+
+{
+  "message": "Qual a cotação da ação PETR4?"
+}
+
+### Teste 4: Research
+POST http://localhost:8000/api/chat/stream
+Content-Type: application/json
+
+{
+  "message": "Quais as últimas notícias sobre a Apple?"
+}
+
+### Teste 5: Dev
+POST http://localhost:8000/api/chat/stream
+Content-Type: application/json
+
+{
+  "message": "Crie uma função em Python que calcula o fatorial de um número."
+}
+
+### Teste 6: Image
+POST http://localhost:8000/api/chat/stream
+Content-Type: application/json
+
+{
+  "message": "Crie uma imagem de um astronauta surfando em um anel de Saturno."
+}
+
+### Teste 7: Video
+POST http://localhost:8000/api/chat/stream
+Content-Type: application/json
+
+{
+  "message": "Crie um vídeo de um carro futurista correndo em uma cidade neon."
+}

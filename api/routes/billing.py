@@ -1,0 +1,417 @@
+# -*- coding: utf-8 -*-
+"""
+Billing Routes — Stripe checkout, webhook, status, portal.
+
+Manages subscription plans (free / me / everywhere) with daily message
+quotas stored in ``public.users`` columns (plan, messages_used,
+messages_limit, stripe_customer_id).
+
+Endpoints:
+- POST /api/billing/create-checkout  → Stripe Checkout session
+- POST /api/billing/webhook          → Stripe webhook (public, no auth)
+- GET  /api/billing/status           → current plan & usage
+- POST /api/billing/portal           → Stripe billing portal
+"""
+
+import os
+
+import stripe
+from fastapi import APIRouter, Depends, HTTPException, Request
+from loguru import logger
+from pydantic import BaseModel, Field
+
+from api.middleware.webapp_auth import verify_webapp_user
+from api.routes._helpers import _get_db
+
+router = APIRouter(tags=["Billing"])
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+STRIPE_PRICE_ME = os.getenv("STRIPE_PRICE_ME")
+STRIPE_PRICE_EVERYWHERE = os.getenv("STRIPE_PRICE_EVERYWHERE")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://app.capivarex.com")
+
+if not STRIPE_SECRET_KEY:
+    logger.warning("STRIPE_SECRET_KEY not set — billing endpoints will fail")
+if not STRIPE_WEBHOOK_SECRET:
+    logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook verification will fail")
+if not STRIPE_PRICE_ME:
+    logger.warning("STRIPE_PRICE_ME not set")
+if not STRIPE_PRICE_EVERYWHERE:
+    logger.warning("STRIPE_PRICE_EVERYWHERE not set")
+
+PLAN_LIMITS: dict[str, int] = {
+    "free": 30,
+    "me": 300,
+    "everywhere": 999999,
+}
+
+PLAN_PRICES: dict[str, str | None] = {
+    "me": STRIPE_PRICE_ME,
+    "everywhere": STRIPE_PRICE_EVERYWHERE,
+}
+
+TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
+
+
+def _plan_from_price(price_id: str | None) -> str | None:
+    """Map a Stripe price ID back to a plan name."""
+    if not price_id:
+        return None
+    if price_id == STRIPE_PRICE_ME:
+        return "me"
+    if price_id == STRIPE_PRICE_EVERYWHERE:
+        return "everywhere"
+    return None
+
+
+async def _notify_admin(message: str) -> None:
+    """Send a Telegram notification to the admin chat (best-effort)."""
+    if not TELEGRAM_ADMIN_CHAT_ID:
+        logger.debug("_notify_admin: TELEGRAM_ADMIN_CHAT_ID not set, skipping")
+        return
+    try:
+        from services.core import get_service
+
+        notification_svc = get_service("notification")
+        if notification_svc:
+            if not notification_svc.is_initialized():
+                await notification_svc.initialize()
+            await notification_svc.send_message(
+                "telegram", TELEGRAM_ADMIN_CHAT_ID, message
+            )
+    except Exception as e:
+        logger.warning("_notify_admin failed: {}", e)
+
+
+# ---------------------------------------------------------------------------
+# Request models
+# ---------------------------------------------------------------------------
+
+
+class CreateCheckoutRequest(BaseModel):
+    plan: str = Field(..., pattern=r"^(me|everywhere)$")
+
+
+# ---------------------------------------------------------------------------
+# POST /api/billing/create-checkout
+# ---------------------------------------------------------------------------
+
+
+@router.post("/create-checkout")
+async def create_checkout(
+    body: CreateCheckoutRequest,
+    request: Request,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Create a Stripe Checkout session for the chosen plan."""
+    stripe.api_key = STRIPE_SECRET_KEY
+    db = _get_db()
+
+    try:
+        user_row = (
+            db.table("users")
+            .select("email, stripe_customer_id")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not user_row.data:
+            # User exists in auth.users but not in public.users
+            # (created before trigger was active) — extract email from
+            # the JWT so the NOT NULL column is satisfied on upsert.
+            import jwt as pyjwt
+
+            token = request.headers.get(
+                "authorization", ""
+            ).replace("Bearer ", "")
+            try:
+                payload = pyjwt.decode(
+                    token, options={"verify_signature": False}
+                )
+                user_email = payload.get("email") or ""
+            except Exception:
+                user_email = ""
+
+            logger.warning(
+                "Billing: user={} not in public.users,"
+                " upserting with email={}",
+                user_id[:8],
+                bool(user_email),
+            )
+            db.table("users").upsert({
+                "id": user_id,
+                "email": user_email,
+                "plan": "free",
+                "messages_used": 0,
+                "messages_limit": 30,
+            }).execute()
+            user = {"email": user_email, "stripe_customer_id": None}
+        else:
+            user = user_row.data[0]
+        customer_id = user.get("stripe_customer_id")
+
+        # Create Stripe customer if one doesn't exist yet
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=user.get("email"),
+                metadata={"user_id": user_id},
+            )
+            customer_id = customer.id
+            db.table("users").update(
+                {"stripe_customer_id": customer_id}
+            ).eq("id", user_id).execute()
+            logger.info(
+                f"Billing: created Stripe customer {customer_id[:16]}"
+                f" for user={user_id[:8]}"
+            )
+
+        price_id = PLAN_PRICES[body.plan]
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            metadata={"user_id": user_id, "plan": body.plan},
+            success_url=(
+                f"{FRONTEND_URL}/billing/success"
+                "?session_id={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=f"{FRONTEND_URL}/billing/cancel",
+        )
+
+        logger.info(
+            f"Billing: user={user_id[:8]} created checkout"
+            f" plan={body.plan} session={session.id[:16]}"
+        )
+        return {"checkout_url": session.url}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.opt(exception=True).error(
+            "Billing create-checkout error: {name}: {msg}",
+            name=type(e).__name__,
+            msg=str(e),
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to create checkout session"
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/billing/webhook  (NO auth — called by Stripe)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/webhook")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events.
+
+    Supported events:
+    - ``checkout.session.completed`` → upgrade user plan
+    - ``customer.subscription.deleted`` → reset to free
+    - ``customer.subscription.updated`` → sync plan on upgrade/downgrade
+    - ``invoice.payment_succeeded`` → confirm renewal
+    - ``invoice.payment_failed`` → notify admin of failure
+    """
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except (ValueError, stripe.SignatureVerificationError):
+        logger.warning("Billing webhook: invalid signature")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    db = _get_db()
+    event_type = event.get("type", "")
+
+    if event_type == "checkout.session.completed":
+        session = event["data"]["object"]
+        meta = session.get("metadata", {})
+        uid = meta.get("user_id")
+        plan = meta.get("plan")
+        customer_id = session.get("customer")
+
+        if uid and plan and plan in PLAN_LIMITS:
+            limit = PLAN_LIMITS[plan]
+            db.table("users").update({
+                "plan": plan,
+                "messages_limit": limit,
+                "stripe_customer_id": customer_id,
+            }).eq("id", uid).execute()
+            logger.info(
+                f"Billing: user={uid[:8]} upgraded to"
+                f" plan={plan} limit={limit}"
+            )
+
+    elif event_type == "customer.subscription.deleted":
+        subscription = event["data"]["object"]
+        customer_id = subscription.get("customer")
+
+        if customer_id:
+            db.table("users").update({
+                "plan": "free",
+                "messages_limit": PLAN_LIMITS["free"],
+            }).eq("stripe_customer_id", customer_id).execute()
+            logger.info(
+                f"Billing: customer={customer_id[:16]}"
+                f" subscription deleted, reset to free"
+            )
+
+    elif event_type == "customer.subscription.updated":
+        subscription = event["data"]["object"]
+        customer_id = subscription.get("customer")
+        items = subscription.get("items", {}).get("data", [])
+        price_id = items[0].get("price", {}).get("id") if items else None
+        plan = _plan_from_price(price_id)
+        if customer_id and plan:
+            limit = PLAN_LIMITS[plan]
+            db.table("users").update({
+                "plan": plan,
+                "messages_limit": limit,
+            }).eq("stripe_customer_id", customer_id).execute()
+            logger.info(
+                f"Billing: customer={customer_id[:16]}"
+                f" subscription updated → {plan} (limit={limit})"
+            )
+            await _notify_admin(
+                f"\U0001f504 Plano atualizado: customer={customer_id[:16]} → {plan.upper()}"
+            )
+
+    elif event_type == "invoice.payment_succeeded":
+        invoice = event["data"]["object"]
+        customer_id = invoice.get("customer")
+        amount = invoice.get("amount_paid", 0) / 100
+        logger.info(
+            f"Billing: payment succeeded customer={customer_id} R${amount:.2f}"
+        )
+        await _notify_admin(
+            f"\u2705 Pagamento confirmado: customer={customer_id} R${amount:.2f}"
+        )
+
+    elif event_type == "invoice.payment_failed":
+        invoice = event["data"]["object"]
+        customer_id = invoice.get("customer")
+        logger.warning(
+            f"Billing: payment failed customer={customer_id}"
+        )
+        await _notify_admin(
+            f"\u274c Pagamento falhou: customer={customer_id} \u2014 verificar conta"
+        )
+
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/billing/status
+# ---------------------------------------------------------------------------
+
+
+@router.get("/status")
+async def billing_status(user_id: str = Depends(verify_webapp_user)):
+    """Return current plan, message usage, and quota percentage."""
+    db = _get_db()
+
+    try:
+        result = (
+            db.table("users")
+            .select("plan, messages_used, messages_limit")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user = result.data[0]
+        plan = user.get("plan") or "free"
+        used = user.get("messages_used") or 0
+        limit = user.get("messages_limit") or PLAN_LIMITS["free"]
+        is_unlimited = limit >= 999999
+
+        if is_unlimited:
+            quota_pct = 0.0
+        else:
+            quota_pct = round((used / limit) * 100, 1) if limit > 0 else 100.0
+
+        logger.info(
+            f"Billing status: user={user_id[:8]}"
+            f" plan={plan} used={used}/{limit}"
+        )
+        return {
+            "plan": plan,
+            "messages_used": used,
+            "messages_limit": limit,
+            "quota_pct": quota_pct,
+            "is_unlimited": is_unlimited,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.opt(exception=True).error(
+            "Billing status error: {name}: {msg}",
+            name=type(e).__name__,
+            msg=str(e),
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to get billing status"
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/billing/portal
+# ---------------------------------------------------------------------------
+
+
+@router.post("/portal")
+async def billing_portal(user_id: str = Depends(verify_webapp_user)):
+    """Create a Stripe billing portal session for managing subscriptions."""
+    stripe.api_key = STRIPE_SECRET_KEY
+    db = _get_db()
+
+    try:
+        result = (
+            db.table("users")
+            .select("stripe_customer_id")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        customer_id = result.data[0].get("stripe_customer_id")
+        if not customer_id:
+            raise HTTPException(
+                status_code=400, detail="No billing account found"
+            )
+
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{FRONTEND_URL}/settings",
+        )
+
+        logger.info(
+            f"Billing portal: user={user_id[:8]} session created"
+        )
+        return {"portal_url": session.url}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.opt(exception=True).error(
+            "Billing portal error: {name}: {msg}",
+            name=type(e).__name__,
+            msg=str(e),
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to create portal session"
+        )

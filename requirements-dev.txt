@@ -1,0 +1,24 @@
+# Development and testing dependencies
+# Install with: pip install -r requirements-dev.txt
+
+# Dependency management
+pip-tools>=7.4.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+
+# Mocking
+responses>=0.24.0
+freezegun>=1.4.0
+
+# Code Quality
+ruff>=0.8.0
+
+# Security auditing
+pip-audit>=2.7.0
+
+# Type checking (optional)
+mypy>=1.7.0

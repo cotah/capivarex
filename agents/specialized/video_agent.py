@@ -1,0 +1,179 @@
+"""
+Video Agent - Generates videos using AI.
+
+Refactored to use new BaseAgent architecture.
+"""
+
+import logging
+from typing import Any, Dict, List
+
+from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
+from services import get_service
+from services.i18n import t, get_user_lang
+
+
+logger = logging.getLogger(__name__)
+
+
+@register_agent("video")
+class VideoAgent(BaseAgent):
+    """
+    Video agent for AI video generation.
+
+    Handles:
+    - Text-to-video generation
+    - Image-to-video generation
+    - Different aspect ratios and durations
+    """
+
+    def __init__(self):
+        """Initialise the video agent."""
+        super().__init__(name="video", description="Generates videos using AI")
+
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        """
+        Generate a video from a text prompt or image.
+
+        Args:
+            prompt: User's video description
+            context: Execution context with optional parameters:
+                - prompt: Override video prompt
+                - image_path: Path to source image (for image-to-video)
+                - user_plan: User subscription plan
+                - ratio: Video aspect ratio (16:9, 9:16, etc.)
+                - duration: Video duration in seconds
+
+        Returns:
+            AgentResponse with video generation result
+        """
+        lang = get_user_lang(context)
+        video_prompt = str(context.get("prompt") or prompt).strip()
+        image_path = context.get("image_path")
+        user_plan = str(context.get("user_plan") or "basic")
+        ratio = str(context.get("ratio") or "16:9")
+
+        try:
+            duration = int(context.get("duration") or 5)
+        except (TypeError, ValueError):
+            duration = 5
+
+        if not video_prompt:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=t("video_empty_prompt", lang=lang),
+                error="Empty video prompt",
+            )
+
+        # ── Image-to-video via Grok Imagine ─────────────────────────
+        image_data: bytes | None = context.get("image_data")
+        if image_data:
+            image_mime: str = context.get("image_mime", "image/jpeg")
+            grok_svc = get_service("grok_video")
+            if not grok_svc:
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response=t("video_grok_unavailable", lang=lang),
+                    error="GrokVideoService unavailable",
+                )
+            if not grok_svc.is_initialized():
+                await grok_svc.initialize()
+
+            result = await grok_svc.image_to_video(
+                image_data=image_data,
+                prompt=video_prompt,
+                duration=duration,
+                aspect_ratio="auto",
+                mime_type=image_mime,
+            )
+
+            if isinstance(result, dict) and not result.get("success"):
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response=result.get(
+                        "error", t("video_grok_error", lang=lang)
+                    ),
+                    error=result.get("error"),
+                    data=result,
+                )
+
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t("video_grok_success", lang=lang),
+                data=result,
+                metadata={
+                    "type": "video",
+                    "file_path": result.get("video_path"),
+                    "format": "mp4",
+                },
+            )
+
+        # ── Text-to-video via Veo (existing logic) ──────────────────
+        try:
+            # Get video service from registry
+            video_svc = get_service("video")
+            if not video_svc:
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response=t("video_veo_unavailable", lang=lang),
+                    error="Video service not available",
+                )
+
+            await video_svc.initialize()
+
+            # Use video service's methods directly
+            if image_path:
+                result = await video_svc.generate_image_to_video(
+                    image_path=str(image_path),
+                    prompt=video_prompt,
+                    user_plan=user_plan,
+                    duration=duration,
+                    ratio=ratio,
+                )
+            else:
+                result = await video_svc.generate_text_to_video(
+                    prompt=video_prompt,
+                    user_plan=user_plan,
+                    duration=duration,
+                    ratio=ratio,
+                )
+
+            if isinstance(result, dict):
+                success = result.get("success", True)
+                if not success:
+                    return AgentResponse(
+                        status=AgentStatus.ERROR,
+                        response=result.get("error", t("video_veo_error", lang=lang)),
+                        error=result.get("error", "Video generation failed"),
+                        data=result,
+                    )
+
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=t("video_veo_success", lang=lang),
+                    data=result,
+                    metadata={
+                        "type": "video",
+                        "file_path": result.get("video_path"),
+                        "format": "mp4",
+                    },
+                )
+
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t("video_veo_success", lang=lang),
+                data={"success": True, "result": result},
+                metadata={"type": "video"},
+            )
+
+        except Exception as e:
+            self.logger.error(f"VideoAgent failed: {e}", exc_info=True)
+
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=t("video_general_error", lang=lang, error=str(e)),
+                error=str(e),
+            )
+
+    def get_capabilities(self) -> List[str]:
+        """Get video agent capabilities."""
+        return ["text_to_video", "image_to_video", "video_generation"]

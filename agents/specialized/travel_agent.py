@@ -1,0 +1,448 @@
+"""
+Travel Agent — Flight search/booking & hotel/stay search via Duffel API.
+
+Handles:
+- Flight search ("fly from Dublin to London on March 15")
+- Hotel/stay search ("find hotel in Paris for 3 nights")
+- Price comparison (returns top 5 cheapest options)
+- Booking flow info (explains next steps)
+
+Note: Actual booking (payment) requires user confirmation and is a future
+enhancement. For now the agent searches and presents options.
+"""
+
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
+from services import get_service
+from services.ai.model_config import DEFAULT_MODEL
+from services.i18n import t, get_user_lang
+
+logger = logging.getLogger(__name__)
+
+
+@register_agent("travel")
+class TravelAgent(BaseAgent):
+    """Travel agent for flights and accommodation via Duffel API."""
+
+    def __init__(self):
+        super().__init__(
+            name="travel",
+            description="Search flights and hotels/stays via Duffel API",
+        )
+
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
+        """Process travel-related requests."""
+        lang = get_user_lang(context)
+
+        # Get Duffel service
+        duffel = get_service("duffel")
+        if not duffel:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=t("service_unavailable", lang=lang),
+                error="Duffel service not available",
+            )
+
+        if not duffel.is_initialized():
+            await duffel.initialize()
+
+        # Use GPT to parse the travel intent
+        intent = await self._parse_intent(prompt, context)
+
+        if not intent:
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=self._get_help_text(lang),
+            )
+
+        intent_type = intent.get("type", "unknown")
+
+        try:
+            if intent_type == "flight":
+                return await self._handle_flight_search(duffel, intent, lang)
+            elif intent_type == "stay":
+                return await self._handle_stay_search(duffel, intent, context, lang)
+            else:
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response=self._get_help_text(lang),
+                )
+        except Exception as e:
+            self.logger.error("Travel agent error: %s", e, exc_info=True)
+            return AgentResponse(
+                status=AgentStatus.ERROR,
+                response=t("error_processing", lang=lang),
+                error=str(e),
+            )
+
+    # ------------------------------------------------------------------ #
+    # Flight search                                                        #
+    # ------------------------------------------------------------------ #
+
+    async def _handle_flight_search(
+        self, duffel, intent: Dict, lang: str
+    ) -> AgentResponse:
+        origin = intent.get("origin", "").upper()
+        destination = intent.get("destination", "").upper()
+        departure = intent.get("departure_date", "")
+        return_date = intent.get("return_date")
+        cabin = intent.get("cabin_class", "economy")
+        passengers_count = intent.get("passengers", 1)
+        original_prompt = intent.get("_original_prompt", "")
+
+        # ── STRONG ONE-WAY / ROUND-TRIP DETECTION ──
+        # We check the ORIGINAL user text, not GPT's interpretation
+        round_trip_keywords = [
+            "round trip",
+            "roundtrip",
+            "round-trip",
+            "return flight",
+            "return ticket",
+            "ida e volta",
+            "ida y vuelta",
+            "volta",
+            "vuelta",
+            "retorno",
+            "regresso",
+            "hin und rück",
+            "aller-retour",
+            "two way",
+            "two-way",
+        ]
+        prompt_lower = original_prompt.lower()
+        user_wants_roundtrip = any(kw in prompt_lower for kw in round_trip_keywords)
+
+        self.logger.debug(
+            "TRAVEL DEBUG — GPT parsed: origin=%s dest=%s departure=%s return_date=%s",
+            origin,
+            destination,
+            departure,
+            return_date,
+        )
+        self.logger.debug(
+            "TRAVEL DEBUG — User text: '%s' | round_trip_keywords_found=%s | user_wants_roundtrip=%s",
+            original_prompt[:80],
+            [kw for kw in round_trip_keywords if kw in prompt_lower],
+            user_wants_roundtrip,
+        )
+
+        # FORCE: If user did NOT ask for round-trip, remove return_date
+        if not user_wants_roundtrip:
+            if return_date:
+                self.logger.info(
+                    "TRAVEL DEBUG — FORCING ONE-WAY: removing return_date=%s (user didn't ask for round-trip)",
+                    return_date,
+                )
+            return_date = None
+
+        # FORCE: If user asked for round-trip but GPT didn't provide return_date, log warning
+        if user_wants_roundtrip and not return_date:
+            self.logger.warning(
+                "TRAVEL DEBUG — User asked for round-trip but GPT did not provide return_date!"
+            )
+
+        self.logger.debug(
+            "TRAVEL DEBUG — FINAL search params: origin=%s dest=%s departure=%s return_date=%s (one-way=%s)",
+            origin,
+            destination,
+            departure,
+            return_date,
+            return_date is None,
+        )
+
+        if not origin or not destination or not departure:
+            msg = (
+                "I need more details to search flights. Please provide:\n"
+                "• Origin (city or airport code)\n"
+                "• Destination (city or airport code)\n"
+                "• Departure date\n\n"
+                'Example: "Fly from Dublin to London on April 15"'
+                if lang == "en"
+                else "Preciso de mais detalhes para buscar voos. Por favor forneça:\n"
+                "• Origem (cidade ou código do aeroporto)\n"
+                "• Destino (cidade ou código do aeroporto)\n"
+                "• Data de partida\n\n"
+                'Exemplo: "Voo de Lisboa para Londres em 15 de abril"'
+            )
+            return AgentResponse(status=AgentStatus.SUCCESS, response=msg)
+
+        passengers = [{"type": "adult"} for _ in range(passengers_count)]
+
+        result = await duffel.search_flights(
+            origin=origin,
+            destination=destination,
+            departure_date=departure,
+            return_date=return_date,
+            passengers=passengers,
+            cabin_class=cabin,
+            max_results=5,
+        )
+
+        offers = result.get("offers", [])
+
+        self.logger.debug(
+            "TRAVEL DEBUG — Duffel returned %d offers (showing max 5)",
+            result.get("total_found", 0),
+        )
+
+        if not offers:
+            msg = (
+                f"No flights found from {origin} to {destination} on {departure}. "
+                "Try different dates or nearby airports."
+                if lang == "en"
+                else f"Nenhum voo encontrado de {origin} para {destination} em {departure}. "
+                "Tente datas diferentes ou aeroportos próximos."
+            )
+            return AgentResponse(status=AgentStatus.SUCCESS, response=msg)
+
+        # Format results
+        trip_type = "Round trip" if return_date else "One-way"
+        trip_type_pt = "Ida e volta" if return_date else "Só ida"
+
+        if lang == "en":
+            header = (
+                f"✈️ **{trip_type}: {origin} → {destination}** | {departure}"
+                + (f" → {return_date}" if return_date else "")
+                + f"\n{result['total_found']} flights found — showing top {len(offers)} cheapest:\n\n"
+            )
+        else:
+            header = (
+                f"✈️ **{trip_type_pt}: {origin} → {destination}** | {departure}"
+                + (f" → {return_date}" if return_date else "")
+                + f"\n{result['total_found']} voos encontrados — mostrando top {len(offers)} mais baratos:\n\n"
+            )
+
+        lines = [header]
+        for i, offer in enumerate(offers, 1):
+            lines.append(f"**Option {i}:**" if lang == "en" else f"**Opção {i}:**")
+            lines.append(duffel.format_flight_offer(offer, return_date=return_date))
+            lines.append("")
+
+        footer = (
+            "\n💡 Click the booking link on your preferred option to book directly "
+            "with the airline. Prices shown are indicative and may vary on the airline's site."
+            if lang == "en"
+            else "\n💡 Clique no link de reserva na opção desejada para reservar "
+            "diretamente com a companhia aérea. Preços indicativos, podem variar no site."
+        )
+        lines.append(footer)
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response="\n".join(lines),
+            data={
+                "offers": [
+                    {
+                        "id": o.get("id"),
+                        "price": o.get("total_amount"),
+                        "currency": o.get("total_currency"),
+                        "airline": o.get("owner", {}).get("name"),
+                    }
+                    for o in offers
+                ],
+                "offer_request_id": result.get("offer_request_id"),
+            },
+        )
+
+    # ------------------------------------------------------------------ #
+    # Stay search                                                          #
+    # ------------------------------------------------------------------ #
+
+    async def _handle_stay_search(
+        self, duffel, intent: Dict, context: Dict, lang: str
+    ) -> AgentResponse:
+        check_in = intent.get("check_in", "")
+        check_out = intent.get("check_out", "")
+        location_name = intent.get("location", "")
+        rooms = intent.get("rooms", 1)
+        guests_count = intent.get("guests", 2)
+
+        if not location_name:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t("hotel_need_location", lang=lang),
+            )
+
+        if not check_in or not check_out:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=t("hotel_need_dates", lang=lang),
+            )
+
+        # Build Booking.com pre-filled link
+        booking_url = duffel.build_booking_url(
+            city=location_name,
+            checkin=check_in,
+            checkout=check_out,
+            adults=guests_count,
+            rooms=rooms,
+        )
+
+        # Format human-friendly dates
+        try:
+            ci = datetime.strptime(check_in, "%Y-%m-%d")
+            co = datetime.strptime(check_out, "%Y-%m-%d")
+            checkin_fmt = ci.strftime("%B %d")
+            checkout_fmt = co.strftime("%B %d")
+        except ValueError:
+            checkin_fmt = check_in
+            checkout_fmt = check_out
+
+        response = t(
+            "hotel_search_result",
+            lang=lang,
+            city=location_name,
+            checkin=checkin_fmt,
+            checkout=checkout_fmt,
+            adults=guests_count,
+            rooms=rooms,
+            url=booking_url,
+        )
+
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response=response,
+            data={
+                "booking_url": booking_url,
+                "city": location_name,
+                "check_in": check_in,
+                "check_out": check_out,
+                "adults": guests_count,
+                "rooms": rooms,
+            },
+        )
+
+    # ------------------------------------------------------------------ #
+    # Intent parsing with GPT                                              #
+    # ------------------------------------------------------------------ #
+
+    async def _parse_intent(
+        self, prompt: str, context: Dict[str, Any]
+    ) -> Optional[Dict]:
+        """Use GPT to parse travel intent from natural language."""
+        openai_svc = get_service("openai")
+        if not openai_svc:
+            return self._fallback_parse(prompt)
+
+        await openai_svc.initialize()
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        system_prompt = f"""You are a travel intent parser. Today is {today}.
+Extract travel intent from the user message and return ONLY valid JSON, no markdown.
+
+For FLIGHTS return:
+{{"type":"flight","origin":"IATA","destination":"IATA","departure_date":"YYYY-MM-DD","return_date":null,"cabin_class":"economy","passengers":1}}
+
+CRITICAL RULES for return_date:
+- Set return_date to null for ONE-WAY flights (default assumption)
+- ONLY set return_date if the user EXPLICITLY mentions a return date, round trip, ida e volta, or ida y vuelta
+- Words that mean round-trip: "round trip", "return", "ida e volta", "ida y vuelta", "volta", "vuelta", "retorno"
+- If the user just says "flights from A to B on date" with NO mention of return → return_date MUST be null
+- If the user says "round trip A to B, May 1 to May 15" → return_date = "2026-05-15"
+
+For STAYS/HOTELS return:
+{{"type":"stay","location":"city name","latitude":null,"longitude":null,"check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD","rooms":1,"guests":1}}
+
+IATA codes: DUB=Dublin, LIS=Lisbon, LHR=London Heathrow, STN=London Stansted, LGW=London Gatwick, CDG=Paris, JFK=New York, LAX=Los Angeles, GRU=São Paulo, OPO=Porto, FAO=Faro, etc.
+For cities with multiple airports, use the main one.
+
+Coordinates for common cities:
+Dublin: 53.3498,-6.2603 | London: 51.5074,-0.1278 | Paris: 48.8566,2.3522
+New York: 40.7128,-74.0060 | São Paulo: -23.5505,-46.6333 | Lisbon: 38.7223,-9.1393
+
+If "tomorrow", "next week", etc., calculate the actual date from today ({today}).
+If duration like "3 nights" is given, calculate check_out from check_in.
+If the request is unclear, return {{"type":"unknown"}}."""
+
+        try:
+            client = openai_svc.get_client()
+            completion = await client.chat.completions.create(
+                model=DEFAULT_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                max_completion_tokens=300,
+            )
+            text = (completion.choices[0].message.content or "").strip()
+            # Clean markdown fences if present
+            text = text.replace("```json", "").replace("```", "").strip()
+
+            import json
+
+            parsed = json.loads(text)
+            # Pass original prompt for safeguard checks downstream
+            parsed["_original_prompt"] = prompt
+            return parsed
+
+        except Exception as e:
+            self.logger.warning("GPT intent parsing failed: %s", e)
+            return self._fallback_parse(prompt)
+
+    def _fallback_parse(self, prompt: str) -> Optional[Dict]:
+        """Basic regex fallback for intent parsing."""
+        lower = prompt.lower()
+
+        # Check if it's about flights or stays
+        flight_words = ["flight", "fly", "voo", "voar", "avião", "airplane", "plane"]
+        stay_words = [
+            "hotel",
+            "stay",
+            "accommodation",
+            "hostel",
+            "alojamento",
+            "estadia",
+            "hospedagem",
+        ]
+
+        is_flight = any(w in lower for w in flight_words)
+        is_stay = any(w in lower for w in stay_words)
+
+        if is_flight:
+            return {"type": "flight", "_original_prompt": prompt}
+        elif is_stay:
+            return {"type": "stay", "_original_prompt": prompt}
+
+        return {"type": "unknown", "_original_prompt": prompt}
+
+    # ------------------------------------------------------------------ #
+    # Help text                                                            #
+    # ------------------------------------------------------------------ #
+
+    def _get_help_text(self, lang: str) -> str:
+        if lang == "en":
+            return (
+                "✈️🏨 **Travel Agent** — I can help you find flights and hotels!\n\n"
+                "**Flights:**\n"
+                '• "Find flights from Dublin to London on April 15"\n'
+                '• "Round trip São Paulo to Lisbon, May 1 to May 15"\n'
+                '• "Business class flights NYC to Paris next Friday"\n\n'
+                "**Hotels/Stays:**\n"
+                '• "Find hotel in Paris from April 15 to April 18"\n'
+                '• "Hotels near Dublin for 3 nights starting March 20"\n\n'
+                "Just tell me where and when! 🌍"
+            )
+        return (
+            "✈️🏨 **Agente de Viagens** — Posso ajudar a encontrar voos e hotéis!\n\n"
+            "**Voos:**\n"
+            '• "Voos de Lisboa para Londres em 15 de abril"\n'
+            '• "Ida e volta São Paulo para Dublin, 1 a 15 de maio"\n'
+            '• "Voos business de Nova York para Paris na próxima sexta"\n\n'
+            "**Hotéis/Estadias:**\n"
+            '• "Hotel em Paris de 15 a 18 de abril"\n'
+            '• "Hotéis perto de Dublin para 3 noites a partir de 20 de março"\n\n'
+            "Diga-me onde e quando! 🌍"
+        )
+
+    def get_capabilities(self) -> List[str]:
+        return [
+            "flight_search",
+            "hotel_search",
+            "stay_search",
+            "travel_booking",
+            "price_comparison",
+        ]

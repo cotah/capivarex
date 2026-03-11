@@ -1,0 +1,75 @@
+# requirements.in — direct dependencies for CapivaraX Bot
+# Run: pip-compile requirements.in --output-file requirements.txt
+#
+# This file defines flexible ranges for direct dependencies.
+# pip-compile resolves all transitive deps and locks exact versions
+# into requirements.txt.
+
+# Core Framework
+fastapi>=0.129,<0.130
+uvicorn>=0.40,<0.41
+python-multipart>=0.0.22,<0.1
+pydantic>=2.12,<2.13
+python-dotenv>=1.2,<1.3
+
+# Database & Cache
+supabase>=2.28,<2.29
+psycopg2-binary>=2.9,<2.10
+redis>=7.1,<7.2
+upstash-redis>=1.6,<1.7
+
+# Authentication
+bcrypt>=5.0,<5.1
+PyJWT>=2.11,<2.12
+
+# AI Services
+openai>=2.20,<2.21
+anthropic>=0.79,<0.80
+google-genai>=1.0.0
+elevenlabs>=2.35,<2.36
+
+# Google Services
+google-auth>=2.49,<2.50
+google-auth-oauthlib>=1.2,<1.3
+google-auth-httplib2>=0.3,<0.4
+google-api-python-client>=2.190,<2.191
+
+# External APIs
+smartcar>=6.19,<6.20
+python-telegram-bot>=22.6,<22.7
+requests>=2.32,<2.33
+httpx>=0.28,<0.29
+beautifulsoup4>=4.14,<4.15
+aiohttp>=3.13,<3.14
+cryptography>=46.0,<47.0
+
+# Data Processing
+pandas>=3.0,<3.1
+numpy>=2.4,<2.5
+
+# Email Validation
+email-validator
+
+# Git Integration
+GitPython
+
+# Resilience
+pybreaker>=1.1,<1.2
+
+# Task Queue
+arq>=0.25,<0.26
+
+# Observability
+structlog>=24.1,<24.2
+prometheus-fastapi-instrumentator>=6.1,<6.2
+
+# Rate Limiting
+slowapi>=0.1.9,<0.2
+
+# Utilities
+python-dateutil>=2.9,<2.10
+pytz>=2025.2
+click>=8.3,<8.4
+rich>=14.3,<14.4
+loguru>=0.7,<0.8
+sentry-sdk>=2.53,<2.54
