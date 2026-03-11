@@ -985,7 +985,6 @@ class TestCryptoServiceErrors:
     @pytest.mark.asyncio
     async def test_get_price_coin_not_in_response(self):
         """Covers line 178: coin_id not in raw response."""
-        import httpx
         svc = CryptoService()
         svc._initialized = True
         mock_response = MagicMock()

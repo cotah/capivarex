@@ -18,7 +18,7 @@ import asyncio
 import os
 import sys
 import unittest
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from cryptography.fernet import Fernet
 
@@ -550,7 +550,6 @@ class TestBillingWebhookNewEvents(unittest.TestCase):
     def test_subscription_updated_upgrades_plan(self):
         from starlette.testclient import TestClient
         from api.routes.billing import router as billing_router
-        from api.routes.billing import _get_db as billing_get_db
         from fastapi import FastAPI
 
         app = FastAPI()

@@ -5,11 +5,9 @@ The refactored OrchestratorAgent uses ``get_service("openai")`` to obtain the
 OpenAI client.  Tests mock ``services.get_service`` so that the agent receives
 a controlled client.
 """
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from pydantic import ValidationError
 
 from agents.core import AgentStatus
 from agents.specialized.orchestrator_agent import OrchestratorAgent
