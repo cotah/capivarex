@@ -22,6 +22,7 @@ from agents import get_agent
 from api.middleware.webapp_auth import verify_webapp_user
 from api.routes._helpers import _get_db, _get_service_or_503, temp_upload
 from models.schemas import (
+    NoteUpdateRequest,
     WebAppChatRequest,
     WebAppChatResponse,
     WebAppConversationRename,
@@ -1347,16 +1348,17 @@ async def create_note(
 @router.patch("/notes/{note_id}")
 async def update_note(
     note_id: str,
-    body: dict,
+    body: NoteUpdateRequest,
     user_id: str = Depends(verify_webapp_user),
 ):
     """Update an existing note."""
     db = _get_db()
 
     try:
+        update_data = {k: v for k, v in body.model_dump(exclude_none=True).items()}
         result = (
             db.table("notes")
-            .update(body)
+            .update(update_data)
             .eq("id", note_id)
             .eq("user_id", user_id)
             .execute()

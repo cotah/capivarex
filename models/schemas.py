@@ -203,3 +203,12 @@ class WebAppChatResponse(BaseModel):
 
 class WebAppConversationRename(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
+
+
+class NoteUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    tags: Optional[list[str]] = None
+    color: Optional[str] = None
+    is_pinned: Optional[bool] = None
+    is_archived: Optional[bool] = None
