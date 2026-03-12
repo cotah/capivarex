@@ -1983,3 +1983,508 @@ class TestWeather:
             headers=_auth_header(),
         )
         assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Security Events
+# ---------------------------------------------------------------------------
+
+
+class TestSecurityEvents:
+    """Tests for GET /security/events."""
+
+    def test_security_events_success(self, app_client):
+        db = _mock_db()
+        events = [
+            {"id": "e1", "event_type": "auth_success", "severity": "info",
+             "ip_address": "1.2.3.4", "endpoint": "/login", "created_at": "2026-01-01T00:00:00Z",
+             "details": {}},
+        ]
+        db.table("security_events").execute.return_value = _make_supabase_result(events)
+        # failures count
+        db.table("security_events").execute.side_effect = [
+            _make_supabase_result(events),          # recent events
+            _make_supabase_result([], count=0),      # failures 24h
+            _make_supabase_result([{"created_at": "2026-01-01T00:00:00Z", "ip_address": "1.2.3.4"}]),  # last login
+        ]
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get("/api/webapp/security/events", headers=_auth_header())
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+        assert "summary" in data
+
+    def test_security_events_pgrst205_graceful(self, app_client):
+        db = _mock_db()
+        db.table("security_events").execute.side_effect = Exception(
+            "PGRST205: schema cache lookup failed"
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get("/api/webapp/security/events", headers=_auth_header())
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["events"] == []
+        assert data["summary"]["total_events"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Proactivity Feed
+# ---------------------------------------------------------------------------
+
+
+class TestProactivityFeed:
+    """Tests for proactivity feed endpoints."""
+
+    def test_feed_empty(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.return_value = _make_supabase_result([], count=0)
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["items"] == []
+        assert data["unread_count"] == 0
+        assert data["has_more"] is False
+
+    def test_feed_with_items(self, app_client):
+        db = _mock_db()
+        items = [
+            {"id": "f1", "type": "insight", "title": "Weather", "message": "Rain expected",
+             "metadata": {}, "is_read": False, "created_at": "2026-01-01T00:00:00Z", "read_at": None},
+        ]
+        db.table("proactivity_feed").execute.side_effect = [
+            _make_supabase_result(items),        # feed query
+            _make_supabase_result([], count=1),   # unread count
+        ]
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["unread_count"] == 1
+
+    def test_feed_unread_only_filter(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.return_value = _make_supabase_result([], count=0)
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/proactivity/feed?unread_only=true",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+
+    def test_feed_pgrst205_graceful(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.side_effect = Exception(
+            "PGRST205: schema cache lookup failed"
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["items"] == []
+
+    def test_feed_db_error_returns_500(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.side_effect = Exception("DB connection lost")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+
+        assert resp.status_code == 500
+
+
+class TestProactivityFeedMarkRead:
+    """Tests for PATCH /proactivity/feed/{item_id}/read."""
+
+    def test_mark_read_success(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.return_value = _make_supabase_result(
+            [{"id": "f1", "is_read": True}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.patch(
+                "/api/webapp/proactivity/feed/f1/read",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+    def test_mark_read_not_found(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.return_value = _make_supabase_result([])
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.patch(
+                "/api/webapp/proactivity/feed/nonexistent/read",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 404
+
+    def test_mark_read_error(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.patch(
+                "/api/webapp/proactivity/feed/f1/read",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
+
+
+class TestProactivityFeedReadAll:
+    """Tests for PATCH /proactivity/feed/read-all."""
+
+    def test_read_all_success(self, app_client):
+        db = _mock_db()
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.patch(
+                "/api/webapp/proactivity/feed/read-all",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+    def test_read_all_error(self, app_client):
+        db = _mock_db()
+        db.table("proactivity_feed").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.patch(
+                "/api/webapp/proactivity/feed/read-all",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
+
+
+class TestProactivityPreferences:
+    """Tests for GET/PUT /proactivity/preferences."""
+
+    def test_get_preferences_with_data(self, app_client):
+        db = _mock_db()
+        db.table("user_preferences").maybe_single.return_value = db.table("user_preferences")
+        db.table("user_preferences").execute.return_value = _make_supabase_result(
+            {"proactive_enabled": False, "notify_weather": True,
+             "notify_traffic": False, "notify_reminders": True}
+        )
+        # For maybe_single, data is the dict directly, not a list
+        result_mock = MagicMock()
+        result_mock.data = {"proactive_enabled": False, "notify_weather": True,
+                            "notify_traffic": False, "notify_reminders": True}
+        db.table("user_preferences").execute.return_value = result_mock
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/proactivity/preferences",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "proactive_enabled" in data
+        assert "notify_weather" in data
+
+    def test_get_preferences_no_row_returns_defaults(self, app_client):
+        db = _mock_db()
+        result_mock = MagicMock()
+        result_mock.data = None
+        db.table("user_preferences").maybe_single.return_value = db.table("user_preferences")
+        db.table("user_preferences").execute.return_value = result_mock
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/proactivity/preferences",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["proactive_enabled"] is True
+        assert data["notify_weather"] is True
+
+    def test_get_preferences_error_returns_defaults(self, app_client):
+        db = _mock_db()
+        db.table("user_preferences").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/proactivity/preferences",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["proactive_enabled"] is True
+
+    def test_put_preferences_success(self, app_client):
+        db = _mock_db()
+        db.table("user_preferences").execute.return_value = _make_supabase_result(
+            [{"user_id": "user-1", "proactive_enabled": False,
+              "notify_weather": True, "notify_traffic": True, "notify_reminders": True}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.put(
+                "/api/webapp/proactivity/preferences",
+                json={"proactive_enabled": False},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["proactive_enabled"] is False
+
+    def test_put_preferences_empty_body_returns_422(self, app_client):
+        db = _mock_db()
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.put(
+                "/api/webapp/proactivity/preferences",
+                json={},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 422
+
+    def test_put_preferences_error(self, app_client):
+        db = _mock_db()
+        db.table("user_preferences").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.put(
+                "/api/webapp/proactivity/preferences",
+                json={"notify_weather": False},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# Marketplace / Integrations
+# ---------------------------------------------------------------------------
+
+
+class TestMarketplaceIntegrations:
+    """Tests for GET /market/integrations."""
+
+    def test_list_integrations_success(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.return_value = _make_supabase_result(
+            [{"provider": "google", "expires_at": "2026-12-31T00:00:00Z"}]
+        )
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "me"}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "integrations" in data
+        assert data["user_plan"] == "me"
+        # google_calendar should be connected
+        google_cal = next(
+            (i for i in data["integrations"] if i["id"] == "google_calendar"),
+            None,
+        )
+        assert google_cal is not None
+        assert google_cal["is_connected"] is True
+        assert google_cal["is_available"] is True
+
+    def test_list_integrations_free_plan(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.return_value = _make_supabase_result([])
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "free"}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        # Only telegram available on free plan
+        telegram = next(
+            (i for i in data["integrations"] if i["id"] == "telegram"),
+            None,
+        )
+        assert telegram is not None
+        assert telegram["is_available"] is True
+        assert telegram["upgrade_required"] is False
+
+        # Spotify requires upgrade on free
+        spotify = next(
+            (i for i in data["integrations"] if i["id"] == "spotify"),
+            None,
+        )
+        assert spotify is not None
+        assert spotify["is_available"] is False
+        assert spotify["upgrade_required"] is True
+
+    def test_list_integrations_category_filter(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.return_value = _make_supabase_result([])
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "everywhere"}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations?category=entertainment",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["integrations"]) == 1
+        assert data["integrations"][0]["id"] == "spotify"
+
+    def test_list_integrations_user_not_found(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.return_value = _make_supabase_result([])
+        db.table("users").execute.return_value = _make_supabase_result([])
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["user_plan"] == "free"
+
+    def test_list_integrations_error(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
+
+
+class TestIntegrationStatus:
+    """Tests for GET /market/integrations/{id}/status."""
+
+    def test_status_connected(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.return_value = _make_supabase_result(
+            [{"provider": "spotify", "expires_at": "2026-12-31", "created_at": "2026-01-01"}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations/spotify/status",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_connected"] is True
+        assert data["connected_at"] == "2026-01-01"
+
+    def test_status_not_connected(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.return_value = _make_supabase_result([])
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations/spotify/status",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_connected"] is False
+        assert data["connected_at"] is None
+
+    def test_status_not_found(self, app_client):
+        with patch("api.routes.webapp._get_db", return_value=_mock_db()):
+            resp = app_client.get(
+                "/api/webapp/market/integrations/nonexistent/status",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 404
+
+    def test_status_error(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/market/integrations/spotify/status",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
+
+
+class TestIntegrationDisconnect:
+    """Tests for DELETE /market/integrations/{id}/disconnect."""
+
+    def test_disconnect_success(self, app_client):
+        db = _mock_db()
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.delete(
+                "/api/webapp/market/integrations/spotify/disconnect",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["is_connected"] is False
+
+    def test_disconnect_not_found(self, app_client):
+        with patch("api.routes.webapp._get_db", return_value=_mock_db()):
+            resp = app_client.delete(
+                "/api/webapp/market/integrations/nonexistent/disconnect",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 404
+
+    def test_disconnect_error(self, app_client):
+        db = _mock_db()
+        db.table("user_oauth_tokens").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.delete(
+                "/api/webapp/market/integrations/spotify/disconnect",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
