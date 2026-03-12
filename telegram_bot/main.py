@@ -157,7 +157,7 @@ def main_sync():
         application.run_polling(
             poll_interval=0.5,
             timeout=10,
-            drop_pending_updates=False,
+            drop_pending_updates=True,
         )
     except Conflict:
         logger.warning(
