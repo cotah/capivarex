@@ -1279,16 +1279,16 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
     db = _get_db()
 
     try:
-        result = (
+        # Fonte da verdade: tabela users (plan + limits)
+        user_result = (
             db.table("users")
-            .select("plan, messages_used, messages_limit")
+            .select("plan, messages_limit")
             .eq("id", user_id)
             .limit(1)
             .execute()
         )
 
-        if not result.data:
-            # User not found in DB — return free-plan defaults
+        if not user_result.data:
             return {
                 "plan": "free",
                 "messages_used": 0,
@@ -1298,11 +1298,37 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
                 "messages_remaining": 30,
             }
 
-        u = result.data[0]
+        u = user_result.data[0]
         plan = u.get("plan") or "free"
-        used = u.get("messages_used") or 0
         limit = u.get("messages_limit") or 30
         is_unlimited = limit >= 999999
+
+        # Fonte da verdade para uso: tenant_usage (QuotaService)
+        from datetime import date
+
+        today = date.today().isoformat()
+        usage_result = (
+            db.table("tenant_usage")
+            .select("used")
+            .eq("user_id", user_id)
+            .eq("period", today)
+            .limit(1)
+            .execute()
+        )
+        used = (
+            usage_result.data[0].get("used", 0)
+            if usage_result.data
+            else 0
+        )
+
+        # Sincronizar users.messages_used como cache (best-effort)
+        try:
+            db.table("users").update(
+                {"messages_used": used}
+            ).eq("id", user_id).execute()
+        except Exception:
+            pass  # não crítico
+
         quota_pct = (
             0.0
             if is_unlimited
@@ -1326,13 +1352,14 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
             ),
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(
-            f"WebApp quota error: {type(e).__name__}: {e}",
-            exc_info=True,
+            f"WebApp: get_quota error user={user_id[:8]}: {e}"
         )
         raise HTTPException(
-            status_code=500, detail="Failed to get quota"
+            status_code=500, detail="Failed to fetch quota"
         )
 
 

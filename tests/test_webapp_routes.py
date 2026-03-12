@@ -1863,12 +1863,13 @@ class TestQuota:
 
     def test_quota_with_user_data(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{
-                "plan": "me",
-                "messages_used": 50,
-                "messages_limit": 300,
-            }])
+        # users table → plan + limit
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "me", "messages_limit": 300}]
+        )
+        # tenant_usage → actual usage (source of truth)
+        db.table("tenant_usage").execute.return_value = _make_supabase_result(
+            [{"used": 50}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -1901,12 +1902,11 @@ class TestQuota:
 
     def test_quota_unlimited_plan(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{
-                "plan": "everywhere",
-                "messages_used": 100,
-                "messages_limit": 999999,
-            }])
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "everywhere", "messages_limit": 999999}]
+        )
+        db.table("tenant_usage").execute.return_value = _make_supabase_result(
+            [{"used": 100}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
