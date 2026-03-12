@@ -1046,7 +1046,7 @@ async def activity_feed(
                     "id": msg["id"],
                     "icon": _AGENT_ICONS.get(agent, "\U0001f916"),
                     "description": (msg.get("text") or "")[:150],
-                    "service": _AGENT_SERVICES.get(agent, "Capivarex"),
+                    "service": _AGENT_SERVICES.get(agent, "CAPIVAREX"),
                     "agent": f"{agent.title()} Agent",
                     "timestamp": msg.get("created_at"),
                     "type": msg.get("type", "text"),
