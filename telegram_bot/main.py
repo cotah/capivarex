@@ -155,11 +155,8 @@ def main_sync():
     try:
         # run_polling handles its own event loop internally
         application.run_polling(
+            poll_interval=0.5,
             timeout=10,
-            read_timeout=30,
-            write_timeout=5,
-            connect_timeout=5,
-            pool_timeout=1,
             drop_pending_updates=False,
         )
     except Conflict:
