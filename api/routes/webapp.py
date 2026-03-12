@@ -1797,3 +1797,264 @@ async def get_security_events(
             msg=str(e),
         )
         raise HTTPException(status_code=500, detail="Failed to load security events")
+
+
+# ====================================================================
+# PROACTIVITY FEED — proactive alerts & insights for the webapp
+# ====================================================================
+
+# Whitelist of columns the user may update via PUT /proactivity/preferences
+_PROACTIVITY_PREF_WHITELIST = frozenset({
+    "proactive_enabled",
+    "notify_weather",
+    "notify_traffic",
+    "notify_reminders",
+})
+
+# Defaults returned when no row exists yet
+_PROACTIVITY_PREF_DEFAULTS = {
+    "proactive_enabled": True,
+    "notify_weather": True,
+    "notify_traffic": True,
+    "notify_reminders": True,
+}
+
+
+@router.get("/proactivity/feed")
+async def proactivity_feed(
+    unread_only: bool = Query(False),
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user_id: str = Depends(verify_webapp_user),
+):
+    """List proactive alerts / insights for the authenticated user.
+
+    Optional query params:
+    - ``unread_only``: if True, return only unread items.
+    - ``limit`` / ``offset``: pagination.
+    """
+    db = _get_db()
+
+    try:
+        query = (
+            db.table("proactivity_feed")
+            .select("id, type, title, message, metadata, is_read, created_at, read_at")
+            .eq("user_id", user_id)
+        )
+
+        if unread_only:
+            query = query.eq("is_read", False)
+
+        result = (
+            query
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+
+        items = result.data or []
+
+        # Count total unread for badge
+        unread_result = (
+            db.table("proactivity_feed")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("is_read", False)
+            .execute()
+        )
+        unread_count = unread_result.count or 0
+
+        logger.info(
+            f"WebApp: user={user_id[:8]} proactivity/feed"
+            f" items={len(items)} unread={unread_count}"
+        )
+        return {
+            "items": items,
+            "unread_count": unread_count,
+            "has_more": len(items) == limit,
+        }
+
+    except Exception as e:
+        err_str = str(e)
+        if "PGRST205" in err_str or "schema cache" in err_str:
+            logger.warning(
+                "proactivity_feed table not in schema cache — "
+                "run migration 006_create_proactivity_feed.sql in Supabase."
+            )
+            return {"items": [], "unread_count": 0, "has_more": False}
+        logger.error(
+            f"WebApp proactivity/feed error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to load proactivity feed"
+        )
+
+
+@router.patch("/proactivity/feed/{item_id}/read")
+async def mark_feed_item_read(
+    item_id: str,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Mark a single proactivity feed item as read."""
+    db = _get_db()
+
+    try:
+        result = (
+            db.table("proactivity_feed")
+            .update({
+                "is_read": True,
+                "read_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("id", item_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Feed item not found")
+
+        logger.info(
+            f"WebApp: user={user_id[:8]} marked feed item {item_id[:8]} as read"
+        )
+        return {"ok": True}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"WebApp proactivity/feed read error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to mark feed item as read"
+        )
+
+
+@router.patch("/proactivity/feed/read-all")
+async def mark_all_feed_read(
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Mark all proactivity feed items as read for the authenticated user."""
+    db = _get_db()
+
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        db.table("proactivity_feed").update({
+            "is_read": True,
+            "read_at": now,
+        }).eq("user_id", user_id).eq("is_read", False).execute()
+
+        logger.info(
+            f"WebApp: user={user_id[:8]} marked all feed items as read"
+        )
+        return {"ok": True}
+
+    except Exception as e:
+        logger.error(
+            f"WebApp proactivity/feed read-all error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to mark all feed items as read"
+        )
+
+
+@router.get("/proactivity/preferences")
+async def get_proactivity_preferences(
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Return the user's proactivity preferences with defaults."""
+    db = _get_db()
+
+    try:
+        fields = ", ".join(_PROACTIVITY_PREF_WHITELIST)
+        result = (
+            db.table("user_preferences")
+            .select(fields)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+
+        prefs = result.data if result.data else {}
+        # Merge with defaults so the frontend always gets every key
+        merged = {**_PROACTIVITY_PREF_DEFAULTS, **{k: v for k, v in prefs.items() if v is not None}}
+
+        logger.info(
+            f"WebApp: user={user_id[:8]} proactivity/preferences"
+            f" enabled={merged.get('proactive_enabled')}"
+        )
+        return merged
+
+    except Exception as e:
+        logger.error(
+            f"WebApp proactivity/preferences GET error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        # Graceful fallback — never block the frontend
+        return _PROACTIVITY_PREF_DEFAULTS.copy()
+
+
+class ProactivityPreferencesUpdate(BaseModel):
+    """Payload for PUT /proactivity/preferences."""
+
+    proactive_enabled: Optional[bool] = None
+    notify_weather: Optional[bool] = None
+    notify_traffic: Optional[bool] = None
+    notify_reminders: Optional[bool] = None
+
+
+@router.put("/proactivity/preferences")
+async def update_proactivity_preferences(
+    body: ProactivityPreferencesUpdate,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Update the user's proactivity preferences.
+
+    Only whitelisted fields are accepted; unknown keys are silently dropped.
+    """
+    db = _get_db()
+
+    # Build update dict — only include non-None fields from whitelist
+    update_data = {
+        k: v
+        for k, v in body.model_dump(exclude_none=True).items()
+        if k in _PROACTIVITY_PREF_WHITELIST
+    }
+
+    if not update_data:
+        raise HTTPException(
+            status_code=422,
+            detail="No valid preference fields provided",
+        )
+
+    try:
+        result = (
+            db.table("user_preferences")
+            .upsert(
+                {"user_id": user_id, **update_data},
+                on_conflict="user_id",
+            )
+            .execute()
+        )
+
+        saved = result.data[0] if result.data else update_data
+
+        logger.info(
+            f"WebApp: user={user_id[:8]} proactivity/preferences updated"
+            f" fields={list(update_data.keys())}"
+        )
+        return {
+            k: saved.get(k, _PROACTIVITY_PREF_DEFAULTS.get(k))
+            for k in _PROACTIVITY_PREF_WHITELIST
+        }
+
+    except Exception as e:
+        logger.error(
+            f"WebApp proactivity/preferences PUT error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to update proactivity preferences"
+        )
