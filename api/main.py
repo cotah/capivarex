@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -627,8 +627,13 @@ def health_check():
 
 
 @app.get("/api/health/detailed")
-async def detailed_health_check():
+async def detailed_health_check(request: Request):
     """Detailed health check with service status."""
+    health_token = os.environ.get("HEALTH_CHECK_TOKEN", "")
+    if health_token:
+        provided = request.headers.get("X-Health-Token", "")
+        if provided != health_token:
+            raise HTTPException(status_code=404, detail="Not found")
     from services.core import registry as service_registry
     from agents.core import registry as agent_registry
 
