@@ -61,6 +61,22 @@ ISO_FMT = "%Y-%m-%dT%H:%M:%S"
 
 
 # ============================================================
+# SUPABASE HELPER
+# ============================================================
+
+def _get_supabase_client():
+    """Get the Supabase client for ticket persistence. Returns None on failure."""
+    try:
+        from services import get_service
+        db = get_service("database")
+        if db and db.is_initialized():
+            return db.get_client()
+    except Exception:
+        pass
+    return None
+
+
+# ============================================================
 # UTILITY FUNCTIONS
 # ============================================================
 
@@ -210,15 +226,11 @@ def _generate_ticket_id(fingerprint: str) -> str:
 # TICKET MANAGEMENT
 # ============================================================
 
-def load_tickets() -> dict:
-    """
-    Loads all tickets into a dict indexed by fingerprint.
-    Returns: {fingerprint: ticket_dict, ...}
-    """
+def _load_tickets_from_jsonl() -> dict:
+    """Loads tickets from local JSONL file (fallback source)."""
     tickets = {}
     if not TICKETS_FILE.exists():
         return tickets
-
     try:
         with open(TICKETS_FILE, "r", encoding=DEFAULT_ENCODING) as f:
             for line in f:
@@ -233,23 +245,86 @@ def load_tickets() -> dict:
                 except json.JSONDecodeError:
                     continue
     except Exception as e:
-        logger.error(f"Error loading tickets: {e}")
-
+        logger.error(f"Error loading tickets from JSONL: {e}")
     return tickets
+
+
+def load_tickets() -> dict:
+    """
+    Loads all tickets into a dict indexed by fingerprint.
+    Primary source: Supabase. Fallback: local JSONL.
+    Returns: {fingerprint: ticket_dict, ...}
+    """
+    # Try Supabase first (survives deploys)
+    try:
+        client = _get_supabase_client()
+        if client:
+            result = (
+                client.table("autofix_tickets")
+                .select("*")
+                .order("last_seen", desc=True)
+                .limit(500)
+                .execute()
+            )
+            if result.data:
+                tickets = {}
+                for row in result.data:
+                    fp = row.get("fingerprint")
+                    if fp:
+                        tickets[fp] = row
+                return tickets
+    except Exception as e:
+        logger.warning(f"Supabase ticket load failed, falling back to JSONL: {e}")
+
+    # Fallback: local JSONL
+    return _load_tickets_from_jsonl()
 
 
 def save_tickets(tickets: dict):
     """
-    Saves all tickets (rewrites the complete file).
+    Saves all tickets (rewrites the complete file + syncs to Supabase).
     tickets: {fingerprint: ticket_dict, ...}
     """
+    # 1. Write to local JSONL (fallback)
     _ensure_autofix_dir()
     try:
         with open(TICKETS_FILE, "w", encoding=DEFAULT_ENCODING) as f:
             for ticket in tickets.values():
                 f.write(json.dumps(ticket, ensure_ascii=False) + "\n")
     except Exception as e:
-        logger.error(f"Error saving tickets: {e}")
+        logger.error(f"Error saving tickets to JSONL: {e}")
+
+    # 2. Persist to Supabase (survives deploys)
+    try:
+        client = _get_supabase_client()
+        if client:
+            now = _utc_now().isoformat()
+            for ticket in tickets.values():
+                row = {
+                    "id": ticket.get("id", ""),
+                    "fingerprint": ticket.get("fingerprint", ""),
+                    "error_type": ticket.get("error_type", ""),
+                    "top_frame": ticket.get("top_frame", ""),
+                    "status": ticket.get("status", "new"),
+                    "count": ticket.get("count", 1),
+                    "first_seen": ticket.get("first_seen", now),
+                    "last_seen": ticket.get("last_seen", now),
+                    "tenant_id": ticket.get("tenant_id") or "",
+                    "user_id": ticket.get("user_id") or "",
+                    "sample_text": ticket.get("sample_text", ""),
+                    "last_chat_id": ticket.get("last_chat_id", ""),
+                    "last_error_msg": ticket.get("last_error_msg", ""),
+                    "is_test": ticket.get("is_test", False),
+                    "repo_frame": ticket.get("repo_frame") or "",
+                    "lib_frame": ticket.get("lib_frame") or "",
+                    "frame_source": ticket.get("frame_source", "unknown"),
+                    "updated_at": now,
+                }
+                client.table("autofix_tickets").upsert(
+                    row, on_conflict="id"
+                ).execute()
+    except Exception as e:
+        logger.warning(f"AutoFix: failed to persist tickets to Supabase: {e}")
 
 
 def _is_test_input(text: str, error_msg: str, is_test: bool) -> bool:
@@ -401,6 +476,26 @@ def update_ticket_status(ticket_id: str, status: str) -> bool:
                     ticket["resolved_ts"] = now
                 ticket["status"] = status
             save_tickets(tickets)
+
+            # Sync status change to Supabase
+            try:
+                client = _get_supabase_client()
+                if client:
+                    update_data = {
+                        "status": status,
+                        "updated_at": _utc_now().isoformat(),
+                    }
+                    if status == "fixed":
+                        update_data["resolved_ts"] = _utc_now().isoformat()
+                    client.table("autofix_tickets").update(
+                        update_data
+                    ).eq("id", ticket_id).execute()
+            except Exception as e:
+                logger.warning(
+                    "AutoFix: failed to update ticket %s in Supabase: %s",
+                    ticket_id, e,
+                )
+
             return True
     return False
 
