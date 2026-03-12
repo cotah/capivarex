@@ -56,6 +56,7 @@ from api.routes import (
 )
 from api.routes import webhooks
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
+from api.routes.voice_ws import router_voice_ws
 from api.routes.twilio_stream import router as twilio_stream_router
 
 # Load environment variables
@@ -726,6 +727,7 @@ app.include_router(dev.router, prefix=f"{API_V1}/dev", tags=["Development"])
 app.include_router(image.router, prefix=f"{API_V1}/image", tags=["Image"])
 app.include_router(video.router, prefix=f"{API_V1}/video", tags=["Video"])
 app.include_router(voice.router, prefix=f"{API_V1}/voice", tags=["Voice"])
+app.include_router(router_voice_ws, prefix="/api/webapp", tags=["Voice WebSocket"])
 app.include_router(
     voice_pipeline_router, prefix=f"{API_V1}/voice/pipeline", tags=["Voice Pipeline"]
 )
