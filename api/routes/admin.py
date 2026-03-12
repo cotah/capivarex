@@ -49,6 +49,10 @@ def verify_admin_token(request: Request) -> None:
 # ---------------------------------------------------------------------------
 
 
+class PlanUpdateRequest(BaseModel):
+    plan: str  # "free" | "me" | "everywhere"
+
+
 class QuotaOverrideRequest(BaseModel):
     messages_limit: int = Field(..., ge=0, description="New daily message limit")
 
@@ -249,6 +253,70 @@ async def reset_usage(
     except Exception as e:
         logger.opt(exception=True).error("Admin reset_usage error: {}", e)
         raise HTTPException(status_code=500, detail="Failed to reset usage")
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/admin/tenants/{uid}/plan
+# ---------------------------------------------------------------------------
+
+_VALID_PLANS = {"free", "me", "everywhere"}
+
+
+@router.patch("/tenants/{uid}/plan")
+async def update_tenant_plan(
+    uid: str,
+    body: PlanUpdateRequest,
+    _: None = Depends(verify_admin_token),
+):
+    """Update a tenant's subscription plan and sync tenant_usage."""
+    if body.plan not in _VALID_PLANS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid plan '{body.plan}'. Must be one of: {sorted(_VALID_PLANS)}",
+        )
+    db = _get_db()
+    try:
+        check = (
+            db.table("users")
+            .select("id, plan")
+            .eq("id", uid)
+            .limit(1)
+            .execute()
+        )
+        if not check.data:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+
+        old_plan = check.data[0].get("plan", "free")
+
+        db.table("users").update({"plan": body.plan}).eq("id", uid).execute()
+
+        try:
+            db.table("tenant_usage").update({"plan": body.plan}).eq(
+                "tenant_id", uid
+            ).execute()
+        except Exception as sync_err:
+            logger.warning(
+                "Admin update_tenant_plan: tenant_usage sync failed (non-fatal): {}",
+                sync_err,
+            )
+
+        logger.info(
+            "Admin update_tenant_plan: tenant={} {} → {}",
+            uid[:8],
+            old_plan,
+            body.plan,
+        )
+        return {
+            "status": "ok",
+            "uid": uid,
+            "old_plan": old_plan,
+            "new_plan": body.plan,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.opt(exception=True).error("Admin update_tenant_plan error: {}", e)
+        raise HTTPException(status_code=500, detail="Failed to update plan")
 
 
 # ---------------------------------------------------------------------------
