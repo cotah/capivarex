@@ -1524,22 +1524,34 @@ async def get_memory(user_id: str = Depends(verify_webapp_user)):
     try:
         result = (
             db.table("user_memory")
-            .select("id, key, value, source, updated_at")
+            .select(
+                "id, key, value, content, category,"
+                " confidence, source, created_at, updated_at"
+            )
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .execute()
         )
 
-        memories = [
-            {
+        # Suporte a ambos os schemas: antigo (key/value) e novo RAG
+        # (content/category).  O frontend MemoryCard usa key+value,
+        # portanto fazemos fallback cruzado para que memórias RAG
+        # também apareçam corretamente.
+        memories = []
+        for row in result.data or []:
+            key = row.get("key") or row.get("category") or "memory"
+            value = row.get("value") or row.get("content") or ""
+            memories.append({
                 "id": row.get("id"),
-                "key": row.get("key", ""),
-                "value": row.get("value", ""),
+                "key": key,
+                "value": value,
+                "content": row.get("content") or row.get("value") or "",
+                "category": row.get("category") or row.get("key") or "general",
+                "confidence": row.get("confidence"),
                 "source": row.get("source", ""),
+                "created_at": row.get("created_at", ""),
                 "updated_at": row.get("updated_at", ""),
-            }
-            for row in (result.data or [])
-        ]
+            })
 
         logger.info(
             f"WebApp: user={user_id[:8]}"
