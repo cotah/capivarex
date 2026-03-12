@@ -2,8 +2,7 @@
 """
 Admin Routes — Protected management endpoints.
 
-All endpoints require ``Depends(get_admin_user)`` — the caller must
-have role=admin|superuser **or** plan=everywhere.
+All endpoints require a valid ADMIN_SECRET_TOKEN via Bearer header.
 
 Endpoints:
 - GET  /api/admin/tenants               → paginated user list with plan/usage
@@ -18,16 +17,31 @@ Endpoints:
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from api.dependencies.auth import get_admin_user
 from api.routes._helpers import _get_db
 
 router = APIRouter(tags=["Admin"])
+
+# ---------------------------------------------------------------------------
+# Admin token authentication (replaces JWT user auth)
+# ---------------------------------------------------------------------------
+
+_ADMIN_SECRET = os.getenv("ADMIN_SECRET_TOKEN", "")
+
+
+def verify_admin_token(request: Request) -> None:
+    """Verify the request carries the correct ADMIN_SECRET_TOKEN as Bearer."""
+    auth = request.headers.get("Authorization", "")
+    token = auth.removeprefix("Bearer ").strip()
+    if not _ADMIN_SECRET:
+        logger.error("ADMIN_SECRET_TOKEN is not configured — blocking all admin access")
+        raise HTTPException(status_code=503, detail="Admin token not configured")
+    if token != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +62,7 @@ class QuotaOverrideRequest(BaseModel):
 async def list_tenants(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(50, ge=1, le=200, description="Items per page"),
-    admin: Dict[str, Any] = Depends(get_admin_user),
+    _: None = Depends(verify_admin_token),
 ):
     """List all users with plan, usage, and quota info (paginated)."""
     db = _get_db()
@@ -77,8 +91,7 @@ async def list_tenants(
         )
 
         logger.info(
-            "Admin list_tenants: admin={} page={} per_page={} total={}",
-            admin.get("id", "?")[:8],
+            "Admin list_tenants: page={} per_page={} total={}",
             page,
             per_page,
             total,
@@ -106,7 +119,7 @@ async def list_tenants(
 @router.get("/tenants/{uid}")
 async def get_tenant(
     uid: str,
-    admin: Dict[str, Any] = Depends(get_admin_user),
+    _: None = Depends(verify_admin_token),
 ):
     """Get detailed information for a single tenant."""
     db = _get_db()
@@ -123,11 +136,7 @@ async def get_tenant(
         if not result.data:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        logger.info(
-            "Admin get_tenant: admin={} tenant={}",
-            admin.get("id", "?")[:8],
-            uid[:8],
-        )
+        logger.info("Admin get_tenant: tenant={}", uid[:8])
 
         return {"tenant": result.data[0]}
 
@@ -147,7 +156,7 @@ async def get_tenant(
 async def override_quota(
     uid: str,
     body: QuotaOverrideRequest,
-    admin: Dict[str, Any] = Depends(get_admin_user),
+    _: None = Depends(verify_admin_token),
 ):
     """Override a tenant's daily message limit."""
     db = _get_db()
@@ -171,8 +180,7 @@ async def override_quota(
         }).eq("id", uid).execute()
 
         logger.info(
-            "Admin override_quota: admin={} tenant={} {} → {}",
-            admin.get("id", "?")[:8],
+            "Admin override_quota: tenant={} {} → {}",
             uid[:8],
             old_limit,
             body.messages_limit,
@@ -200,7 +208,7 @@ async def override_quota(
 @router.post("/tenants/{uid}/reset-usage")
 async def reset_usage(
     uid: str,
-    admin: Dict[str, Any] = Depends(get_admin_user),
+    _: None = Depends(verify_admin_token),
 ):
     """Reset a tenant's daily message usage counter to zero."""
     db = _get_db()
@@ -224,8 +232,7 @@ async def reset_usage(
         }).eq("id", uid).execute()
 
         logger.info(
-            "Admin reset_usage: admin={} tenant={} was={}",
-            admin.get("id", "?")[:8],
+            "Admin reset_usage: tenant={} was={}",
             uid[:8],
             old_used,
         )
@@ -252,7 +259,7 @@ async def reset_usage(
 @router.get("/security-events")
 async def list_security_events(
     limit: int = Query(50, ge=1, le=500, description="Max events to return"),
-    admin: Dict[str, Any] = Depends(get_admin_user),
+    _: None = Depends(verify_admin_token),
 ):
     """List recent security events from the security_events table."""
     db = _get_db()
@@ -267,8 +274,7 @@ async def list_security_events(
         )
 
         logger.info(
-            "Admin list_security_events: admin={} count={}",
-            admin.get("id", "?")[:8],
+            "Admin list_security_events: count={}",
             len(result.data or []),
         )
 
@@ -289,7 +295,7 @@ async def list_security_events(
 @router.get("/autofix/tickets")
 async def list_autofix_tickets(
     n: int = Query(20, ge=1, le=200, description="Number of tickets to return"),
-    admin: Dict[str, Any] = Depends(get_admin_user),
+    _: None = Depends(verify_admin_token),
 ):
     """List recent AutoFix tickets with patch status."""
     try:
@@ -297,11 +303,7 @@ async def list_autofix_tickets(
 
         tickets = get_last_tickets(n=n)
 
-        logger.info(
-            "Admin list_autofix_tickets: admin={} count={}",
-            admin.get("id", "?")[:8],
-            len(tickets),
-        )
+        logger.info("Admin list_autofix_tickets: count={}", len(tickets))
 
         return {"tickets": tickets, "count": len(tickets)}
 
@@ -319,7 +321,7 @@ async def list_autofix_tickets(
 
 @router.get("/health")
 async def admin_health(
-    admin: Dict[str, Any] = Depends(get_admin_user),
+    _: None = Depends(verify_admin_token),
 ):
     """Health check of all registered services."""
     try:
@@ -355,8 +357,7 @@ async def admin_health(
         }
 
         logger.info(
-            "Admin health: admin={} services={} agents={}",
-            admin.get("id", "?")[:8],
+            "Admin health: services={} agents={}",
             len(service_metrics),
             agent_info.get("count", 0),
         )

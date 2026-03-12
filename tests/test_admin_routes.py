@@ -79,14 +79,9 @@ def _mock_db():
     return db
 
 
-def _fake_admin_user():
-    """Return a fake admin user dict for dependency override."""
-    return {
-        "id": "admin-user-id-1234",
-        "email": "admin@capivarex.com",
-        "role": "admin",
-        "plan": "everywhere",
-    }
+def _fake_admin_token():
+    """No-op dependency override — skips ADMIN_SECRET_TOKEN check."""
+    return None
 
 
 def _get_test_app():
@@ -95,8 +90,8 @@ def _get_test_app():
 
     app = FastAPI()
     app.include_router(_admin_mod.router, prefix="/api/admin")
-    # Override auth dependency so no real JWT is needed
-    app.dependency_overrides[_admin_mod.get_admin_user] = _fake_admin_user
+    # Override auth dependency so no real token is needed
+    app.dependency_overrides[_admin_mod.verify_admin_token] = _fake_admin_token
     return app
 
 
