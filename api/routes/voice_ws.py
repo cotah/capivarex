@@ -22,6 +22,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from agents import get_agent
 from api.routes._helpers import _get_db
+from services.business.chat_service import ChatService
 from services.core import get_service
 
 logger = logging.getLogger(__name__)
@@ -179,8 +180,12 @@ async def voice_websocket(
             if action not in valid_actions:
                 action = "chat"
 
-            chat_service_cls = get_service("chat")
-            full_response = await chat_service_cls.dispatch(
+            chat_service = ChatService(
+                websocket=websocket,
+                user_id=user_id,
+                user_plan=user_plan,
+            )
+            full_response = await chat_service.dispatch(
                 action, transcript, {"action": action}, history
             )
 
