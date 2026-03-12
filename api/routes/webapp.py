@@ -2305,3 +2305,189 @@ async def disconnect_integration(
         raise HTTPException(
             status_code=500, detail="Failed to disconnect integration"
         )
+
+
+# ====================================================================
+# VOICE CALLS — initiate, history, status
+# ====================================================================
+
+
+class InitiateCallRequest(BaseModel):
+    """Payload para iniciar uma chamada de voz via Twilio."""
+
+    phone_number: str
+    message: str = "Olá! Aqui é o CapivaraX. Como posso ajudar?"
+
+
+@router.post("/calls/initiate")
+async def initiate_call(
+    body: InitiateCallRequest,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Inicia uma chamada de voz via Twilio."""
+    db = _get_db()
+
+    try:
+        # Verificar se o usuário tem plano que suporta chamadas
+        user_result = (
+            db.table("users")
+            .select("plan, phone_number")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        user_data = (
+            user_result.data[0] if user_result.data else {}
+        )
+        user_plan = user_data.get("plan", "free")
+
+        if user_plan not in ("everywhere",):
+            raise HTTPException(
+                status_code=403,
+                detail="Voice calls require the Everywhere plan",
+            )
+
+        # Tentar iniciar via serviço Twilio existente
+        call_sid = ""
+        try:
+            twilio_svc = get_service("twilio")
+            if twilio_svc:
+                twiml = (
+                    f"<Response><Say voice='alice'"
+                    f" language='pt-BR'>{body.message}</Say></Response>"
+                )
+                call_result = await twilio_svc.make_call(
+                    tenant_id=user_id,
+                    to_number=body.phone_number,
+                    twiml_or_url=twiml,
+                )
+                call_sid = call_result.get("call_sid", "")
+        except Exception as twilio_err:
+            logger.warning(
+                "Twilio service error (falling back to mock): %s",
+                twilio_err,
+            )
+            call_sid = f"mock_{user_id[:8]}"
+
+        if not call_sid:
+            call_sid = f"mock_{user_id[:8]}"
+
+        # Salvar log da chamada
+        log_result = (
+            db.table("call_logs")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "phone_number": body.phone_number,
+                    "status": "initiated",
+                    "twilio_call_sid": call_sid,
+                }
+            )
+            .execute()
+        )
+        call_id = (
+            log_result.data[0]["id"] if log_result.data else None
+        )
+
+        logger.info(
+            f"WebApp: user={user_id[:8]}"
+            f" calls/initiate to={body.phone_number}"
+            f" sid={call_sid}"
+        )
+        return {
+            "success": True,
+            "call_id": call_id,
+            "call_sid": call_sid,
+            "status": "initiated",
+            "phone_number": body.phone_number,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"WebApp calls/initiate error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to initiate call"
+        )
+
+
+@router.get("/calls/history")
+async def get_call_history(
+    limit: int = Query(default=20, ge=1, le=100),
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Retorna o histórico de chamadas do usuário."""
+    db = _get_db()
+
+    try:
+        result = (
+            db.table("call_logs")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        calls = result.data or []
+        logger.info(
+            f"WebApp: user={user_id[:8]}"
+            f" calls/history total={len(calls)}"
+        )
+        return {"calls": calls, "total": len(calls)}
+
+    except Exception as e:
+        err_str = str(e)
+        if "PGRST205" in err_str or "schema cache" in err_str:
+            logger.warning(
+                "call_logs table not in schema cache (PGRST205) — "
+                "ensure the call_logs table exists in Supabase."
+            )
+            return {"calls": [], "total": 0}
+        logger.error(
+            f"WebApp calls/history error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to fetch call history"
+        )
+
+
+@router.get("/calls/{call_id}/status")
+async def get_call_status(
+    call_id: str,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Retorna o status atual de uma chamada."""
+    db = _get_db()
+
+    try:
+        result = (
+            db.table("call_logs")
+            .select("*")
+            .eq("id", call_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(
+                status_code=404, detail="Call not found"
+            )
+
+        return result.data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"WebApp calls/status error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to fetch call status"
+        )

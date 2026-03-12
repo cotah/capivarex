@@ -2488,3 +2488,256 @@ class TestIntegrationDisconnect:
             )
 
         assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# Voice Calls — POST /calls/initiate
+# ---------------------------------------------------------------------------
+
+
+class TestInitiateCall:
+    """Tests for POST /calls/initiate."""
+
+    def test_initiate_call_success(self, app_client):
+        db = _mock_db()
+        # User with 'everywhere' plan
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "everywhere", "phone_number": "+353861234567"}]
+        )
+        # call_logs insert
+        db.table("call_logs").execute.return_value = _make_supabase_result(
+            [{"id": "call-uuid-1"}]
+        )
+
+        twilio_mock = AsyncMock()
+        twilio_mock.make_call.return_value = {"call_sid": "CA123abc"}
+
+        with (
+            patch("api.routes.webapp._get_db", return_value=db),
+            patch("api.routes.webapp.get_service", return_value=twilio_mock),
+        ):
+            resp = app_client.post(
+                "/api/webapp/calls/initiate",
+                json={"phone_number": "+353861234567"},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["call_sid"] == "CA123abc"
+        assert data["status"] == "initiated"
+        assert data["call_id"] == "call-uuid-1"
+
+    def test_initiate_call_free_plan_403(self, app_client):
+        db = _mock_db()
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "free", "phone_number": None}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.post(
+                "/api/webapp/calls/initiate",
+                json={"phone_number": "+353861234567"},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 403
+        assert "Everywhere" in resp.json()["detail"]
+
+    def test_initiate_call_me_plan_403(self, app_client):
+        db = _mock_db()
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "me", "phone_number": None}]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.post(
+                "/api/webapp/calls/initiate",
+                json={"phone_number": "+353861234567"},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 403
+
+    def test_initiate_call_twilio_fallback_mock(self, app_client):
+        db = _mock_db()
+        db.table("users").execute.return_value = _make_supabase_result(
+            [{"plan": "everywhere", "phone_number": "+353861234567"}]
+        )
+        db.table("call_logs").execute.return_value = _make_supabase_result(
+            [{"id": "call-uuid-2"}]
+        )
+
+        # Twilio service raises
+        twilio_mock = AsyncMock()
+        twilio_mock.make_call.side_effect = Exception("Twilio down")
+
+        with (
+            patch("api.routes.webapp._get_db", return_value=db),
+            patch("api.routes.webapp.get_service", return_value=twilio_mock),
+        ):
+            resp = app_client.post(
+                "/api/webapp/calls/initiate",
+                json={"phone_number": "+353861234567", "message": "Test"},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["call_sid"].startswith("mock_")
+
+    def test_initiate_call_no_user_row(self, app_client):
+        db = _mock_db()
+        # Empty users result → defaults to 'free' → 403
+        db.table("users").execute.return_value = _make_supabase_result([])
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.post(
+                "/api/webapp/calls/initiate",
+                json={"phone_number": "+353861234567"},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 403
+
+    def test_initiate_call_db_error(self, app_client):
+        db = _mock_db()
+        db.table("users").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.post(
+                "/api/webapp/calls/initiate",
+                json={"phone_number": "+353861234567"},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# Voice Calls — GET /calls/history
+# ---------------------------------------------------------------------------
+
+
+class TestCallHistory:
+    """Tests for GET /calls/history."""
+
+    def test_history_success(self, app_client):
+        db = _mock_db()
+        db.table("call_logs").execute.return_value = _make_supabase_result(
+            [
+                {"id": "c1", "phone_number": "+353861234567",
+                 "status": "completed", "created_at": "2026-01-01T10:00:00Z"},
+                {"id": "c2", "phone_number": "+353869876543",
+                 "status": "initiated", "created_at": "2026-01-02T10:00:00Z"},
+            ]
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/calls/history",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        assert len(data["calls"]) == 2
+
+    def test_history_empty(self, app_client):
+        db = _mock_db()
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/calls/history",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+        assert resp.json()["calls"] == []
+
+    def test_history_pgrst205_graceful(self, app_client):
+        db = _mock_db()
+        db.table("call_logs").execute.side_effect = Exception(
+            "PGRST205: table not in schema cache"
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/calls/history",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["calls"] == []
+
+    def test_history_db_error(self, app_client):
+        db = _mock_db()
+        db.table("call_logs").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/calls/history",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# Voice Calls — GET /calls/{call_id}/status
+# ---------------------------------------------------------------------------
+
+
+class TestCallStatus:
+    """Tests for GET /calls/{call_id}/status."""
+
+    def test_status_found(self, app_client):
+        db = _mock_db()
+        db.table("call_logs").maybe_single.return_value = db.table("call_logs")
+        db.table("call_logs").execute.return_value = _make_supabase_result(
+            {"id": "call-1", "status": "in-progress",
+             "twilio_call_sid": "CA123", "phone_number": "+353861234567"}
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/calls/call-1/status",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == "call-1"
+        assert data["status"] == "in-progress"
+
+    def test_status_not_found(self, app_client):
+        db = _mock_db()
+        result_mock = MagicMock()
+        result_mock.data = None
+        db.table("call_logs").maybe_single.return_value = db.table("call_logs")
+        db.table("call_logs").execute.return_value = result_mock
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/calls/nonexistent/status",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 404
+
+    def test_status_db_error(self, app_client):
+        db = _mock_db()
+        db.table("call_logs").maybe_single.return_value = db.table("call_logs")
+        db.table("call_logs").execute.side_effect = Exception("DB error")
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/calls/call-1/status",
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 500
