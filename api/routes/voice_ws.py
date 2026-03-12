@@ -8,7 +8,6 @@ Fluxo: áudio binário → STT (Whisper) → LLM (orquestrador) → TTS (ElevenL
 from __future__ import annotations
 
 import base64
-import logging
 import os
 import tempfile
 import uuid
@@ -25,7 +24,8 @@ from api.routes._helpers import _get_db
 from services.business.chat_service import ChatService
 from services.core import get_service
 
-logger = logging.getLogger(__name__)
+from loguru import logger
+
 router_voice_ws = APIRouter(tags=["Voice WebSocket"])
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "")
