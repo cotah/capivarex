@@ -24,8 +24,9 @@ import os  # noqa: E402
 import signal  # noqa: E402
 import asyncio  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
-from telegram.error import Conflict  # noqa: E402
+from telegram.error import Conflict, NetworkError, TimedOut  # noqa: E402
 from telegram.ext import ApplicationBuilder, CommandHandler  # noqa: E402
+from telegram.request import HTTPXRequest  # noqa: E402
 
 # Note: Also called in api/main.py. Registry has idempotency guard, safe to call twice.
 from services.registration import register_all_services  # noqa: E402
@@ -64,8 +65,28 @@ def main_sync():
     if not token:
         raise ValueError("TELEGRAM_BOT_TOKEN not found in environment")
 
-    # Create application
-    application = ApplicationBuilder().token(token).build()
+    # Create application with tuned timeouts to avoid false ReadErrors
+    # read_timeout MUST be > polling timeout (10s) to prevent httpcore ReadError
+    request = HTTPXRequest(
+        connect_timeout=5.0,
+        read_timeout=30.0,
+        write_timeout=5.0,
+        pool_timeout=1.0,
+        http_version="1.1",
+    )
+    application = (
+        ApplicationBuilder()
+        .token(token)
+        .request(request)
+        .get_updates_request(HTTPXRequest(
+            connect_timeout=5.0,
+            read_timeout=30.0,
+            write_timeout=5.0,
+            pool_timeout=1.0,
+            http_version="1.1",
+        ))
+        .build()
+    )
 
     # Initialize bot core synchronously using a temporary event loop
     loop = asyncio.new_event_loop()
@@ -106,11 +127,41 @@ def main_sync():
 
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
+    # --- Error handler: suppress transient network errors, log real ones ---
+    async def _telegram_error_handler(update, context):
+        """Centralized error handler for the Telegram bot.
+
+        Transient network errors (NetworkError, TimedOut) are logged as
+        warnings so the built-in retry loop can recover silently.
+        All other errors are logged as errors and forwarded to Sentry.
+        """
+        error = context.error
+
+        if isinstance(error, (NetworkError, TimedOut)):
+            logger.warning(
+                "Telegram network error (transient): %s — auto-retry active.",
+                type(error).__name__,
+            )
+            return  # Don't re-raise — let the retry loop handle it
+
+        logger.error(
+            "Unhandled Telegram bot error: %s", error, exc_info=context.error
+        )
+
+    application.add_error_handler(_telegram_error_handler)
+
     logger.info("CapivaraX Telegram Bot starting...")
 
     try:
         # run_polling handles its own event loop internally
-        application.run_polling()
+        application.run_polling(
+            timeout=10,
+            read_timeout=30,
+            write_timeout=5,
+            connect_timeout=5,
+            pool_timeout=1,
+            drop_pending_updates=False,
+        )
     except Conflict:
         logger.warning(
             "Telegram Conflict: another instance is already polling. "
