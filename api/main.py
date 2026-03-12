@@ -581,6 +581,11 @@ _frontend_url = os.getenv("FRONTEND_URL")
 if _frontend_url:
     _cors_origins.append(_frontend_url)
 
+# Admin dashboard origin
+_admin_url = os.getenv("ADMIN_URL")
+if _admin_url:
+    _cors_origins.append(_admin_url)
+
 # Safety: if no origins configured, block all cross-origin requests
 if not _cors_origins:
     import logging
