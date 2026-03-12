@@ -15,12 +15,14 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import jwt
+from jwt.exceptions import PyJWTError
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from jose import JWTError, jwt
 
 from agents import get_agent
+from api.routes._helpers import _get_db
 from services.core import get_service
-from api.dependencies.database import get_db
 
 logger = logging.getLogger(__name__)
 router_voice_ws = APIRouter(tags=["Voice WebSocket"])
@@ -59,12 +61,12 @@ async def voice_websocket(
             await websocket.send_json({"type": "error", "message": "Invalid token"})
             await websocket.close(code=1008)
             return
-    except JWTError:
+    except PyJWTError:
         await websocket.send_json({"type": "error", "message": "Invalid token"})
         await websocket.close(code=1008)
         return
 
-    db = get_db()
+    db = _get_db()
     user_resp = db.table("users").select("id, plan, email").eq("email", email).execute()
     if not user_resp.data:
         await websocket.send_json({"type": "error", "message": "User not found"})
