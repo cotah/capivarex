@@ -10,6 +10,8 @@ from .rag_service import (
     retrieve_relevant_memories,
     format_memories_for_prompt,
     extract_and_save_memory,
+    get_relevant_memories,
+    format_memories_for_context,
 )
 
 __all__ = [
@@ -23,4 +25,6 @@ __all__ = [
     "retrieve_relevant_memories",
     "format_memories_for_prompt",
     "extract_and_save_memory",
+    "get_relevant_memories",
+    "format_memories_for_context",
 ]

@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 from datetime import datetime, timezone
 from typing import List
 
@@ -119,101 +118,145 @@ def format_memories_for_prompt(memories: List[dict]) -> str:
     )
 
 
-async def extract_and_save_memory(
-    user_id: str,
-    user_msg: str,
-) -> None:
-    """
-    Background task: use GPT-4o-mini to extract memorable facts from user message
-    and save them to user_memory with embeddings.
-    Only runs if message likely contains personal information.
-    """
-    MEMORY_TRIGGERS = [
-        "me chamo",
-        "meu nome",
-        "moro em",
-        "moro na",
-        "moro no",
-        "trabalho",
-        "minha profiss\u00e3o",
-        "tenho",
-        "anos",
-        "meu email",
-        "meu telefone",
-        "minha fam\u00edlia",
-        "meu filho",
-        "minha filha",
-        "meu marido",
-        "minha esposa",
-        "meu parceiro",
-        "minha parceira",
-        "gosto de",
-        "n\u00e3o gosto",
-        "prefiro",
-        "odeio",
-        "adoro",
-        "my name",
-        "i live",
-        "i work",
-        "i am",
-        "i'm",
-        "me llamo",
-        "vivo en",
-        "trabajo",
-        "minha cidade",
-        "meu bairro",
-        "meu carro",
-        "meu pet",
-        "meu cachorro",
-        "meu gato",
-        "sou de",
-        "nasci em",
-        "tenho filho",
-        "tenho filha",
-    ]
-    msg_lower = user_msg.lower()
-    if not any(trigger in msg_lower for trigger in MEMORY_TRIGGERS):
-        return
-
+async def extract_and_save_memory(user_id: str, message: str) -> None:
+    """Extrai e salva memória de uma mensagem do usuário. Non-blocking."""
     try:
+        from services.ai.embedding_service import embed_text
+
+        client = _get_client()
+        if not client:
+            return
+
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        ai = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-        extraction_prompt = (
-            "Extract personal facts from this user message that are worth"
-            " remembering long-term.\n"
-            "Return a JSON array of objects with 'key', 'value', and"
-            " 'category' fields.\n"
-            "Category must be one of: personal, location, preference,"
-            " family, work, other.\n"
-            "Maximum 3 items. Only extract clear, factual personal"
-            " information.\n"
-            "If nothing worth saving, return [].\n\n"
-            f'User message: "{user_msg}"\n\nJSON array:'
-        )
-
-        response = await client.chat.completions.create(
+        # Passo 1: Classificar se a mensagem tem informação memorável
+        classification = await ai.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": extraction_prompt}],
-            max_tokens=200,
-            temperature=0,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You extract memorable personal facts from user messages. "
+                        'Reply with JSON: {"memorable": true/false, "fact": "...", '
+                        '"category": "preference|habit|goal|personal|work|health|other"}. '
+                        "Only mark as memorable if it's a clear personal fact worth "
+                        "remembering. fact should be a clean, concise statement in "
+                        "third person."
+                    ),
+                },
+                {"role": "user", "content": message},
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=150,
         )
-        raw = response.choices[0].message.content.strip()
 
-        json_match = re.search(r"\[.*\]", raw, re.DOTALL)
-        if not json_match:
+        result = json.loads(classification.choices[0].message.content)
+
+        if not result.get("memorable"):
             return
-        facts = json.loads(json_match.group())
 
-        for fact in facts[:3]:
-            if isinstance(fact, dict) and fact.get("key") and fact.get("value"):
-                await upsert_memory_with_embedding(
-                    user_id=user_id,
-                    key=str(fact["key"]),
-                    value=str(fact["value"]),
-                    source="webapp_chat",
-                    category=str(fact.get("category", "general")),
-                )
+        fact = result.get("fact", "").strip()
+        category = result.get("category", "general")
+
+        if not fact:
+            return
+
+        # Passo 2: Gerar embedding do facto
+        embedding = await embed_text(fact)
+        if embedding is None:
+            return
+
+        # Passo 3: Verificar se já existe memória similar (evitar duplicatas)
+        existing = (
+            client.table("user_memory")
+            .select("id, content")
+            .eq("user_id", user_id)
+            .eq("category", category)
+            .execute()
+        )
+
+        for mem in existing.data or []:
+            if _text_similarity(mem.get("content", ""), fact) > 0.85:
+                return  # já existe memória similar
+
+        # Passo 4: Salvar no banco
+        client.table("user_memory").insert(
+            {
+                "user_id": user_id,
+                "content": fact,
+                "category": category,
+                "confidence": 0.9,
+                "source": "chat",
+                "embedding": embedding,
+            }
+        ).execute()
+
+        logger.info(
+            "Memory saved for user %s: [%s] %s",
+            user_id[:8],
+            category,
+            fact[:50],
+        )
+
     except Exception as e:
-        logger.debug(f"Memory extraction failed (non-fatal): {e}")
+        logger.warning("Memory extraction failed (non-blocking): %s", e)
+
+
+def _text_similarity(a: str, b: str) -> float:
+    """Similaridade simples por palavras comuns (Jaccard, sem dependências extras)."""
+    words_a = set(a.lower().split())
+    words_b = set(b.lower().split())
+    if not words_a or not words_b:
+        return 0.0
+    intersection = words_a & words_b
+    union = words_a | words_b
+    return len(intersection) / len(union)
+
+
+async def get_relevant_memories(
+    user_id: str,
+    query: str,
+    limit: int = 5,
+    min_similarity: float = 0.75,
+) -> list[dict]:
+    """Busca memórias relevantes para o contexto actual via pgvector."""
+    try:
+        from services.ai.embedding_service import embed_text
+
+        client = _get_client()
+        if not client:
+            return []
+
+        query_embedding = await embed_text(query)
+        if query_embedding is None:
+            return []
+
+        result = client.rpc(
+            "match_user_memories",
+            {
+                "query_embedding": query_embedding,
+                "match_user_id": user_id,
+                "match_threshold": min_similarity,
+                "match_count": limit,
+            },
+        ).execute()
+
+        return result.data or []
+
+    except Exception as e:
+        logger.warning("Memory retrieval failed (non-blocking): %s", e)
+        return []
+
+
+def format_memories_for_context(memories: list[dict]) -> str:
+    """Formata memórias para injeção no contexto do agente."""
+    if not memories:
+        return ""
+    lines = ["[O que eu sei sobre você:]"]
+    for mem in memories:
+        category = mem.get("category", "general")
+        content = mem.get("content", "") or mem.get("value", "")
+        lines.append(f"- [{category}] {content}")
+    return "\n".join(lines)

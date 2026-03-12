@@ -111,11 +111,25 @@ async def webapp_chat(
             .execute()
         )
 
+        # --- 2b. Fetch relevant memories for context ---
+        from services.business.rag_service import (
+            get_relevant_memories,
+            format_memories_for_context,
+        )
+        memories = []
+        try:
+            memories = await get_relevant_memories(user_id, body.message, limit=5)
+        except Exception:
+            pass  # memória é best-effort, nunca bloqueia o chat
+
+        memory_context = format_memories_for_context(memories)
+
         # --- 3. Orchestrate ---
         context = {
             "user_id": user_id,
             "source": "webapp",
             "conversation_id": conversation_id,
+            "memory_context": memory_context,
         }
 
         orchestrator = get_agent("orchestrator")
