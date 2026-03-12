@@ -1,5 +1,5 @@
 """
-Utility modules for CapivaraX Bot.
+Utility modules for CAPIVAREX Bot.
 
 Provides:
 - File operations (files.py)

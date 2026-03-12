@@ -9,7 +9,7 @@ This package contains all refactored agents following best practices:
 - Comprehensive logging
 - Error handling
 
-Author: CapivaraX Team
+Author: CAPIVAREX Team
 """
 
 # Core infrastructure (BaseAgent, registry, response types)

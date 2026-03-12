@@ -1,5 +1,5 @@
 """
-Agent Registry for CapivaraX Bot.
+Agent Registry for CAPIVAREX Bot.
 
 Provides:
 - Agent discovery and registration

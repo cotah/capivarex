@@ -1,5 +1,5 @@
 """
-Standardized API Error Handling for CapivaraX Bot API.
+Standardized API Error Handling for CAPIVAREX Bot API.
 
 Provides a unified error response format across all endpoints:
 

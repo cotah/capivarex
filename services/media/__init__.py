@@ -1,4 +1,4 @@
-"""Media services for CapivaraX Bot."""
+"""Media services for CAPIVAREX Bot."""
 
 from .grok_video_service import GrokVideoService
 from .image_service import ImageService

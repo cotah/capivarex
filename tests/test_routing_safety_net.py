@@ -8,9 +8,9 @@ class TestMercadoSafetyNet:
 
     def _make_bot(self):
         """Create a bot instance for testing."""
-        from telegram_bot.core.bot import CapivaraXBot
+        from telegram_bot.core.bot import CAPIVAREXBot
 
-        bot = CapivaraXBot.__new__(CapivaraXBot)
+        bot = CAPIVAREXBot.__new__(CAPIVAREXBot)
         bot.logger = __import__("logging").getLogger("test")
         return bot
 
@@ -77,9 +77,9 @@ class TestSafetyNetPriority:
     """Tests that safety net priorities are correct."""
 
     def _make_bot(self):
-        from telegram_bot.core.bot import CapivaraXBot
+        from telegram_bot.core.bot import CAPIVAREXBot
 
-        bot = CapivaraXBot.__new__(CapivaraXBot)
+        bot = CAPIVAREXBot.__new__(CAPIVAREXBot)
         bot.logger = __import__("logging").getLogger("test")
         return bot
 

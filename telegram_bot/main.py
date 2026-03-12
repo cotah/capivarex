@@ -1,5 +1,5 @@
 """
-Main entry point for the CapivaraX Telegram Bot - Refactored and Fixed.
+Main entry point for the CAPIVAREX Telegram Bot - Refactored and Fixed.
 
 Features:
 - Modular handler architecture
@@ -38,7 +38,7 @@ register_all_agents()
 # ====================================================================
 #                  IMPORTS DO TELEGRAM BOT
 # ====================================================================
-from telegram_bot.core.bot import CapivaraXBot  # noqa: E402
+from telegram_bot.core.bot import CAPIVAREXBot  # noqa: E402
 from telegram_bot.handlers import register_all_handlers  # noqa: E402
 from telegram_bot.commands.proactivity import toggle_proactivity  # noqa: E402
 from telegram_bot.utils.logger import get_logger  # noqa: E402
@@ -92,7 +92,7 @@ def main_sync():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        bot = CapivaraXBot(application)
+        bot = CAPIVAREXBot(application)
         loop.run_until_complete(bot.initialize())
     finally:
         asyncio.set_event_loop(None)
@@ -150,7 +150,7 @@ def main_sync():
 
     application.add_error_handler(_telegram_error_handler)
 
-    logger.info("CapivaraX Telegram Bot starting...")
+    logger.info("CAPIVAREX Telegram Bot starting...")
 
     try:
         # run_polling handles its own event loop internally

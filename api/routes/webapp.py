@@ -2130,7 +2130,7 @@ _INTEGRATIONS_CATALOG = [
     {
         "id": "telegram",
         "name": "Telegram Bot",
-        "description": "Acesse o CapivaraX diretamente pelo Telegram",
+        "description": "Acesse o CAPIVAREX diretamente pelo Telegram",
         "category": "messaging",
         "icon": "message",
         "requires_oauth": False,
@@ -2140,7 +2140,7 @@ _INTEGRATIONS_CATALOG = [
     {
         "id": "twilio_voice",
         "name": "Chamadas de Voz",
-        "description": "Faça e receba chamadas telefônicas com o CapivaraX",
+        "description": "Faça e receba chamadas telefônicas com o CAPIVAREX",
         "category": "communication",
         "icon": "phone",
         "requires_oauth": False,
@@ -2328,7 +2328,7 @@ class InitiateCallRequest(BaseModel):
     """Payload para iniciar uma chamada de voz via Twilio."""
 
     phone_number: str
-    message: str = "Olá! Aqui é o CapivaraX. Como posso ajudar?"
+    message: str = "Olá! Aqui é o CAPIVAREX. Como posso ajudar?"
 
 
 @router.post("/calls/initiate")

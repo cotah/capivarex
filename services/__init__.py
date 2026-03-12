@@ -1,5 +1,5 @@
 """
-Services Package — CapivaraX Bot
+Services Package — CAPIVAREX Bot
 
 Re-exports core utilities so callers can use::
 

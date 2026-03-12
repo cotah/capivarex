@@ -1,5 +1,5 @@
 """
-Core agent infrastructure for CapivaraX Bot.
+Core agent infrastructure for CAPIVAREX Bot.
 
 Provides:
 - BaseAgent abstract class

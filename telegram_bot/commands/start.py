@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 logger = logging.getLogger("capivarex.telegram.commands.start")
 
 WELCOME_MESSAGE: str = """
-🤖 **Bem-vindo ao CapivaraX Bot!**
+🤖 **Bem-vindo ao CAPIVAREX Bot!**
 
 Sou seu assistente de IA pessoal. Posso te ajudar com:
 

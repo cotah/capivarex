@@ -34,7 +34,7 @@ def register_all_handlers(application: Application, bot: Any) -> None:
 
     Args:
         application: The python-telegram-bot Application instance.
-        bot: The CapivaraXBot instance to store in bot_data.
+        bot: The CAPIVAREXBot instance to store in bot_data.
     """
     # Commands
     application.add_handler(CommandHandler("start", start_command))

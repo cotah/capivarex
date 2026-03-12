@@ -33,7 +33,7 @@ _MESSAGE_TIMEOUT_SECONDS = 55
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Handle text messages by routing them through the CapivaraX bot core.
+    Handle text messages by routing them through the CAPIVAREX bot core.
 
     Sends audio/image/video files when the agent response contains media,
     otherwise sends the response as text.

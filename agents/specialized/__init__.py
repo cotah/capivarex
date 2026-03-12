@@ -1,5 +1,5 @@
 """
-Specialized agents for CapivaraX Bot.
+Specialized agents for CAPIVAREX Bot.
 All agents are automatically registered via decorators.
 """
 

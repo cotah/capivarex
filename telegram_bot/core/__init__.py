@@ -1,5 +1,5 @@
 """Core bot logic."""
 
-from .bot import CapivaraXBot
+from .bot import CAPIVAREXBot
 
-__all__ = ["CapivaraXBot"]
+__all__ = ["CAPIVAREXBot"]

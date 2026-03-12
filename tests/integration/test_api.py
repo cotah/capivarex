@@ -23,7 +23,7 @@ class TestRootEndpoint:
         data = response.json()
         assert data["status"] == "online"
         assert data["version"] == "2.0.0"
-        assert data["service"] == "CapivaraX Bot API"
+        assert data["service"] == "CAPIVAREX Bot API"
 
 
 class TestHealthEndpoint:

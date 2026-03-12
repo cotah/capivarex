@@ -1,5 +1,5 @@
 """
-Mode definitions for CapivaraX Bot.
+Mode definitions for CAPIVAREX Bot.
 
 Provides different personas/behaviors for the bot.
 """

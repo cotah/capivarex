@@ -1,5 +1,5 @@
 """
-DEV Agent system for CapivaraX Bot.
+DEV Agent system for CAPIVAREX Bot.
 
 Provides:
 - Claude client for code generation

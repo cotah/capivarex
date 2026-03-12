@@ -1,5 +1,5 @@
 """
-Prompt Cleaner Service (Refactored) - CapivaraX Bot.
+Prompt Cleaner Service (Refactored) - CAPIVAREX Bot.
 
 Preprocesses and cleans user prompts before sending to specialized agents.
 Fully standalone implementation that extends BaseService and uses the

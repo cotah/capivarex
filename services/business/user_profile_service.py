@@ -1,5 +1,5 @@
 """
-User Profile Service — Persistent memory for CapivaraX.
+User Profile Service — Persistent memory for CAPIVAREX.
 
 Loads user profile from Supabase and injects it into every system prompt,
 so the bot never forgets the user's name or personal info.

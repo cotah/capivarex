@@ -1,5 +1,5 @@
 """
-Security Headers Middleware for CapivaraX Bot API.
+Security Headers Middleware for CAPIVAREX Bot API.
 
 Adds essential HTTP security headers to every response to protect
 against common web vulnerabilities including clickjacking, XSS,

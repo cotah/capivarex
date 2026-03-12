@@ -1,5 +1,5 @@
 """
-Safety utilities for CapivaraX Bot.
+Safety utilities for CAPIVAREX Bot.
 
 Provides:
 - User confirmation prompts

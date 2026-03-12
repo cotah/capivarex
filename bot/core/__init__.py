@@ -1,5 +1,5 @@
 """
-Core modules for CapivaraX Bot.
+Core modules for CAPIVAREX Bot.
 
 Provides:
 - ConfigManager: Configuration and credit system

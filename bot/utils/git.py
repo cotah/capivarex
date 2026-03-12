@@ -1,5 +1,5 @@
 """
-Git utilities for CapivaraX Bot.
+Git utilities for CAPIVAREX Bot.
 
 Provides:
 - Git command wrappers

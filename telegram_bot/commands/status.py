@@ -53,7 +53,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
     status_message: str = f"""
-🤖 **Status do CapivaraX Bot**
+🤖 **Status do CAPIVAREX Bot**
 
 **Serviços:**
 {services_text}

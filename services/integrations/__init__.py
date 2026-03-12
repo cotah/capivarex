@@ -1,4 +1,4 @@
-"""Integration services for CapivaraX Bot."""
+"""Integration services for CAPIVAREX Bot."""
 
 from .calendar_service import CalendarService
 from .car_service import CarService

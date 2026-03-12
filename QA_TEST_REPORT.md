@@ -1,6 +1,6 @@
-# CapivaraX Bot - QA Test Report
+# CAPIVAREX Bot - QA Test Report
 
-**Project:** CapivaraX Bot - AI Multi-Agent Assistant
+**Project:** CAPIVAREX Bot - AI Multi-Agent Assistant
 **Version:** 2.0.0 (Refactored Architecture)
 **Date:** 2026-02-18
 **Tester:** QA Senior Automated Suite
@@ -20,7 +20,7 @@
 | **Medium Bugs Found**   | 2                  |
 | **Low Bugs Found**      | 2                  |
 
-The CapivaraX Bot v2.0.0 is **functional and stable** with all 81 automated tests passing. The core architecture (BaseService, BaseAgent, Registry pattern) works correctly. One critical bug was found in the API REST `/chat/stream` endpoint (slowapi parameter conflict). Two medium-severity issues were identified: duplicated route path prefixes and 3 missing environment variables. Two low-severity cosmetic issues were also noted.
+The CAPIVAREX Bot v2.0.0 is **functional and stable** with all 81 automated tests passing. The core architecture (BaseService, BaseAgent, Registry pattern) works correctly. One critical bug was found in the API REST `/chat/stream` endpoint (slowapi parameter conflict). Two medium-severity issues were identified: duplicated route path prefixes and 3 missing environment variables. Two low-severity cosmetic issues were also noted.
 
 ---
 
@@ -94,7 +94,7 @@ The CapivaraX Bot v2.0.0 is **functional and stable** with all 81 automated test
 | pydantic v1 deprecation                  | pyiceberg       | LOW      |
 | datetime.utcnow() deprecation           | Python 3.14     | LOW      |
 
-All warnings originate from third-party libraries, not from CapivaraX code.
+All warnings originate from third-party libraries, not from CAPIVAREX code.
 
 ---
 

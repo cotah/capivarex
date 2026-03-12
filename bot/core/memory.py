@@ -1,5 +1,5 @@
 """
-Memory management system for CapivaraX Bot.
+Memory management system for CAPIVAREX Bot.
 
 Handles:
 - Notes storage and retrieval via database (Supabase)

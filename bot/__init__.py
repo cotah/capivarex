@@ -1,5 +1,5 @@
 """
-CapivaraX Bot - Refactored modular architecture.
+CAPIVAREX Bot - Refactored modular architecture.
 
 Main modules:
 - bot.core: Configuration, memory, multi-tenancy

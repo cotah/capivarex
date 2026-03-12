@@ -1,5 +1,5 @@
 """
-File operation utilities for CapivaraX Bot.
+File operation utilities for CAPIVAREX Bot.
 
 Provides:
 - Safe file reading/writing

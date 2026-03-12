@@ -1,5 +1,5 @@
 """
-Rate Limiting Middleware for CapivaraX Bot API.
+Rate Limiting Middleware for CAPIVAREX Bot API.
 
 Uses slowapi to implement per-endpoint rate limiting, protecting
 expensive AI service endpoints from abuse and cost overruns.

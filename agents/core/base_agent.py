@@ -1,5 +1,5 @@
 """
-Base Agent for CapivaraX Bot - Refactored Architecture.
+Base Agent for CAPIVAREX Bot - Refactored Architecture.
 
 Provides:
 - Abstract base class for all agents

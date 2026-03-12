@@ -1,5 +1,5 @@
 """
-Configuration management system for CapivaraX Bot.
+Configuration management system for CAPIVAREX Bot.
 
 Handles:
 - Bot configuration (modes, flags, settings)

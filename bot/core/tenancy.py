@@ -1,5 +1,5 @@
 """
-Multi-tenancy system for CapivaraX Bot.
+Multi-tenancy system for CAPIVAREX Bot.
 
 Handles:
 - Tenant context management via Supabase identity_map table

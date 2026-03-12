@@ -1,7 +1,7 @@
 """
 Main FastAPI Application - Refactored Architecture.
 
-Entry point for the CapivaraX Bot API with:
+Entry point for the CAPIVAREX Bot API with:
 - Modular router structure
 - Integration with agents and services
 - Improved middleware and error handling
@@ -472,7 +472,7 @@ _startup_logger = _logging.getLogger("capivarex.api")
 async def lifespan(app: FastAPI):
     """Startup → yield → Shutdown."""
     # --- Startup ---
-    _startup_logger.info("CapivaraX Bot API starting up...")
+    _startup_logger.info("CAPIVAREX Bot API starting up...")
     from services import get_service
 
     for service_name in ["database", "openai", "redis"]:
@@ -516,12 +516,12 @@ async def lifespan(app: FastAPI):
 
     # Background timer/reminder loop
     timer_task = asyncio.create_task(_timer_loop())
-    _startup_logger.info("CapivaraX Bot API started successfully")
+    _startup_logger.info("CAPIVAREX Bot API started successfully")
 
     yield
 
     # --- Shutdown ---
-    _startup_logger.info("CapivaraX Bot API shutting down...")
+    _startup_logger.info("CAPIVAREX Bot API shutting down...")
     timer_task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await timer_task
@@ -532,8 +532,8 @@ async def lifespan(app: FastAPI):
 # ====================================================================
 
 app = FastAPI(
-    title="CapivaraX Bot API",
-    description="API Backend do CapivaraX Bot - Assistente de IA Unificado com Arquitetura Refatorada",
+    title="CAPIVAREX Bot API",
+    description="API Backend do CAPIVAREX Bot - Assistente de IA Unificado com Arquitetura Refatorada",
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -610,7 +610,7 @@ def root():
     """Root endpoint."""
     return {
         "status": "online",
-        "service": "CapivaraX Bot API",
+        "service": "CAPIVAREX Bot API",
         "version": "2.0.0",
         "architecture": "refactored",
     }

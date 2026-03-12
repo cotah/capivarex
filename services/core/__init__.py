@@ -1,5 +1,5 @@
 """
-Core service infrastructure for CapivaraX Bot.
+Core service infrastructure for CAPIVAREX Bot.
 
 Provides:
 - BaseService abstract class

@@ -24,7 +24,7 @@ from services.i18n.keywords import check_keywords_with_phone
 # NOTE: _TRANSPORT_KEYWORDS and _TWILIO_KEYWORDS removed — now in services/i18n/keywords.py
 
 
-class CapivaraXBot:
+class CAPIVAREXBot:
     """Core bot class that manages state, services, and agents."""
 
     def __init__(self, application: Application) -> None:
@@ -43,7 +43,7 @@ class CapivaraXBot:
         and the orchestrator agent.  Failures are logged but do not prevent
         the bot from starting.
         """
-        self.logger.info("Initializing CapivaraX Bot...")
+        self.logger.info("Initializing CAPIVAREX Bot...")
 
         # Initialize critical services
         critical_services: List[str] = ["database", "openai", "redis"]
@@ -112,7 +112,7 @@ class CapivaraXBot:
                 self.logger.warning("Could not load %s agent: %s", agent_name, e)
 
         self.logger.info(
-            "CapivaraX Bot initialized successfully — %d agents loaded: %s",
+            "CAPIVAREX Bot initialized successfully — %d agents loaded: %s",
             len(self.agents),
             list(self.agents.keys()),
         )

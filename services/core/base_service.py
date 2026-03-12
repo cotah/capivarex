@@ -1,5 +1,5 @@
 """
-Base Service for CapivaraX Bot - Refactored Architecture.
+Base Service for CAPIVAREX Bot - Refactored Architecture.
 
 Provides:
 - Abstract base class for all services

@@ -1,5 +1,5 @@
 """
-Service Registry for CapivaraX Bot.
+Service Registry for CAPIVAREX Bot.
 
 Provides:
 - Service discovery and registration

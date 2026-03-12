@@ -1,4 +1,4 @@
-"""Business logic services for CapivaraX Bot."""
+"""Business logic services for CAPIVAREX Bot."""
 
 from .proactivity_service import ProactivityService
 from .prompt_cleaner import PromptCleanerService
