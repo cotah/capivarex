@@ -1182,6 +1182,93 @@ async def finance_news(
 
 
 # ====================================================================
+# USER PROFILE — get and update user profile
+# ====================================================================
+
+
+class UserProfileUpdateRequest(BaseModel):
+    """Campos editáveis do perfil do usuário."""
+
+    display_name: Optional[str] = None
+    preferred_language: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
+@router.get("/user/me")
+async def get_user_me(user_id: str = Depends(verify_webapp_user)):
+    """Return the authenticated user's profile data."""
+    db = _get_db()
+
+    try:
+        result = (
+            db.table("users")
+            .select(
+                "id, email, display_name, phone_number,"
+                " preferred_language, plan, created_at"
+            )
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(
+                status_code=404, detail="User not found"
+            )
+
+        return result.data[0]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"WebApp: get_user_me error user={user_id[:8]}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to fetch user profile"
+        )
+
+
+@router.patch("/user/profile")
+async def update_user_profile(
+    body: UserProfileUpdateRequest,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Update the authenticated user's editable profile fields."""
+    db = _get_db()
+
+    update_data = body.model_dump(exclude_none=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=400, detail="No fields to update"
+        )
+
+    # Whitelist — nunca permitir sobrescrever campos de sistema
+    for forbidden in ("id", "user_id", "plan", "email", "created_at"):
+        update_data.pop(forbidden, None)
+
+    try:
+        db.table("users").update(update_data).eq(
+            "id", user_id
+        ).execute()
+
+        logger.info(
+            f"WebApp: user={user_id[:8]} profile updated"
+            f" fields={list(update_data.keys())}"
+        )
+        return {"ok": True, "updated": list(update_data.keys())}
+
+    except Exception as e:
+        logger.error(
+            f"WebApp: update_user_profile error"
+            f" user={user_id[:8]}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to update profile"
+        )
+
+
+# ====================================================================
 # QUOTA — daily message usage for frontend progress bar
 # ====================================================================
 
@@ -2329,6 +2416,8 @@ class InitiateCallRequest(BaseModel):
 
     phone_number: str
     message: str = "Olá! Aqui é o CAPIVAREX. Como posso ajudar?"
+
+
 
 
 @router.post("/calls/initiate")
