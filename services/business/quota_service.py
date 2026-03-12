@@ -482,15 +482,18 @@ class QuotaService(BaseService):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _get_used(self, tenant_id: str, resource: str) -> int:
-        """Uso actual com cache Redis → fallback Supabase."""
+        """Uso actual com cache Redis → fallback Supabase → fallback users."""
         if self._redis:
             try:
                 key = f"quota:{tenant_id}:{resource}"
                 val = await self._redis.get(key)
                 if val is not None:
                     return int(val)
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(
+                    "Redis quota lookup failed for %s/%s, falling back to DB: %s",
+                    tenant_id, resource, e,
+                )
 
         try:
             period = _month_start() if resource in CUMULATIVE_RESOURCES else "stock"
@@ -508,9 +511,34 @@ class QuotaService(BaseService):
             )
             if response.data:
                 return response.data[0]["used"]
+            return 0  # No usage record yet — legitimate zero
         except Exception as e:
-            self.logger.warning("Erro ao buscar uso %s/%s: %s", tenant_id, resource, e)
-        return 0
+            self.logger.warning(
+                "DB quota check failed for %s/%s, trying users fallback: %s",
+                tenant_id, resource, e,
+            )
+            try:
+                user_id = str(tenant_id).replace("user-", "")
+                user_resp = await self._loop().run_in_executor(
+                    None,
+                    lambda: (
+                        self._client()
+                        .table("users")
+                        .select("messages_used, messages_limit")
+                        .eq("id", user_id)
+                        .single()
+                        .execute()
+                    ),
+                )
+                if user_resp.data:
+                    return user_resp.data.get("messages_used", 0)
+                self.logger.error(
+                    "User %s not found in fallback — blocking access", user_id,
+                )
+                return 999_999
+            except Exception as db_error:
+                self.logger.error("DB quota fallback also failed: %s", db_error)
+                return 999_999  # fail-safe: block when all systems down
 
     async def _increment_usage(self, tenant_id: str, resource: str, amount: int) -> None:
         period = _month_start() if resource in CUMULATIVE_RESOURCES else "stock"
