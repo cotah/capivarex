@@ -11,12 +11,17 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Style Check
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4.2.2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5.3.0
@@ -35,6 +40,8 @@ jobs:
     needs: lint
     steps:
     - uses: actions/checkout@v4.2.2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5.3.0
@@ -72,6 +79,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4.2.2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5.3.0
@@ -91,6 +100,8 @@ jobs:
     needs: test
     steps:
     - uses: actions/checkout@v4.2.2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build production Docker image
       run: docker build -f Dockerfile.prod -t capivarax:${{ github.sha }} .
