@@ -2058,3 +2058,250 @@ async def update_proactivity_preferences(
         raise HTTPException(
             status_code=500, detail="Failed to update proactivity preferences"
         )
+
+
+# ====================================================================
+# MARKETPLACE — integration catalog, status & disconnect
+# ====================================================================
+
+_INTEGRATIONS_CATALOG = [
+    {
+        "id": "google_calendar",
+        "name": "Google Calendar",
+        "description": "Gerencie sua agenda, crie eventos e receba lembretes",
+        "category": "productivity",
+        "icon": "calendar",
+        "requires_oauth": True,
+        "provider": "google",
+        "available_plans": ["me", "everywhere"],
+    },
+    {
+        "id": "spotify",
+        "name": "Spotify",
+        "description": "Controle sua música, descubra playlists e artistas",
+        "category": "entertainment",
+        "icon": "music",
+        "requires_oauth": True,
+        "provider": "spotify",
+        "available_plans": ["me", "everywhere"],
+    },
+    {
+        "id": "smartcar",
+        "name": "Smartcar",
+        "description": "Monitore e controle seu veículo conectado",
+        "category": "automotive",
+        "icon": "car",
+        "requires_oauth": True,
+        "provider": "smartcar",
+        "available_plans": ["everywhere"],
+    },
+    {
+        "id": "smartthings",
+        "name": "SmartThings",
+        "description": "Controle dispositivos da sua casa inteligente",
+        "category": "home",
+        "icon": "home",
+        "requires_oauth": True,
+        "provider": "smartthings",
+        "available_plans": ["me", "everywhere"],
+    },
+    {
+        "id": "github",
+        "name": "GitHub",
+        "description": "Gerencie repositórios, issues e pull requests",
+        "category": "development",
+        "icon": "code",
+        "requires_oauth": True,
+        "provider": "github",
+        "available_plans": ["me", "everywhere"],
+    },
+    {
+        "id": "telegram",
+        "name": "Telegram Bot",
+        "description": "Acesse o CapivaraX diretamente pelo Telegram",
+        "category": "messaging",
+        "icon": "message",
+        "requires_oauth": False,
+        "provider": "telegram",
+        "available_plans": ["free", "me", "everywhere"],
+    },
+    {
+        "id": "twilio_voice",
+        "name": "Chamadas de Voz",
+        "description": "Faça e receba chamadas telefônicas com o CapivaraX",
+        "category": "communication",
+        "icon": "phone",
+        "requires_oauth": False,
+        "provider": "twilio",
+        "available_plans": ["everywhere"],
+    },
+]
+
+
+@router.get("/market/integrations")
+async def list_integrations(
+    category: Optional[str] = Query(None),
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Lista todas as integrações disponíveis com status de conexão do usuário."""
+    db = _get_db()
+
+    try:
+        # Buscar tokens OAuth ativos do usuário
+        tokens_result = (
+            db.table("user_oauth_tokens")
+            .select("provider, expires_at")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        connected_providers = {
+            t["provider"] for t in (tokens_result.data or [])
+        }
+
+        # Buscar plano do usuário
+        user_result = (
+            db.table("users")
+            .select("plan")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        user_plan = (
+            user_result.data[0].get("plan", "free")
+            if user_result.data
+            else "free"
+        )
+
+        # Montar resposta com status de conexão
+        integrations = []
+        for integration in _INTEGRATIONS_CATALOG:
+            if category and integration["category"] != category:
+                continue
+
+            is_connected = integration["provider"] in connected_providers
+            is_available = user_plan in integration["available_plans"]
+
+            integrations.append({
+                **integration,
+                "is_connected": is_connected,
+                "is_available": is_available,
+                "upgrade_required": not is_available,
+            })
+
+        logger.info(
+            f"WebApp: user={user_id[:8]} market/integrations"
+            f" total={len(integrations)} connected={len(connected_providers)}"
+            f" plan={user_plan}"
+        )
+        return {"integrations": integrations, "user_plan": user_plan}
+
+    except Exception as e:
+        logger.error(
+            f"WebApp market/integrations error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to list integrations"
+        )
+
+
+@router.get("/market/integrations/{integration_id}/status")
+async def get_integration_status(
+    integration_id: str,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Retorna o status de conexão de uma integração específica."""
+    db = _get_db()
+
+    try:
+        integration = next(
+            (i for i in _INTEGRATIONS_CATALOG if i["id"] == integration_id),
+            None,
+        )
+        if not integration:
+            raise HTTPException(
+                status_code=404, detail="Integration not found"
+            )
+
+        token_result = (
+            db.table("user_oauth_tokens")
+            .select("provider, expires_at, created_at")
+            .eq("user_id", user_id)
+            .eq("provider", integration["provider"])
+            .execute()
+        )
+
+        is_connected = bool(token_result.data)
+        token_data = token_result.data[0] if is_connected else None
+
+        logger.info(
+            f"WebApp: user={user_id[:8]}"
+            f" market/integrations/{integration_id}/status"
+            f" connected={is_connected}"
+        )
+        return {
+            "integration_id": integration_id,
+            "is_connected": is_connected,
+            "provider": integration["provider"],
+            "connected_at": (
+                token_data.get("created_at") if token_data else None
+            ),
+            "expires_at": (
+                token_data.get("expires_at") if token_data else None
+            ),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"WebApp market/integrations status error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to get integration status"
+        )
+
+
+@router.delete("/market/integrations/{integration_id}/disconnect")
+async def disconnect_integration(
+    integration_id: str,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Desconecta (remove tokens de) uma integração."""
+    db = _get_db()
+
+    try:
+        integration = next(
+            (i for i in _INTEGRATIONS_CATALOG if i["id"] == integration_id),
+            None,
+        )
+        if not integration:
+            raise HTTPException(
+                status_code=404, detail="Integration not found"
+            )
+
+        db.table("user_oauth_tokens").delete().eq(
+            "user_id", user_id
+        ).eq("provider", integration["provider"]).execute()
+
+        logger.info(
+            f"WebApp: user={user_id[:8]}"
+            f" disconnected integration {integration_id}"
+        )
+        return {
+            "success": True,
+            "integration_id": integration_id,
+            "is_connected": False,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"WebApp market disconnect error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to disconnect integration"
+        )
