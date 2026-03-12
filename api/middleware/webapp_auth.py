@@ -26,8 +26,8 @@ security = HTTPBearer()
 
 # JWK coordinates for the Supabase signing key (alg: ES256, crv: P-256).
 # Source: https://gakybwrvpwyvufovweis.supabase.co/auth/v1/.well-known/jwks.json
-_JWK_X = "xRyRpUbConEdfETDWasN6EPCrZbvsB14w-DSNHHC4ss"
-_JWK_Y = "XwDv6Q5hHpkzIv2SsyfsLkAItbgNCF7h-PBXNXo9Olw"
+_JWK_X = os.environ.get("SUPABASE_JWT_JWK_X", "")
+_JWK_Y = os.environ.get("SUPABASE_JWT_JWK_Y", "")
 
 
 def _b64url_to_int(b64url: str) -> int:
