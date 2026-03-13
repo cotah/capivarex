@@ -415,3 +415,58 @@ async def billing_portal(user_id: str = Depends(verify_webapp_user)):
         raise HTTPException(
             status_code=500, detail="Failed to create portal session"
         )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/billing/cron/reset-daily  (called by Railway cron or external scheduler)
+# ---------------------------------------------------------------------------
+
+CRON_SECRET = os.getenv("CRON_SECRET") or os.getenv("ADMIN_SECRET_TOKEN", "")
+
+
+@router.post("/cron/reset-daily")
+async def reset_daily_usage(request: Request):
+    """Reset messages_used to 0 for ALL users.
+
+    Called once per day at midnight by Railway cron job or external scheduler.
+    Protected by CRON_SECRET (or ADMIN_SECRET_TOKEN as fallback).
+
+    Railway cron config:
+        curl -X POST https://capivarex-production.up.railway.app/api/billing/cron/reset-daily \
+             -H "Authorization: Bearer $CRON_SECRET"
+    """
+    # Auth check
+    auth = request.headers.get("authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    if not CRON_SECRET or token != CRON_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid cron token")
+
+    db = _get_db()
+
+    try:
+        # Reset messages_used for all users
+        result = (
+            db.table("users")
+            .update({"messages_used": 0})
+            .gt("messages_used", 0)  # only update users who actually used messages
+            .execute()
+        )
+
+        reset_count = len(result.data) if result.data else 0
+
+        logger.info(
+            "Cron reset-daily: reset messages_used for {} users", reset_count
+        )
+
+        await _notify_admin(
+            f"\U0001f504 Reset diário: {reset_count} users zeraram messages_used"
+        )
+
+        return {
+            "status": "ok",
+            "users_reset": reset_count,
+        }
+
+    except Exception as e:
+        logger.opt(exception=True).error("Cron reset-daily error: {}", e)
+        raise HTTPException(status_code=500, detail="Failed to reset daily usage")
