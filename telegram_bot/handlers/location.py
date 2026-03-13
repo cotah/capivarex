@@ -57,9 +57,10 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         user_uuid = await _resolve_uuid(telegram_id)
 
     if not user_uuid:
-        logger.error("Cannot save location: no UUID for telegram_id=%s", telegram_id)
+        logger.warning("Cannot save location: no UUID for telegram_id=%s (unregistered user)", telegram_id)
         await update.message.reply_text(
-            "❌ Não consegui guardar a localização. Contacta o suporte.",
+            "❌ Não consegui guardar a localização.\n"
+            "Usa /start para te registares primeiro.",
             reply_markup=ReplyKeyboardRemove(),
         )
         return
