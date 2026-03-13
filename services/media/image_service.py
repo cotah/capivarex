@@ -152,11 +152,88 @@ class ImageService(BaseService):
         except Exception as e:
             latency = time.time() - start_time
             self._track_call(latency, error=True)
-            self.logger.exception("Failed to generate image with Imagen: %s", e)
+            self.logger.warning(
+                "Imagen 4 failed, trying DALL-E fallback: %s", e
+            )
+
+            # ── DALL-E 3 fallback ────────────────────────────────────────
+            try:
+                dalle_result = await self._generate_with_dalle(
+                    prompt=prompt, aspect_ratio=aspect_ratio
+                )
+                if dalle_result and dalle_result.get("success"):
+                    return dalle_result
+            except Exception as dalle_err:
+                self.logger.error("DALL-E fallback also failed: %s", dalle_err)
+
             return {
                 "success": False,
-                "error": f"Image generation failed: {str(e)}",
+                "error": f"Image generation failed (Gemini + DALL-E): {str(e)}",
             }
+
+    async def _generate_with_dalle(
+        self,
+        prompt: str,
+        aspect_ratio: str = "1:1",
+    ) -> Dict[str, Any]:
+        """Fallback: generate image with DALL-E 3 via OpenAI."""
+        import httpx
+        from openai import AsyncOpenAI
+
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if not openai_key:
+            return {"success": False, "error": "OPENAI_API_KEY not set"}
+
+        # Map aspect ratios to DALL-E sizes
+        size_map = {
+            "1:1": "1024x1024",
+            "16:9": "1792x1024",
+            "9:16": "1024x1792",
+            "4:3": "1024x1024",  # closest supported
+            "3:4": "1024x1792",  # closest supported
+        }
+        size = size_map.get(aspect_ratio, "1024x1024")
+
+        start = time.time()
+        client = AsyncOpenAI(api_key=openai_key)
+
+        self.logger.info("DALL-E 3 fallback: prompt='%s...', size=%s", prompt[:60], size)
+
+        response = await client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            n=1,
+            size=size,
+            quality="standard",
+        )
+
+        image_url = response.data[0].url
+        if not image_url:
+            return {"success": False, "error": "DALL-E returned no image URL"}
+
+        # Download the image
+        async with httpx.AsyncClient(timeout=30) as http:
+            img_resp = await http.get(image_url)
+            img_resp.raise_for_status()
+
+        os.makedirs("generated_images", exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = os.path.join("generated_images", f"dalle_{timestamp}.png")
+
+        with open(output_path, "wb") as f:
+            f.write(img_resp.content)
+
+        self.logger.info("DALL-E fallback image saved: %s (%.1fs)", output_path, time.time() - start)
+
+        return {
+            "success": True,
+            "image_paths": [output_path],
+            "image_path": output_path,
+            "model_used": "dall-e-3",
+            "prompt": prompt,
+            "count": 1,
+            "fallback": True,
+        }
 
     async def edit_image(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         """Image editing placeholder."""
