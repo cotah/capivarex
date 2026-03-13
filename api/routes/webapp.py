@@ -1388,8 +1388,8 @@ async def get_weather(
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                "https://api.weatherapi.com/v1/current.json",
-                params={"key": api_key, "q": q, "aqi": "no"},
+                "https://api.weatherapi.com/v1/forecast.json",
+                params={"key": api_key, "q": q, "days": 6, "aqi": "no", "alerts": "no"},
                 timeout=10.0,
             )
 
