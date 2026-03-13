@@ -49,110 +49,7 @@ async def voice_websocket(
     """
     await websocket.accept()
 
-    # ── Auth — same multi-strategy as webapp_auth.verify_webapp_user ──────────
-    from api.middleware.webapp_auth import SUPABASE_PUBLIC_KEY
-
-    jwt_secret = os.getenv("SUPABASE_JWT_SECRET", "")
-
-    strategies: list[tuple[str, dict]] = []
-    if SUPABASE_PUBLIC_KEY:
-        strategies.append(("es256", {
-            "key": SUPABASE_PUBLIC_KEY,
-            "algorithms": ["ES256"],
-            "options": {"verify_aud": False},
-        }))
-    if jwt_secret:
-        strategies.append(("hs256_aud", {
-            "key": jwt_secret,
-            "algorithms": ["HS256"],
-            "audience": "authenticated",
-        }))
-        strategies.append(("hs256_noaud", {
-            "key": jwt_secret,
-            "algorithms": ["HS256"],
-            "options": {"verify_aud": False},
-        }))
-
-    payload = None
-    for strat_name, kwargs in strategies:
-        try:
-            payload = jwt.decode(token, **kwargs)
-            if payload.get("sub"):
-                break
-            payload = None
-        except Exception:
-            payload = None
-            continue
-
-    if not payload or not payload.get("sub"):
-        await websocket.send_json({"type": "error", "message": "Invalid token"})
-        await websocket.close(code=1008)
-        return
-
-    sub_value: str = payload["sub"]
-
-    db = _get_db()
-
-    # Supabase tokens: sub = user UUID.  Legacy tokens: sub = email.
-    import uuid as _uuid
-    try:
-        _uuid.UUID(sub_value)
-        user_resp = db.table("users").select("id, plan, email").eq("id", sub_value).execute()
-    except (ValueError, AttributeError):
-        user_resp = db.table("users").select("id, plan, email").eq("email", sub_value).execute()
-
-    if not user_resp.data:
-        await websocket.send_json({"type": "error", "message": "User not found"})
-        await websocket.close(code=1008)
-        return
-
-    user = user_resp.data[0]
-    user_id = str(user["id"])
-    user_plan = user.get("plan", "free")
-
-    # ── Verify conversation belongs to user ──────────────────────────────────
-    conv_resp = (
-        db.table("webapp_conversations")
-        .select("id")
-        .eq("id", conversation_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
-    if not conv_resp.data:
-        await websocket.send_json({"type": "error", "message": "Conversation not found"})
-        await websocket.close(code=1008)
-        return
-
-    # ── Services ─────────────────────────────────────────────────────────────
-    stt_service = get_service("whisper")
-    tts_service = get_service("elevenlabs")
-    redis_svc = get_service("redis")
-    orchestrator = get_agent("orchestrator")
-
-    if not stt_service:
-        await websocket.send_json({"type": "error", "message": "STT service not available"})
-        await websocket.close(code=1011)
-        return
-
-    # Initialize services if needed (lazy-loaded)
-    try:
-        if not stt_service.is_initialized():
-            await stt_service.initialize()
-        if tts_service and not tts_service.is_initialized():
-            await tts_service.initialize()
-        if redis_svc and not redis_svc.is_initialized():
-            await redis_svc.initialize()
-    except Exception as init_err:
-        logger.error("VoiceWS: service init failed: {}", init_err)
-        await websocket.send_json({"type": "error", "message": "Service initialization failed"})
-        await websocket.close(code=1011)
-        return
-
-    logger.info("VoiceWS: user={} conv={} connected, stt={}, tts={}",
-                user_id[:8], conversation_id[:8],
-                stt_service.is_initialized(), tts_service.is_initialized() if tts_service else False)
-
-    # Helper — send JSON safely (ignores closed connection)
+    # Helper — must be defined right after accept() so it's available everywhere
     async def _safe_send(data: dict) -> bool:
         """Send JSON to the client, returning False if the connection is closed."""
         try:
@@ -160,6 +57,117 @@ async def voice_websocket(
             return True
         except (WebSocketDisconnect, RuntimeError, Exception):
             return False
+
+    # ── Init (auth + DB + services) — wrapped in try/except ──────────────
+    try:
+        from api.middleware.webapp_auth import SUPABASE_PUBLIC_KEY
+
+        jwt_secret = os.getenv("SUPABASE_JWT_SECRET", "")
+
+        strategies: list[tuple[str, dict]] = []
+        if SUPABASE_PUBLIC_KEY:
+            strategies.append(("es256", {
+                "key": SUPABASE_PUBLIC_KEY,
+                "algorithms": ["ES256"],
+                "options": {"verify_aud": False},
+            }))
+        if jwt_secret:
+            strategies.append(("hs256_aud", {
+                "key": jwt_secret,
+                "algorithms": ["HS256"],
+                "audience": "authenticated",
+            }))
+            strategies.append(("hs256_noaud", {
+                "key": jwt_secret,
+                "algorithms": ["HS256"],
+                "options": {"verify_aud": False},
+            }))
+
+        payload = None
+        for strat_name, kwargs in strategies:
+            try:
+                payload = jwt.decode(token, **kwargs)
+                if payload.get("sub"):
+                    break
+                payload = None
+            except Exception:
+                payload = None
+                continue
+
+        if not payload or not payload.get("sub"):
+            await _safe_send({"type": "error", "message": "Invalid token"})
+            await websocket.close(code=1008)
+            return
+
+        sub_value: str = payload["sub"]
+
+        db = _get_db()
+
+        # Supabase tokens: sub = user UUID.  Legacy tokens: sub = email.
+        import uuid as _uuid
+        try:
+            _uuid.UUID(sub_value)
+            user_resp = db.table("users").select("id, plan, email").eq("id", sub_value).execute()
+        except (ValueError, AttributeError):
+            user_resp = db.table("users").select("id, plan, email").eq("email", sub_value).execute()
+
+        if not user_resp.data:
+            await _safe_send({"type": "error", "message": "User not found"})
+            await websocket.close(code=1008)
+            return
+
+        user = user_resp.data[0]
+        user_id = str(user["id"])
+        user_plan = user.get("plan", "free")
+
+        # ── Verify conversation belongs to user ──────────────────────────
+        conv_resp = (
+            db.table("webapp_conversations")
+            .select("id")
+            .eq("id", conversation_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if not conv_resp.data:
+            await _safe_send({"type": "error", "message": "Conversation not found"})
+            await websocket.close(code=1008)
+            return
+
+        # ── Services ─────────────────────────────────────────────────────
+        stt_service = get_service("whisper")
+        tts_service = get_service("elevenlabs")
+        redis_svc = get_service("redis")
+        orchestrator = get_agent("orchestrator")
+
+        if not stt_service:
+            await _safe_send({"type": "error", "message": "STT service not available"})
+            await websocket.close(code=1011)
+            return
+
+        if not stt_service.is_initialized():
+            await stt_service.initialize()
+        if tts_service and not tts_service.is_initialized():
+            await tts_service.initialize()
+        if redis_svc and not redis_svc.is_initialized():
+            await redis_svc.initialize()
+
+    except WebSocketDisconnect:
+        logger.info("VoiceWS: client disconnected during init")
+        return
+    except Exception as init_err:
+        logger.error("VoiceWS: init failed: {}", init_err)
+        await _safe_send({"type": "error", "message": "Initialization failed"})
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass
+        return
+
+    logger.info("VoiceWS: user={} conv={} connected, stt={}, tts={}",
+                user_id[:8], conversation_id[:8],
+                stt_service.is_initialized(), tts_service.is_initialized() if tts_service else False)
+
+    # ── Main loop ────────────────────────────────────────────────────────
 
     try:
         while True:
