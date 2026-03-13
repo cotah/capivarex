@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import jwt
-from jwt.exceptions import PyJWTError
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
