@@ -309,6 +309,35 @@ async def voice_websocket(
                 logger.warning("VoiceWS TTS failed for user={}: {}", user_id[:8], e)
                 # TTS failure is non-fatal — text response already sent
 
+            # ── Background: memory + personal info extraction ────────────
+            import asyncio as _asyncio
+            try:
+                from services.business.rag_service import extract_and_save_memory
+                _asyncio.create_task(extract_and_save_memory(user_id, transcript))
+            except Exception:
+                pass
+            try:
+                from services.business.user_profile_service import extract_and_save_personal_info
+                _asyncio.create_task(extract_and_save_personal_info(user_id, transcript))
+            except Exception:
+                pass
+
+            # Redis: cache conversation context
+            try:
+                if redis_svc and redis_svc.is_initialized():
+                    _asyncio.create_task(
+                        redis_svc.append_conversation_message(
+                            user_id, {"role": "user", "content": transcript}
+                        )
+                    )
+                    _asyncio.create_task(
+                        redis_svc.append_conversation_message(
+                            user_id, {"role": "assistant", "content": response_text}
+                        )
+                    )
+            except Exception:
+                pass
+
     except WebSocketDisconnect:
         logger.info("VoiceWS: user={} disconnected", user_id[:8])
     except RuntimeError as e:

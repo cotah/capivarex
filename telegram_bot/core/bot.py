@@ -402,6 +402,34 @@ class CAPIVAREXBot:
                 except Exception as e:
                     self.logger.debug("Could not schedule info extraction: %s", e)
 
+                # RAG: extract and save memorable facts
+                try:
+                    from services.business.rag_service import extract_and_save_memory
+
+                    asyncio.create_task(
+                        extract_and_save_memory(user_uuid, text)
+                    )
+                except Exception as e:
+                    self.logger.debug("Could not schedule RAG extraction: %s", e)
+
+                # Redis: cache conversation context for short-term memory
+                try:
+                    redis_svc = get_service("redis")
+                    if redis_svc and redis_svc.is_initialized():
+                        asyncio.create_task(
+                            redis_svc.append_conversation_message(
+                                user_uuid, {"role": "user", "content": text}
+                            )
+                        )
+                        if result and result.response:
+                            asyncio.create_task(
+                                redis_svc.append_conversation_message(
+                                    user_uuid, {"role": "assistant", "content": result.response}
+                                )
+                            )
+                except Exception as e:
+                    self.logger.debug("Could not cache to Redis: %s", e)
+
             return result
 
         except Exception as e:

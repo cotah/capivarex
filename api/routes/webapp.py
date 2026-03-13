@@ -332,6 +332,30 @@ async def webapp_chat(
             extract_and_save_memory(user_id, body.message)
         )
 
+        # Personal info extraction (name, birthday, address → user_context)
+        from services.business.user_profile_service import extract_and_save_personal_info
+        _asyncio.create_task(
+            extract_and_save_personal_info(user_id, body.message)
+        )
+
+        # Redis: cache conversation context for short-term memory
+        try:
+            redis_svc = get_service("redis")
+            if redis_svc and redis_svc.is_initialized():
+                _asyncio.create_task(
+                    redis_svc.append_conversation_message(
+                        user_id, {"role": "user", "content": body.message}
+                    )
+                )
+                if response_text:
+                    _asyncio.create_task(
+                        redis_svc.append_conversation_message(
+                            user_id, {"role": "assistant", "content": response_text}
+                        )
+                    )
+        except Exception:
+            pass  # Redis is best-effort
+
         # --- 6. Touch conversation updated_at ---
         db.table("webapp_conversations").update(
             {"updated_at": datetime.now(timezone.utc).isoformat()}
