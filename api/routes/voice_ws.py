@@ -130,7 +130,28 @@ async def voice_websocket(
     redis_svc = get_service("redis")
     orchestrator = get_agent("orchestrator")
 
-    logger.info("VoiceWS: user={} conv={} connected", user_id[:8], conversation_id[:8])
+    if not stt_service:
+        await websocket.send_json({"type": "error", "message": "STT service not available"})
+        await websocket.close(code=1011)
+        return
+
+    # Initialize services if needed (lazy-loaded)
+    try:
+        if not stt_service.is_initialized():
+            await stt_service.initialize()
+        if tts_service and not tts_service.is_initialized():
+            await tts_service.initialize()
+        if redis_svc and not redis_svc.is_initialized():
+            await redis_svc.initialize()
+    except Exception as init_err:
+        logger.error("VoiceWS: service init failed: {}", init_err)
+        await websocket.send_json({"type": "error", "message": "Service initialization failed"})
+        await websocket.close(code=1011)
+        return
+
+    logger.info("VoiceWS: user={} conv={} connected, stt={}, tts={}",
+                user_id[:8], conversation_id[:8],
+                stt_service.is_initialized(), tts_service.is_initialized() if tts_service else False)
 
     try:
         while True:
@@ -254,14 +275,15 @@ async def voice_websocket(
 
             # ── TTS ──────────────────────────────────────────────────────────
             try:
-                audio_bytes = await tts_service.text_to_speech(
-                    text=response_text[:1000],
-                )
-                if audio_bytes:
-                    audio_b64 = base64.b64encode(audio_bytes).decode()
-                    await websocket.send_json({
-                        "type": "audio",
-                        "audio_base64": audio_b64,
+                if tts_service and tts_service.is_initialized():
+                    audio_bytes = await tts_service.text_to_speech(
+                        text=response_text[:1000],
+                    )
+                    if audio_bytes:
+                        audio_b64 = base64.b64encode(audio_bytes).decode()
+                        await websocket.send_json({
+                            "type": "audio",
+                            "audio_base64": audio_b64,
                         "content_type": "audio/mpeg",
                     })
             except Exception as e:
