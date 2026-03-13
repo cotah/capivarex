@@ -12,13 +12,18 @@ Supports two signing algorithms:
 
 import base64
 import os
+from typing import Optional
 
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from loguru import logger
 
-security = HTTPBearer()
+# auto_error=False prevents FastAPI from automatically returning a 403 with
+# the WWW-Authenticate: Bearer header when the Authorization header is
+# missing. That header causes Chromium to block cross-origin responses with
+# net::ERR_FAILED, making the error unreadable by the frontend.
+security = HTTPBearer(auto_error=False)
 
 # ---------------------------------------------------------------------------
 # Supabase ES256 public key (from JWKS)
@@ -59,7 +64,7 @@ SUPABASE_PUBLIC_KEY = _build_supabase_ec_key()
 
 
 async def verify_webapp_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
     """Verify a Supabase JWT and return the ``user_id`` (``sub`` claim).
 
@@ -71,6 +76,13 @@ async def verify_webapp_user(
     Raises:
         HTTPException 401: If all strategies fail or ``sub`` is missing.
     """
+    # credentials is None when the Authorization header is absent entirely.
+    # We raise 401 WITHOUT the WWW-Authenticate header so that Chrome does
+    # not treat it as an HTTP Basic-Auth challenge (which causes ERR_FAILED
+    # for cross-origin requests and breaks the frontend).
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     token = credentials.credentials
 
     # Strip known invalid prefixes — defence-in-depth against frontend bugs
