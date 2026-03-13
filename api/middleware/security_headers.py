@@ -4,57 +4,46 @@ Security Headers Middleware for CAPIVAREX Bot API.
 Adds essential HTTP security headers to every response to protect
 against common web vulnerabilities including clickjacking, XSS,
 MIME-type sniffing, and protocol downgrade attacks.
+
+IMPORTANT: Implemented as a pure ASGI middleware (not BaseHTTPMiddleware)
+to avoid interfering with CORSMiddleware. BaseHTTPMiddleware reconstructs
+the response object, which strips CORS headers added by CORSMiddleware.
 """
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send, Message
+
+# Headers to inject into every HTTP response.
+_SECURITY_HEADERS: list[tuple[bytes, bytes]] = [
+    (b"x-content-type-options", b"nosniff"),
+    (b"x-frame-options", b"DENY"),
+    (b"x-xss-protection", b"1; mode=block"),
+    (b"strict-transport-security", b"max-age=31536000; includeSubDomains"),
+    (b"referrer-policy", b"strict-origin-when-cross-origin"),
+    (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
+]
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Middleware that injects security headers into all HTTP responses.
+class SecurityHeadersMiddleware:
+    """Pure ASGI middleware that injects security headers into HTTP responses.
 
-    Headers applied:
-        - X-Content-Type-Options: nosniff
-        - X-Frame-Options: DENY
-        - X-XSS-Protection: 1; mode=block
-        - Strict-Transport-Security: max-age=31536000; includeSubDomains
-        - Content-Security-Policy: default-src 'self'
-        - Referrer-Policy: strict-origin-when-cross-origin
-        - Permissions-Policy: camera=(), microphone=(), geolocation=()
+    Unlike the previous BaseHTTPMiddleware implementation, this operates
+    at the ASGI protocol level and does NOT reconstruct the response,
+    so headers added by outer middleware (like CORSMiddleware) are preserved.
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        response = await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        # Prevent MIME type sniffing
-        response.headers["X-Content-Type-Options"] = "nosniff"
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # Prevent clickjacking
-        response.headers["X-Frame-Options"] = "DENY"
+        async def send_with_security_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.extend(_SECURITY_HEADERS)
+                message["headers"] = headers
+            await send(message)
 
-        # Legacy XSS protection (still useful for older browsers)
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-
-        # Force HTTPS connections for 1 year
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
-
-        # Restrict resource loading to same origin
-        # Note: 'unsafe-inline' added for Swagger UI compatibility
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'"
-        )
-
-        # Control referrer information
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-
-        # Restrict browser features
-        response.headers["Permissions-Policy"] = (
-            "camera=(), microphone=(), geolocation=()"
-        )
-
-        return response
+        await self.app(scope, receive, send_with_security_headers)
