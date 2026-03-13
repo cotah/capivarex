@@ -327,6 +327,15 @@ class DatabaseService(BaseService):
         self, user_id: str, context_type: str, data: Dict[str, Any]
     ) -> bool:
         """Save or update a user context entry."""
+        import uuid as _uuid
+        try:
+            _uuid.UUID(str(user_id))
+        except (ValueError, AttributeError):
+            self.logger.warning(
+                "save_user_context called with non-UUID '%s' — skipping", user_id
+            )
+            return False
+
         if not self.client:
             await self.initialize()
 
@@ -360,6 +369,15 @@ class DatabaseService(BaseService):
         self, user_id: str, context_type: str
     ) -> Optional[Dict[str, Any]]:
         """Get a user context entry by type."""
+        import uuid as _uuid
+        try:
+            _uuid.UUID(str(user_id))
+        except (ValueError, AttributeError):
+            self.logger.warning(
+                "get_user_context called with non-UUID '%s' — skipping", user_id
+            )
+            return None
+
         if not self.client:
             await self.initialize()
 

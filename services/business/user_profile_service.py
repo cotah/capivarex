@@ -30,6 +30,17 @@ async def build_user_profile_prompt(user_id: str) -> str:
         A formatted string block to append to the system prompt, or empty
         string if no profile data is available.
     """
+    if not user_id:
+        return ""
+
+    # Guard: only accept UUIDs, never raw telegram IDs
+    import uuid as _uuid
+    try:
+        _uuid.UUID(str(user_id))
+    except (ValueError, AttributeError):
+        logger.warning("build_user_profile_prompt: non-UUID user_id=%s, skipping", user_id)
+        return ""
+
     db = get_service("database")
     if not db:
         return ""

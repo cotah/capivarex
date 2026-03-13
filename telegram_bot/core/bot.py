@@ -232,6 +232,29 @@ class CAPIVAREXBot:
                 db_svc = get_service("database")
                 if db_svc and db_svc.is_initialized():
                     user_row = await db_svc.get_user_by_telegram_id(telegram_id)
+
+                    # Auto-register if user doesn't exist yet
+                    if not user_row:
+                        self.logger.info(
+                            "Auto-registering telegram_id=%s", telegram_id
+                        )
+                        try:
+                            from telegram_bot.commands.start import _ensure_user_registered
+                            from types import SimpleNamespace
+                            fake_user = SimpleNamespace(
+                                id=int(telegram_id),
+                                full_name=context.get("username", "Telegram User"),
+                                first_name=context.get("first_name", "Telegram User"),
+                                username=context.get("username", ""),
+                            )
+                            await _ensure_user_registered(fake_user)
+                            user_row = await db_svc.get_user_by_telegram_id(telegram_id)
+                        except Exception as reg_err:
+                            self.logger.warning(
+                                "Auto-register failed for telegram_id=%s: %s",
+                                telegram_id, reg_err,
+                            )
+
                     if user_row:
                         context = {
                             **context,
@@ -245,10 +268,15 @@ class CAPIVAREXBot:
                         )
                     else:
                         self.logger.warning(
-                            "Could not find user for telegram_id=%s", telegram_id
+                            "Could not find/create user for telegram_id=%s — "
+                            "clearing user_id to prevent non-UUID DB queries",
+                            telegram_id,
                         )
+                        # CRITICAL: remove non-UUID user_id to prevent DB errors
+                        context = {**context, "user_id": "", "telegram_user_id": telegram_id}
             except Exception as e:
                 self.logger.warning("Could not resolve user UUID: %s", e)
+                context = {**context, "user_id": "", "telegram_user_id": telegram_id}
 
         # ── 1b. Get or create conversation for memory ─────────────
         try:
