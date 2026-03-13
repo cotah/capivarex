@@ -417,13 +417,13 @@ class CAPIVAREXBot:
                     redis_svc = get_service("redis")
                     if redis_svc and redis_svc.is_initialized():
                         asyncio.create_task(
-                            redis_svc.append_conversation_message(
+                            redis_svc.save_conversation_message(
                                 user_uuid, {"role": "user", "content": text}
                             )
                         )
                         if result and result.response:
                             asyncio.create_task(
-                                redis_svc.append_conversation_message(
+                                redis_svc.save_conversation_message(
                                     user_uuid, {"role": "assistant", "content": result.response}
                                 )
                             )

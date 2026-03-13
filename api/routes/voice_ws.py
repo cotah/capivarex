@@ -326,12 +326,12 @@ async def voice_websocket(
             try:
                 if redis_svc and redis_svc.is_initialized():
                     _asyncio.create_task(
-                        redis_svc.append_conversation_message(
+                        redis_svc.save_conversation_message(
                             user_id, {"role": "user", "content": transcript}
                         )
                     )
                     _asyncio.create_task(
-                        redis_svc.append_conversation_message(
+                        redis_svc.save_conversation_message(
                             user_id, {"role": "assistant", "content": response_text}
                         )
                     )
