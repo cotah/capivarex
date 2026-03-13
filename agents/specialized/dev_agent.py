@@ -1,12 +1,17 @@
 """
 Dev Agent - Handles code generation, analysis, and programming queries.
-Refactored to use intent classification with Anthropic/OpenAI dual-backend
-and robust error handling.
+Refactored to use intent classification with Anthropic Claude (primary)
+and OpenAI Codex (fallback) dual-backend with robust error handling.
+
+AI Stack:
+  - PRIMARY: Anthropic Claude (claude-sonnet-4.5) — ANTHROPIC_API_KEY
+  - FALLBACK: OpenAI Codex (codex-mini-latest) — OPENAI_API_KEY
+  - INTENT CLASSIFICATION: OpenAI GPT-4o-mini (fast, cheap)
 
 FIXES [2025-02]:
 FIX 1 (TIMEOUT): Anthropic demora 3-4 minutos para código longo.
   ANTES: await anthropic_svc.generate_code(prompt) → sem timeout → Railway mata a conexão HTTP antes de responder.
-  DEPOIS: asyncio.wait_for(..., timeout=30) → fallback para OpenAI se >30s.
+  DEPOIS: asyncio.wait_for(..., timeout=30) → fallback para OpenAI Codex se >30s.
 
 FIX 2 (HELP FALSO): "Fetch JS" e "cria função Python" retornam help.
   CAUSA: GPT-4o-mini classifica "fetch" como 'help' às vezes.
@@ -396,7 +401,7 @@ class DevAgent(BaseAgent):
         system_prompt: str,
         max_tokens: int = 4000,
     ) -> Optional[str]:
-        """Try to generate a response using OpenAI (with timeout)."""
+        """Fallback: generate response using OpenAI Codex."""
         try:
             openai_svc = get_service("openai")
             if not openai_svc:
@@ -416,7 +421,12 @@ class DevAgent(BaseAgent):
                     )
                     return None
 
-            self.logger.info("DevAgent: Calling OpenAI chat_completion")
+            import os
+            codex_model = os.getenv("OPENAI_CODEX_MODEL", "codex-mini-latest")
+
+            self.logger.info(
+                "DevAgent: Calling OpenAI Codex fallback (model=%s)", codex_model
+            )
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
@@ -426,7 +436,7 @@ class DevAgent(BaseAgent):
                 text = await asyncio.wait_for(
                     openai_svc.chat_completion(
                         messages=messages,
-                        model="gpt-4o-mini",
+                        model=codex_model,
                         temperature=0.3,
                         max_tokens=max_tokens,
                     ),
@@ -434,7 +444,7 @@ class DevAgent(BaseAgent):
                 )
             except asyncio.TimeoutError:
                 self.logger.warning(
-                    "DevAgent: OpenAI timed out after %ds", _OPENAI_TIMEOUT_SECONDS
+                    "DevAgent: OpenAI Codex timed out after %ds", _OPENAI_TIMEOUT_SECONDS
                 )
                 return None
 
@@ -442,7 +452,7 @@ class DevAgent(BaseAgent):
             return text if text else None
 
         except Exception as e:
-            self.logger.warning("DevAgent: OpenAI failed: %s", e)
+            self.logger.warning("DevAgent: OpenAI Codex failed: %s", e)
             return None
 
     async def _call_ai(
@@ -451,7 +461,7 @@ class DevAgent(BaseAgent):
         system_prompt: str,
         max_tokens: int = 4000,
     ) -> Optional[str]:
-        """Try Anthropic first (with timeout), then OpenAI. Returns None if both fail."""
+        """Try Anthropic Claude first (with timeout), then OpenAI Codex. Returns None if both fail."""
         text = await self._generate_with_anthropic(prompt, system_prompt=system_prompt)
         if text:
             return text
@@ -541,10 +551,10 @@ class DevAgent(BaseAgent):
                 # FIX 3: Mensagem clara com diagnóstico
                 response=(
                     "⚠️ Não foi possível gerar o código no momento.\n"
-                    "Os serviços de IA (Anthropic e OpenAI) não responderam a tempo.\n"
+                    "Os serviços de IA (Claude e Codex) não responderam a tempo.\n"
                     "Tente novamente em alguns instantes."
                 ),
-                error="No AI response (both Anthropic and OpenAI failed or timed out)",
+                error="No AI response (both Anthropic Claude and OpenAI Codex failed or timed out)",
             )
         return AgentResponse(
             status=AgentStatus.SUCCESS,
