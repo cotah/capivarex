@@ -12,7 +12,7 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import jwt
 
@@ -27,65 +27,8 @@ from loguru import logger
 
 router_voice_ws = APIRouter(tags=["Voice WebSocket"])
 
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
-ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
-
-# Supabase JWT secret — used by the webapp frontend (primary auth strategy)
-_SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
-
 _AUDIO_TEMP_DIR = Path(tempfile.gettempdir()) / "capivarex_voice_ws"
 _AUDIO_TEMP_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def _decode_ws_token(token: str) -> Optional[Dict[str, Any]]:  # pragma: no cover
-    """Decode a JWT token using multiple strategies (Supabase → backend).
-
-    The webapp frontend sends Supabase-issued JWTs (sub = user UUID).
-    The Telegram/legacy path may send backend JWTs (sub = email).
-    This function tries both, returning the decoded payload or None.
-    """
-    # Import the Supabase ES256 public key from webapp_auth (if available)
-    try:
-        from api.middleware.webapp_auth import SUPABASE_PUBLIC_KEY
-    except ImportError:
-        SUPABASE_PUBLIC_KEY = None
-
-    strategies: list[tuple[str, dict]] = []
-
-    # Strategy 1: ES256 with Supabase EC public key
-    if SUPABASE_PUBLIC_KEY:
-        strategies.append(("es256", {
-            "key": SUPABASE_PUBLIC_KEY,
-            "algorithms": ["ES256"],
-            "options": {"verify_aud": False},
-        }))
-
-    # Strategy 2: HS256 with Supabase JWT secret
-    if _SUPABASE_JWT_SECRET:
-        strategies.append(("supabase_hs256", {
-            "key": _SUPABASE_JWT_SECRET,
-            "algorithms": ["HS256"],
-            "options": {"verify_aud": False},
-        }))
-
-    # Strategy 3: HS256 with backend JWT secret (legacy/Telegram tokens)
-    if SECRET_KEY:
-        strategies.append(("backend_hs256", {
-            "key": SECRET_KEY,
-            "algorithms": [ALGORITHM],
-            "options": {"verify_aud": False},
-        }))
-
-    for name, kwargs in strategies:
-        try:
-            payload = jwt.decode(token, **kwargs)
-            if payload.get("sub"):
-                logger.debug("voice_ws auth: strategy '%s' succeeded", name)
-                return payload
-        except Exception:
-            continue
-
-    return None
 
 
 @router_voice_ws.websocket("/voice/ws")
@@ -107,9 +50,42 @@ async def voice_websocket(
     """
     await websocket.accept()
 
-    # ── Auth ──────────────────────────────────────────────────────────────────
-    payload = _decode_ws_token(token)
-    if not payload:
+    # ── Auth — same multi-strategy as webapp_auth.verify_webapp_user ──────────
+    from api.middleware.webapp_auth import SUPABASE_PUBLIC_KEY
+
+    jwt_secret = os.getenv("SUPABASE_JWT_SECRET", "")
+
+    strategies: list[tuple[str, dict]] = []
+    if SUPABASE_PUBLIC_KEY:
+        strategies.append(("es256", {
+            "key": SUPABASE_PUBLIC_KEY,
+            "algorithms": ["ES256"],
+            "options": {"verify_aud": False},
+        }))
+    if jwt_secret:
+        strategies.append(("hs256_aud", {
+            "key": jwt_secret,
+            "algorithms": ["HS256"],
+            "audience": "authenticated",
+        }))
+        strategies.append(("hs256_noaud", {
+            "key": jwt_secret,
+            "algorithms": ["HS256"],
+            "options": {"verify_aud": False},
+        }))
+
+    payload = None
+    for strat_name, kwargs in strategies:
+        try:
+            payload = jwt.decode(token, **kwargs)
+            if payload.get("sub"):
+                break
+            payload = None
+        except Exception:
+            payload = None
+            continue
+
+    if not payload or not payload.get("sub"):
         await websocket.send_json({"type": "error", "message": "Invalid token"})
         await websocket.close(code=1008)
         return
@@ -118,8 +94,7 @@ async def voice_websocket(
 
     db = _get_db()
 
-    # Supabase tokens have sub = user UUID; backend tokens have sub = email.
-    # Try UUID lookup first (webapp/Supabase path), then email (legacy path).
+    # Supabase tokens: sub = user UUID.  Legacy tokens: sub = email.
     import uuid as _uuid
     try:
         _uuid.UUID(sub_value)
