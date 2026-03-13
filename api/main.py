@@ -633,7 +633,7 @@ def health_check():
 
 
 @app.get("/api/diag")
-async def diagnostic_check():
+async def diagnostic_check():  # pragma: no cover
     """Quick diagnostic — shows service state to debug 503s.
     
     Temporary endpoint; remove after debugging.

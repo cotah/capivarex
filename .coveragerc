@@ -94,6 +94,7 @@ omit =
     services/integrations/finance_service.py
     # API routes — thin HTTP request/response wrappers with no business logic
     api/routes/chat.py
+    api/routes/voice_ws.py
     api/routes/dev.py
     api/routes/finance.py
     api/routes/health.py

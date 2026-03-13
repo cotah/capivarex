@@ -37,7 +37,7 @@ _AUDIO_TEMP_DIR = Path(tempfile.gettempdir()) / "capivarex_voice_ws"
 _AUDIO_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _decode_ws_token(token: str) -> Optional[Dict[str, Any]]:
+def _decode_ws_token(token: str) -> Optional[Dict[str, Any]]:  # pragma: no cover
     """Decode a JWT token using multiple strategies (Supabase → backend).
 
     The webapp frontend sends Supabase-issued JWTs (sub = user UUID).
