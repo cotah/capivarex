@@ -151,7 +151,7 @@ async def voice_websocket(
         if redis_svc and not redis_svc.is_initialized():
             await redis_svc.initialize()
 
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         logger.info("VoiceWS: client disconnected during init")
         return
     except Exception as init_err:
@@ -311,6 +311,15 @@ async def voice_websocket(
 
     except WebSocketDisconnect:
         logger.info("VoiceWS: user={} disconnected", user_id[:8])
+    except RuntimeError as e:
+        # Starlette throws RuntimeError("WebSocket is not connected") when
+        # receive_bytes() is called on a WS that the client already closed.
+        # This is normal — NOT an error. Just log and exit.
+        if "not connected" in str(e).lower() or "accept" in str(e).lower():
+            logger.info("VoiceWS: user={} connection lost (RuntimeError)", user_id[:8])
+        else:
+            logger.opt(exception=True).error("VoiceWS error for user={}: {}", user_id[:8], e)
+            await _safe_send({"type": "error", "message": "Internal server error"})
     except Exception as e:
         logger.opt(exception=True).error("VoiceWS error for user={}: {}", user_id[:8], e)
         await _safe_send({"type": "error", "message": "Internal server error"})
