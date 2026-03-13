@@ -28,8 +28,8 @@ from loguru import logger
 
 router_voice_ws = APIRouter(tags=["Voice WebSocket"])
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "")
-ALGORITHM = os.environ.get("ALGORITHM", "HS256")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
+ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 
 _AUDIO_TEMP_DIR = Path(tempfile.gettempdir()) / "capivarex_voice_ws"
 _AUDIO_TEMP_DIR.mkdir(parents=True, exist_ok=True)

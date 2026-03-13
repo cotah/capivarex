@@ -176,6 +176,7 @@ class TestWebappChat:
         with (
             patch("api.routes.webapp._get_db", return_value=db),
             patch("api.routes.webapp.get_agent", side_effect=fake_get_agent),
+            patch("api.routes.webapp.get_service", return_value=None),
         ):
             resp = app_client.post(
                 "/api/webapp/chat",
@@ -224,6 +225,7 @@ class TestWebappChat:
         with (
             patch("api.routes.webapp._get_db", return_value=db),
             patch("api.routes.webapp.get_agent", side_effect=fake_get_agent),
+            patch("api.routes.webapp.get_service", return_value=None),
         ):
             resp = app_client.post(
                 "/api/webapp/chat",
@@ -1134,6 +1136,7 @@ class TestChatVision:
         with (
             patch("api.routes.webapp._get_db", return_value=db),
             patch("api.routes.webapp.get_agent") as mock_get_agent,
+            patch("api.routes.webapp.get_service", return_value=None),
             patch("api.routes.webapp.glob.glob", return_value=["/tmp/capivarex_uploads/upload_abc-123-def.jpg"]),
             patch("builtins.open", MagicMock(return_value=MagicMock(
                 __enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"\xff\xd8\xff"))),
@@ -1175,7 +1178,8 @@ class TestChatVision:
         )
 
         with patch("api.routes.webapp._get_db", return_value=db), \
-             patch("api.routes.webapp.get_agent") as mock_get_agent:
+             patch("api.routes.webapp.get_agent") as mock_get_agent, \
+             patch("api.routes.webapp.get_service", return_value=None):
             mock_orch = MagicMock()
             mock_orch.process = AsyncMock(return_value=orch_response)
             mock_chat = MagicMock()
@@ -1230,6 +1234,7 @@ class TestChatImageUrlConversion:
         with (
             patch("api.routes.webapp._get_db", return_value=db),
             patch("api.routes.webapp.get_agent", side_effect=fake_get_agent),
+            patch("api.routes.webapp.get_service", return_value=None),
         ):
             resp = app_client.post(
                 "/api/webapp/chat",
@@ -1279,6 +1284,7 @@ class TestChatImageUrlConversion:
         with (
             patch("api.routes.webapp._get_db", return_value=db),
             patch("api.routes.webapp.get_agent", side_effect=fake_get_agent),
+            patch("api.routes.webapp.get_service", return_value=None),
         ):
             resp = app_client.post(
                 "/api/webapp/chat",
@@ -1327,6 +1333,7 @@ class TestChatImageUrlConversion:
         with (
             patch("api.routes.webapp._get_db", return_value=db),
             patch("api.routes.webapp.get_agent", side_effect=fake_get_agent),
+            patch("api.routes.webapp.get_service", return_value=None),
         ):
             resp = app_client.post(
                 "/api/webapp/chat",
