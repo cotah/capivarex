@@ -171,22 +171,24 @@ async def voice_websocket(
             if not conversation_context:
                 hist_resp = (
                     db.table("webapp_messages")
-                    .select("role, content, created_at")
+                    .select("role, text, created_at")
                     .eq("conversation_id", conversation_id)
                     .order("created_at", desc=False)
                     .limit(20)
                     .execute()
                 )
                 conversation_context = [
-                    {"role": m["role"], "content": m["content"]}
+                    {"role": m["role"], "content": m["text"]}
                     for m in (hist_resp.data or [])
                 ]
 
             # Save user message
             db.table("webapp_messages").insert({
                 "conversation_id": conversation_id,
+                "user_id": user_id,
                 "role": "user",
-                "content": transcript,
+                "text": transcript,
+                "source": "voice",
             }).execute()
 
             # ── LLM ──────────────────────────────────────────────────────────
@@ -235,8 +237,10 @@ async def voice_websocket(
             # Save assistant message
             db.table("webapp_messages").insert({
                 "conversation_id": conversation_id,
+                "user_id": user_id,
                 "role": "assistant",
-                "content": response_text,
+                "text": response_text,
+                "source": "voice",
             }).execute()
 
             # Send text response
