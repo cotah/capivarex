@@ -113,7 +113,7 @@ async def voice_websocket(
 
     # ── Verify conversation belongs to user ──────────────────────────────────
     conv_resp = (
-        db.table("conversations")
+        db.table("webapp_conversations")
         .select("id")
         .eq("id", conversation_id)
         .eq("user_id", user_id)
@@ -125,8 +125,8 @@ async def voice_websocket(
         return
 
     # ── Services ─────────────────────────────────────────────────────────────
-    stt_service = get_service("speech_to_text")
-    tts_service = get_service("text_to_speech")
+    stt_service = get_service("whisper")
+    tts_service = get_service("elevenlabs")
     redis_svc = get_service("redis")
     orchestrator = get_agent("orchestrator")
 
@@ -145,8 +145,8 @@ async def voice_websocket(
             tmp_path = _AUDIO_TEMP_DIR / f"{uuid.uuid4()}.webm"
             try:
                 tmp_path.write_bytes(audio_bytes)
-                stt_result = await stt_service.transcribe(
-                    audio_path=str(tmp_path),
+                stt_result = await stt_service.speech_to_text(
+                    audio_file_path=str(tmp_path),
                     language="pt",
                 )
                 transcript = (stt_result.get("text") or "").strip()
@@ -170,7 +170,7 @@ async def voice_websocket(
 
             if not conversation_context:
                 hist_resp = (
-                    db.table("messages")
+                    db.table("webapp_messages")
                     .select("role, content, created_at")
                     .eq("conversation_id", conversation_id)
                     .order("created_at", desc=False)
@@ -183,7 +183,7 @@ async def voice_websocket(
                 ]
 
             # Save user message
-            db.table("messages").insert({
+            db.table("webapp_messages").insert({
                 "conversation_id": conversation_id,
                 "role": "user",
                 "content": transcript,
@@ -233,7 +233,7 @@ async def voice_websocket(
                 continue
 
             # Save assistant message
-            db.table("messages").insert({
+            db.table("webapp_messages").insert({
                 "conversation_id": conversation_id,
                 "role": "assistant",
                 "content": response_text,
@@ -250,17 +250,15 @@ async def voice_websocket(
 
             # ── TTS ──────────────────────────────────────────────────────────
             try:
-                tts_result = await tts_service.synthesize(
+                audio_bytes = await tts_service.text_to_speech(
                     text=response_text[:1000],
-                    voice="rachel",
-                    language="pt",
                 )
-                if tts_result and tts_result.get("audio_data"):
-                    audio_b64 = base64.b64encode(tts_result["audio_data"]).decode()
+                if audio_bytes:
+                    audio_b64 = base64.b64encode(audio_bytes).decode()
                     await websocket.send_json({
                         "type": "audio",
                         "audio_base64": audio_b64,
-                        "content_type": tts_result.get("content_type", "audio/mpeg"),
+                        "content_type": "audio/mpeg",
                     })
             except Exception as e:
                 logger.warning("VoiceWS TTS failed for user={}: {}", user_id[:8], e)
