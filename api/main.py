@@ -632,6 +632,56 @@ def health_check():
     }
 
 
+@app.get("/api/diag")
+async def diagnostic_check():
+    """Quick diagnostic — shows service state to debug 503s.
+    
+    Temporary endpoint; remove after debugging.
+    """
+    from services.core import registry as service_registry
+
+    diag = {
+        "registered_services": service_registry.list_services(),
+        "env_check": {
+            "SUPABASE_URL": bool(os.getenv("SUPABASE_URL")),
+            "SUPABASE_SERVICE_KEY": bool(os.getenv("SUPABASE_SERVICE_KEY")),
+            "ENCRYPTION_KEY": bool(os.getenv("ENCRYPTION_KEY")),
+            "WEATHER_API_KEY": bool(os.getenv("WEATHER_API_KEY")),
+            "JWT_SECRET_KEY": bool(os.getenv("JWT_SECRET_KEY")),
+            "ENVIRONMENT": os.getenv("ENVIRONMENT", "NOT SET"),
+        },
+        "service_status": {},
+    }
+
+    for svc_name in ["database", "openai", "redis", "weather", "quota"]:
+        try:
+            svc = service_registry.get(svc_name)
+            if svc is None:
+                diag["service_status"][svc_name] = "NOT_REGISTERED"
+            elif not svc.is_initialized():
+                diag["service_status"][svc_name] = "REGISTERED_NOT_INITIALIZED"
+                # Try to initialize
+                try:
+                    await svc.initialize()
+                    diag["service_status"][svc_name] = "JUST_INITIALIZED_OK"
+                except Exception as init_err:
+                    diag["service_status"][svc_name] = f"INIT_FAILED: {type(init_err).__name__}: {str(init_err)[:200]}"
+            else:
+                diag["service_status"][svc_name] = "OK"
+        except Exception as e:
+            diag["service_status"][svc_name] = f"ERROR: {type(e).__name__}: {str(e)[:200]}"
+
+    # Test _get_db directly
+    try:
+        from api.routes._helpers import _get_db
+        db = _get_db()
+        diag["db_client"] = "OK" if db else "None"
+    except Exception as e:
+        diag["db_client"] = f"FAILED: {type(e).__name__}: {str(e)[:200]}"
+
+    return diag
+
+
 @app.get("/api/health/detailed")
 async def detailed_health_check(request: Request):
     """Detailed health check with service status."""
