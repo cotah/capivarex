@@ -1304,14 +1304,19 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
         is_unlimited = limit >= 999999
 
         # Fonte da verdade para uso: tenant_usage (QuotaService)
-        from datetime import date
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
 
-        today = date.today().isoformat()
+        period_start = _dt.now(_tz.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        ).isoformat()
         usage_result = (
             db.table("tenant_usage")
             .select("used")
-            .eq("user_id", user_id)
-            .eq("period", today)
+            .eq("tenant_id", f"user-{user_id}")
+            .eq("resource", "messages")
+            .gte("period_start", period_start)
+            .order("period_start", desc=True)
             .limit(1)
             .execute()
         )
