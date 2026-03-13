@@ -20,7 +20,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from agents import get_agent
 from api.routes._helpers import _get_db
-from services.business.chat_service import ChatService
 from services.core import get_service
 
 from loguru import logger
@@ -204,13 +203,16 @@ async def voice_websocket(
                 ]
 
             # Save user message
-            db.table("webapp_messages").insert({
-                "conversation_id": conversation_id,
-                "user_id": user_id,
-                "role": "user",
-                "text": transcript,
-                "source": "voice",
-            }).execute()
+            try:
+                db.table("webapp_messages").insert({
+                    "conversation_id": conversation_id,
+                    "user_id": user_id,
+                    "role": "user",
+                    "text": transcript,
+                    "source": "voice",
+                }).execute()
+            except Exception as db_err:
+                logger.warning("VoiceWS: failed to save user msg: {}", db_err)
 
             # ── LLM ──────────────────────────────────────────────────────────
             history = [
@@ -221,56 +223,56 @@ async def voice_websocket(
             history.append({"role": "user", "content": transcript})
             history = history[-10:]
 
-            orchestrator_resp = await orchestrator.execute(
-                transcript, {"history": history, "user_plan": user_plan}
-            )
-            action = (
-                orchestrator_resp.response
-                if hasattr(orchestrator_resp, "response")
-                else str(orchestrator_resp)
-            )
-            valid_actions = {
-                "chat", "search", "dev", "image", "video", "finance",
-                "weather", "calendar", "traffic", "car", "voice",
-            }
-            if action not in valid_actions:
-                action = "chat"
+            try:
+                # Route via orchestrator
+                orchestrator_resp = await orchestrator.execute(
+                    transcript, {"history": history, "user_plan": user_plan}
+                )
+                action = (
+                    orchestrator_resp.response
+                    if hasattr(orchestrator_resp, "response")
+                    else str(orchestrator_resp)
+                )
 
-            chat_service = ChatService(
-                websocket=websocket,
-                user_id=user_id,
-                user_plan=user_plan,
-            )
-            full_response = await chat_service.dispatch(
-                action, transcript, {"action": action}, history
-            )
-
-            response_text = (
-                full_response.get("text") or full_response.get("response") or ""
-                if isinstance(full_response, dict)
-                else str(full_response)
-            )
+                # Call target agent directly (not ChatService — it sends
+                # "token" messages that break the voice WebSocket protocol)
+                target_agent = get_agent(action) or get_agent("chat")
+                agent_result = await target_agent.execute(
+                    transcript, {"history": history, "user_plan": user_plan}
+                )
+                response_text = (
+                    agent_result.response
+                    if hasattr(agent_result, "response") and agent_result.response
+                    else str(agent_result)
+                )
+            except Exception as llm_err:
+                logger.error("VoiceWS LLM error: {}", llm_err)
+                response_text = "Desculpa, houve um erro ao processar sua mensagem."
 
             if not response_text:
                 await websocket.send_json({"type": "error", "message": "No response generated"})
                 continue
 
             # Save assistant message
-            db.table("webapp_messages").insert({
-                "conversation_id": conversation_id,
-                "user_id": user_id,
-                "role": "assistant",
-                "text": response_text,
-                "source": "voice",
-            }).execute()
+            try:
+                db.table("webapp_messages").insert({
+                    "conversation_id": conversation_id,
+                    "user_id": user_id,
+                    "role": "assistant",
+                    "text": response_text,
+                    "source": "voice",
+                }).execute()
+            except Exception as db_err:
+                logger.warning("VoiceWS: failed to save assistant msg: {}", db_err)
 
             # Send text response
+            agent_data = getattr(agent_result, 'data', None) if 'agent_result' in dir() else None
             await websocket.send_json({
                 "type": "response",
                 "text": response_text,
-                "response_type": full_response.get("type", "text") if isinstance(full_response, dict) else "text",
-                "data": full_response.get("data") if isinstance(full_response, dict) else None,
-                "conversation_title": full_response.get("conversation_title") if isinstance(full_response, dict) else None,
+                "response_type": "text",
+                "data": agent_data if isinstance(agent_data, dict) else None,
+                "conversation_title": None,
             })
 
             # ── TTS ──────────────────────────────────────────────────────────
