@@ -130,26 +130,12 @@ async def _process_audio(path: str) -> tuple[str, str]:
 
 async def _process_pdf(path: str) -> tuple[str, str]:
     try:
-        import PyPDF2
+        from services.media.pdf_service import extract_pdf
 
-        text_parts = []
-        with open(path, "rb") as f:
-            reader = PyPDF2.PdfReader(f)
-            num_pages = len(reader.pages)
-            for i, page in enumerate(reader.pages):
-                extracted = page.extract_text() or ""
-                if extracted.strip():
-                    text_parts.append(f"[Page {i + 1}]\n{extracted.strip()}")
-        text = "\n\n".join(text_parts)
-        if not text.strip():
-            text = "[PDF uploaded — no extractable text found]"
-        preview = f"PDF ({num_pages} pages): " + text[:150].replace("\n", " ") + "..."
-        logger.info("Upload: PDF extracted {} chars from {} pages", len(text), num_pages)
+        result = extract_pdf(path)
+        text = result["text"]
+        preview = result["preview"]
         return text, preview
-    except ImportError:
-        filename = Path(path).name
-        text = f"[PDF uploaded: {filename}]"
-        return text, text
     except Exception as e:
         logger.warning("Upload: PDF extraction failed ({})", e)
         filename = Path(path).name

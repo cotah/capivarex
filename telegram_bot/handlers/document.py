@@ -59,15 +59,13 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         try:
             if file_path.endswith(".pdf"):
                 try:
-                    import PyPDF2
+                    from services.media.pdf_service import extract_pdf
 
-                    with open(file_path, "rb") as f:
-                        reader = PyPDF2.PdfReader(f)
-                        content = "\n".join(
-                            page.extract_text() or "" for page in reader.pages
-                        )
-                except ImportError:
-                    content = "(PDF reading not available - PyPDF2 not installed)"
+                    result = extract_pdf(file_path)
+                    content = result["text"]
+                except Exception as pdf_err:
+                    logger.warning("PDF extraction failed: %s", pdf_err)
+                    content = "(PDF reading failed)"
             elif doc.file_name.endswith((".txt", ".md")):
                 with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                     content = f.read()

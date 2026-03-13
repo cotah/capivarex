@@ -392,11 +392,11 @@ async def test_process_image_gemini_success(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_process_pdf_with_content(tmp_path):
     try:
-        import PyPDF2  # noqa: F401
+        import pdfplumber  # noqa: F401
         from reportlab.lib.pagesizes import letter
         from reportlab.pdfgen import canvas
     except ImportError:
-        pytest.skip("PyPDF2 or reportlab not installed")
+        pytest.skip("pdfplumber or reportlab not installed")
 
     pdf_path = str(tmp_path / "real.pdf")
     c = canvas.Canvas(pdf_path, pagesize=letter)
