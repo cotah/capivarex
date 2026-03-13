@@ -152,13 +152,22 @@ async def voice_websocket(
                 user_id[:8], conversation_id[:8],
                 stt_service.is_initialized(), tts_service.is_initialized() if tts_service else False)
 
+    # Helper — send JSON safely (ignores closed connection)
+    async def _safe_send(data: dict) -> bool:
+        """Send JSON to the client, returning False if the connection is closed."""
+        try:
+            await websocket.send_json(data)
+            return True
+        except (WebSocketDisconnect, RuntimeError, Exception):
+            return False
+
     try:
         while True:
             # Receive audio bytes from client
             audio_bytes = await websocket.receive_bytes()
 
             if not audio_bytes or len(audio_bytes) < 500:
-                await websocket.send_json({"type": "error", "message": "Audio too short"})
+                await _safe_send({"type": "error", "message": "Audio too short"})
                 continue
 
             # ── STT ──────────────────────────────────────────────────────────
@@ -174,10 +183,10 @@ async def voice_websocket(
                 tmp_path.unlink(missing_ok=True)
 
             if not transcript:
-                await websocket.send_json({"type": "error", "message": "Could not transcribe audio"})
+                await _safe_send({"type": "error", "message": "Could not transcribe audio"})
                 continue
 
-            await websocket.send_json({"type": "transcription", "text": transcript})
+            await _safe_send({"type": "transcription", "text": transcript})
 
             # ── Context ──────────────────────────────────────────────────────
             conversation_context: List[Dict[str, Any]] = []
@@ -250,7 +259,7 @@ async def voice_websocket(
                 response_text = "Desculpa, houve um erro ao processar sua mensagem."
 
             if not response_text:
-                await websocket.send_json({"type": "error", "message": "No response generated"})
+                await _safe_send({"type": "error", "message": "No response generated"})
                 continue
 
             # Save assistant message
@@ -267,7 +276,7 @@ async def voice_websocket(
 
             # Send text response
             agent_data = getattr(agent_result, 'data', None) if 'agent_result' in dir() else None
-            await websocket.send_json({
+            await _safe_send({
                 "type": "response",
                 "text": response_text,
                 "response_type": "text",
@@ -283,11 +292,11 @@ async def voice_websocket(
                     )
                     if audio_bytes:
                         audio_b64 = base64.b64encode(audio_bytes).decode()
-                        await websocket.send_json({
+                        await _safe_send({
                             "type": "audio",
                             "audio_base64": audio_b64,
-                        "content_type": "audio/mpeg",
-                    })
+                            "content_type": "audio/mpeg",
+                        })
             except Exception as e:
                 logger.warning("VoiceWS TTS failed for user={}: {}", user_id[:8], e)
                 # TTS failure is non-fatal — text response already sent
@@ -296,7 +305,4 @@ async def voice_websocket(
         logger.info("VoiceWS: user={} disconnected", user_id[:8])
     except Exception as e:
         logger.opt(exception=True).error("VoiceWS error for user={}: {}", user_id[:8], e)
-        try:
-            await websocket.send_json({"type": "error", "message": "Internal server error"})
-        except Exception:
-            pass
+        await _safe_send({"type": "error", "message": "Internal server error"})
