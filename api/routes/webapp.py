@@ -424,7 +424,7 @@ async def webapp_chat_stream(
     db = _get_db()
     conversation_id = body.conversation_id
 
-    # --- Pre-stream setup (quota, conversation, orchestration) ---
+    # --- Pre-stream setup (quick stuff only) ---
     try:
         # Quota
         try:
@@ -456,47 +456,54 @@ async def webapp_chat_stream(
             "source": "webapp",
         }).execute()
 
-        # Memories
-        from services.business.rag_service import get_relevant_memories, format_memories_for_context
-        memories = []
-        try:
-            memories = await get_relevant_memories(user_id, body.message, limit=5)
-        except Exception:
-            pass
-        memory_context = format_memories_for_context(memories)
-
-        # Orchestrate
-        context = {
-            "user_id": user_id,
-            "source": "webapp",
-            "conversation_id": conversation_id,
-            "memory_context": memory_context,
-        }
-
-        orchestrator = get_agent("orchestrator")
-        if not orchestrator:
-            raise HTTPException(status_code=503, detail="Orchestrator unavailable")
-
-        decision = await orchestrator.process(body.message, context)
-        agent_name = decision.response if decision.response else "chat"
-
-        has_file = "[File:" in body.message or "[Imagem recebida:" in body.message
-        if has_file and agent_name == "image":
-            agent_name = "chat"
-
-        logger.info(f"WebApp stream: user={user_id[:8]} msg='{body.message[:60]}' → agent='{agent_name}'")
-
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"WebApp stream setup error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to setup stream")
 
-    # --- SSE Generator ---
+    # --- SSE Generator (heavy work inside so we stream immediately) ---
     async def event_generator():
-        """Yield SSE events."""
+        """Yield SSE events. Sends 'thinking' immediately, then orchestrates."""
         full_response = ""
+        agent_name = "chat"
         try:
+            # Send thinking event IMMEDIATELY — user sees activity right away
+            yield f"data: {_json.dumps({'type': 'thinking', 'conversation_id': conversation_id})}\n\n"
+
+            # --- Heavy work happens here (while user sees "thinking") ---
+
+            # RAG memories (run in background, don't block orchestration)
+            from services.business.rag_service import get_relevant_memories, format_memories_for_context
+            memories = []
+            try:
+                memories = await get_relevant_memories(user_id, body.message, limit=5)
+            except Exception:
+                pass
+            memory_context = format_memories_for_context(memories)
+
+            # Orchestrate
+            context = {
+                "user_id": user_id,
+                "source": "webapp",
+                "conversation_id": conversation_id,
+                "memory_context": memory_context,
+            }
+
+            orchestrator = get_agent("orchestrator")
+            if orchestrator:
+                decision = await orchestrator.process(body.message, context)
+                agent_name = decision.response if decision.response else "chat"
+            else:
+                agent_name = "chat"
+
+            has_file = "[File:" in body.message or "[Imagem recebida:" in body.message
+            if has_file and agent_name == "image":
+                agent_name = "chat"
+
+            logger.info(f"WebApp stream: user={user_id[:8]} msg='{body.message[:60]}' → agent='{agent_name}'")
+
+            # Send start event with agent info
             yield f"data: {_json.dumps({'type': 'start', 'agent': agent_name, 'conversation_id': conversation_id})}\n\n"
 
             agent = get_agent(agent_name)
