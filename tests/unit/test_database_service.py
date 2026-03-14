@@ -292,41 +292,7 @@ class TestCarConnections:
 
 
 # -------------------------------------------------------------------
-# SmartThings connections
-# -------------------------------------------------------------------
-
-
-class TestSmartThingsConnections:
-    @pytest.mark.asyncio
-    async def test_save_new(self):
-        svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
-            []
-        )
-        svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
-        with patch(
-            "services.infrastructure.database.encrypt_token", return_value="enc"
-        ):
-            result = await svc.save_smartthings_connection(
-                "00000000-0000-0000-0000-000000000001", "at", "rt", "2026-12-31", "app1", "loc1"
-            )
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_connection(self):
-        svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
-            [{"access_token": "enc_at", "refresh_token": "enc_rt"}]
-        )
-        with patch(
-            "services.infrastructure.database.decrypt_token", side_effect=["at", "rt"]
-        ):
-            result = await svc.get_smartthings_connection("00000000-0000-0000-0000-000000000001")
-        assert result["access_token"] == "at"
-
-
-# -------------------------------------------------------------------
-# GitHub connections
+# (SmartThings removed — now using Tuya)
 # -------------------------------------------------------------------
 
 
@@ -815,81 +781,7 @@ class TestCarConnectionErrors:
 
 
 # -------------------------------------------------------------------
-# SmartThings connections – error paths, update path, client None
-# -------------------------------------------------------------------
-
-
-class TestSmartThingsConnectionErrors:
-    @pytest.mark.asyncio
-    async def test_save_update_existing(self):
-        """Line 422: update path when existing.data is truthy."""
-        svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
-            [{"id": "existing"}]
-        )
-        svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = Mock()
-        with patch(
-            "services.infrastructure.database.encrypt_token", return_value="enc"
-        ):
-            result = await svc.save_smartthings_connection(
-                "00000000-0000-0000-0000-000000000001", "at", "rt", "2026-12-31", "app1", "loc1"
-            )
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_save_exception(self):
-        """Lines 429-431: exception returns False."""
-        svc = _make_service()
-        svc.client.table.side_effect = RuntimeError("db error")
-        with patch(
-            "services.infrastructure.database.encrypt_token", return_value="enc"
-        ):
-            result = await svc.save_smartthings_connection(
-                "00000000-0000-0000-0000-000000000001", "at", "rt", "2026-12-31", "app1", "loc1"
-            )
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_save_client_none(self):
-        """Line 406: client None triggers initialize."""
-        svc = _make_service()
-        svc.client = None
-        svc.initialize = AsyncMock()
-        await svc.save_smartthings_connection(
-            "00000000-0000-0000-0000-000000000001", "at", "rt", "2026-12-31", "app1", "loc1"
-        )
-        svc.initialize.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_get_not_found(self):
-        """Line 445: returns None when response.data is empty."""
-        svc = _make_service()
-        svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
-            []
-        )
-        result = await svc.get_smartthings_connection("00000000-0000-0000-0000-000000000001")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_get_exception(self):
-        """Lines 450-452: exception returns None."""
-        svc = _make_service()
-        svc.client.table.side_effect = RuntimeError("db error")
-        result = await svc.get_smartthings_connection("00000000-0000-0000-0000-000000000001")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_get_client_none(self):
-        """Line 438: client None triggers initialize."""
-        svc = _make_service()
-        svc.client = None
-        svc.initialize = AsyncMock()
-        await svc.get_smartthings_connection("00000000-0000-0000-0000-000000000001")
-        svc.initialize.assert_awaited_once()
-
-
-# -------------------------------------------------------------------
-# Calendar credentials – error paths, update path, client None
+# (SmartThings tests removed)
 # -------------------------------------------------------------------
 
 

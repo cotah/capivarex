@@ -1,7 +1,7 @@
 """
 Media Cast Agent — play content on TV.
 
-Combines YouTube search + SmartThings TV control + cast-ready deep links.
+Combines YouTube search + smart home TV control + cast-ready deep links.
 Handles intents like:
 - "play X on TV"
 - "put YouTube video Y on TV"
@@ -47,7 +47,7 @@ class MediaCastAgent(BaseAgent):
 
     Flow:
     1. Parse intent (play on TV, turn on TV, search)
-    2. If TV control needed → delegate to SmartThings
+    2. If TV control needed → delegate to smart home agent
     3. If content search needed → use YouTube API
     4. Return cast-ready response with deep links
     """
@@ -128,7 +128,7 @@ class MediaCastAgent(BaseAgent):
     async def _turn_on_tv(
         self, context: Dict[str, Any], lang: str
     ) -> Optional[str]:
-        """Turn on TV via SmartThings if available."""
+        """Turn on TV via smart home agent if available."""
         try:
             from agents.core import get_agent
 

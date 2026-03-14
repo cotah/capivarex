@@ -30,7 +30,7 @@ async def run_proactivity_cycle() -> None:
     """Execute a proactive verification cycle for all users.
 
     Runs two independent steps:
-    1. Proactivity checks (insights, SmartThings alerts)
+    1. Proactivity checks (insights, smart home alerts)
     2. Email polling (Gmail → Telegram notifications)
 
     Each step is isolated — a failure or early exit in one
@@ -106,24 +106,17 @@ async def _run_proactivity_checks() -> None:
             if insight:
                 notifications.append({"type": "insight", "message": insight})
 
-            smartthings_alert = await proactivity_service.check_smartthings_status(
-                user_id
-            )
-            if smartthings_alert:
-                notifications.append(smartthings_alert)
+            # Smart home alerts (Tuya) — future: check device status
+            # tuya_alert = await proactivity_service.check_smart_home_status(user_id)
+            # if tuya_alert:
+            #     notifications.append(tuya_alert)
 
             if not notifications:
                 logger.info(f"No proactive insights for user {user_id} in this cycle.")
                 continue
 
             for notification in notifications:
-                if notification.get("type") == "smartthings_alert":
-                    message = (
-                        f"{notification.get('title', 'SmartThings Alert')}\n"
-                        f"{notification.get('message', '')}"
-                    ).strip()
-                else:
-                    message = notification.get("message", "")
+                message = notification.get("message", "")
 
                 if not message:
                     continue

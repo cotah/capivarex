@@ -281,46 +281,6 @@ class TestGetCarStatus:
         assert result["connected"] is False
 
 
-class TestBuildSmartthingsMessage:
-    def test_light_issues(self):
-        svc = _make_service()
-        issues = [{"type": "light_on", "label": "Living Room"}]
-        msg = svc._build_smartthings_message(issues)
-        assert "Living Room" in msg
-        assert "luz" in msg.lower()
-
-    def test_door_issues(self):
-        svc = _make_service()
-        issues = [{"type": "door_unlocked", "label": "Front Door"}]
-        msg = svc._build_smartthings_message(issues)
-        assert "Front Door" in msg
-        assert "porta" in msg.lower()
-
-    def test_temperature_issues(self):
-        svc = _make_service()
-        issues = [{"type": "temperature_issue", "label": "Bedroom", "temperature": 35}]
-        msg = svc._build_smartthings_message(issues)
-        assert "Bedroom" in msg
-        assert "temperatura" in msg.lower()
-
-    def test_mixed_issues(self):
-        svc = _make_service()
-        issues = [
-            {"type": "light_on", "label": "Kitchen"},
-            {"type": "door_unlocked", "label": "Garage"},
-            {"type": "temperature_issue", "label": "Office", "temperature": 30},
-        ]
-        msg = svc._build_smartthings_message(issues)
-        assert "Kitchen" in msg
-        assert "Garage" in msg
-        assert "Office" in msg
-
-    def test_empty_issues(self):
-        svc = _make_service()
-        msg = svc._build_smartthings_message([])
-        assert msg == ""
-
-
 class TestGatherContextPreferences:
     @pytest.mark.asyncio
     async def test_prefs_exception_falls_back_to_empty(self):

@@ -45,7 +45,6 @@ from api.routes import (
     calendar,
     car,
     traffic,
-    smartthings,
     health,
     music,
     google_auth,
@@ -740,9 +739,6 @@ app.include_router(finance.router, prefix=f"{API_V1}/finance", tags=["Finance"])
 app.include_router(calendar.router, prefix=f"{API_V1}/calendar", tags=["Calendar"])
 app.include_router(car.router, prefix=f"{API_V1}/car", tags=["Car"])
 app.include_router(traffic.router, prefix=f"{API_V1}/traffic", tags=["Traffic"])
-app.include_router(
-    smartthings.router, prefix=f"{API_V1}/smartthings", tags=["SmartThings"]
-)
 app.include_router(music.router, prefix=f"{API_V1}/music", tags=["Music"])
 app.include_router(
     agent_generic.router, prefix=f"{API_V1}/agent", tags=["Generic Agent"]

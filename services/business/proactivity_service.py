@@ -6,7 +6,7 @@ Monitors user data and generates proactive insights with anti-spam filters.
 Features:
 - Context gathering from multiple services
 - AI-powered insight generation
-- SmartThings device monitoring
+- Smart home device monitoring
 - Rate limiting and deduplication
 """
 
@@ -14,7 +14,7 @@ import asyncio
 import hashlib
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import pybreaker
 from pydantic import ValidationError
@@ -39,7 +39,7 @@ class ProactivityService(BaseService):
     Features:
     - Multi-service context gathering
     - GPT-4o powered analysis
-    - SmartThings device monitoring
+    - Smart home device monitoring
     - Anti-spam filters (frequency + deduplication)
     """
 
@@ -384,182 +384,15 @@ class ProactivityService(BaseService):
         self.logger.info(f"Context gathered: {list(context.keys())}")
         return context
 
-    async def check_smartthings_status(
+    async def check_smart_home_status(
         self,
         user_id: str,
     ) -> Optional[Dict[str, Any]]:
         """
-        Check SmartThings devices for proactive notifications.
-
-        Args:
-            user_id: User identifier
-
-        Returns:
-            Notification data if action needed, None otherwise
+        Check smart home devices for proactive notifications.
+        Future: will use Tuya API to detect lights left on, etc.
         """
-        try:
-            # Fetch user preferences for personalised thresholds
-            try:
-                prefs = await get_preferences(user_id)
-            except Exception:
-                prefs = {}
-
-            smartthings_service = get_service("smartthings")
-            database_service = get_service("database")
-
-            if not smartthings_service or not database_service:
-                return None
-
-            from utils.encryption import decrypt_token
-
-            db_client = database_service.get_client()
-            result = (
-                db_client.table("smartthings_tokens")
-                .select("*")
-                .eq("user_id", user_id)
-                .maybe_single()
-                .execute()
-            )
-
-            if not result or not result.data:
-                return None
-
-            encrypted_token = result.data.get("access_token")
-            if not encrypted_token:
-                return None
-            access_token = decrypt_token(encrypted_token)
-
-            # Use the smartthings service with the user's token
-            if not smartthings_service.is_initialized():
-                await smartthings_service.initialize()
-
-            devices = await smartthings_service.get_devices(access_token)
-
-            issues: List[Dict[str, Any]] = []
-            for device in devices:
-                device_id = device.get("deviceId")
-                label = device.get("label", "Device")
-                if not device_id:
-                    continue
-
-                status = await smartthings_service.get_device_status(
-                    device_id, access_token
-                )
-
-                capabilities: set = set()
-                components = device.get("components", [])
-                if isinstance(components, list):
-                    for comp in components:
-                        for cap in comp.get("capabilities", []):
-                            if isinstance(cap, dict):
-                                cap_id = cap.get("id")
-                                if cap_id:
-                                    capabilities.add(cap_id)
-                            elif isinstance(cap, str):
-                                capabilities.add(cap)
-
-                main_status = status.get("components", {}).get("main", {})
-
-                # Only flag lights when light_auto_on is enabled in preferences
-                if "switch" in capabilities and prefs.get("light_auto_on", False):
-                    switch_status = (
-                        main_status.get("switch", {}).get("switch", {}).get("value")
-                    )
-                    if switch_status == "on":
-                        issues.append(
-                            {
-                                "type": "light_on",
-                                "device_id": device_id,
-                                "label": label,
-                                "action": "turn_off",
-                                "delay_hours": prefs.get(
-                                    "arrival_light_delay_hours", 0
-                                ),
-                            }
-                        )
-
-                if "lock" in capabilities:
-                    lock_status = (
-                        main_status.get("lock", {}).get("lock", {}).get("value")
-                    )
-                    if lock_status == "unlocked":
-                        issues.append(
-                            {
-                                "type": "door_unlocked",
-                                "device_id": device_id,
-                                "label": label,
-                                "action": "lock",
-                            }
-                        )
-
-                if "temperatureMeasurement" in capabilities:
-                    temp_value = (
-                        main_status.get("temperatureMeasurement", {})
-                        .get("temperature", {})
-                        .get("value")
-                    )
-                    # Use home_temperature_threshold from preferences (default 5°C)
-                    temp_threshold = prefs.get("home_temperature_threshold", 5)
-                    if isinstance(temp_value, (int, float)) and (
-                        temp_value < temp_threshold or temp_value > 30
-                    ):
-                        issues.append(
-                            {
-                                "type": "temperature_issue",
-                                "device_id": device_id,
-                                "label": label,
-                                "temperature": temp_value,
-                                "threshold": temp_threshold,
-                                "action": "review_temperature",
-                            }
-                        )
-
-            if not issues:
-                return None
-
-            return {
-                "type": "smartthings_alert",
-                "title": "Casa precisa de atencao",
-                "message": self._build_smartthings_message(issues),
-                "issues": issues,
-                "actions": [
-                    {"label": "Resolver Tudo", "action": "fix_all"},
-                    {"label": "Ignorar", "action": "dismiss"},
-                ],
-            }
-        except Exception as e:
-            self.logger.error(f"SmartThings proactivity check failed: {e}")
-            return None
-
-    def _build_smartthings_message(self, issues: List[Dict[str, Any]]) -> str:
-        """Build human-readable message from issues."""
-        messages: List[str] = []
-
-        lights_on = [i for i in issues if i["type"] == "light_on"]
-        doors_unlocked = [i for i in issues if i["type"] == "door_unlocked"]
-        temperature_issues = [i for i in issues if i["type"] == "temperature_issue"]
-
-        if lights_on:
-            count = len(lights_on)
-            labels = ", ".join([i["label"] for i in lights_on])
-            messages.append(f"{count} luz(es) acesa(s): {labels}")
-
-        if doors_unlocked:
-            count = len(doors_unlocked)
-            labels = ", ".join([i["label"] for i in doors_unlocked])
-            messages.append(f"{count} porta(s) destravada(s): {labels}")
-
-        if temperature_issues:
-            count = len(temperature_issues)
-            labels = ", ".join(
-                [
-                    f"{i['label']} ({i.get('temperature')}deg)"
-                    for i in temperature_issues
-                ]
-            )
-            messages.append(f"{count} alerta(s) de temperatura: {labels}")
-
-        return "\n".join(messages)
+        return None
 
     async def analyze_context_for_insights(self, context: Dict[str, Any]) -> str:
         """

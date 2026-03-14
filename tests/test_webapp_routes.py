@@ -784,7 +784,7 @@ class TestServicesStatus:
         services = resp.json()["services"]
         assert services["google"]["connected"] is True
         assert services["spotify"]["connected"] is False
-        assert services["smartthings"]["connected"] is False
+        assert services.get("tuya", {}).get("connected") is not None
 
     def test_services_no_telegram(self, app_client):
         db = _mock_db()
@@ -799,7 +799,7 @@ class TestServicesStatus:
 
         assert resp.status_code == 200
         services = resp.json()["services"]
-        for provider in ["google", "spotify", "smartthings", "smartcar", "github"]:
+        for provider in ["google", "spotify", "smartcar", "tuya", "github"]:
             assert services[provider]["connected"] is False
 
     def test_services_no_telegram_with_connected_oauth(self, app_client):

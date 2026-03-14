@@ -683,13 +683,13 @@ _AGENT_SERVICES: dict[str, str] = {
     "calendar": "Google Calendar",
     "email": "Gmail",
     "mercado": "Shopping",
-    "smarthome": "SmartThings",
+    "smarthome": "Smart Home",
     "car": "Smartcar",
     "github": "GitHub",
     "youtube": "YouTube",
 }
 
-_ALL_PROVIDERS = ["google", "spotify", "smartthings", "smartcar", "tuya", "github"]
+_ALL_PROVIDERS = ["google", "spotify", "smartcar", "tuya", "github"]
 
 
 def _get_chat_id(db, user_id: str) -> Optional[str]:
@@ -1098,7 +1098,7 @@ async def activity_feed(
 
 @router.get("/smarts/devices")
 async def smart_devices(user_id: str = Depends(verify_webapp_user)):
-    """List smart home devices if SmartThings is connected."""
+    """List smart home devices if smart home is connected."""
     db = _get_db()
 
     try:
@@ -1112,7 +1112,7 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
             db.table("user_oauth_tokens")
             .select("active")
             .in_("user_id", user_ids_to_check)
-            .eq("provider", "smartthings")
+            .in_("provider", ["tuya", "smartthings"])
             .limit(1)
             .execute()
         )
@@ -2290,16 +2290,6 @@ _INTEGRATIONS_CATALOG = [
         "icon": "home",
         "requires_oauth": True,
         "provider": "tuya",
-        "available_plans": ["me", "everywhere"],
-    },
-    {
-        "id": "smartthings",
-        "name": "SmartThings",
-        "description": "Controle dispositivos da sua casa inteligente",
-        "category": "home",
-        "icon": "home",
-        "requires_oauth": True,
-        "provider": "smartthings",
         "available_plans": ["me", "everywhere"],
     },
     {

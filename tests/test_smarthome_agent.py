@@ -1,177 +1,144 @@
 """
-Tests for SmartHomeAgent — SmartThings IoT control.
-Agente sem cobertura de testes. Adicionado na Fase C do QA.
+Tests for SmartHomeAgent — Tuya Smart Home control.
 """
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 from agents.core import AgentStatus
-
-
-_TM_PATH = "agents.specialized.smarthome_agent.get_smartthings_token_manager"
-
-
-def _mock_token_manager(token: str = "mock-token"):
-    """Return a mock SmartThingsTokenManager."""
-    mgr = AsyncMock()
-    mgr.get_valid_token = AsyncMock(return_value=token)
-    mgr.is_oauth_configured = lambda: True
-    return mgr
+from agents.specialized.smarthome_agent import SmartHomeAgent
 
 
 @pytest.fixture
 def smarthome_agent():
-    from agents.specialized.smarthome_agent import SmartHomeAgent
-
     return SmartHomeAgent()
 
 
-def _make_smartthings_svc():
-    svc = AsyncMock()
-    svc.initialize = AsyncMock()
-    svc.is_initialized = Mock(return_value=True)
-    svc.get_devices = AsyncMock(
-        return_value=[
-            {"deviceId": "light_001", "label": "Sala - Luz", "type": "switch"},
-            {"deviceId": "lock_001", "label": "Porta da Frente", "type": "lock"},
-            {"deviceId": "temp_001", "label": "Termostato", "type": "thermostat"},
-        ]
-    )
-    svc.turn_on = AsyncMock(return_value={"status": "success"})
-    svc.turn_off = AsyncMock(return_value={"status": "success"})
-    svc.lock_device = AsyncMock(return_value={"status": "success"})
-    svc.unlock_device = AsyncMock(return_value={"status": "success"})
-    svc.get_device_status = AsyncMock(
-        return_value={
-            "components": {
-                "main": {
-                    "switch": {"switch": {"value": "off"}},
-                    "lock": {"lock": {"value": "locked"}},
-                }
-            }
-        }
-    )
-    return svc
+def _mock_tuya(connected=True, devices=None, send_ok=True):
+    t = MagicMock()
+    t.client_id = "test_id"
+    t.client_secret = "test_secret"
+    t.is_connected = AsyncMock(return_value=connected)
+    t.get_user_devices = AsyncMock(return_value=devices if devices is not None else [
+        {"id": "d1", "name": "Zigbee Smart Bulb", "category": "dj", "online": True},
+        {"id": "d2", "name": "Bedroom", "category": "dj", "online": False},
+    ])
+    t.get_device_status = AsyncMock(return_value=[
+        {"code": "switch_led", "value": True},
+    ])
+    t.send_command = AsyncMock(return_value=send_ok)
+    return t
+
+
+def _setup(agent, tuya, intent_result):
+    """Monkey-patch both _get_tuya_oauth and _analyze_intent."""
+    agent._get_tuya_oauth = lambda: tuya
+    agent._analyze_intent = AsyncMock(return_value=intent_result)
 
 
 # ── Happy path ─────────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_smarthome_list_devices(smarthome_agent):
-    """SmartHomeAgent lists available devices."""
-    st_svc = _make_smartthings_svc()
-    with (
-        patch(_TM_PATH, return_value=_mock_token_manager()),
-        patch("agents.specialized.smarthome_agent.get_service", return_value=st_svc),
-    ):
-        result = await smarthome_agent.execute(
-            "quais dispositivos estão ligados?",
-            {"user_id": "user_test", "access_token": "st_token_123", "lang": "pt"},
-        )
-    assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
-    assert result.response
+async def test_list_devices(smarthome_agent):
+    tuya = _mock_tuya()
+    _setup(smarthome_agent, tuya, {"intent": "list_devices", "device_name": None})
+    result = await smarthome_agent.execute(
+        "list my devices", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert "Zigbee Smart Bulb" in result.response
+    assert result.data.get("count") == 2
 
 
 @pytest.mark.asyncio
-async def test_smarthome_turn_on_lights(smarthome_agent):
-    """SmartHomeAgent processes light on command."""
-    st_svc = _make_smartthings_svc()
-    with (
-        patch(_TM_PATH, return_value=_mock_token_manager()),
-        patch("agents.specialized.smarthome_agent.get_service", return_value=st_svc),
-    ):
-        result = await smarthome_agent.execute(
-            "acenda as luzes da sala",
-            {"user_id": "user_test", "access_token": "st_token_123", "lang": "pt"},
-        )
-    assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
-    assert result.response
+async def test_turn_on(smarthome_agent):
+    tuya = _mock_tuya()
+    _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"})
+    result = await smarthome_agent.execute(
+        "turn on the Zigbee Smart Bulb", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert result.data.get("action") == "on"
 
 
 @pytest.mark.asyncio
-async def test_smarthome_turn_off_command(smarthome_agent):
-    """SmartHomeAgent processes turn off command."""
-    st_svc = _make_smartthings_svc()
-    with (
-        patch(_TM_PATH, return_value=_mock_token_manager()),
-        patch("agents.specialized.smarthome_agent.get_service", return_value=st_svc),
-    ):
-        result = await smarthome_agent.execute(
-            "apague as luzes",
-            {"user_id": "user_test", "access_token": "st_token_123", "lang": "pt"},
-        )
-    assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
-    assert result.response
+async def test_turn_off(smarthome_agent):
+    tuya = _mock_tuya()
+    _setup(smarthome_agent, tuya, {"intent": "turn_off", "device_name": "Bedroom"})
+    result = await smarthome_agent.execute(
+        "turn off bedroom", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert result.data.get("action") == "off"
 
 
 @pytest.mark.asyncio
-async def test_smarthome_english_response(smarthome_agent):
-    """SmartHomeAgent responds in English when user lang is en."""
-    st_svc = _make_smartthings_svc()
-    with (
-        patch(_TM_PATH, return_value=_mock_token_manager()),
-        patch("agents.specialized.smarthome_agent.get_service", return_value=st_svc),
-    ):
-        result = await smarthome_agent.execute(
-            "turn the bedroom light off",
-            {"user_id": "user_test", "access_token": "st_token_123", "lang": "en"},
-        )
-    assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
-    assert result.response
+async def test_device_not_found(smarthome_agent):
+    tuya = _mock_tuya()
+    _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "kitchen light"})
+    result = await smarthome_agent.execute(
+        "turn on the kitchen light", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert "not found" in result.response.lower()
 
 
 @pytest.mark.asyncio
-async def test_smarthome_capabilities(smarthome_agent):
-    """SmartHomeAgent declares expected capabilities."""
+async def test_device_status(smarthome_agent):
+    tuya = _mock_tuya()
+    _setup(smarthome_agent, tuya, {"intent": "device_status", "device_name": "Zigbee Smart Bulb"})
+    result = await smarthome_agent.execute(
+        "status of the bulb", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert "Zigbee Smart Bulb" in result.response
+
+
+@pytest.mark.asyncio
+async def test_capabilities(smarthome_agent):
     caps = smarthome_agent.get_capabilities()
     assert isinstance(caps, list)
-    assert len(caps) > 0
+    assert "device_control" in caps
 
 
-# ── Falhas e edge cases ───────────────────────────────────────────────────
+# ── Not connected ─────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_smarthome_service_unavailable(smarthome_agent):
-    """SmartHomeAgent returns not-connected message when no provider available."""
-    with (
-        patch(_TM_PATH, return_value=_mock_token_manager()),
-        patch("agents.specialized.smarthome_agent.get_service", return_value=None),
-    ):
-        result = await smarthome_agent.execute(
-            "acenda as luzes", {"user_id": "user_test"}
-        )
-    assert result.status == AgentStatus.SUCCESS
+async def test_not_connected(smarthome_agent):
+    tuya = _mock_tuya(connected=False)
+    smarthome_agent._get_tuya_oauth = lambda: tuya
+    result = await smarthome_agent.execute(
+        "list my devices", {"user_id": "u123", "lang": "en"},
+    )
     assert result.data.get("needs_connection") is True
 
 
 @pytest.mark.asyncio
-async def test_smarthome_service_unavailable_english(smarthome_agent):
-    """SmartHomeAgent returns not-connected English message when no provider available."""
-    with (
-        patch(_TM_PATH, return_value=_mock_token_manager()),
-        patch("agents.specialized.smarthome_agent.get_service", return_value=None),
-    ):
-        result = await smarthome_agent.execute(
-            "turn the lights on", {"user_id": "user_test", "lang": "en"}
-        )
-    assert result.status == AgentStatus.SUCCESS
-    assert "not connected" in result.response.lower() or result.data.get("needs_connection") is True
+async def test_no_tuya_env(smarthome_agent):
+    smarthome_agent._get_tuya_oauth = lambda: None
+    result = await smarthome_agent.execute(
+        "list my devices", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.data.get("needs_connection") is True
 
 
 @pytest.mark.asyncio
-async def test_smarthome_missing_token(smarthome_agent):
-    """SmartHomeAgent handles missing access token gracefully."""
-    st_svc = _make_smartthings_svc()
-    # Token manager returns empty (no token configured)
-    with (
-        patch(_TM_PATH, return_value=_mock_token_manager("")),
-        patch("agents.specialized.smarthome_agent.get_service", return_value=st_svc),
-    ):
-        # No access_token in context
-        result = await smarthome_agent.execute(
-            "status dos dispositivos", {"user_id": "user_test"}
-        )
-    assert result.status in (AgentStatus.SUCCESS, AgentStatus.ERROR)
-    assert result.response
+async def test_no_devices(smarthome_agent):
+    tuya = _mock_tuya(devices=[])
+    _setup(smarthome_agent, tuya, {"intent": "list_devices", "device_name": None})
+    result = await smarthome_agent.execute(
+        "list my devices", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert "no device" in result.response.lower() or result.data.get("devices") == []
+
+
+@pytest.mark.asyncio
+async def test_command_fails(smarthome_agent):
+    tuya = _mock_tuya(send_ok=False)
+    _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"})
+    result = await smarthome_agent.execute(
+        "turn on the bulb", {"user_id": "u123", "lang": "en"},
+    )
+    assert result.status == AgentStatus.ERROR

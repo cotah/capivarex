@@ -52,7 +52,6 @@ def register_all_services() -> None:
     from .integrations.calendar_service import CalendarService  # noqa: F401
     from .integrations.car_service import CarService  # noqa: F401
     from .integrations.finance_service import FinanceService  # noqa: F401
-    from .integrations.smartthings_service import SmartThingsService  # noqa: F401
     from .integrations.traffic_service import TrafficService  # noqa: F401
     from .integrations.weather_service import WeatherService  # noqa: F401
     from .integrations.youtube_service import YouTubeService  # noqa: F401
