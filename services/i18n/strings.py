@@ -229,7 +229,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     "smarthome_not_connected": {
         "en": "🏠 SmartThings not connected\n\n"
-        "Click the link below to connect your Samsung/SmartThings account:\n\n"
+        "Click the link below to connect your Samsung/smart home account:\n\n"
         "🔗 {url}\n\n"
         "After authorizing, your devices will become available.",
         "pt": "🏠 SmartThings não conectado\n\n"
@@ -258,14 +258,14 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "Ve a Settings → Connections → Smart Home para conectar tu cuenta Tuya Smart / Smart Life.",
     },
     "smarthome_no_devices": {
-        "en": "No devices found on your SmartThings account.",
-        "pt": "Nenhum dispositivo encontrado na sua conta SmartThings.",
-        "es": "No se encontraron dispositivos en tu cuenta SmartThings.",
+        "en": "No devices found on your Smart Home account.",
+        "pt": "Nenhum dispositivo encontrado na sua conta Smart Home.",
+        "es": "No se encontraron dispositivos en tu cuenta Smart Home.",
     },
     "smarthome_devices_header": {
-        "en": "🏠 Your SmartThings Devices\n",
-        "pt": "🏠 Seus Dispositivos SmartThings\n",
-        "es": "🏠 Tus Dispositivos SmartThings\n",
+        "en": "🏠 Your Smart Home Devices\n",
+        "pt": "🏠 Seus Dispositivos Smart Home\n",
+        "es": "🏠 Tus Dispositivos Smart Home\n",
     },
     "smarthome_devices_total": {
         "en": "\nTotal: {count} devices",
