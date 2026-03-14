@@ -8,13 +8,16 @@ existing orchestrator → agent dispatch pipeline.
 
 import base64
 import glob
+import json as _json
 import os
+import asyncio
 import re
 from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -398,6 +401,195 @@ async def webapp_chat(
             f"WebApp chat error: {type(e).__name__}: {e}", exc_info=True
         )
         raise HTTPException(status_code=500, detail="Failed to process message")
+
+
+# ====================================================================
+# POST /chat/stream — SSE streaming chat
+# ====================================================================
+
+
+@router.post("/chat/stream")
+async def webapp_chat_stream(
+    body: WebAppChatRequest,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Stream chat response via Server-Sent Events (SSE).
+
+    Events:
+    - {"type":"start","agent":"chat"} — agent selected
+    - {"type":"token","content":"..."} — streamed token
+    - {"type":"done","response":"...","message_id":"...","conversation_title":"..."} — final
+    - {"type":"error","detail":"..."} — on failure
+    """
+    db = _get_db()
+    conversation_id = body.conversation_id
+
+    # --- Pre-stream setup (quota, conversation, orchestration) ---
+    try:
+        # Quota
+        try:
+            quota_svc = get_service("quota")
+            if quota_svc:
+                await quota_svc.check_and_consume(user_id, "gpt_tokens")
+        except QuotaExceededError as qe:
+            raise HTTPException(status_code=429, detail={"error": "quota_exceeded", "message": str(qe)})
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Quota check failed (allowing): {e}")
+
+        # Conversation
+        if conversation_id:
+            conv = db.table("webapp_conversations").select("id").eq("id", conversation_id).eq("user_id", user_id).limit(1).execute()
+            if not conv.data:
+                raise HTTPException(status_code=404, detail="Conversation not found")
+        else:
+            conv = db.table("webapp_conversations").insert({"user_id": user_id, "title": body.message[:50]}).execute()
+            conversation_id = conv.data[0]["id"]
+
+        # Save user message
+        db.table("webapp_messages").insert({
+            "conversation_id": conversation_id,
+            "user_id": user_id,
+            "role": "user",
+            "text": body.message,
+            "source": "webapp",
+        }).execute()
+
+        # Memories
+        from services.business.rag_service import get_relevant_memories, format_memories_for_context
+        memories = []
+        try:
+            memories = await get_relevant_memories(user_id, body.message, limit=5)
+        except Exception:
+            pass
+        memory_context = format_memories_for_context(memories)
+
+        # Orchestrate
+        context = {
+            "user_id": user_id,
+            "source": "webapp",
+            "conversation_id": conversation_id,
+            "memory_context": memory_context,
+        }
+
+        orchestrator = get_agent("orchestrator")
+        if not orchestrator:
+            raise HTTPException(status_code=503, detail="Orchestrator unavailable")
+
+        decision = await orchestrator.process(body.message, context)
+        agent_name = decision.response if decision.response else "chat"
+
+        has_file = "[File:" in body.message or "[Imagem recebida:" in body.message
+        if has_file and agent_name == "image":
+            agent_name = "chat"
+
+        logger.info(f"WebApp stream: user={user_id[:8]} msg='{body.message[:60]}' → agent='{agent_name}'")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"WebApp stream setup error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to setup stream")
+
+    # --- SSE Generator ---
+    async def event_generator():
+        """Yield SSE events."""
+        full_response = ""
+        try:
+            yield f"data: {_json.dumps({'type': 'start', 'agent': agent_name, 'conversation_id': conversation_id})}\n\n"
+
+            agent = get_agent(agent_name)
+            if not agent:
+                agent = get_agent("chat")
+
+            # Only chat agent supports streaming
+            if agent_name == "chat" and hasattr(agent, "stream_execute"):
+                async for token in agent.stream_execute(body.message, context):
+                    if token.startswith("[ERROR:"):
+                        yield f"data: {_json.dumps({'type': 'error', 'detail': token})}\n\n"
+                        return
+                    full_response += token
+                    yield f"data: {_json.dumps({'type': 'token', 'content': token})}\n\n"
+            else:
+                # Non-streaming agents: execute normally, send full response
+                result = await agent.process(body.message, context)
+                full_response = result.response or ""
+                response_data = result.data or {}
+                # Send full response as single token
+                yield f"data: {_json.dumps({'type': 'token', 'content': full_response})}\n\n"
+                # Send data if present (images, etc)
+                if response_data:
+                    yield f"data: {_json.dumps({'type': 'data', 'data': response_data})}\n\n"
+
+            # Save assistant message to DB
+            response_type = "text"
+            response_data_final = {}
+            if agent_name != "chat" and 'result' in dir():
+                response_type = result.metadata.get("type", "text") if result.metadata else "text"
+                response_data_final = result.data or {}
+
+            assistant_msg = db.table("webapp_messages").insert({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "role": "assistant",
+                "text": full_response,
+                "agent": agent_name,
+                "type": response_type,
+                "data": response_data_final,
+                "source": "webapp",
+            }).execute()
+
+            message_id = assistant_msg.data[0]["id"] if assistant_msg.data else ""
+
+            # Background tasks (non-blocking)
+            from services.business.rag_service import extract_and_save_memory
+            from services.business.user_profile_service import extract_and_save_personal_info
+            asyncio.create_task(extract_and_save_memory(user_id, body.message))
+            asyncio.create_task(extract_and_save_personal_info(user_id, body.message))
+
+            # Redis cache
+            try:
+                redis_svc = get_service("redis")
+                if redis_svc and redis_svc.is_initialized():
+                    asyncio.create_task(redis_svc.save_conversation_message(user_id, {"role": "user", "content": body.message}))
+                    if full_response:
+                        asyncio.create_task(redis_svc.save_conversation_message(user_id, {"role": "assistant", "content": full_response}))
+            except Exception:
+                pass
+
+            # Update conversation
+            db.table("webapp_conversations").update(
+                {"updated_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", conversation_id).execute()
+
+            # Auto-title
+            conversation_title = None
+            try:
+                msg_count = db.table("webapp_messages").select("id", count="exact").eq("conversation_id", conversation_id).execute()
+                if msg_count.count == 2:
+                    title = body.message[:50] + ("..." if len(body.message) > 50 else "")
+                    db.table("webapp_conversations").update({"title": title}).eq("id", conversation_id).execute()
+                    conversation_title = title
+            except Exception:
+                pass
+
+            # Final done event
+            yield f"data: {_json.dumps({'type': 'done', 'response': full_response, 'message_id': message_id, 'conversation_title': conversation_title, 'agent': agent_name})}\n\n"
+
+        except Exception as e:
+            logger.error(f"WebApp stream error: {e}", exc_info=True)
+            yield f"data: {_json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ====================================================================

@@ -5,7 +5,7 @@ Refactored to use new BaseAgent architecture.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
@@ -298,3 +298,58 @@ class ChatAgent(BaseAgent):
             "greetings",
             "small_talk",
         ]
+
+    async def stream_execute(
+        self, prompt: str, context: Dict[str, Any]
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream chat response token by token.
+
+        Same logic as execute() but yields tokens instead of collecting them.
+        Used by the SSE endpoint for real-time streaming to frontend.
+        """
+        conversation_id = context.get("conversation_id")
+        user_id = context.get("user_id", "")
+
+        history = await self._get_history_with_cache(conversation_id, context)
+
+        base_prompt = get_chat_prompt(lang=get_user_lang(context))
+        user_profile = ""
+        if user_id:
+            try:
+                user_profile = await build_user_profile_prompt(str(user_id))
+            except Exception as e:
+                self.logger.debug(f"Could not load user profile: {e}")
+        system_prompt = base_prompt + user_profile
+
+        if user_id:
+            try:
+                from services.business.rag_service import (
+                    retrieve_relevant_memories,
+                    format_memories_for_prompt,
+                )
+                memories = await retrieve_relevant_memories(str(user_id), prompt)
+                rag_block = format_memories_for_prompt(memories)
+                if rag_block:
+                    system_prompt += rag_block
+            except Exception:
+                pass
+
+        messages = self._build_messages(prompt, history, system_prompt)
+
+        openai_service = get_service("openai")
+        if not openai_service:
+            yield "[ERROR: OpenAI service not available]"
+            return
+
+        await openai_service.initialize()
+
+        try:
+            async for token in openai_service.stream_chat_completion(
+                messages, model=CHAT_MODEL
+            ):
+                yield token
+            await self._invalidate_cache(conversation_id)
+        except Exception as e:
+            self.logger.error(f"Stream failed: {e}", exc_info=True)
+            yield f"[ERROR: {e}]"
