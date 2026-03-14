@@ -697,9 +697,12 @@ class MusicAgent(BaseAgent):
                                 artist=track["artists"],
                             ),
                             data={
-                                "track": track,
+                                "track": track["name"],
+                                "artist": track["artists"],
+                                "uri": track.get("uri", ""),
                                 "action": "play",
                             },
+                            metadata={"type": "music"},
                         )
                     return AgentResponse(
                         status=AgentStatus.ERROR,
@@ -793,6 +796,12 @@ class MusicAgent(BaseAgent):
                         track=item.get("name", ""),
                         artist=artists,
                     ),
+                    data={
+                        "track": item.get("name", ""),
+                        "artist": artists,
+                        "uri": item.get("uri", ""),
+                    },
+                    metadata={"type": "music"},
                 )
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
