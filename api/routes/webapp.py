@@ -1213,7 +1213,10 @@ async def finance_news(
 class UserProfileUpdateRequest(BaseModel):
     """Campos editáveis do perfil do usuário."""
 
+    name: Optional[str] = None
+    full_name: Optional[str] = None
     display_name: Optional[str] = None
+    language: Optional[str] = None
     preferred_language: Optional[str] = None
     phone_number: Optional[str] = None
 
@@ -1227,8 +1230,9 @@ async def get_user_me(user_id: str = Depends(verify_webapp_user)):
         result = (
             db.table("users")
             .select(
-                "id, email, display_name, phone_number,"
-                " preferred_language, plan, created_at"
+                "id, email, full_name, display_name, phone_number,"
+                " preferred_language, plan, messages_used,"
+                " messages_limit, created_at"
             )
             .eq("id", user_id)
             .limit(1)
@@ -1240,7 +1244,20 @@ async def get_user_me(user_id: str = Depends(verify_webapp_user)):
                 status_code=404, detail="User not found"
             )
 
-        return result.data[0]
+        row = result.data[0]
+
+        # Map DB column names → frontend field names
+        return {
+            "id": row.get("id"),
+            "email": row.get("email"),
+            "name": row.get("full_name") or row.get("display_name") or "",
+            "phone_number": row.get("phone_number"),
+            "language": row.get("preferred_language") or "en",
+            "plan": row.get("plan") or "free",
+            "messages_used": row.get("messages_used") or 0,
+            "messages_limit": row.get("messages_limit") or 30,
+            "created_at": row.get("created_at"),
+        }
 
     except HTTPException:
         raise
@@ -1271,16 +1288,31 @@ async def update_user_profile(
     for forbidden in ("id", "user_id", "plan", "email", "created_at"):
         update_data.pop(forbidden, None)
 
+    # Map frontend field names → DB column names
+    field_map = {
+        "name": "full_name",
+        "language": "preferred_language",
+    }
+    db_data = {}
+    for key, value in update_data.items():
+        db_key = field_map.get(key, key)
+        db_data[db_key] = value
+
+    if not db_data:
+        raise HTTPException(
+            status_code=400, detail="No fields to update"
+        )
+
     try:
-        db.table("users").update(update_data).eq(
+        db.table("users").update(db_data).eq(
             "id", user_id
         ).execute()
 
         logger.info(
             f"WebApp: user={user_id[:8]} profile updated"
-            f" fields={list(update_data.keys())}"
+            f" fields={list(db_data.keys())}"
         )
-        return {"ok": True, "updated": list(update_data.keys())}
+        return {"ok": True, "updated": list(db_data.keys())}
 
     except Exception as e:
         logger.error(
