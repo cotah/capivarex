@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from services.core import get_service
 from api.dependencies import get_current_user
@@ -312,7 +312,7 @@ async def oauth_callback(
         ).execute()
 
         logger.info("SmartThings tokens stored for user %s", user_id)
-        return RedirectResponse(url=f"/smartthings/success?user_id={user_id}")
+        return HTMLResponse(content=_smartthings_success_page())
     except HTTPException:
         raise
     except aiohttp.ClientError as exc:
@@ -432,3 +432,41 @@ async def get_connection_status(
     except Exception as exc:
         logger.error("Failed to check status: %s", exc)
         return {"connected": False}
+
+
+def _smartthings_success_page() -> str:
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SmartThings Connected!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0;
+            background: linear-gradient(135deg, #15BEF0 0%, #0a0a0f 100%);
+            color: #fff;
+        }
+        .card {
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+            border-radius: 20px; padding: 3rem; text-align: center; max-width: 400px;
+        }
+        .icon { font-size: 4rem; margin-bottom: 1rem; }
+        h1 { margin: 0.5rem 0; font-size: 1.5rem; }
+        p { opacity: 0.9; margin: 0.5rem 0; }
+        .close { margin-top: 1.5rem; opacity: 0.7; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">&#127968;</div>
+        <h1>SmartThings Connected!</h1>
+        <p>Your smart home devices are now linked.</p>
+        <p>Try: "turn on living room lights" or "set thermostat to 22"</p>
+        <p class="close">This window will close automatically...</p>
+    </div>
+    <script>setTimeout(function(){ window.close(); }, 2000);</script>
+</body>
+</html>"""

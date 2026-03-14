@@ -25,7 +25,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from agents import get_agent
@@ -267,13 +267,10 @@ async def smartcar_callback(
                 detail=f"Failed to save vehicle: {saved_vehicle['error']}",
             )
 
-        return {
-            "success": True,
-            "user_id": user_id,
-            "vehicle_id": vehicle_id,
-            "vehicle_info": vehicle_info,
-            "message": "Vehicle connected successfully! Tokens stored securely.",
-        }
+        return HTMLResponse(content=_smartcar_success_page(
+            vehicle_info.get("make", ""),
+            vehicle_info.get("model", ""),
+        ))
 
     except HTTPException:
         raise
@@ -457,3 +454,43 @@ async def stop_charging(
     except Exception as e:
         logger.exception("Error stopping charging: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _smartcar_success_page(make: str, model: str) -> str:
+    vehicle = f"{make} {model}".strip() or "Your vehicle"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vehicle Connected!</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0;
+            background: linear-gradient(135deg, #4A90D9 0%, #0a0a0f 100%);
+            color: #fff;
+        }}
+        .card {{
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+            border-radius: 20px; padding: 3rem; text-align: center; max-width: 400px;
+        }}
+        .icon {{ font-size: 4rem; margin-bottom: 1rem; }}
+        h1 {{ margin: 0.5rem 0; font-size: 1.5rem; }}
+        p {{ opacity: 0.9; margin: 0.5rem 0; }}
+        .vehicle {{ font-weight: bold; font-size: 1.1rem; }}
+        .close {{ margin-top: 1.5rem; opacity: 0.7; font-size: 0.9rem; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">&#128663;</div>
+        <h1>Vehicle Connected!</h1>
+        <p class="vehicle">{vehicle}</p>
+        <p>Try: "where is my car?" or "what's my battery level?"</p>
+        <p class="close">This window will close automatically...</p>
+    </div>
+    <script>setTimeout(function(){{ window.close(); }}, 2000);</script>
+</body>
+</html>"""

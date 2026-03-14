@@ -190,8 +190,9 @@ def _success_page(name: str, email: str) -> str:
         <p class="name">{display}</p>
         <p>You can now control Spotify from the bot!</p>
         <p>Try: "play Bohemian Rhapsody" or "pause"</p>
-        <p class="close">You can close this window and return to Telegram.</p>
+        <p class="close">This window will close automatically...</p>
     </div>
+    <script>setTimeout(function(){{ window.close(); }}, 2000);</script>
 </body>
 </html>"""
 

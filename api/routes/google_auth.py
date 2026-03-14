@@ -223,6 +223,7 @@ def _success_page(email: str, name: str) -> str:
         <p>{message}</p>
         <p class="close">{close_msg}</p>
     </div>
+    <script>setTimeout(function(){{ window.close(); }}, 2000);</script>
 </body>
 </html>"""
 
