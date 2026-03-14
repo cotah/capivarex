@@ -2380,6 +2380,7 @@ async def list_integrations(
 
             integrations.append({
                 **integration,
+                "connected": is_connected,
                 "is_connected": is_connected,
                 "is_available": is_available,
                 "upgrade_required": not is_available,
