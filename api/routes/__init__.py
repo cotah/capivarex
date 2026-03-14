@@ -15,7 +15,6 @@ from . import voice
 from . import calendar
 from . import car
 from . import traffic
-from . import smartthings
 from . import agent_generic
 from . import webhooks
 from . import google_auth
@@ -38,7 +37,6 @@ __all__ = [
     "calendar",
     "car",
     "traffic",
-    "smartthings",
     "agent_generic",
     "webhooks",
     "google_auth",

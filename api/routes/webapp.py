@@ -1112,7 +1112,7 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
             db.table("user_oauth_tokens")
             .select("active")
             .in_("user_id", user_ids_to_check)
-            .in_("provider", ["tuya", "smartthings"])
+            .eq("provider", "tuya")
             .limit(1)
             .execute()
         )
