@@ -153,6 +153,7 @@ class TuyaOAuth:
             "client_id": self.client_id,
             "redirect_uri": self.redirect_uri,
             "state": user_id,
+            "schema": "smartlife",
         }
         h5_base = TUYA_H5_AUTH_URLS.get(self.data_center, TUYA_H5_AUTH_URLS["eu"])
         url = f"{h5_base}?{urlencode(params)}"
