@@ -305,10 +305,13 @@ class SmartHomeAgent(BaseAgent):
         for code in codes_to_try:
             success = await tuya.send_command(user_id, device_id, [{"code": code, "value": turn_on}])
             if success:
-                action = t("smarthome_turned_on", lang=lang) if turn_on else t("smarthome_turned_off", lang=lang)
+                if turn_on:
+                    action = t("smarthome_turned_on", lang=lang, label=name)
+                else:
+                    action = t("smarthome_turned_off", lang=lang, label=name)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=f"{action}: **{name}**",
+                    response=action,
                     data={"device_id": device_id, "action": "on" if turn_on else "off"},
                 )
         return AgentResponse(
