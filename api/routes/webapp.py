@@ -1298,7 +1298,7 @@ async def activity_feed(
 
 @router.get("/smarts/devices")
 async def smart_devices(user_id: str = Depends(verify_webapp_user)):
-    """List smart home devices if smart home is connected."""
+    """List smart home devices from Tuya."""
     db = _get_db()
 
     try:
@@ -1310,7 +1310,7 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
 
         token = (
             db.table("user_oauth_tokens")
-            .select("active")
+            .select("active, user_id")
             .in_("user_id", user_ids_to_check)
             .eq("provider", "tuya")
             .limit(1)
@@ -1321,12 +1321,40 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
             logger.info(f"WebApp: user={user_id[:8]} smarts/devices: not connected")
             return {"devices": [], "connected": False}
 
-        logger.info(f"WebApp: user={user_id[:8]} smarts/devices: connected")
-        return {
-            "devices": [],
-            "connected": True,
-            "message": "Use chat to control devices: 'turn on living room lights'",
-        }
+        # Fetch actual devices from Tuya API
+        from services.auth.tuya_oauth_service import get_tuya_oauth
+        tuya = get_tuya_oauth()
+        tuya_user_id = token.data[0].get("user_id", user_id)
+        raw_devices = await tuya.get_user_devices(tuya_user_id)
+
+        devices = []
+        for d in raw_devices:
+            category = d.get("category", "")
+            icon_map = {
+                "dj": "💡",  # Light
+                "dd": "💡",  # Light strip
+                "dc": "💡",  # Dimmer
+                "cz": "🔌",  # Socket/plug
+                "pc": "🔌",  # Power strip
+                "kg": "🔘",  # Switch
+                "wk": "🌡️",  # Thermostat
+                "kt": "❄️",  # AC
+                "cl": "🔒",  # Lock
+                "sp": "📷",  # Camera
+                "qt": "📱",  # Other
+            }
+            is_online = d.get("online", False)
+            devices.append({
+                "id": d.get("id", ""),
+                "name": d.get("name") or d.get("custom_name") or "Device",
+                "icon": icon_map.get(category, "📱"),
+                "status": "on" if is_online else "off",
+                "room": "",
+                "type": "light" if category in ("dj", "dd", "dc") else "plug" if category in ("cz", "pc", "kg") else "thermostat" if category in ("wk", "kt") else "lock" if category == "cl" else "camera" if category == "sp" else "other",
+            })
+
+        logger.info(f"WebApp: user={user_id[:8]} smarts/devices: {len(devices)} devices")
+        return {"devices": devices, "connected": True}
 
     except Exception as e:
         logger.error(
@@ -2149,6 +2177,23 @@ async def get_security_events(
             .execute()
         )
         last_login_row = last_login_result.data[0] if last_login_result.data else None
+
+        # Fallback: if no auth_success event, use latest user message as "last activity"
+        if not last_login_row:
+            try:
+                last_msg = (
+                    db.table("webapp_messages")
+                    .select("created_at")
+                    .eq("user_id", user_id)
+                    .eq("role", "user")
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                if last_msg.data:
+                    last_login_row = {"created_at": last_msg.data[0]["created_at"], "ip_address": None}
+            except Exception:
+                pass
 
         return {
             "events": events,
