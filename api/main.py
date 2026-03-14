@@ -55,6 +55,7 @@ from api.routes import (
     images_serve,
 )
 from api.routes import webhooks
+from api.routes import push_notifications
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 from api.routes.voice_ws import router_voice_ws
 from api.routes.twilio_stream import router as twilio_stream_router
@@ -746,6 +747,7 @@ app.include_router(
 )
 app.include_router(webapp.router, prefix="/api/webapp", tags=["WebApp"])
 app.include_router(upload.router, prefix="/api/webapp", tags=["WebApp"])
+app.include_router(push_notifications.router, prefix="/api/webapp", tags=["Notifications"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
 app.include_router(images_serve.router, tags=["Images"])

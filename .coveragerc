@@ -105,6 +105,8 @@ omit =
     api/routes/traffic.py
     api/routes/video.py
     api/routes/_helpers.py
+    # Push notifications — thin HTTP wrapper around pywebpush
+    api/routes/push_notifications.py
     # Calendar service — complex Google API integration requiring live OAuth
     services/integrations/calendar_service.py
 
