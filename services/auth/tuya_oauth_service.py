@@ -148,6 +148,8 @@ class TuyaOAuth:
         """
         Generate the Tuya H5 authorization URL.
         User clicks this → Tuya login page → callback with code.
+        NOTE: This only works with OEM apps. For Smart Life / Tuya Smart,
+        use direct_login() instead.
         """
         params = {
             "client_id": self.client_id,
@@ -159,6 +161,74 @@ class TuyaOAuth:
         url = f"{h5_base}?{urlencode(params)}"
         logger.info("Tuya OAuth URL generated for user={}", user_id[:8])
         return url
+
+    # ------------------------------------------------------------------
+    # Direct Login (email/password) — works with Smart Life / Tuya Smart
+    # ------------------------------------------------------------------
+
+    async def direct_login(
+        self,
+        user_id: str,
+        username: str,
+        password: str,
+        country_code: str = "353",
+        schema: str = "smartlife",
+    ) -> Dict[str, Any]:
+        """
+        Authenticate user directly via Tuya API with email/password.
+        Password is MD5-hashed before sending to Tuya.
+        This bypasses the H5 page entirely.
+        """
+        import hashlib as _hashlib
+
+        cloud_token = await self._get_cloud_token()
+
+        # Tuya requires MD5-hashed password
+        password_hash = _hashlib.md5(password.encode("utf-8")).hexdigest()
+
+        path = "/v1.0/iot-01/associated-users/actions/authorized-login"
+        body = json.dumps({
+            "username": username,
+            "password": password_hash,
+            "country_code": country_code,
+            "schema": schema,
+        })
+        headers = self._sign_request("POST", path, access_token=cloud_token, body=body)
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self.base_url}{path}", headers=headers, content=body
+            )
+            data = resp.json()
+
+        if not data.get("success"):
+            error_code = data.get("code", "unknown")
+            error_msg = data.get("msg", "Login failed")
+            logger.error("Tuya direct login failed: {} — {}", error_code, error_msg)
+            raise ValueError(f"Tuya login failed: {error_msg} (code: {error_code})")
+
+        result = data["result"]
+        access_token = result["access_token"]
+        refresh_token = result["refresh_token"]
+        uid = result.get("uid", "")
+        expires_in = result.get("expire_time", 7200)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+        # Save tokens
+        await self._save_tokens(
+            user_id=user_id,
+            tuya_uid=uid,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=expires_at.isoformat(),
+        )
+
+        logger.info("Tuya direct login success: user={}, tuya_uid={}", user_id[:8], uid)
+        return {
+            "user_id": user_id,
+            "tuya_uid": uid,
+            "access_token": access_token,
+        }
 
     # ------------------------------------------------------------------
     # OAuth2 Callback — Exchange code for user tokens

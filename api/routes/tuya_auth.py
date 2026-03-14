@@ -8,14 +8,48 @@ Endpoints:
 - POST /api/auth/tuya/disconnect → Remove Tuya connection
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from loguru import logger
+from pydantic import BaseModel
 
+from api.middleware.webapp_auth import verify_webapp_user
 from services.auth.tuya_oauth_service import get_tuya_oauth
 from utils.identity import resolve_user_uuid
 
 router = APIRouter(prefix="/api/auth/tuya", tags=["auth"])
+
+
+class TuyaLoginRequest(BaseModel):
+    username: str
+    password: str
+    country_code: str = "353"
+    schema: str = "smartlife"
+
+
+@router.post("/login")
+async def tuya_login(
+    body: TuyaLoginRequest,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Login to Tuya with email/password — for Smart Life / Tuya Smart users."""
+    try:
+        oauth = get_tuya_oauth()
+        await oauth.direct_login(
+            user_id=user_id,
+            username=body.username,
+            password=body.password,
+            country_code=body.country_code,
+            schema=body.schema,
+        )
+        logger.info("Tuya login success: user={}", user_id[:8])
+        return {"ok": True, "connected": True}
+    except ValueError as e:
+        logger.error("Tuya login failed: {}", e)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Tuya login error: {}", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Tuya login failed")
 
 
 @router.get("/connect")
