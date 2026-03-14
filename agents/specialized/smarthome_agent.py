@@ -68,9 +68,12 @@ class SmartHomeAgent(BaseAgent):
             from services.auth.tuya_oauth_service import get_tuya_oauth
             oauth = get_tuya_oauth()
             if oauth.client_id and oauth.client_secret:
+                self.logger.info("Tuya OAuth service available (client_id=%s...)", oauth.client_id[:8])
                 return oauth
+            self.logger.warning("Tuya OAuth: client_id or client_secret missing")
             return None
-        except Exception:
+        except Exception as e:
+            self.logger.warning("Tuya OAuth service unavailable: %s", e)
             return None
 
     async def _execute_tuya(
@@ -415,9 +418,15 @@ class SmartHomeAgent(BaseAgent):
         # --- Try Tuya first (user-level OAuth) ---
         tuya = self._get_tuya_oauth()
         if tuya and user_id:
-            is_tuya_connected = await tuya.is_connected(user_id)
-            if is_tuya_connected:
-                return await self._execute_tuya(tuya, user_id, prompt, context, lang)
+            try:
+                is_tuya_connected = await tuya.is_connected(user_id)
+                self.logger.info("Tuya connected check: user=%s, connected=%s", user_id[:8], is_tuya_connected)
+                if is_tuya_connected:
+                    return await self._execute_tuya(tuya, user_id, prompt, context, lang)
+            except Exception as e:
+                self.logger.error("Tuya connected check failed: %s", e)
+        else:
+            self.logger.info("Tuya skip: tuya=%s, user_id=%s", bool(tuya), user_id[:8] if user_id else "empty")
 
         # --- Fallback: SmartThings (system-level tokens) ---
         token_manager = get_smartthings_token_manager()
