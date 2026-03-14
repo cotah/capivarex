@@ -130,6 +130,9 @@ class TuyaOAuth:
             data = resp.json()
 
         if not data.get("success"):
+            # Clear cached token so next call retries fresh
+            self._cloud_token = None
+            self._cloud_token_expires = 0
             logger.error("Tuya cloud token failed: {}", data)
             raise RuntimeError(f"Tuya cloud token failed: {data.get('msg', 'unknown')}")
 
@@ -293,16 +296,37 @@ class TuyaOAuth:
         if not refresh_token:
             return None
 
-        cloud_token = await self._get_cloud_token()
-        path = f"/v1.0/token/{refresh_token}"
-        headers = self._sign_request("GET", path, access_token=cloud_token)
+        # Try refresh, retry once if cloud token was stale
+        for attempt in range(2):
+            try:
+                cloud_token = await self._get_cloud_token()
+            except RuntimeError:
+                if attempt == 0:
+                    # Force cloud token refresh on retry
+                    self._cloud_token = None
+                    self._cloud_token_expires = 0
+                    continue
+                return None
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{self.base_url}{path}", headers=headers)
-            data = resp.json()
+            path = f"/v1.0/token/{refresh_token}"
+            headers = self._sign_request("GET", path, access_token=cloud_token)
 
-        if not data.get("success"):
-            logger.error("Tuya token refresh failed for user={}: {}", user_id[:8], data.get("msg"))
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"{self.base_url}{path}", headers=headers)
+                data = resp.json()
+
+            if data.get("success"):
+                break
+
+            error_msg = data.get("msg", "")
+            if "sign invalid" in error_msg and attempt == 0:
+                # Cloud token might be stale — clear and retry
+                self._cloud_token = None
+                self._cloud_token_expires = 0
+                logger.warning("Tuya refresh sign invalid, retrying with fresh cloud token")
+                continue
+
+            logger.error("Tuya token refresh failed for user={}: {}", user_id[:8], error_msg)
             return None
 
         result = data["result"]

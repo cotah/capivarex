@@ -284,7 +284,25 @@ class SmartHomeAgent(BaseAgent):
             )
         device_id = device.get("id")
         name = device.get("name") or device.get("custom_name") or "Device"
-        for code in ["switch_led", "switch_1", "switch", "Power"]:
+
+        # Get device status to discover actual switch codes
+        status_list = await tuya.get_device_status(user_id, device_id)
+        device_codes = [s.get("code", "") for s in (status_list or [])]
+
+        # Build list of switch codes to try, prioritizing codes the device actually has
+        known_switch_codes = ["switch_led", "switch_1", "switch", "switch_led_1", "Power", "power"]
+        codes_to_try = [c for c in known_switch_codes if c in device_codes]
+        # Also try any boolean codes from status that look like switches
+        for s in (status_list or []):
+            code = s.get("code", "")
+            value = s.get("value")
+            if isinstance(value, bool) and code not in codes_to_try:
+                codes_to_try.append(code)
+        # Fallback to known codes if none found
+        if not codes_to_try:
+            codes_to_try = known_switch_codes
+
+        for code in codes_to_try:
             success = await tuya.send_command(user_id, device_id, [{"code": code, "value": turn_on}])
             if success:
                 action = t("smarthome_turned_on", lang=lang) if turn_on else t("smarthome_turned_off", lang=lang)
@@ -295,7 +313,7 @@ class SmartHomeAgent(BaseAgent):
                 )
         return AgentResponse(
             status=AgentStatus.ERROR,
-            response=t("smarthome_command_error", lang=lang, error="Switch command not supported"),
+            response=t("smarthome_command_error", lang=lang, error=f"No switch code found for {name}. Available codes: {', '.join(device_codes)}"),
         )
 
     async def _tuya_brightness(
