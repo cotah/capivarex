@@ -134,7 +134,7 @@ async def test_smarthome_capabilities(smarthome_agent):
 
 @pytest.mark.asyncio
 async def test_smarthome_service_unavailable(smarthome_agent):
-    """SmartHomeAgent returns error when SmartThings service is None."""
+    """SmartHomeAgent returns not-connected message when no provider available."""
     with (
         patch(_TM_PATH, return_value=_mock_token_manager()),
         patch("agents.specialized.smarthome_agent.get_service", return_value=None),
@@ -142,12 +142,13 @@ async def test_smarthome_service_unavailable(smarthome_agent):
         result = await smarthome_agent.execute(
             "acenda as luzes", {"user_id": "user_test"}
         )
-    assert result.status == AgentStatus.ERROR
+    assert result.status == AgentStatus.SUCCESS
+    assert result.data.get("needs_connection") is True
 
 
 @pytest.mark.asyncio
 async def test_smarthome_service_unavailable_english(smarthome_agent):
-    """SmartHomeAgent returns English error when lang=en and service unavailable."""
+    """SmartHomeAgent returns not-connected English message when no provider available."""
     with (
         patch(_TM_PATH, return_value=_mock_token_manager()),
         patch("agents.specialized.smarthome_agent.get_service", return_value=None),
@@ -155,8 +156,8 @@ async def test_smarthome_service_unavailable_english(smarthome_agent):
         result = await smarthome_agent.execute(
             "turn the lights on", {"user_id": "user_test", "lang": "en"}
         )
-    assert result.status == AgentStatus.ERROR
-    assert "unavailable" in result.response.lower()
+    assert result.status == AgentStatus.SUCCESS
+    assert "not connected" in result.response.lower() or result.data.get("needs_connection") is True
 
 
 @pytest.mark.asyncio

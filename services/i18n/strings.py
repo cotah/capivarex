@@ -249,6 +249,14 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "🏠 SmartThings no conectado\n\n"
         "Configura SMARTTHINGS_CLIENT_ID y SMARTTHINGS_REDIRECT_URI en Railway.",
     },
+    "smarthome_not_connected_tuya": {
+        "en": "🏠 Smart Home not connected\n\n"
+        "Go to Settings → Connections → Smart Home to connect your Tuya Smart / Smart Life account.",
+        "pt": "🏠 Casa Inteligente não conectada\n\n"
+        "Vá em Settings → Connections → Smart Home para conectar sua conta Tuya Smart / Smart Life.",
+        "es": "🏠 Casa Inteligente no conectada\n\n"
+        "Ve a Settings → Connections → Smart Home para conectar tu cuenta Tuya Smart / Smart Life.",
+    },
     "smarthome_no_devices": {
         "en": "No devices found on your SmartThings account.",
         "pt": "Nenhum dispositivo encontrado na sua conta SmartThings.",
