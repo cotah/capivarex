@@ -28,6 +28,7 @@ from models.schemas import (
     WebAppConversationRename,
 )
 from services.business.quota_service import QuotaExceededError
+from services.ai.model_config import VISION_MODEL
 from services.core import get_service
 
 router = APIRouter()
@@ -189,7 +190,7 @@ async def webapp_chat(
                             or "O que achas desta imagem?"
                         )
                         vision_resp = oai_client.chat.completions.create(
-                            model="gpt-4o",
+                            model=VISION_MODEL,
                             messages=[
                                 {
                                     "role": "user",

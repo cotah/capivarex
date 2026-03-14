@@ -25,6 +25,7 @@ from services.core import (
     register_service,
     ServiceUnavailableError,
 )
+from services.ai.model_config import INTENT_MODEL, VISION_MODEL
 from services.business.grocery_synonyms import find_synonym_in_list
 from services.i18n import t
 
@@ -675,7 +676,7 @@ class MercadoService(BaseService):
             client = openai_svc.client
 
             response = await client.chat.completions.create(
-                model="gpt-4o",
+                model=VISION_MODEL,
                 messages=[
                     {
                         "role": "user",
@@ -745,7 +746,7 @@ class MercadoService(BaseService):
 
             prompt = f"{_VISION_PROMPT}\n\nTexto OCR extraído:\n{text_ocr}"
             response = await openai_svc.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=INTENT_MODEL,
                 messages=[
                     {
                         "role": "user",

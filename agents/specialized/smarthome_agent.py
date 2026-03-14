@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 from agents.core import BaseAgent, AgentResponse, AgentStatus, register_agent
 from services import get_service
 from services.i18n import t, get_user_lang
+from services.ai.model_config import INTENT_MODEL
 
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ class SmartHomeAgent(BaseAgent):
 
         try:
             response = await client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=INTENT_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},

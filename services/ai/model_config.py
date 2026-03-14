@@ -37,3 +37,13 @@ CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-5-mini")
 # Tarefa: fallback para agents que não especificam modelo
 # Requisitos: bom custo-benefício
 DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4.1-mini")
+
+# ── Modelo para classificação de intent dentro dos agents ──────────────────
+# Tarefa: classificar sub-intents (ex: smart home on/off/brightness)
+# Requisitos: rápido, barato, bom em JSON
+INTENT_MODEL = os.getenv("OPENAI_INTENT_MODEL", "gpt-4.1-mini")
+
+# ── Modelo Vision (análise de imagens) ─────────────────────────────────────
+# Tarefa: analisar imagens enviadas pelo user
+# Requisitos: suporte a vision/multimodal
+VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o")

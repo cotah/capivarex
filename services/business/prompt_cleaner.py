@@ -22,6 +22,7 @@ from typing import Any, Callable, Coroutine, Dict, List, Optional
 from openai import AsyncOpenAI
 
 from services.core import BaseService, register_service
+from services.ai.model_config import INTENT_MODEL
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +46,7 @@ class PromptCleanerService(BaseService):
     """
 
     # Default model for lightweight extraction tasks
-    _EXTRACTION_MODEL: str = "gpt-4o-mini"
+    _EXTRACTION_MODEL: str = INTENT_MODEL
 
     def __init__(
         self,

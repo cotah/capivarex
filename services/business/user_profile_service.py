@@ -15,6 +15,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from services import get_service
+from services.ai.model_config import INTENT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +212,7 @@ async def extract_and_save_personal_info(
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=INTENT_MODEL,
             messages=[
                 {"role": "system", "content": extraction_prompt},
             ],

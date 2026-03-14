@@ -27,6 +27,7 @@ from agents.core import (
 )
 from services import get_service
 from services.i18n import t, get_user_lang
+from services.ai.model_config import INTENT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -392,7 +393,7 @@ class MusicAgent(BaseAgent):
             )
             response = (
                 await openai.client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model=INTENT_MODEL,
                     messages=[
                         {
                             "role": "system",

@@ -24,6 +24,7 @@ from services.core import (
     register_service,
     get_service,
 )
+from services.ai.model_config import DEFAULT_MODEL
 from schemas.context import UserContext
 from .schemas import WeatherData, CalendarEvent, CarStatus, NewsData, FinanceData
 from .user_preferences_service import get_preferences
@@ -455,7 +456,7 @@ class ProactivityService(BaseService):
         async def protected_openai_call():
             """Send the proactivity prompt to GPT-4o and return the response text (circuit-protected)."""
             response = await self._openai_client.chat.completions.create(
-                model="gpt-4o",
+                model=DEFAULT_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 max_completion_tokens=180,
                 temperature=0.2,

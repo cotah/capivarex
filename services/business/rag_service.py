@@ -8,6 +8,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import List
+from services.ai.model_config import INTENT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +134,7 @@ async def extract_and_save_memory(user_id: str, message: str) -> None:
 
         # Passo 1: Classificar se a mensagem tem informação memorável
         classification = await ai.chat.completions.create(
-            model="gpt-4o-mini",
+            model=INTENT_MODEL,
             messages=[
                 {
                     "role": "system",

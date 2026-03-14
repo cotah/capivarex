@@ -24,6 +24,7 @@ from typing import Any, Dict, List
 from agents.core import AgentResponse, AgentStatus, BaseAgent, register_agent
 from services import get_service
 from services.i18n import get_user_lang, t
+from services.ai.model_config import INTENT_MODEL
 
 # ── Intent patterns (regex fallback if GPT unavailable) ────────────────
 _RE_DIRECTIONS = re.compile(
@@ -215,7 +216,7 @@ class MapsAgent(BaseAgent):
             try:
                 filled = MAPS_INTENT_PROMPT.replace("{message}", message)
                 resp = await openai.client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model=INTENT_MODEL,
                     messages=[{"role": "system", "content": filled}],
                     response_format={"type": "json_object"},
                     max_completion_tokens=250,
