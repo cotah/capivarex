@@ -928,16 +928,27 @@ class TestSmartDevices:
             _make_supabase_result([{"telegram_chat_id": "123"}])
         )
         db.table("user_oauth_tokens").select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"active": True}])
+            _make_supabase_result([{"active": True, "user_id": "test-user"}])
         )
 
-        with patch("api.routes.webapp._get_db", return_value=db):
+        mock_tuya = MagicMock()
+        mock_tuya.client_id = "test"
+        mock_tuya.client_secret = "test"
+        mock_tuya.get_user_devices = AsyncMock(return_value=[
+            {"id": "d1", "name": "Light", "category": "dj", "online": True},
+        ])
+
+        with (
+            patch("api.routes.webapp._get_db", return_value=db),
+            patch("services.auth.tuya_oauth_service.get_tuya_oauth", return_value=mock_tuya),
+        ):
             resp = app_client.get(
                 "/api/webapp/smarts/devices", headers=_auth_header()
             )
 
         assert resp.status_code == 200
         assert resp.json()["connected"] is True
+        assert len(resp.json()["devices"]) == 1
 
     def test_devices_no_telegram(self, app_client):
         """Webapp-only user (no telegram_chat_id) still queries with UUID."""
