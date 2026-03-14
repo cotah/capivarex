@@ -25,6 +25,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from agents import get_agent
@@ -135,6 +136,26 @@ async def query_car(
     except Exception as e:
         logger.exception("Error processing car query: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/connect")
+async def connect_vehicle_redirect(
+    user_id: str = Query(default="unknown"),
+) -> RedirectResponse:
+    """
+    GET /connect — redirect to Smartcar OAuth consent screen.
+    Used by the frontend popup flow (window.open).
+    """
+    try:
+        car_service = _get_car_service()
+        connect_url = car_service.get_connect_url(user_id)
+        logger.info("User %s initiating Smartcar OAuth", user_id[:8] if len(user_id) > 8 else user_id)
+        return RedirectResponse(url=connect_url)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error generating Smartcar connect URL: %s", e)
+        raise HTTPException(status_code=500, detail="Smartcar OAuth initiation failed")
 
 
 @router.post("/connect")
