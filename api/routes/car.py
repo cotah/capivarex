@@ -69,8 +69,28 @@ class CarCallbackRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+async def _get_car_service_async():
+    """Retrieve and initialize the car service from the registry."""
+    service = get_service("car")
+    if service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Car service is not available",
+        )
+    if not service.is_initialized():
+        try:
+            await service.initialize()
+        except Exception as e:
+            logger.error("CarService initialization failed: %s", e)
+            raise HTTPException(
+                status_code=503,
+                detail="Car service failed to initialize — check SMARTCAR env vars",
+            )
+    return service
+
+
 def _get_car_service():
-    """Retrieve the car service from the registry."""
+    """Retrieve the car service from the registry (sync, no init check)."""
     service = get_service("car")
     if service is None:
         raise HTTPException(
@@ -147,7 +167,7 @@ async def connect_vehicle_redirect(
     Used by the frontend popup flow (window.open).
     """
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         connect_url = car_service.get_connect_url(user_id)
         logger.info("User %s initiating Smartcar OAuth", user_id[:8] if len(user_id) > 8 else user_id)
         return RedirectResponse(url=connect_url)
@@ -172,7 +192,7 @@ async def connect_vehicle(
         Smartcar Connect URL.
     """
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         connect_url = car_service.get_connect_url(request.user_id)
 
         return {
@@ -206,7 +226,7 @@ async def smartcar_callback(
         Access token and vehicle information.
     """
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         vehicle_db = _get_vehicle_db_service()
 
         user_id = await resolve_user_uuid(
@@ -276,7 +296,7 @@ async def refresh_token(
         New access token.
     """
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         tokens = await car_service.refresh_access_token(refresh_token)
 
         if "error" in tokens:
@@ -303,7 +323,7 @@ async def get_battery(
 ) -> Dict[str, Any]:
     """Get vehicle battery level."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         battery = await car_service.get_battery_level(vehicle_id, access_token)
         return {"success": True, "data": battery}
     except HTTPException:
@@ -321,7 +341,7 @@ async def get_location(
 ) -> Dict[str, Any]:
     """Get vehicle location."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         location = await car_service.get_location(vehicle_id, access_token)
         return {"success": True, "data": location}
     except HTTPException:
@@ -339,7 +359,7 @@ async def get_charge_status(
 ) -> Dict[str, Any]:
     """Get vehicle charging status."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         charge_status = await car_service.get_charge_status(vehicle_id, access_token)
         return {"success": True, "data": charge_status}
     except HTTPException:
@@ -357,7 +377,7 @@ async def get_summary(
 ) -> Dict[str, Any]:
     """Get comprehensive vehicle summary."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         summary = await car_service.get_vehicle_summary(vehicle_id, access_token)
         return {"success": True, "summary": summary}
     except HTTPException:
@@ -375,7 +395,7 @@ async def lock_vehicle(
 ) -> Dict[str, Any]:
     """Lock the vehicle (COMMAND - counts towards monthly limit)."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         result = await car_service.lock_vehicle(vehicle_id, access_token)
         return {"success": True, "data": result}
     except HTTPException:
@@ -393,7 +413,7 @@ async def unlock_vehicle(
 ) -> Dict[str, Any]:
     """Unlock the vehicle (COMMAND - counts towards monthly limit)."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         result = await car_service.unlock_vehicle(vehicle_id, access_token)
         return {"success": True, "data": result}
     except HTTPException:
@@ -411,7 +431,7 @@ async def start_charging(
 ) -> Dict[str, Any]:
     """Start vehicle charging (COMMAND - counts towards monthly limit)."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         result = await car_service.start_charging(vehicle_id, access_token)
         return {"success": True, "data": result}
     except HTTPException:
@@ -429,7 +449,7 @@ async def stop_charging(
 ) -> Dict[str, Any]:
     """Stop vehicle charging (COMMAND - counts towards monthly limit)."""
     try:
-        car_service = _get_car_service()
+        car_service = await _get_car_service_async()
         result = await car_service.stop_charging(vehicle_id, access_token)
         return {"success": True, "data": result}
     except HTTPException:
