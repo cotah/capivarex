@@ -107,6 +107,9 @@ omit =
     api/routes/_helpers.py
     # Push notifications — thin HTTP wrapper around pywebpush
     api/routes/push_notifications.py
+    # Tuya OAuth — external API integration
+    api/routes/tuya_auth.py
+    services/auth/tuya_oauth_service.py
     # Calendar service — complex Google API integration requiring live OAuth
     services/integrations/calendar_service.py
 

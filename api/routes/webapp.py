@@ -689,7 +689,7 @@ _AGENT_SERVICES: dict[str, str] = {
     "youtube": "YouTube",
 }
 
-_ALL_PROVIDERS = ["google", "spotify", "smartthings", "smartcar", "github"]
+_ALL_PROVIDERS = ["google", "spotify", "smartthings", "smartcar", "tuya", "github"]
 
 
 def _get_chat_id(db, user_id: str) -> Optional[str]:
@@ -2281,6 +2281,16 @@ _INTEGRATIONS_CATALOG = [
         "requires_oauth": True,
         "provider": "smartcar",
         "available_plans": ["everywhere"],
+    },
+    {
+        "id": "tuya",
+        "name": "Smart Home (Tuya)",
+        "description": "Control lights, plugs, sensors, thermostats and more",
+        "category": "home",
+        "icon": "home",
+        "requires_oauth": True,
+        "provider": "tuya",
+        "available_plans": ["me", "everywhere"],
     },
     {
         "id": "smartthings",
