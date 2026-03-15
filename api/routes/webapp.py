@@ -1451,13 +1451,104 @@ async def smart_vehicles(user_id: str = Depends(verify_webapp_user)):
 
 @router.get("/finance/portfolio")
 async def finance_portfolio(user_id: str = Depends(verify_webapp_user)):
-    """Stocks and crypto the user tracks (placeholder)."""
+    """Stocks and crypto — uses Twelve Data (stocks) + CoinGecko (crypto)."""
     logger.info(f"WebApp: user={user_id[:8]} finance/portfolio requested")
-    return {
-        "stocks": [],
-        "crypto": [],
-        "message": "Use chat to add stocks: 'track AAPL'",
-    }
+
+    stocks: list = []
+    crypto: list = []
+
+    # ── Crypto via CoinGecko service ──
+    try:
+        from services.core import get_service
+        crypto_svc = get_service("crypto")
+        if crypto_svc:
+            await crypto_svc.initialize()
+            top = await crypto_svc.get_top_coins(n=10, vs_currency="usd")
+            for coin in top:
+                crypto.append({
+                    "symbol": coin.get("symbol", "").upper(),
+                    "name": coin.get("name", ""),
+                    "price": round(coin.get("price", 0) or 0, 2),
+                    "change": round(coin.get("change_24h", 0) or 0, 2),
+                })
+    except Exception as e:
+        logger.warning(f"Finance: crypto fetch failed: {e}")
+        # Fallback — inline CoinGecko call
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    "https://api.coingecko.com/api/v3/coins/markets",
+                    params={"vs_currency": "usd", "order": "market_cap_desc", "per_page": 10, "page": 1},
+                )
+                if resp.status_code == 200:
+                    for coin in resp.json():
+                        crypto.append({
+                            "symbol": coin.get("symbol", "").upper(),
+                            "name": coin.get("name", ""),
+                            "price": round(coin.get("current_price", 0), 2),
+                            "change": round(coin.get("price_change_percentage_24h", 0), 2),
+                        })
+        except Exception:
+            pass
+
+    # ── Stocks via Twelve Data service (primary) + Yahoo Finance (fallback) ──
+    # Default watchlist (major indices + popular stocks)
+    default_symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+    try:
+        from services.core import get_service
+        finance_svc = get_service("finance")
+        if finance_svc:
+            await finance_svc.initialize()
+            for sym in default_symbols:
+                try:
+                    quote = await finance_svc.get_quote(sym)
+                    stocks.append({
+                        "symbol": quote.get("symbol", sym),
+                        "name": quote.get("name", sym),
+                        "price": round(quote.get("price", 0), 2),
+                        "change": round(quote.get("percent_change", 0), 2),
+                    })
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.warning(f"Finance: Twelve Data stocks failed: {e}")
+
+    # Fallback: Yahoo Finance (free, no API key) if Twelve Data returned nothing
+    if not stocks:
+        logger.info("Finance: using Yahoo Finance fallback for stocks")
+        try:
+            import httpx
+            yahoo_symbols = {
+                "AAPL": "Apple", "MSFT": "Microsoft", "GOOGL": "Alphabet",
+                "AMZN": "Amazon", "TSLA": "Tesla",
+            }
+            async with httpx.AsyncClient(timeout=10) as client:
+                for sym, name in yahoo_symbols.items():
+                    try:
+                        resp = await client.get(
+                            f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}",
+                            params={"interval": "1d", "range": "2d"},
+                            headers={"User-Agent": "Mozilla/5.0"},
+                        )
+                        if resp.status_code == 200:
+                            chart = resp.json().get("chart", {}).get("result", [{}])[0]
+                            meta = chart.get("meta", {})
+                            price = meta.get("regularMarketPrice", 0)
+                            prev = meta.get("previousClose") or meta.get("chartPreviousClose", 0)
+                            change_pct = ((price - prev) / prev * 100) if prev else 0
+                            stocks.append({
+                                "symbol": sym,
+                                "name": name,
+                                "price": round(price, 2),
+                                "change": round(change_pct, 2),
+                            })
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.warning(f"Finance: Yahoo fallback also failed: {e}")
+
+    return {"stocks": stocks, "crypto": crypto}
 
 
 @router.get("/finance/news")
@@ -1465,12 +1556,22 @@ async def finance_news(
     limit: int = Query(10, ge=1, le=50),
     user_id: str = Depends(verify_webapp_user),
 ):
-    """Financial news (placeholder)."""
+    """Financial news — served from cached Perplexity results."""
     logger.info(f"WebApp: user={user_id[:8]} finance/news requested")
-    return {
-        "news": [],
-        "message": "Financial news coming soon",
-    }
+
+    from services.business.finance_news_service import get_cached_news
+    articles = await get_cached_news(user_id, limit=limit)
+
+    # If no cached news, fetch fresh (first time or cache empty)
+    if not articles:
+        from services.business.finance_news_service import fetch_and_store_news
+        try:
+            await fetch_and_store_news(user_id=user_id)
+            articles = await get_cached_news(user_id, limit=limit)
+        except Exception as e:
+            logger.warning(f"Finance: live news fetch failed: {e}")
+
+    return {"news": articles}
 
 
 # ====================================================================

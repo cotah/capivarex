@@ -29,9 +29,10 @@ async def _get_proactivity_service():
 async def run_proactivity_cycle() -> None:
     """Execute a proactive verification cycle for all users.
 
-    Runs two independent steps:
+    Runs three independent steps:
     1. Proactivity checks (insights, smart home alerts)
     2. Email polling (Gmail → Telegram notifications)
+    3. News fetching (2x/day at 07:00 and 18:00 UTC via Perplexity)
 
     Each step is isolated — a failure or early exit in one
     does NOT prevent the other from running.
@@ -50,6 +51,13 @@ async def run_proactivity_cycle() -> None:
         await _run_email_polling()
     except Exception as e:
         logger.error("Email polling step failed: %s", e)
+        sentry_sdk.capture_exception(e)
+
+    # ── Step 3: News fetching (2x/day — 07:00 and 18:00 UTC) ─────────────
+    try:
+        await _run_news_fetch_if_due()
+    except Exception as e:
+        logger.error("News fetch step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
 
@@ -306,6 +314,33 @@ async def _store_email_draft(user_id: str, notif) -> None:
         ),
     }
     await store_email_draft(user_id, notif.email_id, draft_data)
+
+
+async def _run_news_fetch_if_due() -> None:
+    """Fetch financial news 2x/day at 07:00 and 18:00 UTC.
+
+    Since the proactivity loop runs every 5 minutes, we check if the
+    current time falls within a 5-minute window of the target hours.
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    hour = now.hour
+    minute = now.minute
+
+    # Only run at 07:00-07:04 or 18:00-18:04 UTC
+    if not ((hour == 7 and minute < 5) or (hour == 18 and minute < 5)):
+        return
+
+    logger.info("News: time window hit (%02d:%02d UTC), fetching news...", hour, minute)
+
+    try:
+        from services.business.finance_news_service import fetch_and_store_news
+        articles = await fetch_and_store_news()
+        logger.info("News: fetched %d articles", len(articles))
+    except Exception as e:
+        logger.error("News: fetch_and_store_news failed: %s", e)
+        raise
 
 
 async def main_loop() -> None:
