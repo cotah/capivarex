@@ -417,6 +417,33 @@ class TuyaOAuth:
 
         return data.get("result", [])
 
+    async def get_device_info(self, user_id: str, device_id: str) -> Dict[str, Any]:
+        """Get device info including ONLINE status (real-time from cloud)."""
+        token = await self.get_user_token(user_id)
+        if not token:
+            return {}
+
+        path = f"/v1.0/devices/{device_id}"
+        headers = self._sign_request("GET", path, access_token=token)
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{self.base_url}{path}", headers=headers)
+            data = resp.json()
+
+        if not data.get("success"):
+            logger.warning("Tuya device info failed: {}", data.get("msg"))
+            return {}
+
+        result = data.get("result", {})
+        logger.info(
+            "Tuya device info: id={} name={} online={} category={}",
+            device_id[:8],
+            result.get("name", "?"),
+            result.get("online", "?"),
+            result.get("category", "?"),
+        )
+        return result
+
     async def send_command(
         self, user_id: str, device_id: str, commands: List[Dict[str, Any]]
     ) -> dict:

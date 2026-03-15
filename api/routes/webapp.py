@@ -1377,9 +1377,11 @@ async def smart_device_command(
 ):
     """Send a command to a Tuya device (toggle on/off, etc).
 
-    Strategy: Query device status FIRST to discover actual DP codes,
-    then try those codes. Tuya API sometimes returns 'success' for
-    non-existent DPs (silently does nothing), so we must use real codes.
+    Strategy:
+    1. Check device online status via Tuya Cloud
+    2. Discover real DP codes from device status
+    3. Send command with retry + token refresh
+    4. If device is offline in cloud, inform user how to fix
     """
     try:
         from services.auth.tuya_oauth_service import get_tuya_oauth
@@ -1389,40 +1391,54 @@ async def smart_device_command(
         if not connected:
             return {"ok": False, "error": "Tuya not connected. Go to Settings to reconnect."}
 
-        # Step 1: Query device status to discover actual DP codes
+        # Step 1: Check device online status (real-time from cloud)
+        device_online = None
+        try:
+            device_info = await tuya.get_device_info(user_id, device_id)
+            device_online = device_info.get("online", None)
+        except Exception as e:
+            logger.warning(f"WebApp: device={device_id[:8]} info query failed: {e}")
+
+        # Step 2: Discover DP codes
         status_list = []
         try:
             status_list = await tuya.get_device_status(user_id, device_id) or []
         except Exception as e:
             logger.warning(f"WebApp: device={device_id[:8]} status query failed: {e}")
 
-        # Step 2: Build ordered list of codes to try
         device_codes = [s.get("code", "") for s in status_list]
         known_switch = ["switch_led", "switch_1", "switch", "switch_led_1", "Power", "power"]
 
         codes_to_try = []
-        # Add the user's requested code if device has it
         if body.code in device_codes:
             codes_to_try.append(body.code)
-        # Add known switch codes that the device reports
         for code in known_switch:
             if code in device_codes and code not in codes_to_try:
                 codes_to_try.append(code)
-        # Add any boolean codes from status (likely switches)
         for s in status_list:
             code = s.get("code", "")
             if isinstance(s.get("value"), bool) and code not in codes_to_try:
                 codes_to_try.append(code)
-        # Fallback: try the user's code and known codes even if not in status
         if not codes_to_try:
             codes_to_try = [body.code] + [c for c in known_switch if c != body.code]
 
         logger.info(
-            f"WebApp: device={device_id[:8]} status_codes={device_codes} "
-            f"trying={codes_to_try}"
+            f"WebApp: device={device_id[:8]} online={device_online} "
+            f"status_codes={device_codes} trying={codes_to_try}"
         )
 
-        # Step 3: Try each code
+        # Step 3: If device is offline in cloud, inform user IMMEDIATELY
+        if device_online is False:
+            return {
+                "ok": False,
+                "error": (
+                    "Device is offline in Tuya Cloud. "
+                    "Open the Smart Life app → tap this device → "
+                    "this forces it to reconnect to cloud. Then try again here."
+                ),
+            }
+
+        # Step 4: Try each code
         for code in codes_to_try:
             result = await tuya.send_command(
                 user_id, device_id, [{"code": code, "value": body.value}]
@@ -1434,9 +1450,15 @@ async def smart_device_command(
                 )
                 return {"ok": True, "code": code, "value": body.value}
 
-            # Device offline — stop immediately
             if result.get("error") == "device_offline":
-                return {"ok": False, "error": "Device is offline. Check if it's powered on and connected to WiFi."}
+                return {
+                    "ok": False,
+                    "error": (
+                        "Device is offline in Tuya Cloud. "
+                        "Open the Smart Life app → tap this device → "
+                        "this forces it to reconnect. Then try again."
+                    ),
+                }
             if result.get("error") == "no_token":
                 return {"ok": False, "error": "Tuya not connected. Go to Settings to reconnect."}
 
