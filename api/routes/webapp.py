@@ -1364,6 +1364,46 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
         return {"devices": [], "connected": False}
 
 
+class DeviceCommandRequest(BaseModel):
+    code: str = "switch_led"
+    value: bool = True
+
+
+@router.post("/smarts/devices/{device_id}/command")
+async def smart_device_command(
+    device_id: str,
+    body: DeviceCommandRequest,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Send a command to a Tuya device (toggle on/off, etc)."""
+    try:
+        from services.auth.tuya_oauth_service import get_tuya_oauth
+        tuya = get_tuya_oauth()
+
+        # Try the requested code first, then common switch codes
+        codes_to_try = [body.code]
+        if body.code not in ("switch_led", "switch_1", "switch"):
+            codes_to_try.extend(["switch_led", "switch_1", "switch"])
+
+        for code in codes_to_try:
+            success = await tuya.send_command(
+                user_id, device_id, [{"code": code, "value": body.value}]
+            )
+            if success:
+                logger.info(
+                    f"WebApp: user={user_id[:8]} device={device_id[:8]} "
+                    f"command={code}={body.value} — success"
+                )
+                return {"ok": True, "code": code, "value": body.value}
+
+        logger.warning(f"WebApp: user={user_id[:8]} device={device_id[:8]} — no switch code worked")
+        return {"ok": False, "error": "No switch code worked for this device"}
+
+    except Exception as e:
+        logger.error(f"WebApp device command error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/smarts/vehicles")
 async def smart_vehicles(user_id: str = Depends(verify_webapp_user)):
     """List vehicles if Smartcar is connected."""
