@@ -251,3 +251,89 @@ class TestCheckPriceAlerts:
             count = await check_price_alerts()
 
         assert count >= 1
+
+
+class TestCheckPriceAlertsAdditional:
+    @pytest.mark.asyncio
+    async def test_skips_disabled_user(self):
+        """User with alerts disabled should be skipped."""
+        mock_db = MagicMock()
+        mock_db.initialize = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_client = MagicMock()
+        mock_db.get_client.return_value = mock_client
+
+        mock_users = MagicMock()
+        mock_users.data = [{"user_id": "user-disabled"}]
+
+        mock_config = MagicMock()
+        mock_config.data = [{"data": json.dumps({"enabled": False, "threshold_pct": 5.0})}]
+
+        def table_side(name):
+            t = MagicMock()
+            if name == "proactivity_preferences":
+                t.select.return_value.eq.return_value.execute.return_value = mock_users
+            elif name == "user_context":
+                t.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = mock_config
+            return t
+        mock_client.table = table_side
+
+        with (
+            patch("services.business.finance_alert_service.get_service", return_value=mock_db),
+            patch("services.business.finance_alert_service._get_crypto_prices", new_callable=AsyncMock, return_value=[
+                {"symbol": "BTC", "name": "Bitcoin", "price": 70000, "change_24h": 8.5},
+            ]),
+            patch("services.business.finance_alert_service._get_stock_prices", new_callable=AsyncMock, return_value=[]),
+        ):
+            count = await check_price_alerts()
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_stock_alert_sent(self):
+        """Stock with big move triggers alert."""
+        mock_db = MagicMock()
+        mock_db.initialize = AsyncMock()
+        mock_db.is_initialized.return_value = True
+        mock_client = MagicMock()
+        mock_db.get_client.return_value = mock_client
+
+        mock_users = MagicMock()
+        mock_users.data = [{"user_id": "user-1"}]
+
+        mock_config = MagicMock()
+        mock_config.data = [{"data": json.dumps({"enabled": True, "threshold_pct": 3.0})}]
+
+        mock_no_existing = MagicMock()
+        mock_no_existing.data = []
+
+        def table_side(name):
+            t = MagicMock()
+            if name == "proactivity_preferences":
+                t.select.return_value.eq.return_value.execute.return_value = mock_users
+            elif name == "user_context":
+                t.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = mock_config
+            elif name == "proactivity_feed":
+                t.select.return_value.eq.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = mock_no_existing
+                t.insert.return_value.execute.return_value = MagicMock()
+            return t
+        mock_client.table = table_side
+
+        with (
+            patch("services.business.finance_alert_service.get_service", return_value=mock_db),
+            patch("services.business.finance_alert_service._get_crypto_prices", new_callable=AsyncMock, return_value=[]),
+            patch("services.business.finance_alert_service._get_stock_prices", new_callable=AsyncMock, return_value=[
+                {"symbol": "TSLA", "name": "Tesla", "price": 391, "percent_change": -6.2},
+            ]),
+        ):
+            count = await check_price_alerts()
+        assert count >= 1
+
+    @pytest.mark.asyncio
+    async def test_no_client_returns_zero(self):
+        mock_db = MagicMock()
+        mock_db.initialize = AsyncMock()
+        mock_db.get_client.return_value = None
+
+        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+            count = await check_price_alerts()
+        assert count == 0

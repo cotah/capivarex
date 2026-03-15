@@ -31,8 +31,9 @@ class TestHealthEndpoint:
         response = client.get("/api/health")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "healthy"
+        assert data["status"] in ("healthy", "degraded")
         assert "version" in data
+        assert "checks" in data
 
     def test_detailed_health(self):
         response = client.get("/api/health/detailed")

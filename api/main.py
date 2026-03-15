@@ -116,12 +116,26 @@ async def _timer_loop() -> None:
     """
     Background loop que verifica timers e lembretes vencidos a cada 10s.
     Corre dentro do processo FastAPI — sem worker separado.
+
+    Circuit breaker: if consecutive failures > 5, backs off exponentially
+    (max 5 min) to avoid flooding logs when Redis/Supabase are down.
     """
     from services.core import get_service
 
     _bg_logger.info("Timer background loop started.")
+    consecutive_failures = 0
+    MAX_BACKOFF = 300  # 5 minutes max
 
     while True:
+        # Circuit breaker: exponential backoff on repeated failures
+        if consecutive_failures > 5:
+            backoff = min(10 * (2 ** (consecutive_failures - 5)), MAX_BACKOFF)
+            _bg_logger.warning(
+                "Timer loop: %d consecutive failures — backing off %ds",
+                consecutive_failures, backoff,
+            )
+            await asyncio.sleep(backoff)
+
         try:
             # --- Timers ---
             timer_svc = get_service("timer")
@@ -179,8 +193,14 @@ async def _timer_loop() -> None:
 
                 await reminder_svc.check_and_fire_due(notify_fn=notify_reminder)
 
+            consecutive_failures = 0  # Reset on success
+
         except Exception as e:
-            _bg_logger.error("Timer loop error: %s", e, exc_info=True)
+            consecutive_failures += 1
+            _bg_logger.error(
+                "Timer loop error (failure #%d): %s",
+                consecutive_failures, e, exc_info=(consecutive_failures <= 3),
+            )
 
         # --- Monthly Mercado Excel Report (day 1 of month, 9 AM) ---
         try:
@@ -625,10 +645,43 @@ def root():
 
 
 @app.get("/api/health")
-def health_check():
-    """Health check endpoint."""
+async def health_check():
+    """Health check endpoint — verifies Supabase + Redis connectivity."""
+    checks = {"api": "ok"}
+
+    # Check Supabase
+    try:
+        from services.core import get_service
+        db = get_service("database")
+        if db and db.is_initialized():
+            client = db.get_client()
+            if client:
+                client.table("users").select("id").limit(1).execute()
+                checks["supabase"] = "ok"
+            else:
+                checks["supabase"] = "no_client"
+        else:
+            checks["supabase"] = "not_initialized"
+    except Exception as e:
+        checks["supabase"] = f"error: {type(e).__name__}"
+
+    # Check Redis
+    try:
+        from services.core import get_service
+        redis = get_service("redis")
+        if redis and redis.is_initialized():
+            await redis.set("health_check", "ok", ex=10)
+            checks["redis"] = "ok"
+        else:
+            checks["redis"] = "not_initialized"
+    except Exception as e:
+        checks["redis"] = f"error: {type(e).__name__}"
+
+    all_ok = all(v == "ok" for v in checks.values())
+
     return {
-        "status": "healthy",
+        "status": "healthy" if all_ok else "degraded",
+        "checks": checks,
         "environment": os.getenv("ENVIRONMENT", "development"),
         "version": "2.0.0",
     }

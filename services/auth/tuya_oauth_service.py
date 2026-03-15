@@ -419,15 +419,17 @@ class TuyaOAuth:
 
     async def send_command(
         self, user_id: str, device_id: str, commands: List[Dict[str, Any]]
-    ) -> bool:
+    ) -> dict:
         """
         Send commands to a device.
 
         commands example: [{"code": "switch_led", "value": True}]
+
+        Returns dict: {"success": bool, "error": str|None, "code": str|None}
         """
         token = await self.get_user_token(user_id)
         if not token:
-            return False
+            return {"success": False, "error": "no_token", "code": None}
 
         path = f"/v1.0/devices/{device_id}/commands"
         body = json.dumps({"commands": commands})
@@ -440,11 +442,18 @@ class TuyaOAuth:
             data = resp.json()
 
         if not data.get("success"):
-            logger.warning("Tuya command failed: {}", data.get("msg"))
-            return False
+            msg = data.get("msg", "unknown error")
+            error_code = str(data.get("code", ""))
+            logger.warning(
+                "Tuya command failed: %s (code=%s)", msg, error_code
+            )
+            # Classify the error
+            if "offline" in msg.lower() or "device is offline" in msg.lower():
+                return {"success": False, "error": "device_offline", "code": error_code}
+            return {"success": False, "error": msg, "code": error_code}
 
-        logger.info("Tuya command sent: device={}, commands={}", device_id, commands)
-        return True
+        logger.info("Tuya command sent: device=%s, commands=%s", device_id, commands)
+        return {"success": True, "error": None, "code": None}
 
     # ------------------------------------------------------------------
     # Connection status

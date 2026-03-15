@@ -303,8 +303,8 @@ class SmartHomeAgent(BaseAgent):
             codes_to_try = known_switch_codes
 
         for code in codes_to_try:
-            success = await tuya.send_command(user_id, device_id, [{"code": code, "value": turn_on}])
-            if success:
+            result = await tuya.send_command(user_id, device_id, [{"code": code, "value": turn_on}])
+            if result.get("success"):
                 if turn_on:
                     action = t("smarthome_turned_on", lang=lang, label=name)
                 else:
@@ -313,6 +313,12 @@ class SmartHomeAgent(BaseAgent):
                     status=AgentStatus.SUCCESS,
                     response=action,
                     data={"device_id": device_id, "action": "on" if turn_on else "off"},
+                )
+            # Device offline — stop immediately
+            if result.get("error") == "device_offline":
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response=f"📴 {name} is offline. Check if it's powered on and connected to WiFi.",
                 )
         return AgentResponse(
             status=AgentStatus.ERROR,
@@ -334,11 +340,16 @@ class SmartHomeAgent(BaseAgent):
         name = device.get("name") or device.get("custom_name") or "Light"
         tuya_brightness = max(10, min(1000, int(brightness * 10)))
         for code in ["bright_value_v2", "bright_value"]:
-            success = await tuya.send_command(user_id, device_id, [{"code": code, "value": tuya_brightness}])
-            if success:
+            result = await tuya.send_command(user_id, device_id, [{"code": code, "value": tuya_brightness}])
+            if result.get("success"):
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=t("smarthome_brightness_set", lang=lang, name=name, brightness=brightness),
+                )
+            if result.get("error") == "device_offline":
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response=f"📴 {name} is offline.",
                 )
         return AgentResponse(
             status=AgentStatus.ERROR,
@@ -358,8 +369,8 @@ class SmartHomeAgent(BaseAgent):
             )
         device_id = device.get("id")
         name = device.get("name") or device.get("custom_name") or "Thermostat"
-        success = await tuya.send_command(user_id, device_id, [{"code": "temp_set", "value": temperature}])
-        if success:
+        result = await tuya.send_command(user_id, device_id, [{"code": "temp_set", "value": temperature}])
+        if result.get("success"):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=t("smarthome_thermostat_set", lang=lang, name=name, temp=temperature),

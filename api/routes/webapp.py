@@ -1380,10 +1380,15 @@ async def smart_device_command(
         from services.auth.tuya_oauth_service import get_tuya_oauth
         tuya = get_tuya_oauth()
 
+        # Check if connected first
+        connected = await tuya.is_connected(user_id)
+        if not connected:
+            return {"ok": False, "error": "Tuya not connected. Go to Settings to reconnect."}
+
         # Try the requested code first, then common switch codes
         codes_to_try = [body.code]
-        if body.code not in ("switch_led", "switch_1", "switch"):
-            codes_to_try.extend(["switch_led", "switch_1", "switch"])
+        if body.code not in ("switch_led", "switch_1", "switch", "switch_led_1"):
+            codes_to_try.extend(["switch_led", "switch_1", "switch", "switch_led_1"])
 
         for code in codes_to_try:
             success = await tuya.send_command(
@@ -1396,8 +1401,18 @@ async def smart_device_command(
                 )
                 return {"ok": True, "code": code, "value": body.value}
 
-        logger.warning(f"WebApp: user={user_id[:8]} device={device_id[:8]} — no switch code worked")
-        return {"ok": False, "error": "No switch code worked for this device"}
+        # All codes failed — get status to show available codes
+        try:
+            status = await tuya.get_device_status(user_id, device_id)
+            available = [s.get("code") for s in (status or []) if s.get("code")]
+            logger.warning(
+                f"WebApp: user={user_id[:8]} device={device_id[:8]} "
+                f"— no switch code worked. Available: {available}"
+            )
+        except Exception:
+            available = []
+
+        return {"ok": False, "error": f"Could not toggle device. Available codes: {', '.join(available) or 'none'}"}
 
     except Exception as e:
         logger.error(f"WebApp device command error: {e}", exc_info=True)

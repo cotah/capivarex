@@ -25,7 +25,9 @@ def _mock_tuya(connected=True, devices=None, send_ok=True):
     t.get_device_status = AsyncMock(return_value=[
         {"code": "switch_led", "value": True},
     ])
-    t.send_command = AsyncMock(return_value=send_ok)
+    t.send_command = AsyncMock(
+        return_value={"success": send_ok, "error": None if send_ok else "failed", "code": None}
+    )
     return t
 
 
@@ -142,3 +144,33 @@ async def test_command_fails(smarthome_agent):
         "turn on the bulb", {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.ERROR
+
+
+@pytest.mark.asyncio
+async def test_device_offline(smarthome_agent):
+    """SmartHomeAgent reports offline when Tuya says device is offline."""
+    tuya = _mock_tuya()
+    tuya.send_command = AsyncMock(
+        return_value={"success": False, "error": "device_offline", "code": "2001"}
+    )
+    _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"})
+    result = await smarthome_agent.execute(
+        "turn on the light", {"user_id": "u1", "lang": "en"}
+    )
+    assert result.status == AgentStatus.ERROR
+    assert "offline" in result.response.lower()
+
+
+@pytest.mark.asyncio
+async def test_brightness_offline(smarthome_agent):
+    """SmartHomeAgent reports offline on brightness when device is offline."""
+    tuya = _mock_tuya()
+    tuya.send_command = AsyncMock(
+        return_value={"success": False, "error": "device_offline", "code": "2001"}
+    )
+    _setup(smarthome_agent, tuya, {"intent": "set_brightness", "device_name": "Zigbee Smart Bulb", "brightness": 50})
+    result = await smarthome_agent.execute(
+        "set brightness to 50", {"user_id": "u1", "lang": "en"}
+    )
+    assert result.status == AgentStatus.ERROR
+    assert "offline" in result.response.lower()
