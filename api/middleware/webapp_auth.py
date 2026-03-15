@@ -30,7 +30,7 @@ security = HTTPBearer(auto_error=False)
 # ---------------------------------------------------------------------------
 
 # JWK coordinates for the Supabase signing key (alg: ES256, crv: P-256).
-# Source: https://gakybwrvpwyvufovweis.supabase.co/auth/v1/.well-known/jwks.json
+# Can be set via env vars OR fetched automatically from Supabase JWKS endpoint.
 _JWK_X = os.environ.get("SUPABASE_JWT_JWK_X", "")
 _JWK_Y = os.environ.get("SUPABASE_JWT_JWK_Y", "")
 
@@ -41,8 +41,8 @@ def _b64url_to_int(b64url: str) -> int:
     return int.from_bytes(base64.urlsafe_b64decode(padded), "big")
 
 
-def _build_supabase_ec_key():
-    """Build the EC public key from JWK x/y coordinates (P-256)."""
+def _build_ec_key_from_coords(x_b64: str, y_b64: str):
+    """Build EC public key from JWK x/y coordinates (P-256)."""
     try:
         from cryptography.hazmat.backends import default_backend
         from cryptography.hazmat.primitives.asymmetric.ec import (
@@ -50,13 +50,61 @@ def _build_supabase_ec_key():
             EllipticCurvePublicNumbers,
         )
 
-        x = _b64url_to_int(_JWK_X)
-        y = _b64url_to_int(_JWK_Y)
+        x = _b64url_to_int(x_b64)
+        y = _b64url_to_int(y_b64)
         pub_numbers = EllipticCurvePublicNumbers(x=x, y=y, curve=SECP256R1())
         return pub_numbers.public_key(default_backend())
     except Exception as exc:
-        logger.warning(f"WebApp auth: failed to build ES256 public key: {exc}")
+        logger.warning(f"WebApp auth: failed to build ES256 key from coords: {exc}")
         return None
+
+
+def _fetch_supabase_jwks():
+    """Fetch JWKS from Supabase and extract ES256 key coordinates."""
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    if not supabase_url:
+        return None, None
+
+    try:
+        import httpx
+        # Extract project ref from URL: https://xxx.supabase.co → xxx
+        jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
+        resp = httpx.get(jwks_url, timeout=5)
+        if resp.status_code != 200:
+            logger.warning(f"WebApp auth: JWKS fetch failed: {resp.status_code}")
+            return None, None
+
+        jwks = resp.json()
+        for key in jwks.get("keys", []):
+            if key.get("kty") == "EC" and key.get("crv") == "P-256":
+                logger.info("WebApp auth: fetched ES256 key from Supabase JWKS")
+                return key.get("x", ""), key.get("y", "")
+
+        logger.warning("WebApp auth: no ES256 key found in JWKS")
+        return None, None
+    except Exception as exc:
+        logger.warning(f"WebApp auth: JWKS fetch error: {exc}")
+        return None, None
+
+
+def _build_supabase_ec_key():
+    """Build the EC public key — from env vars or fetched from JWKS."""
+    # Try env vars first
+    if _JWK_X and _JWK_Y:
+        key = _build_ec_key_from_coords(_JWK_X, _JWK_Y)
+        if key:
+            logger.info("WebApp auth: ES256 key built from env vars")
+            return key
+
+    # Fallback: fetch from Supabase JWKS endpoint
+    x, y = _fetch_supabase_jwks()
+    if x and y:
+        key = _build_ec_key_from_coords(x, y)
+        if key:
+            return key
+
+    logger.warning("WebApp auth: ES256 key not available — ES256 tokens will fail")
+    return None
 
 
 # Built once at import time so we don't reconstruct on every request.
@@ -175,7 +223,7 @@ async def verify_webapp_user(
         f"WebApp auth: ALL strategies failed."
         f" Last error: {type(last_error).__name__}: {last_error}"
     )
-    logger.error(
+    logger.warning(
         f"WebApp auth: JWT_SECRET set: {bool(jwt_secret)},"
         f" ES256_KEY set: {SUPABASE_PUBLIC_KEY is not None},"
         f" token prefix: {token[:20]}..."
