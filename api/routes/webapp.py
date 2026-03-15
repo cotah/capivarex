@@ -2254,12 +2254,28 @@ async def get_security_events(
                 "security_events table not in schema cache (PGRST205) — "
                 "run migration 005_create_security_events.sql in Supabase."
             )
+            # Still try to get last activity from messages
+            fallback_login = None
+            try:
+                last_msg = (
+                    db.table("webapp_messages")
+                    .select("created_at")
+                    .eq("user_id", user_id)
+                    .eq("role", "user")
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                if last_msg.data:
+                    fallback_login = last_msg.data[0]["created_at"]
+            except Exception:
+                pass
             return {
                 "events": [],
                 "summary": {
                     "total_events": 0,
                     "auth_failures_24h": 0,
-                    "last_login": None,
+                    "last_login": fallback_login,
                     "last_login_ip": None,
                 },
             }
