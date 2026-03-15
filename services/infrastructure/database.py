@@ -293,7 +293,12 @@ class DatabaseService(BaseService):
                 ).eq("user_id", user_id).execute()
             else:
                 self.client.table("proactivity_preferences").insert(
-                    {"user_id": user_id, "enabled": enabled}
+                    {
+                        "user_id": user_id,
+                        "enabled": enabled,
+                        "check_interval_minutes": 30,
+                        "insights_enabled": True,
+                    }
                 ).execute()
             return True
         except Exception as e:
