@@ -52,6 +52,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not await processor.process():
         return
 
+    # ── Registration gate — unregistered users must complete signup first ──
+    try:
+        from telegram_bot.commands.start import handle_registration_flow
+        consumed = await handle_registration_flow(update, context)
+        if consumed:
+            return  # Message was part of registration flow
+    except Exception as e:
+        logger.warning("Registration check failed: %s", e)
+
     bot = context.application.bot_data.get("capivarax_bot")
     if not bot:
         logger.warning("Message received but bot not initialized yet")
