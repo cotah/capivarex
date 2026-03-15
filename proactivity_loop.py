@@ -60,6 +60,16 @@ async def run_proactivity_cycle() -> None:
         logger.error("News fetch step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
+    # ── Step 4: Finance price alerts (every cycle — ~5 min) ───────────────
+    try:
+        from services.business.finance_alert_service import check_price_alerts
+        alerts = await check_price_alerts()
+        if alerts:
+            logger.info("Finance alerts: %d alerts sent this cycle", alerts)
+    except Exception as e:
+        logger.error("Finance alerts step failed: %s", e)
+        sentry_sdk.capture_exception(e)
+
 
 async def _run_proactivity_checks() -> None:
     """Run proactivity insight checks for all users with enabled preferences."""

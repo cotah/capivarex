@@ -14,13 +14,27 @@ from services.core import get_service
 
 logger = logging.getLogger(__name__)
 
-# Categories to fetch
-NEWS_CATEGORIES = [
-    {
-        "query": "Top 5 most important financial and business news stories today. Include stock market movements, crypto trends, and major economic events. Be concise — one paragraph per story.",
-        "type": "finance_news",
-    },
-]
+# Default news query (used when no user-specific context)
+DEFAULT_NEWS_QUERY = (
+    "Top 5 most important financial and business news stories today. "
+    "Focus on: global macro events that affect markets, stock market movements, "
+    "crypto trends, central bank decisions, and geopolitical events with economic impact. "
+    "Be concise — one paragraph per story with clear title."
+)
+
+
+def _build_news_query(user_assets: list[str] | None = None) -> str:
+    """Build a personalized news query based on user's tracked assets."""
+    if not user_assets:
+        return DEFAULT_NEWS_QUERY
+
+    assets_str = ", ".join(user_assets[:10])  # Max 10 to keep prompt short
+    return (
+        f"Top 5 most important financial news today, with special attention to: {assets_str}. "
+        "Include global macro events that could affect these assets, "
+        "central bank decisions, geopolitical events, and market-moving developments. "
+        "Be concise — one paragraph per story with clear title."
+    )
 
 
 async def fetch_and_store_news(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -56,25 +70,22 @@ async def fetch_and_store_news(user_id: Optional[str] = None) -> List[Dict[str, 
 
     articles: List[Dict[str, Any]] = []
 
-    for category in NEWS_CATEGORIES:
-        try:
-            result = await perplexity.search(
-                query=category["query"],
-                model="sonar",
-            )
+    try:
+        query = _build_news_query()
+        result = await perplexity.search(
+            query=query,
+            model="sonar",
+        )
 
-            answer = result.get("answer", "")
-            sources = result.get("sources", [])
+        answer = result.get("answer", "")
+        sources = result.get("sources", [])
 
-            if not answer:
-                continue
-
-            # Parse the answer into individual articles
+        if answer:
             parsed = _parse_news_response(answer, sources)
             articles.extend(parsed)
 
-        except Exception as e:
-            logger.error("News: fetch failed for %s: %s", category["type"], e)
+    except Exception as e:
+        logger.error("News: fetch failed: %s", e)
 
     if not articles:
         logger.info("News: no articles fetched")

@@ -126,16 +126,22 @@ class FinanceAgent(BaseAgent):
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
-        Get financial quote for symbol.
+        Get financial quote for symbol, or configure price alerts.
 
-        Args:
-            prompt: User's finance query
-            context: Context with optional symbol
-
-        Returns:
-            AgentResponse with quote data
+        Handles:
+        - "set my stock alerts to 3%" → updates threshold
+        - "disable alerts" → turns off alerts
+        - "enable alerts" → turns on alerts
+        - Regular stock queries
         """
         lang = get_user_lang(context)
+        user_id = context.get("user_id", "")
+        prompt_lower = prompt.lower()
+
+        # ── Alert configuration ──
+        if any(kw in prompt_lower for kw in ["alert", "alerta", "threshold", "limite"]):
+            return await self._handle_alert_config(prompt_lower, user_id, lang)
+
         symbol = (
             str(context.get("symbol") or self._extract_symbol(prompt)).strip().upper()
         )
@@ -187,6 +193,59 @@ class FinanceAgent(BaseAgent):
                 error=str(e),
                 metadata={"symbol": symbol},
             )
+
+    async def _handle_alert_config(
+        self, prompt_lower: str, user_id: str, lang: str
+    ) -> AgentResponse:
+        """Handle alert configuration commands."""
+        import re
+        from services.business.finance_alert_service import get_alert_config, set_alert_config
+
+        # Disable alerts
+        if any(kw in prompt_lower for kw in ["disable", "desativar", "off", "desligar", "stop"]):
+            await set_alert_config(user_id, {"enabled": False})
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="🔕 Finance alerts disabled. Say 'enable alerts' to turn them back on.",
+            )
+
+        # Enable alerts
+        if any(kw in prompt_lower for kw in ["enable", "ativar", "on", "ligar", "start"]):
+            await set_alert_config(user_id, {"enabled": True})
+            config = await get_alert_config(user_id)
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=f"🔔 Finance alerts enabled! I'll notify you when stocks or crypto move more than {config['threshold_pct']}% in a day.",
+            )
+
+        # Set threshold: "set alerts to 3%", "alert threshold 5%", "alerta 3%"
+        pct_match = re.search(r'(\d+(?:\.\d+)?)\s*%', prompt_lower)
+        if pct_match:
+            threshold = float(pct_match.group(1))
+            if threshold < 0.5:
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response="⚠️ Minimum threshold is 0.5%. A lower value would generate too many alerts.",
+                )
+            if threshold > 50:
+                return AgentResponse(
+                    status=AgentStatus.SUCCESS,
+                    response="⚠️ Maximum threshold is 50%. That high, you'd almost never get alerts.",
+                )
+            await set_alert_config(user_id, {"threshold_pct": threshold, "enabled": True})
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=f"✅ Alert threshold set to {threshold}%. I'll notify you when any stock or crypto moves more than {threshold}% in a day.",
+            )
+
+        # Just asking about alerts — show current config
+        config = await get_alert_config(user_id)
+        status = "enabled 🔔" if config.get("enabled") else "disabled 🔕"
+        threshold = config.get("threshold_pct", 5.0)
+        return AgentResponse(
+            status=AgentStatus.SUCCESS,
+            response=f"📊 Your finance alerts are **{status}** with a **{threshold}%** threshold.\n\nYou can say:\n• \"Set alerts to 3%\" — change threshold\n• \"Disable alerts\" — turn off\n• \"Enable alerts\" — turn on",
+        )
 
     def _extract_symbol(self, prompt: str) -> str:
         """

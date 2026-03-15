@@ -92,3 +92,84 @@ async def test_finance_service_unavailable(finance_agent):
         "unavailable" in result.response.lower()
         or "disponivel" in result.response.lower()
     )
+
+
+# ---------------------------------------------------------------------------
+# Alert Configuration Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_finance_alert_set_threshold(finance_agent):
+    """Finance agent handles 'set alerts to 3%'."""
+    with (
+        patch("services.business.finance_alert_service.set_alert_config", new_callable=AsyncMock, return_value=True),
+        patch("services.business.finance_alert_service.get_alert_config", new_callable=AsyncMock, return_value={"enabled": True, "threshold_pct": 3.0}),
+    ):
+        result = await finance_agent.execute(
+            "set my stock alerts to 3%",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "3" in result.response
+
+
+@pytest.mark.asyncio
+async def test_finance_alert_disable(finance_agent):
+    """Finance agent handles 'disable alerts'."""
+    with patch("services.business.finance_alert_service.set_alert_config", new_callable=AsyncMock, return_value=True):
+        result = await finance_agent.execute(
+            "disable my alerts",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "disabled" in result.response.lower()
+
+
+@pytest.mark.asyncio
+async def test_finance_alert_enable(finance_agent):
+    """Finance agent handles 'enable alerts'."""
+    with (
+        patch("services.business.finance_alert_service.set_alert_config", new_callable=AsyncMock, return_value=True),
+        patch("services.business.finance_alert_service.get_alert_config", new_callable=AsyncMock, return_value={"enabled": True, "threshold_pct": 5.0}),
+    ):
+        result = await finance_agent.execute(
+            "enable my alerts",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "enabled" in result.response.lower()
+
+
+@pytest.mark.asyncio
+async def test_finance_alert_status(finance_agent):
+    """Finance agent shows current alert config."""
+    with patch("services.business.finance_alert_service.get_alert_config", new_callable=AsyncMock, return_value={"enabled": True, "threshold_pct": 5.0}):
+        result = await finance_agent.execute(
+            "show my alerts",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "5" in result.response
+
+
+@pytest.mark.asyncio
+async def test_finance_alert_threshold_too_low(finance_agent):
+    """Finance agent rejects threshold below 0.5%."""
+    result = await finance_agent.execute(
+        "set alerts to 0.1%",
+        {"user_id": "test-user-123"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert "0.5" in result.response
+
+
+@pytest.mark.asyncio
+async def test_finance_alert_threshold_too_high(finance_agent):
+    """Finance agent rejects threshold above 50%."""
+    result = await finance_agent.execute(
+        "set alert threshold 60%",
+        {"user_id": "test-user-123"},
+    )
+    assert result.status == AgentStatus.SUCCESS
+    assert "50" in result.response
