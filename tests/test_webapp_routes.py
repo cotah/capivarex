@@ -1020,14 +1020,16 @@ class TestSmartVehicles:
 class TestFinancePortfolio:
     """Tests for finance portfolio endpoint."""
 
-    def test_portfolio_placeholder(self, app_client):
+    def test_portfolio_returns_structure(self, app_client):
         resp = app_client.get(
             "/api/webapp/finance/portfolio", headers=_auth_header()
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert body["stocks"] == []
-        assert body["crypto"] == []
+        assert "stocks" in body
+        assert "crypto" in body
+        assert isinstance(body["stocks"], list)
+        assert isinstance(body["crypto"], list)
 
 
 # ---------------------------------------------------------------------------
@@ -1038,13 +1040,24 @@ class TestFinancePortfolio:
 class TestFinanceNews:
     """Tests for finance news endpoint."""
 
-    def test_news_placeholder(self, app_client):
-        resp = app_client.get(
-            "/api/webapp/finance/news", headers=_auth_header()
+    def test_news_returns_structure(self, app_client):
+        db = _mock_db()
+        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
+            _make_supabase_result([{"telegram_chat_id": "123"}])
         )
+        # Mock proactivity_feed for cached news
+        db.table("proactivity_feed").select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = (
+            _make_supabase_result([])
+        )
+
+        with patch("api.routes.webapp._get_db", return_value=db):
+            resp = app_client.get(
+                "/api/webapp/finance/news", headers=_auth_header()
+            )
         assert resp.status_code == 200
         body = resp.json()
-        assert body["news"] == []
+        assert "news" in body
+        assert isinstance(body["news"], list)
 
 
 # ---------------------------------------------------------------------------
