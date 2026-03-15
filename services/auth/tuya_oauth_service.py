@@ -445,14 +445,15 @@ class TuyaOAuth:
             msg = data.get("msg", "unknown error")
             error_code = str(data.get("code", ""))
             logger.warning(
-                "Tuya command failed: %s (code=%s)", msg, error_code
+                "Tuya command failed: {} (code={}) device={} cmds={}",
+                msg, error_code, device_id, commands,
             )
             # Classify the error
             if "offline" in msg.lower() or "device is offline" in msg.lower():
                 return {"success": False, "error": "device_offline", "code": error_code}
             return {"success": False, "error": msg, "code": error_code}
 
-        logger.info("Tuya command sent: device=%s, commands=%s", device_id, commands)
+        logger.info("Tuya command sent: device={}, commands={}", device_id, commands)
         return {"success": True, "error": None, "code": None}
 
     # ------------------------------------------------------------------

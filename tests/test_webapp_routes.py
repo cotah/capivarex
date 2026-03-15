@@ -970,6 +970,89 @@ class TestSmartDevices:
 
 
 # ---------------------------------------------------------------------------
+# POST /api/webapp/smarts/devices/{id}/command
+# ---------------------------------------------------------------------------
+
+
+class TestSmartDeviceCommand:
+    """Tests for smart device command endpoint with DP code discovery."""
+
+    def test_command_discovers_codes(self, app_client):
+        """Endpoint queries device status to find real DP codes."""
+        mock_tuya = MagicMock()
+        mock_tuya.is_connected = AsyncMock(return_value=True)
+        mock_tuya.get_device_status = AsyncMock(return_value=[
+            {"code": "switch_1", "value": True},
+            {"code": "countdown_1", "value": 0},
+        ])
+        mock_tuya.send_command = AsyncMock(
+            return_value={"success": True, "error": None, "code": None}
+        )
+
+        with patch(
+            "services.auth.tuya_oauth_service.get_tuya_oauth",
+            return_value=mock_tuya,
+        ):
+            resp = app_client.post(
+                "/api/webapp/smarts/devices/test123/command",
+                json={"code": "switch_led", "value": True},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+        # Should have tried switch_1 (from device status) not switch_led
+        assert body["code"] == "switch_1"
+
+    def test_command_device_offline(self, app_client):
+        """Endpoint returns offline error."""
+        mock_tuya = MagicMock()
+        mock_tuya.is_connected = AsyncMock(return_value=True)
+        mock_tuya.get_device_status = AsyncMock(return_value=[
+            {"code": "switch_led", "value": False},
+        ])
+        mock_tuya.send_command = AsyncMock(
+            return_value={"success": False, "error": "device_offline", "code": "2001"}
+        )
+
+        with patch(
+            "services.auth.tuya_oauth_service.get_tuya_oauth",
+            return_value=mock_tuya,
+        ):
+            resp = app_client.post(
+                "/api/webapp/smarts/devices/test123/command",
+                json={"code": "switch_led", "value": True},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is False
+        assert "offline" in body["error"].lower()
+
+    def test_command_not_connected(self, app_client):
+        """Endpoint returns error when Tuya not connected."""
+        mock_tuya = MagicMock()
+        mock_tuya.is_connected = AsyncMock(return_value=False)
+
+        with patch(
+            "services.auth.tuya_oauth_service.get_tuya_oauth",
+            return_value=mock_tuya,
+        ):
+            resp = app_client.post(
+                "/api/webapp/smarts/devices/test123/command",
+                json={"code": "switch_led", "value": True},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is False
+        assert "not connected" in body["error"].lower()
+
+
+# ---------------------------------------------------------------------------
 # GET /api/webapp/smarts/vehicles
 # ---------------------------------------------------------------------------
 

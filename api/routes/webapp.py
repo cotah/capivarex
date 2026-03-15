@@ -1375,44 +1375,79 @@ async def smart_device_command(
     body: DeviceCommandRequest,
     user_id: str = Depends(verify_webapp_user),
 ):
-    """Send a command to a Tuya device (toggle on/off, etc)."""
+    """Send a command to a Tuya device (toggle on/off, etc).
+
+    Strategy: Query device status FIRST to discover actual DP codes,
+    then try those codes. Tuya API sometimes returns 'success' for
+    non-existent DPs (silently does nothing), so we must use real codes.
+    """
     try:
         from services.auth.tuya_oauth_service import get_tuya_oauth
         tuya = get_tuya_oauth()
 
-        # Check if connected first
         connected = await tuya.is_connected(user_id)
         if not connected:
             return {"ok": False, "error": "Tuya not connected. Go to Settings to reconnect."}
 
-        # Try the requested code first, then common switch codes
-        codes_to_try = [body.code]
-        if body.code not in ("switch_led", "switch_1", "switch", "switch_led_1"):
-            codes_to_try.extend(["switch_led", "switch_1", "switch", "switch_led_1"])
+        # Step 1: Query device status to discover actual DP codes
+        status_list = []
+        try:
+            status_list = await tuya.get_device_status(user_id, device_id) or []
+        except Exception as e:
+            logger.warning(f"WebApp: device={device_id[:8]} status query failed: {e}")
 
+        # Step 2: Build ordered list of codes to try
+        device_codes = [s.get("code", "") for s in status_list]
+        known_switch = ["switch_led", "switch_1", "switch", "switch_led_1", "Power", "power"]
+
+        codes_to_try = []
+        # Add the user's requested code if device has it
+        if body.code in device_codes:
+            codes_to_try.append(body.code)
+        # Add known switch codes that the device reports
+        for code in known_switch:
+            if code in device_codes and code not in codes_to_try:
+                codes_to_try.append(code)
+        # Add any boolean codes from status (likely switches)
+        for s in status_list:
+            code = s.get("code", "")
+            if isinstance(s.get("value"), bool) and code not in codes_to_try:
+                codes_to_try.append(code)
+        # Fallback: try the user's code and known codes even if not in status
+        if not codes_to_try:
+            codes_to_try = [body.code] + [c for c in known_switch if c != body.code]
+
+        logger.info(
+            f"WebApp: device={device_id[:8]} status_codes={device_codes} "
+            f"trying={codes_to_try}"
+        )
+
+        # Step 3: Try each code
         for code in codes_to_try:
-            success = await tuya.send_command(
+            result = await tuya.send_command(
                 user_id, device_id, [{"code": code, "value": body.value}]
             )
-            if success:
+            if result.get("success"):
                 logger.info(
                     f"WebApp: user={user_id[:8]} device={device_id[:8]} "
                     f"command={code}={body.value} — success"
                 )
                 return {"ok": True, "code": code, "value": body.value}
 
-        # All codes failed — get status to show available codes
-        try:
-            status = await tuya.get_device_status(user_id, device_id)
-            available = [s.get("code") for s in (status or []) if s.get("code")]
-            logger.warning(
-                f"WebApp: user={user_id[:8]} device={device_id[:8]} "
-                f"— no switch code worked. Available: {available}"
-            )
-        except Exception:
-            available = []
+            # Device offline — stop immediately
+            if result.get("error") == "device_offline":
+                return {"ok": False, "error": "Device is offline. Check if it's powered on and connected to WiFi."}
+            if result.get("error") == "no_token":
+                return {"ok": False, "error": "Tuya not connected. Go to Settings to reconnect."}
 
-        return {"ok": False, "error": f"Could not toggle device. Available codes: {', '.join(available) or 'none'}"}
+        logger.warning(
+            f"WebApp: user={user_id[:8]} device={device_id[:8]} "
+            f"— no code worked. Device codes: {device_codes}"
+        )
+        return {
+            "ok": False,
+            "error": f"Could not toggle device. Available codes: {', '.join(device_codes) or 'none'}",
+        }
 
     except Exception as e:
         logger.error(f"WebApp device command error: {e}", exc_info=True)
