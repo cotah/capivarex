@@ -122,15 +122,19 @@ def format_memories_for_prompt(memories: List[dict]) -> str:
 async def extract_and_save_memory(user_id: str, message: str) -> None:
     """Extrai e salva memória de uma mensagem do usuário. Non-blocking."""
     try:
-        from services.ai.embedding_service import embed_text
-
         client = _get_client()
         if not client:
+            logger.warning("Memory: Supabase client not available")
             return
 
         from openai import AsyncOpenAI
 
-        ai = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            logger.warning("Memory: OPENAI_API_KEY not set")
+            return
+
+        ai = AsyncOpenAI(api_key=api_key)
 
         # Passo 1: Classificar se a mensagem tem informação memorável
         classification = await ai.chat.completions.create(
@@ -156,6 +160,7 @@ async def extract_and_save_memory(user_id: str, message: str) -> None:
         result = json.loads(classification.choices[0].message.content)
 
         if not result.get("memorable"):
+            logger.debug("Memory: message not memorable for user=%s", user_id[:8])
             return
 
         fact = result.get("fact", "").strip()
@@ -164,42 +169,68 @@ async def extract_and_save_memory(user_id: str, message: str) -> None:
         if not fact:
             return
 
-        # Passo 2: Gerar embedding do facto
-        embedding = await embed_text(fact)
-        if embedding is None:
-            return
+        # Passo 2: Tentar gerar embedding (optional — save memory even without it)
+        embedding = None
+        try:
+            from services.ai.embedding_service import embed_text
+            embedding = await embed_text(fact)
+        except Exception as emb_err:
+            logger.warning("Memory: embedding failed (will save without): %s", emb_err)
 
         # Passo 3: Verificar se já existe memória similar (evitar duplicatas)
-        existing = (
-            client.table("user_memory")
-            .select("id, content")
-            .eq("user_id", user_id)
-            .eq("category", category)
-            .execute()
-        )
+        try:
+            existing = (
+                client.table("user_memory")
+                .select("id, content")
+                .eq("user_id", user_id)
+                .eq("category", category)
+                .execute()
+            )
 
-        for mem in existing.data or []:
-            if _text_similarity(mem.get("content", ""), fact) > 0.85:
-                return  # já existe memória similar
+            for mem in existing.data or []:
+                if _text_similarity(mem.get("content", ""), fact) > 0.85:
+                    logger.debug("Memory: duplicate found, skipping")
+                    return  # já existe memória similar
+        except Exception as dup_err:
+            logger.warning("Memory: duplicate check failed (will save anyway): %s", dup_err)
 
         # Passo 4: Salvar no banco
-        client.table("user_memory").insert(
-            {
-                "user_id": user_id,
-                "content": fact,
-                "category": category,
-                "confidence": 0.9,
-                "source": "chat",
-                "embedding": embedding,
-            }
-        ).execute()
+        # Table requires key (NOT NULL) and value (NOT NULL)
+        payload = {
+            "user_id": user_id,
+            "key": category,
+            "value": fact,
+            "content": fact,
+            "category": category,
+            "confidence": 0.9,
+            "source": "chat",
+        }
+        # Only include embedding if we have one and column exists
+        if embedding is not None:
+            payload["embedding"] = embedding
 
-        logger.info(
-            "Memory saved for user %s: [%s] %s",
-            user_id[:8],
-            category,
-            fact[:50],
-        )
+        try:
+            client.table("user_memory").insert(payload).execute()
+            logger.info(
+                "Memory saved for user %s: [%s] %s",
+                user_id[:8],
+                category,
+                fact[:50],
+            )
+        except Exception as insert_err:
+            # If insert fails with embedding, retry without it
+            if embedding is not None and "embedding" in str(insert_err).lower():
+                logger.warning("Memory: insert with embedding failed, retrying without")
+                payload.pop("embedding", None)
+                client.table("user_memory").insert(payload).execute()
+                logger.info(
+                    "Memory saved (no embedding) for user %s: [%s] %s",
+                    user_id[:8],
+                    category,
+                    fact[:50],
+                )
+            else:
+                raise
 
     except Exception as e:
         logger.warning("Memory extraction failed (non-blocking): %s", e)
