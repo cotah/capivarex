@@ -426,11 +426,44 @@ class TuyaOAuth:
         commands example: [{"code": "switch_led", "value": True}]
 
         Returns dict: {"success": bool, "error": str|None, "code": str|None}
+
+        Strategy on "device is offline":
+        1. Try with current token
+        2. If offline → refresh token and retry (re-establishes cloud session)
+        3. If still offline → try v2.0 API endpoint
         """
         token = await self.get_user_token(user_id)
         if not token:
             return {"success": False, "error": "no_token", "code": None}
 
+        # Attempt 1: standard v1.0 command
+        result = await self._send_command_raw(token, device_id, commands)
+        if result.get("success"):
+            return result
+
+        # Attempt 2: if offline, refresh token and retry
+        if result.get("error") == "device_offline":
+            logger.info(
+                "Tuya: device {} offline — refreshing token and retrying...",
+                device_id[:8],
+            )
+            new_token = await self.refresh_user_token(user_id)
+            if new_token and new_token != token:
+                result2 = await self._send_command_raw(new_token, device_id, commands)
+                if result2.get("success"):
+                    return result2
+
+                # Attempt 3: try v2.0 API (better cloud-device connectivity)
+                result3 = await self._send_command_v2(new_token, device_id, commands)
+                if result3.get("success"):
+                    return result3
+
+        return result
+
+    async def _send_command_raw(
+        self, token: str, device_id: str, commands: List[Dict[str, Any]]
+    ) -> dict:
+        """Low-level v1.0 command send."""
         path = f"/v1.0/devices/{device_id}/commands"
         body = json.dumps({"commands": commands})
         headers = self._sign_request("POST", path, access_token=token, body=body)
@@ -446,15 +479,45 @@ class TuyaOAuth:
             error_code = str(data.get("code", ""))
             logger.warning(
                 "Tuya command failed: {} (code={}) device={} cmds={}",
-                msg, error_code, device_id, commands,
+                msg, error_code, device_id[:8], commands,
             )
-            # Classify the error
-            if "offline" in msg.lower() or "device is offline" in msg.lower():
+            if "offline" in msg.lower():
                 return {"success": False, "error": "device_offline", "code": error_code}
             return {"success": False, "error": msg, "code": error_code}
 
-        logger.info("Tuya command sent: device={}, commands={}", device_id, commands)
+        logger.info("Tuya command sent: device={}, commands={}", device_id[:8], commands)
         return {"success": True, "error": None, "code": None}
+
+    async def _send_command_v2(
+        self, token: str, device_id: str, commands: List[Dict[str, Any]]
+    ) -> dict:
+        """Try v2.0 IoT Core API — uses cloud token for better device reach."""
+        try:
+            cloud_token = await self._get_cloud_token()
+        except Exception:
+            return {"success": False, "error": "no_cloud_token", "code": None}
+
+        path = f"/v2.0/cloud/thing/{device_id}/shadow/properties/issue"
+        properties = [{"code": cmd["code"], "value": cmd["value"]} for cmd in commands]
+        body = json.dumps({"properties": properties})
+        headers = self._sign_request("POST", path, access_token=cloud_token, body=body)
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self.base_url}{path}", headers=headers, content=body
+                )
+                data = resp.json()
+
+            if data.get("success"):
+                logger.info("Tuya v2.0 command success: device={}", device_id[:8])
+                return {"success": True, "error": None, "code": None}
+
+            logger.warning("Tuya v2.0 also failed: {}", data.get("msg", ""))
+        except Exception as e:
+            logger.warning("Tuya v2.0 attempt failed: {}", e)
+
+        return {"success": False, "error": "device_offline", "code": "v2_also_failed"}
 
     # ------------------------------------------------------------------
     # Connection status
