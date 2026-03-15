@@ -143,6 +143,7 @@ def _parse_news_response(
     answer: str, sources: List[str]
 ) -> List[Dict[str, Any]]:
     """Parse Perplexity response into individual news articles."""
+    import re
     articles = []
 
     # Split by numbered items or double newlines
@@ -152,40 +153,44 @@ def _parse_news_response(
     current_body = ""
 
     for para in paragraphs:
-        # Check if it starts with a number (numbered list)
-        stripped = para.lstrip("0123456789.-) ")
-        if para != stripped and len(stripped) > 10:
+        # Clean markdown bold markers
+        clean = para.strip()
+
+        # Pattern: **1. Title here.** or **Title** or 1. Title
+        bold_numbered = re.match(r'^\*{0,2}\s*\d+[\.\)]\s*(.+?)\.?\*{0,2}$', clean)
+        bold_header = clean.startswith("**") and clean.endswith("**")
+        numbered = re.match(r'^\d+[\.\)]\s+(.+)', clean)
+
+        if bold_numbered or bold_header or numbered:
             # Save previous article
             if current_title and current_body:
                 articles.append({
-                    "title": current_title[:120],
+                    "title": current_title.strip("* .")[:120],
                     "summary": current_body[:500],
                     "source": "Perplexity",
                     "sources": sources[:3],
                 })
-            # Start new article
+
+            if bold_numbered:
+                text = bold_numbered.group(1).strip("* ")
+            elif bold_header:
+                text = clean.strip("* ")
+            else:
+                text = numbered.group(1).strip("* ")
+
             # Title is first sentence, body is the rest
-            sentences = stripped.split(". ", 1)
-            current_title = sentences[0].rstrip(".") if sentences else stripped[:80]
-            current_body = sentences[1] if len(sentences) > 1 else stripped
-        elif para.startswith("**") and para.endswith("**"):
-            # Bold header = title
-            if current_title and current_body:
-                articles.append({
-                    "title": current_title[:120],
-                    "summary": current_body[:500],
-                    "source": "Perplexity",
-                    "sources": sources[:3],
-                })
-            current_title = para.strip("*").strip()
-            current_body = ""
+            sentences = text.split(". ", 1)
+            current_title = sentences[0].rstrip(".").strip("* ")
+            current_body = sentences[1].strip("* ") if len(sentences) > 1 else ""
         else:
-            current_body += " " + para if current_body else para
+            # Body paragraph — strip markdown
+            cleaned = clean.strip("* ")
+            current_body += " " + cleaned if current_body else cleaned
 
     # Don't forget the last article
     if current_title and current_body:
         articles.append({
-            "title": current_title[:120],
+            "title": current_title.strip("* .")[:120],
             "summary": current_body[:500],
             "source": "Perplexity",
             "sources": sources[:3],
