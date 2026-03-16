@@ -287,7 +287,11 @@ class TuyaOAuth:
     # ------------------------------------------------------------------
 
     async def refresh_user_token(self, user_id: str) -> Optional[str]:
-        """Refresh an expired user token."""
+        """Refresh an expired user token.
+
+        If refresh fails 3 times, deactivates the token so the user
+        is prompted to reconnect their Smart Life account.
+        """
         row = await self._get_token_row(user_id)
         if not row:
             return None
@@ -298,16 +302,12 @@ class TuyaOAuth:
 
         data = {}
 
-        # Try refresh with up to 3 attempts:
-        # Attempt 0: current cloud token
-        # Attempt 1: fresh cloud token (force re-fetch)
-        # Attempt 2: fresh cloud token + fresh timestamp
+        # Try refresh with up to 3 attempts
         for attempt in range(3):
             if attempt > 0:
                 # Force fresh cloud token on retry
                 self._cloud_token = None
                 self._cloud_token_expires = 0
-                # Small delay to get a different timestamp
                 import asyncio
                 await asyncio.sleep(0.5)
 
@@ -323,7 +323,16 @@ class TuyaOAuth:
             path = f"/v1.0/token/{refresh_token}"
             headers = self._sign_request("GET", path, access_token=cloud_token, timestamp=timestamp)
 
-            async with httpx.AsyncClient() as client:
+            # Debug: log which tokens are being used (prefixes only for security)
+            logger.info(
+                "Tuya refresh attempt {} for user={}: cloud_token={}... refresh_token={}... t={}",
+                attempt, user_id[:8],
+                cloud_token[:12] if cloud_token else "NONE",
+                refresh_token[:12] if refresh_token else "NONE",
+                timestamp,
+            )
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(f"{self.base_url}{path}", headers=headers)
                 data = resp.json()
 
@@ -333,21 +342,18 @@ class TuyaOAuth:
             error_msg = data.get("msg", "")
             error_code = data.get("code", "")
             logger.warning(
-                "Tuya refresh attempt {} failed for user={}: {} (code={}) t={}",
-                attempt, user_id[:8], error_msg, error_code, timestamp,
+                "Tuya refresh attempt {} failed for user={}: {} (code={})",
+                attempt, user_id[:8], error_msg, error_code,
             )
 
-            if "sign invalid" not in str(error_msg).lower() and attempt > 0:
-                # Non-sign error on retry — give up
-                logger.error("Tuya token refresh failed (non-sign error): {}", error_msg)
-                return None
         else:
-            # All attempts failed
+            # All 3 attempts failed — deactivate the token
             logger.error(
                 "Tuya token refresh FAILED after 3 attempts for user={}. "
-                "Possible clock skew or stale credentials.",
+                "Deactivating stale token — user must reconnect Smart Life.",
                 user_id[:8],
             )
+            await self._deactivate_token(user_id)
             return None
 
         result = data["result"]
@@ -364,7 +370,10 @@ class TuyaOAuth:
             expires_at=expires_at.isoformat(),
         )
 
-        logger.info("Tuya token refreshed for user={}", user_id[:8])
+        logger.info(
+            "Tuya token refreshed for user={}, new_token={}...",
+            user_id[:8], new_access[:12],
+        )
         return new_access
 
     # ------------------------------------------------------------------
@@ -656,6 +665,21 @@ class TuyaOAuth:
         except Exception as e:
             logger.error("Tuya get token error: {}", e)
             return None
+
+    async def _deactivate_token(self, user_id: str) -> None:
+        """Deactivate a stale Tuya token so user is prompted to reconnect."""
+        from services.infrastructure.database import get_supabase_client
+
+        sb = get_supabase_client()
+        if not sb:
+            return
+        try:
+            sb.table("user_oauth_tokens").update(
+                {"active": False}
+            ).eq("user_id", user_id).eq("provider", "tuya").execute()
+            logger.info("Tuya token deactivated for user={} — reconnection required", user_id[:8])
+        except Exception as e:
+            logger.error("Tuya deactivate token error: {}", e)
 
 
 # Singleton

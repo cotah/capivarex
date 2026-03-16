@@ -1322,14 +1322,28 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
         )
 
         if not token.data or not token.data[0].get("active"):
-            logger.info(f"WebApp: user={user_id[:8]} smarts/devices: not connected")
-            return {"devices": [], "connected": False}
+            logger.info(f"WebApp: user={user_id[:8]} smarts/devices: not connected or token deactivated")
+            return {"devices": [], "connected": False, "needs_reconnect": True}
 
         # Fetch actual devices from Tuya API
         from services.auth.tuya_oauth_service import get_tuya_oauth
         tuya = get_tuya_oauth()
         tuya_user_id = token.data[0].get("user_id", user_id)
         raw_devices = await tuya.get_user_devices(tuya_user_id)
+
+        # If no devices returned and token might be stale, flag reconnect
+        if not raw_devices:
+            # Check if token was deactivated during this request
+            token_recheck = (
+                db.table("user_oauth_tokens")
+                .select("active")
+                .in_("user_id", user_ids_to_check)
+                .eq("provider", "tuya")
+                .limit(1)
+                .execute()
+            )
+            if token_recheck.data and not token_recheck.data[0].get("active"):
+                return {"devices": [], "connected": False, "needs_reconnect": True}
 
         devices = []
         for d in raw_devices:
