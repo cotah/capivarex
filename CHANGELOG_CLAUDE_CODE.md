@@ -165,6 +165,20 @@ O Claude Code deve ler isto para saber o estado actual do projecto.
 - **Dedup:** por event_id (1 alerta por aniversário)
 - **Proactivity loop Step 9:** `proactivity_loop.py` — `_run_birthday_detection()` diário 08:00-10:00 UTC
 
+### A2. Leaving Home Check
+- **Ficheiro:** `services/business/leaving_home_check_service.py`
+- **Testes:** `tests/test_leaving_home_check_service.py`
+- **O que faz:** Quando user diz "vou sair" → briefing completo de saída
+- **Trigger keywords:** "vou sair", "i'm leaving", "heading out", "me voy" (PT/EN/ES)
+- **Detecção:** `is_leaving_trigger(message)` — chamar antes do orchestrator
+- **4 verificações:**
+  - Weather: temperatura, chuva, vento (com warnings de guarda-chuva/vento forte)
+  - Calendar: próximo evento + hora de saída (integra com LeavingNowService existente)
+  - Smart Home: luzes acesas, portas destrancadas (sugere desligar)
+  - Traffic: tempo de viagem (via LeavingNowService)
+- **Humanizado** via GPT — 1 mensagem warm com tudo junto
+- **Smart Home:** pronto para funcionar quando tiver dispositivo Tuya/SmartThings
+
 ---
 
 ## 5. CI/CD Changes

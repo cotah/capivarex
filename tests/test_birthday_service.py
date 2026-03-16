@@ -214,3 +214,33 @@ class TestBirthdayHelpers:
         with patch("services.business.birthday_service.get_service", return_value=mock_cal):
             result = await detect_upcoming_birthdays("u1")
         assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_humanize_birthday_gpt(self):
+        from services.business.birthday_service import _humanize_birthday_alert
+        mock_openai = MagicMock()
+        mock_openai.is_initialized.return_value = True
+        mock_openai.chat_completion.return_value = (
+            "🎂 Hey Marcos! João's birthday is in 3 days! "
+            "How about a nice gift or dinner? Want me to help?"
+        )
+
+        with patch("services.business.birthday_service.get_service", return_value=mock_openai):
+            result = await _humanize_birthday_alert("Marcos", "João", 3, "Mar 20")
+        assert "João" in result
+        assert "Marcos" in result
+
+    @pytest.mark.asyncio
+    async def test_detect_birthday_with_description(self):
+        mock_cal = MagicMock()
+        mock_cal.is_initialized.return_value = True
+        from datetime import datetime, timezone, timedelta
+        start = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d")
+        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
+            {"id": "evt-desc", "summary": "Party for Pedro",
+             "start": start, "end": start, "description": "Birthday celebration"},
+        ])
+
+        with patch("services.business.birthday_service.get_service", return_value=mock_cal):
+            result = await detect_upcoming_birthdays("u1")
+        assert len(result) == 1
