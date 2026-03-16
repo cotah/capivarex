@@ -91,6 +91,13 @@ async def run_proactivity_cycle() -> None:
         logger.error("Weekly recap step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
+    # ── Step 8: Travel planner detection (once/day, 10:00-12:00 UTC) ──────
+    try:
+        await _run_travel_detection()
+    except Exception as e:
+        logger.error("Travel detection step failed: %s", e)
+        sentry_sdk.capture_exception(e)
+
 
 async def _run_proactivity_checks() -> None:
     """Run proactivity insight checks for all users with enabled preferences."""
@@ -496,6 +503,21 @@ async def _run_weekly_recap() -> None:
                 logger.info("Weekly recap sent for user={}", user_id[:8])
         except Exception as e:
             logger.warning("Weekly recap failed for user={}: {}", user_id[:8], e)
+
+
+async def _run_travel_detection() -> None:
+    """Detect upcoming trips in calendar (once/day, 10:00-12:00 UTC)."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    # Only run between 10:00-12:00 UTC (once per day)
+    if not (10 <= now.hour <= 12):
+        return
+
+    from services.business.travel_planner_service import check_travel_for_all_users
+    alerts = await check_travel_for_all_users()
+    if alerts:
+        logger.info("Travel detection: %d trip alerts sent", alerts)
 
 
 async def main_loop() -> None:
