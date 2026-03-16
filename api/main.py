@@ -648,14 +648,7 @@ app.add_middleware(
     allow_origin_regex=r"https://(app\.)?capivarex\.(com|vercel\.app).*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=[
-        "Authorization",
-        "Content-Type",
-        "Accept",
-        "Origin",
-        "X-Requested-With",
-        "X-Webhook-Signature",
-    ],
+    allow_headers=["*"],
 )
 
 # ====================================================================
