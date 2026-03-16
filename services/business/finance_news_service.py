@@ -157,55 +157,65 @@ def _parse_news_response(
     import re
     articles = []
 
-    # Split by numbered items or double newlines
-    paragraphs = [p.strip() for p in answer.split("\n") if p.strip()]
+    # Split on numbered items OR bold headers at start of line/paragraph
+    # Handles: "**1. Title** body", "1. Title. Body", "**Title**\nBody"
+    parts = re.split(r'\n(?=\s*\*{0,2}\s*\d+[\.\)]\s)', answer)
 
-    current_title = ""
-    current_body = ""
+    # If only 1 part, try splitting on double-newline + bold header
+    if len(parts) <= 1:
+        parts = re.split(r'\n\n(?=\*\*)', answer)
 
-    for para in paragraphs:
-        # Clean markdown bold markers
-        clean = para.strip()
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
 
-        # Pattern: **1. Title here.** or **Title** or 1. Title
-        bold_numbered = re.match(r'^\*{0,2}\s*\d+[\.\)]\s*(.+?)\.?\*{0,2}$', clean)
-        bold_header = clean.startswith("**") and clean.endswith("**")
-        numbered = re.match(r'^\d+[\.\)]\s+(.+)', clean)
+        # Remove leading number: "1. " or "**1. " or "**1) "
+        cleaned = re.sub(r'^\s*\*{0,2}\s*\d+[\.\)]\s*', '', part)
+        if not cleaned:
+            continue
 
-        if bold_numbered or bold_header or numbered:
-            # Save previous article
-            if current_title and current_body:
+        # Extract title and body
+        # Handle "**Title** body" or "**Title.**\nbody"
+        bold_match = re.match(r'\*\*(.+?)\*\*\.?\s*(.*)', cleaned, re.DOTALL)
+        if bold_match:
+            title = bold_match.group(1).strip().rstrip('.')
+            body = bold_match.group(2).strip()
+        else:
+            # No bold — first sentence is title
+            sentences = re.split(r'(?<=[.!?])\s+', cleaned, maxsplit=1)
+            title = sentences[0].strip().rstrip('.').strip('* ')
+            body = sentences[1].strip('* ') if len(sentences) > 1 else ''
+
+        # Clean markdown
+        title = re.sub(r'\*{1,2}', '', title).strip()
+        body = re.sub(r'\*{1,2}', '', body).strip()
+        body = re.sub(r'\[?\d+\]?', '', body).strip()  # Remove citation numbers [1]
+
+        if title and len(title) > 5:
+            articles.append({
+                "title": title[:120],
+                "summary": body[:500] if body else title[:500],
+                "source": "Perplexity",
+                "sources": sources[:3],
+            })
+
+    # Fallback: paragraph split
+    if not articles and answer.strip():
+        paragraphs = [p.strip() for p in answer.split('\n\n') if p.strip()]
+        for para in paragraphs[:5]:
+            clean = re.sub(r'\*{1,2}', '', para).strip()
+            clean = re.sub(r'^\d+[\.\)]\s*', '', clean)
+            if len(clean) > 10:
+                first_sentence = re.split(r'(?<=[.!?])\s', clean, maxsplit=1)
                 articles.append({
-                    "title": current_title.strip("* .")[:120],
-                    "summary": current_body[:500],
+                    "title": first_sentence[0][:120].rstrip('.'),
+                    "summary": clean[:500],
                     "source": "Perplexity",
                     "sources": sources[:3],
                 })
 
-            if bold_numbered:
-                text = bold_numbered.group(1).strip("* ")
-            elif bold_header:
-                text = clean.strip("* ")
-            else:
-                text = numbered.group(1).strip("* ")
-
-            # Title is first sentence, body is the rest
-            sentences = text.split(". ", 1)
-            current_title = sentences[0].rstrip(".").strip("* ")
-            current_body = sentences[1].strip("* ") if len(sentences) > 1 else ""
-        else:
-            # Body paragraph — strip markdown
-            cleaned = clean.strip("* ")
-            current_body += " " + cleaned if current_body else cleaned
-
-    # Don't forget the last article
-    if current_title and current_body:
-        articles.append({
-            "title": current_title.strip("* .")[:120],
-            "summary": current_body[:500],
-            "source": "Perplexity",
-            "sources": sources[:3],
-        })
+    return articles
 
     # If parsing didn't produce good results, use the whole answer as one article
     if not articles and answer:

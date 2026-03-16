@@ -1344,11 +1344,26 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
                 "qt": "📱",  # Other
             }
             is_online = d.get("online", False)
+
+            # Get REAL switch state (not just online status)
+            switch_on = False
+            if is_online and category in ("dj", "dd", "dc", "cz", "pc", "kg"):
+                try:
+                    status_list = await tuya.get_device_status(tuya_user_id, d.get("id", ""))
+                    for s in (status_list or []):
+                        code = s.get("code", "")
+                        if code in ("switch_led", "switch_1", "switch", "switch_led_1") and isinstance(s.get("value"), bool):
+                            switch_on = s["value"]
+                            break
+                except Exception:
+                    pass
+
             devices.append({
                 "id": d.get("id", ""),
                 "name": d.get("name") or d.get("custom_name") or "Device",
                 "icon": icon_map.get(category, "📱"),
-                "status": "on" if is_online else "off",
+                "status": "on" if switch_on else "off",
+                "online": is_online,
                 "room": "",
                 "type": "light" if category in ("dj", "dd", "dc") else "plug" if category in ("cz", "pc", "kg") else "thermostat" if category in ("wk", "kt") else "lock" if category == "cl" else "camera" if category == "sp" else "other",
             })
@@ -1634,8 +1649,21 @@ async def finance_news(
     from services.business.finance_news_service import get_cached_news
     articles = await get_cached_news(user_id, limit=limit)
 
-    # If no cached news, fetch fresh (first time or cache empty)
-    if not articles:
+    # Auto-refresh if no news or news is stale (>12 hours old)
+    should_refresh = not articles
+    if articles:
+        try:
+            newest = articles[0].get("time_ago", "")
+            if "d ago" in newest or "h ago" in newest:
+                import re
+                hours_match = re.search(r"(\d+)h ago", newest)
+                days_match = re.search(r"(\d+)d ago", newest)
+                if days_match or (hours_match and int(hours_match.group(1)) >= 12):
+                    should_refresh = True
+        except Exception:
+            pass
+
+    if should_refresh:
         from services.business.finance_news_service import fetch_and_store_news
         try:
             await fetch_and_store_news(user_id=user_id)
