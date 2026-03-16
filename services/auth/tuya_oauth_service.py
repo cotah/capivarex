@@ -296,20 +296,32 @@ class TuyaOAuth:
         if not refresh_token:
             return None
 
-        # Try refresh, retry once if cloud token was stale
-        for attempt in range(2):
+        data = {}
+
+        # Try refresh with up to 3 attempts:
+        # Attempt 0: current cloud token
+        # Attempt 1: fresh cloud token (force re-fetch)
+        # Attempt 2: fresh cloud token + fresh timestamp
+        for attempt in range(3):
+            if attempt > 0:
+                # Force fresh cloud token on retry
+                self._cloud_token = None
+                self._cloud_token_expires = 0
+                # Small delay to get a different timestamp
+                import asyncio
+                await asyncio.sleep(0.5)
+
             try:
                 cloud_token = await self._get_cloud_token()
-            except RuntimeError:
-                if attempt == 0:
-                    # Force cloud token refresh on retry
-                    self._cloud_token = None
-                    self._cloud_token_expires = 0
-                    continue
-                return None
+            except RuntimeError as e:
+                logger.warning("Tuya refresh: cloud token failed attempt {}: {}", attempt, e)
+                continue
+
+            # CRITICAL: fresh timestamp for EACH attempt
+            timestamp = str(int(time.time() * 1000))
 
             path = f"/v1.0/token/{refresh_token}"
-            headers = self._sign_request("GET", path, access_token=cloud_token)
+            headers = self._sign_request("GET", path, access_token=cloud_token, timestamp=timestamp)
 
             async with httpx.AsyncClient() as client:
                 resp = await client.get(f"{self.base_url}{path}", headers=headers)
@@ -319,14 +331,23 @@ class TuyaOAuth:
                 break
 
             error_msg = data.get("msg", "")
-            if "sign invalid" in error_msg and attempt == 0:
-                # Cloud token might be stale — clear and retry
-                self._cloud_token = None
-                self._cloud_token_expires = 0
-                logger.warning("Tuya refresh sign invalid, retrying with fresh cloud token")
-                continue
+            error_code = data.get("code", "")
+            logger.warning(
+                "Tuya refresh attempt {} failed for user={}: {} (code={}) t={}",
+                attempt, user_id[:8], error_msg, error_code, timestamp,
+            )
 
-            logger.error("Tuya token refresh failed for user={}: {}", user_id[:8], error_msg)
+            if "sign invalid" not in str(error_msg).lower() and attempt > 0:
+                # Non-sign error on retry — give up
+                logger.error("Tuya token refresh failed (non-sign error): {}", error_msg)
+                return None
+        else:
+            # All attempts failed
+            logger.error(
+                "Tuya token refresh FAILED after 3 attempts for user={}. "
+                "Possible clock skew or stale credentials.",
+                user_id[:8],
+            )
             return None
 
         result = data["result"]
@@ -351,7 +372,10 @@ class TuyaOAuth:
     # ------------------------------------------------------------------
 
     async def get_user_token(self, user_id: str) -> Optional[str]:
-        """Get a valid access token for the user, refreshing if needed."""
+        """Get a valid access token for the user, refreshing proactively.
+
+        Refreshes 10 minutes BEFORE expiry to avoid failures during commands.
+        """
         row = await self._get_token_row(user_id)
         if not row:
             return None
@@ -360,12 +384,15 @@ class TuyaOAuth:
         if expires_at:
             try:
                 exp = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-                if exp > datetime.now(timezone.utc):
+                # Refresh 10 min before expiry (proactive, not reactive)
+                buffer = timedelta(minutes=10)
+                if exp > datetime.now(timezone.utc) + buffer:
                     return row.get("access_token")
+                logger.info("Tuya token expiring soon for user={}, refreshing proactively", user_id[:8])
             except (ValueError, TypeError):
                 pass
 
-        # Token expired — refresh
+        # Token expired or expiring soon — refresh
         return await self.refresh_user_token(user_id)
 
     # ------------------------------------------------------------------
