@@ -84,7 +84,7 @@ async def check_upcoming_meetings(user_id: str, chat_id: Optional[str] = None) -
 async def _generate_meeting_briefing(
     user_id: str, event: Dict[str, Any], hours_until: float
 ) -> Optional[Dict[str, Any]]:
-    """Generate briefing for a specific meeting."""
+    """Generate humanized briefing for a specific meeting."""
     summary = event.get("summary", "Meeting")
     location = event.get("location", "")
     description = event.get("description", "")
@@ -103,35 +103,73 @@ async def _generate_meeting_briefing(
 
     hours_text = f"{hours_until:.0f}h" if hours_until >= 1 else f"{hours_until * 60:.0f}min"
 
-    # Build briefing
-    parts = [
-        f"📋 **Meeting briefing** — in {hours_text}\n",
-        f"📌 **{summary}**",
-        f"🕐 {time_str}",
-    ]
+    # Format attendees
+    attendee_names = []
+    if attendees and isinstance(attendees, list):
+        attendee_names = [a.get("email", a) if isinstance(a, dict) else str(a) for a in attendees[:5]]
 
-    if location:
-        parts.append(f"📍 {location}")
-
-    if attendees:
-        if isinstance(attendees, list):
-            names = [a.get("email", a) if isinstance(a, dict) else str(a) for a in attendees[:5]]
-            parts.append(f"👥 {', '.join(names)}")
-
-    if description:
-        parts.append(f"\n📝 **Notes:** {description[:200]}")
-
-    # Try to get context from RAG/notes about this topic
+    # Get RAG context
     context = await _get_meeting_context(user_id, summary, attendees)
-    if context:
-        parts.append(f"\n💡 **Context:** {context}")
 
-    parts.append("\n💬 Need me to prepare anything for this meeting?")
+    # Build raw data for GPT
+    raw = (
+        f"Meeting: {summary}\n"
+        f"Time: {time_str} (in {hours_text})\n"
+        f"Location: {location or 'not specified'}\n"
+        f"Attendees: {', '.join(attendee_names) if attendee_names else 'not specified'}\n"
+        f"Description: {description[:200] if description else 'none'}\n"
+        f"Past context: {context or 'none'}"
+    )
 
-    message = "\n".join(parts)
+    # Humanize through GPT
+    message = await _humanize_meeting_briefing(raw, hours_text, summary)
     title = f"Meeting in {hours_text}: {summary[:50]}"
 
     return {"title": title, "message": message, "event_summary": summary}
+
+
+async def _humanize_meeting_briefing(raw: str, hours_text: str, summary: str) -> str:
+    """Pass meeting data through GPT for warm, human-like briefing."""
+    openai_svc = get_service("openai")
+
+    if openai_svc and openai_svc.is_initialized():
+        prompt = f"""You are CAPIVAREX, a personal AI assistant. Generate a meeting prep briefing.
+
+RULES:
+- Be warm and helpful, like a PA reminding you about your meeting
+- Start with a heads-up about the time ("You've got [meeting] coming up in [time]")
+- Mention who's attending conversationally
+- If there's past context, weave it in naturally ("Last time you discussed...")
+- End with a helpful offer
+- Use 2-3 emojis max
+- Keep it under 8 lines
+- Sound HUMAN — like a thoughtful assistant who cares
+
+MEETING DATA:
+{raw}
+
+Generate the briefing:"""
+
+        try:
+            import asyncio
+            response = await asyncio.to_thread(
+                openai_svc.chat_completion,
+                [{"role": "user", "content": prompt}],
+                model="gpt-4o-mini",
+                max_tokens=300,
+                temperature=0.7,
+            )
+            text = response if isinstance(response, str) else response.get("content", "")
+            if text and len(text) > 20:
+                return text
+        except Exception as e:
+            logger.warning("Meeting briefing: GPT humanization failed: {}", e)
+
+    # Fallback
+    return (
+        f"📋 Heads up — you have **{summary}** in {hours_text}!\n\n"
+        f"⏰ Check the details and let me know if you need me to prepare anything."
+    )
 
 
 async def _get_meeting_context(

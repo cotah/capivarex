@@ -319,7 +319,8 @@ class TestFetchAndStoreNewsEdgeCases:
         with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
             result = await fetch_and_store_news()
 
-        assert len(result) >= 1  # articles fetched but not stored
+        # New personalized code: no users = no fetches (each user gets unique query)
+        assert result == []
 
     @pytest.mark.asyncio
     async def test_search_fails_gracefully(self):

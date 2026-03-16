@@ -59,43 +59,14 @@ async def generate_morning_briefing(
         logger.warning("Morning briefing: finance failed: {}", finance)
         finance = None
 
-    # Build the briefing message
+    # Build raw data for GPT humanization
     name = user_name.split()[0] if user_name else "there"
     greeting = _get_greeting()
-    parts = [f"**{greeting}, {name}!** ☀️\n"]
+    raw_data = _build_briefing_raw_data(name, greeting, location, weather, events, finance)
 
-    # Weather
-    if weather:
-        temp = weather.get("temperature", "?")
-        desc = weather.get("description", "")
-        icon = _weather_icon(desc)
-        parts.append(f"{icon} **Weather:** {temp}°C in {location} — {desc}")
+    # Humanize through GPT
+    message = await _humanize_briefing(raw_data, name)
 
-    # Calendar
-    if events and isinstance(events, list) and len(events) > 0:
-        parts.append(f"\n📅 **Today's agenda** ({len(events)} event{'s' if len(events) != 1 else ''}):")
-        for i, ev in enumerate(events[:5], 1):
-            time_str = ev.get("time", "")
-            summary = ev.get("summary", "Event")
-            parts.append(f"  {i}. {time_str} — {summary}")
-        if len(events) > 5:
-            parts.append(f"  ... and {len(events) - 5} more")
-    else:
-        parts.append("\n📅 **Calendar:** No events today — enjoy the free time!")
-
-    # Finance
-    if finance and isinstance(finance, dict):
-        stocks = finance.get("stocks_summary", "")
-        crypto = finance.get("crypto_summary", "")
-        if stocks:
-            parts.append(f"\n📈 **Markets:** {stocks}")
-        if crypto:
-            parts.append(f"₿ **Crypto:** {crypto}")
-
-    # Closing
-    parts.append("\n💬 What would you like to do today?")
-
-    message = "\n".join(parts)
     title = f"{greeting} briefing — {datetime.now(timezone.utc).strftime('%b %d')}"
 
     # Store in proactivity_feed
@@ -115,6 +86,104 @@ async def generate_morning_briefing(
 
     logger.info("Morning briefing: generated for user={} ({} chars)", user_id[:8], len(message))
     return {"title": title, "message": message}
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Humanization — GPT makes it feel like a friend, not a robot
+# ---------------------------------------------------------------------------
+
+def _build_briefing_raw_data(
+    name: str, greeting: str, location: str,
+    weather: Any, events: Any, finance: Any,
+) -> str:
+    """Build structured raw data for GPT to humanize."""
+    parts = [f"User name: {name}", f"Greeting: {greeting}", f"Location: {location}"]
+
+    if weather:
+        parts.append(f"Weather: {weather.get('temperature', '?')}°C, {weather.get('description', '?')}")
+
+    if events and isinstance(events, list) and len(events) > 0:
+        parts.append(f"Calendar: {len(events)} events today")
+        for ev in events[:5]:
+            parts.append(f"  - {ev.get('time', '')} {ev.get('summary', 'Event')}")
+    else:
+        parts.append("Calendar: No events today")
+
+    if finance and isinstance(finance, dict):
+        if finance.get("stocks_summary"):
+            parts.append(f"Stocks: {finance['stocks_summary']}")
+        if finance.get("crypto_summary"):
+            parts.append(f"Crypto: {finance['crypto_summary']}")
+
+    return "\n".join(parts)
+
+
+async def _humanize_briefing(raw_data: str, name: str) -> str:
+    """Pass raw briefing data through GPT for warm, human-like output."""
+    openai_svc = get_service("openai")
+
+    if openai_svc and openai_svc.is_initialized():
+        prompt = f"""You are CAPIVAREX, a personal AI assistant with warm personality. Generate a morning briefing for {name}.
+
+RULES:
+- Be warm, friendly, like a good friend waking you up with useful info
+- Use emojis naturally (not excessively — 4-5 total)
+- Start with a warm greeting mentioning the weather naturally
+- Mention calendar events conversationally, not as a list
+- Mention market highlights briefly if available
+- End with a warm question or encouragement
+- Keep it under 12 lines
+- Sound HUMAN, not robotic. Feel the user. Have emotion.
+
+BAD (robotic): "Weather: 12°C, cloudy. Events: 2. Stocks: AAPL +3.2%"
+GOOD (human): "Morning Marcos! ☀️ It's 12°C outside with some clouds — grab a jacket if you're heading out. You've got a busy one: meeting with Pedro at 13h and that client call at 15h. Oh, and your Apple stock is having a nice day — up 3.2%! Ready to take on the day?"
+
+RAW DATA:
+{raw_data}
+
+Generate the morning briefing:"""
+
+        try:
+            import asyncio
+            response = await asyncio.to_thread(
+                openai_svc.chat_completion,
+                [{"role": "user", "content": prompt}],
+                model="gpt-4o-mini",
+                max_tokens=400,
+                temperature=0.8,
+            )
+            text = response if isinstance(response, str) else response.get("content", "")
+            if text and len(text) > 20:
+                return text
+        except Exception as e:
+            logger.warning("Morning briefing: GPT humanization failed: {}", e)
+
+    # Fallback: template-based (still warm)
+    return _fallback_briefing(raw_data, name)
+
+
+def _fallback_briefing(raw_data: str, name: str) -> str:
+    """Fallback briefing when GPT unavailable — still warm, with emojis."""
+    lines = raw_data.split("\n")
+    parts = [f"**Good morning, {name}!** ☀️\n"]
+
+    for line in lines:
+        if line.startswith("Weather:"):
+            parts.append(f"🌤️ {line}")
+        elif line.startswith("Calendar: No"):
+            parts.append("📅 No events today — enjoy the free time!")
+        elif line.startswith("Calendar:"):
+            parts.append(f"📅 {line}")
+        elif line.strip().startswith("- "):
+            parts.append(f"  • {line.strip()[2:]}")
+        elif line.startswith("Stocks:"):
+            parts.append(f"📈 {line}")
+        elif line.startswith("Crypto:"):
+            parts.append(f"₿ {line}")
+
+    parts.append("\n💬 What would you like to do today?")
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
