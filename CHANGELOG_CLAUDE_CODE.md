@@ -3,8 +3,8 @@
 **Documento de sincronização.** Tudo que foi implementado/alterado no backend.
 O Claude Code deve ler isto para saber o estado actual do projecto.
 
-**Última actualização:** 2026-03-16
-**Sessões cobertas:** QA Session 9 (S-TIER + Sprint 0 + Resilience + A1)
+**Última actualização:** 2026-03-16 (A-TIER fechado)
+**Sessões cobertas:** QA Session 9 (S-TIER + Sprint 0 + Resilience + A-TIER completo)
 
 ---
 
@@ -153,7 +153,7 @@ O Claude Code deve ler isto para saber o estado actual do projecto.
 
 ---
 
-## 4. A-TIER (Início)
+## 4. A-TIER — High Value Features (9/12 COMPLETAS)
 
 ### A1. Birthday Detection
 - **Ficheiro:** `services/business/birthday_service.py`
@@ -171,17 +171,89 @@ O Claude Code deve ler isto para saber o estado actual do projecto.
 - **O que faz:** Quando user diz "vou sair" → briefing completo de saída
 - **Trigger keywords:** "vou sair", "i'm leaving", "heading out", "me voy" (PT/EN/ES)
 - **Detecção:** `is_leaving_trigger(message)` — chamar antes do orchestrator
-- **4 verificações:**
-  - Weather: temperatura, chuva, vento (com warnings de guarda-chuva/vento forte)
-  - Calendar: próximo evento + hora de saída (integra com LeavingNowService existente)
-  - Smart Home: luzes acesas, portas destrancadas (sugere desligar)
-  - Traffic: tempo de viagem (via LeavingNowService)
+- **4 verificações:** Weather, Calendar + departure time, Smart Home, Traffic
 - **Humanizado** via GPT — 1 mensagem warm com tudo junto
-- **Smart Home:** pronto para funcionar quando tiver dispositivo Tuya/SmartThings
+
+### A3. Arriving Home Prep — ⏸️ PAUSADO (precisa device físico)
+
+### A4. Payment Reminder
+- **Ficheiro:** `services/business/payment_reminder_service.py`
+- **Testes:** `tests/test_payment_reminder_service.py`
+- **O que faz:** Detecta contas/pagamentos em mensagens e emails → lembra antes do vencimento
+- **40+ keywords** PT/EN/ES: conta, fatura, bill, invoice, payment...
+- **GPT extrai:** nome, valor, dia de vencimento, se é recorrente
+- **Storage:** `user_context` table (key: payment_reminders)
+- **Alertas:** 3 dias antes, 1 dia antes, no dia, atrasado
+- **Entry point:** `handle_payment_mention(user_id, message)`
+
+### A5. Agenda Conflict Detection
+- **Ficheiro:** `services/business/agenda_conflict_service.py`
+- **Testes:** `tests/test_agenda_conflict_service.py`
+- **O que faz:** Detecta sobreposições e gaps curtos entre eventos no calendário
+- **2 tipos:** overlap (mesmo horário) + tight_gap (<30 min entre locais diferentes)
+- **Ignora** gap curto se mesmo local (não precisa de viagem)
+- **Humanizado** via GPT → sugere remarcar ou tornar virtual
+- **Runner:** `check_conflicts_for_all_users()` pronto para proactivity loop
+
+### A6. Overdue Tasks
+- **Ficheiro:** `services/business/overdue_tasks_service.py`
+- **Testes:** `tests/test_overdue_tasks_service.py`
+- **O que faz:** Detecta reminders e notas com prazo atrasado → nudge gentil
+- **Verifica:** reminders pendentes (últimos 3 dias) + notas com due_date passado (últimos 7 dias)
+- **Tom:** "Just checking in..." — gentil, não nagging
+- **Runner:** `check_overdue_for_all_users()` pronto para proactivity loop
+
+### A7. Unexpected Weather Alert
+- **Ficheiro:** `services/business/weather_alert_service.py`
+- **Testes:** `tests/test_weather_alert_service.py`
+- **O que faz:** Alerta proativo quando tempo muda para pior
+- **5 tipos:** chuva (>70%), vento forte (>50km/h), calor extremo (>35°C), neve/gelo, queda de temperatura
+- **Dedup:** 1 alerta por tipo por dia (no spam)
+- **Storage:** proactivity_feed (por alert_type + data)
+- **Runner:** `check_weather_for_all_users()` pronto para proactivity loop
+
+### A8. Relationship Maintenance — ⏭️ PULADO (pouca utilidade prática)
+
+### A9. Subscription Expiring
+- **Ficheiro:** `services/business/subscription_service.py`
+- **Testes:** `tests/test_subscription_service.py`
+- **O que faz:** Detecta subscrições em emails/mensagens → avisa 5 dias antes de renovar
+- **35+ serviços conhecidos:** Netflix, Spotify, Adobe, ChatGPT, etc.
+- **GPT extrai:** nome, valor, data de renovação, frequência
+- **Storage:** `user_context` table (key: subscriptions)
+- **Entry point:** `handle_subscription_mention(user_id, message)`
+
+### A10. Package Tracking Central
+- **Ficheiro:** `services/business/package_tracking_service.py`
+- **Testes:** `tests/test_package_tracking_service.py`
+- **O que faz:** Auto-detecta tracking numbers em emails/mensagens → monitora via 17TRACK
+- **Regex patterns:** UPS, FedEx, DHL, USPS, CTT/An Post, Amazon, genérico
+- **Monitorização:** polling de status, detecta mudanças (shipped→transit→delivered)
+- **Para automaticamente** quando entregue
+- **Entry point:** `handle_tracking_mention(user_id, message)`
+
+### A11 + A12 — 📦 MOVIDOS para "Work Pack" (add-on profissional futuro)
 
 ---
 
-## 5. CI/CD Changes
+## 5. Bugfixes durante A-TIER
+
+### CORS allow_headers fix
+- **Ficheiro:** `api/main.py`
+- **O que mudou:** `allow_headers` voltou a `["*"]` — o F7 (headers restritos) bloqueava preflight OPTIONS do Tuya login
+- **Segurança mantida:** `allow_origin_regex` continua a restringir QUEM acede (só capivarex.com)
+
+### Tuya token refresh fix (PYTHON-20 Sentry)
+- **Ficheiro:** `services/auth/tuya_oauth_service.py`
+- **O que mudou:** Após 3 falhas de refresh, desactiva o token (`active=false`) → user vê "Reconectar"
+- **Novo método:** `_deactivate_token(user_id)` — marca token como inactivo no DB
+- **Debug logging:** cada tentativa loga prefixos dos tokens usados
+- **Endpoint:** `/smarts/devices` retorna `needs_reconnect: true` quando token inactivo
+- **Causa raiz:** refresh_token expirado (>30 dias) — Tuya retorna "sign invalid" em vez de "token expired"
+
+---
+
+## 7. CI/CD Changes
 
 - **PyJWT:** 2.11.0 → 2.12.0 (`requirements.txt`) — fix CVE-2026-32597
 - **GitHub Actions:** v5 → v6 (`ci.yml`) — Node 24 nativo
@@ -220,13 +292,13 @@ Ficheiro: `proactivity_loop.py`
 
 | Métrica | Valor |
 |---------|-------|
-| Tests passando | 3258 |
+| Tests passando | 3430 |
 | Tests falhando | 0 |
 | Tests skipped | 0 |
-| Coverage | 79.03% |
+| Coverage | 79.09% |
 | Ruff errors | 0 |
-| Test files | 96 |
-| Python files | 363 |
+| Test files | 108 |
+| Python files | 375+ |
 
 ---
 

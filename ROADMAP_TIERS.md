@@ -111,13 +111,13 @@
 
 | Tier | Total Features | Completas | Pendentes |
 |------|---------------|-----------|-----------|
-| Sprint 0 (Security) | 11 fixes | 0 | 11 |
+| Sprint 0 (Security) | 11 fixes | 11 ✅ | 0 |
 | S-TIER | 9 | 9 ✅ | 0 |
-| A-TIER | 12 | 0 | 12 |
+| A-TIER | 12 | 9 ✅ | 1 ⏸️ + 2 📦 |
 | B-TIER | 14 | 0 | 14 |
 | C-TIER | 10 | 0 | 10 |
 | New Ideas | 5 | 0 | 5 |
-| **Total** | **61** | **9** | **52** |
+| **Total** | **61** | **20** | **41** |
 
 ---
 
