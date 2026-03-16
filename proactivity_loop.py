@@ -98,6 +98,13 @@ async def run_proactivity_cycle() -> None:
         logger.error("Travel detection step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
+    # ── Step 9: Birthday detection (once/day, 08:00-10:00 UTC) ────────────
+    try:
+        await _run_birthday_detection()
+    except Exception as e:
+        logger.error("Birthday detection step failed: %s", e)
+        sentry_sdk.capture_exception(e)
+
 
 async def _run_proactivity_checks() -> None:
     """Run proactivity insight checks for all users with enabled preferences."""
@@ -503,6 +510,20 @@ async def _run_weekly_recap() -> None:
                 logger.info("Weekly recap sent for user={}", user_id[:8])
         except Exception as e:
             logger.warning("Weekly recap failed for user={}: {}", user_id[:8], e)
+
+
+async def _run_birthday_detection() -> None:
+    """Detect upcoming birthdays (once/day, 08:00-10:00 UTC)."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    if not (8 <= now.hour <= 10):
+        return
+
+    from services.business.birthday_service import check_birthdays_for_all_users
+    alerts = await check_birthdays_for_all_users()
+    if alerts:
+        logger.info("Birthday detection: %d alerts sent", alerts)
 
 
 async def _run_travel_detection() -> None:

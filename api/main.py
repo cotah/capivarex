@@ -711,9 +711,22 @@ async def health_check():
 
     all_ok = all(v == "ok" for v in checks.values())
 
+    # Resilience status
+    from services.infrastructure.resilience_service import get_resilience_status
+    resilience = get_resilience_status()
+
+    # Degraded = Supabase down but Redis working (app still functional)
+    if checks.get("supabase") != "ok" and checks.get("redis") == "ok":
+        status = "degraded"
+    elif all_ok:
+        status = "healthy"
+    else:
+        status = "unhealthy"
+
     return {
-        "status": "healthy" if all_ok else "degraded",
+        "status": status,
         "checks": checks,
+        "resilience": resilience,
         "environment": os.getenv("ENVIRONMENT", "development"),
         "version": "2.0.0",
     }
