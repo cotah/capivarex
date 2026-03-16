@@ -2,7 +2,7 @@
 Unit tests for FinanceAgent — stock quotes and financial data.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -173,3 +173,72 @@ async def test_finance_alert_threshold_too_high(finance_agent):
     )
     assert result.status == AgentStatus.SUCCESS
     assert "50" in result.response
+
+
+# ---------------------------------------------------------------------------
+# Watchlist Management Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_show_watchlist(finance_agent):
+    """Finance agent shows user's watchlist."""
+    with patch("services.business.weekly_recap_service.get_service", return_value=None):
+        result = await finance_agent.execute(
+            "show my watchlist",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "AAPL" in result.response  # Default stocks
+    assert "bitcoin" in result.response  # Default crypto
+
+
+@pytest.mark.asyncio
+async def test_add_stock_to_watchlist(finance_agent):
+    """Finance agent adds stock to watchlist."""
+    mock_db = MagicMock()
+    mock_db.is_initialized.return_value = True
+    mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+    mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+
+    with patch("services.business.weekly_recap_service.get_service", return_value=mock_db):
+        result = await finance_agent.execute(
+            "add NVDA to my watchlist",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "NVDA" in result.response
+
+
+@pytest.mark.asyncio
+async def test_add_crypto_to_watchlist(finance_agent):
+    """Finance agent adds crypto to watchlist."""
+    mock_db = MagicMock()
+    mock_db.is_initialized.return_value = True
+    mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+    mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+
+    with patch("services.business.weekly_recap_service.get_service", return_value=mock_db):
+        result = await finance_agent.execute(
+            "add bitcoin to my watchlist",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "already" in result.response.lower()  # bitcoin is in defaults
+
+
+@pytest.mark.asyncio
+async def test_remove_from_watchlist(finance_agent):
+    """Finance agent removes stock from watchlist."""
+    mock_db = MagicMock()
+    mock_db.is_initialized.return_value = True
+    mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+    mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+
+    with patch("services.business.weekly_recap_service.get_service", return_value=mock_db):
+        result = await finance_agent.execute(
+            "remove AAPL from my watchlist",
+            {"user_id": "test-user-123"},
+        )
+    assert result.status == AgentStatus.SUCCESS
+    assert "AAPL" in result.response

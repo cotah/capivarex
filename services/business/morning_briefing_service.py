@@ -155,18 +155,21 @@ async def _get_today_events(user_id: str) -> List[Dict[str, Any]]:
 
 
 async def _get_finance_summary(user_id: str) -> Optional[Dict[str, Any]]:
-    """Get brief finance summary."""
+    """Get brief finance summary using user's personal watchlist."""
+    from services.business.weekly_recap_service import get_user_watchlist
+
+    watchlist = await get_user_watchlist(user_id)
     finance_svc = get_service("finance")
     crypto_svc = get_service("crypto")
     result = {}
 
-    # Stocks
-    if finance_svc and finance_svc.is_initialized():
+    # Stocks (from user's watchlist)
+    if finance_svc and finance_svc.is_initialized() and watchlist.get("stocks"):
         try:
             import asyncio
             summary = await asyncio.to_thread(
                 finance_svc.get_watchlist_summary,
-                ["AAPL", "TSLA", "GOOGL", "MSFT"],
+                watchlist["stocks"][:5],  # Top 5 from their list
             )
             if summary and isinstance(summary, dict):
                 changes = []

@@ -126,21 +126,29 @@ class FinanceAgent(BaseAgent):
 
     async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
-        Get financial quote for symbol, or configure price alerts.
+        Get financial quote for symbol, configure alerts, or manage watchlist.
 
         Handles:
+        - "add Tesla to my watchlist" → adds to personal watchlist
+        - "remove AAPL from my list" → removes from watchlist
+        - "show my watchlist" → displays current watchlist
         - "set my stock alerts to 3%" → updates threshold
-        - "disable alerts" → turns off alerts
-        - "enable alerts" → turns on alerts
         - Regular stock queries
         """
         lang = get_user_lang(context)
         user_id = context.get("user_id", "")
         prompt_lower = prompt.lower()
 
-        # ── Alert configuration ──
+        # ── Alert configuration (check BEFORE watchlist — "show my alerts" must hit alerts, not watchlist) ──
         if any(kw in prompt_lower for kw in ["alert", "alerta", "threshold", "limite"]):
             return await self._handle_alert_config(prompt_lower, user_id, lang)
+
+        # ── Watchlist management ──
+        watchlist_keywords = ["watchlist", "lista", "acompanhar", "seguir", "track",
+                              "add to my", "adiciona", "remove from", "remov", "show my watchlist",
+                              "my stocks", "my crypto", "meus ativos", "minha carteira"]
+        if any(kw in prompt_lower for kw in watchlist_keywords):
+            return await self._handle_watchlist(prompt, prompt_lower, user_id, lang)
 
         symbol = (
             str(context.get("symbol") or self._extract_symbol(prompt)).strip().upper()
@@ -192,6 +200,79 @@ class FinanceAgent(BaseAgent):
                 response=f"Nao foi possivel consultar cotacao para {symbol}.",
                 error=str(e),
                 metadata={"symbol": symbol},
+            )
+
+    async def _handle_watchlist(
+        self, prompt: str, prompt_lower: str, user_id: str, lang: str
+    ) -> AgentResponse:
+        """Handle watchlist add/remove/show commands."""
+        from services.business.weekly_recap_service import (
+            get_user_watchlist, add_to_watchlist, remove_from_watchlist,
+        )
+
+        # Detect intent: add, remove, or show
+        is_add = any(kw in prompt_lower for kw in ["add", "adiciona", "acompanhar", "seguir", "track"])
+        is_remove = any(kw in prompt_lower for kw in ["remove", "remov", "tira", "delete", "exclu"])
+
+        # Show watchlist only if NOT adding or removing
+        if not is_add and not is_remove:
+            watchlist = await get_user_watchlist(user_id)
+            stocks = ", ".join(watchlist["stocks"]) if watchlist["stocks"] else "none"
+            crypto = ", ".join(watchlist["crypto"]) if watchlist["crypto"] else "none"
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=f"📊 Your watchlist:\n\n📈 **Stocks:** {stocks}\n₿ **Crypto:** {crypto}\n\nYou can say 'add Tesla' or 'remove AAPL' to update it.",
+                data={"watchlist": watchlist},
+            )
+
+        # Detect if crypto
+        crypto_words = ["bitcoin", "btc", "ethereum", "eth", "solana", "sol",
+                        "crypto", "cripto", "bnb", "cardano", "ada", "xrp", "doge",
+                        "dogecoin", "polkadot", "dot", "avalanche", "avax", "matic",
+                        "polygon", "litecoin", "ltc"]
+        is_crypto = any(w in prompt_lower for w in crypto_words)
+
+        # Extract symbol — strip command words first to avoid extracting "add" as ticker
+        clean_prompt = prompt
+        for noise in ["add", "remove", "to my watchlist", "from my watchlist", "to my list",
+                       "from my list", "adiciona", "remove", "na minha", "da minha",
+                       "watchlist", "lista", "acompanhar", "seguir", "track"]:
+            clean_prompt = clean_prompt.replace(noise, " ").replace(noise.upper(), " ")
+        clean_prompt = " ".join(clean_prompt.split())  # normalize whitespace
+
+        symbol = self._extract_symbol(clean_prompt) if clean_prompt.strip() else ""
+        if not symbol:
+            for name in crypto_words:
+                if name in prompt_lower:
+                    symbol = name
+                    is_crypto = True
+                    break
+
+        if not symbol:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response="Which stock or crypto would you like to add/remove? Just tell me the name or ticker.",
+            )
+
+        asset_type = "crypto" if is_crypto else "stock"
+
+        if is_remove:
+            result = await remove_from_watchlist(user_id, symbol, asset_type)
+        else:
+            result = await add_to_watchlist(user_id, symbol, asset_type)
+
+        if result.get("ok"):
+            action = "removed from" if is_remove else "added to"
+            target = result.get("removed") or result.get("added", symbol)
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=f"✅ **{target}** {action} your watchlist! I'll keep you updated on its performance.",
+                data=result,
+            )
+        else:
+            return AgentResponse(
+                status=AgentStatus.SUCCESS,
+                response=f"ℹ️ {result.get('error', 'Could not update watchlist')}",
             )
 
     async def _handle_alert_config(

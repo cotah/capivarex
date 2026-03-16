@@ -84,6 +84,13 @@ async def run_proactivity_cycle() -> None:
         logger.error("Meeting briefing step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
+    # ── Step 7: Weekly finance recap (Mondays ~09:00 UTC) ─────────────────
+    try:
+        await _run_weekly_recap()
+    except Exception as e:
+        logger.error("Weekly recap step failed: %s", e)
+        sentry_sdk.capture_exception(e)
+
 
 async def _run_proactivity_checks() -> None:
     """Run proactivity insight checks for all users with enabled preferences."""
@@ -448,6 +455,47 @@ async def _run_meeting_briefings() -> None:
                 )
         except Exception as e:
             logger.warning("Meeting briefing failed for user={}: {}", user_id[:8], e)
+
+
+async def _run_weekly_recap() -> None:
+    """Generate weekly finance recaps on Mondays 08:00-10:00 UTC."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    # Only run on Mondays between 08:00-10:00 UTC
+    if now.weekday() != 0 or not (8 <= now.hour <= 10):
+        return
+
+    db_service = get_service("database")
+    if not db_service or not db_service.is_initialized():
+        return
+
+    try:
+        pref_users = await db_service.get_all_users_with_proactivity_enabled()
+    except Exception:
+        return
+
+    if not pref_users:
+        return
+
+    from services.business.weekly_recap_service import generate_weekly_recap
+
+    for pref in pref_users:
+        user_id = pref["user_id"]
+        try:
+            user_data = await db_service.get_user_by_id(user_id)
+            if not user_data:
+                continue
+
+            result = await generate_weekly_recap(
+                user_id=user_id,
+                user_name=user_data.get("full_name", ""),
+                chat_id=str(user_data.get("telegram_chat_id")) if user_data.get("telegram_chat_id") else None,
+            )
+            if result:
+                logger.info("Weekly recap sent for user={}", user_id[:8])
+        except Exception as e:
+            logger.warning("Weekly recap failed for user={}: {}", user_id[:8], e)
 
 
 async def main_loop() -> None:
