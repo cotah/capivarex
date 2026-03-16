@@ -69,7 +69,7 @@ class TravelAgent(BaseAgent):
             if any(kw in prompt_lower for kw in plan_keywords):
                 # Try to extract destination from prompt
                 from services.business.travel_planner_service import (
-                    _detect_destination, MAJOR_DESTINATIONS,
+                    _detect_destination,
                 )
                 destination = _detect_destination(prompt_lower, "", "")
                 if destination:

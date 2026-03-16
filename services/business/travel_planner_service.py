@@ -244,6 +244,10 @@ async def generate_trip_alert(
         "Travel alert: sent for user={} destination={} in {} days",
         user_id[:8], destination, days_until,
     )
+
+    # Start a planning session so user can respond "yes" in chat
+    await start_planning_session(user_id, trip)
+
     return {"title": title, "message": message, "trip": trip}
 
 
@@ -1365,3 +1369,4 @@ def _parse_answers(
             prefs["interests"] = answer
 
     return prefs
+
