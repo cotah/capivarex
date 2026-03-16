@@ -263,3 +263,40 @@ class TestProactivityLoop:
         with patch("services.business.agenda_conflict_service.get_service", return_value=mock_db):
             result = await check_conflicts_for_all_users()
         assert result == 0
+
+
+class TestDedup:
+    """Tests for dedup and storage."""
+
+    @pytest.mark.asyncio
+    async def test_filter_returns_all_by_default(self):
+        from services.business.agenda_conflict_service import _filter_already_alerted
+        conflicts = [{"type": "overlap", "event_a": {"id": "1"}, "event_b": {"id": "2"}}]
+        result = await _filter_already_alerted("u1", conflicts)
+        assert result == conflicts
+
+    @pytest.mark.asyncio
+    async def test_store_alert_no_db(self):
+        from services.business.agenda_conflict_service import _store_conflict_alert
+        with patch("services.business.agenda_conflict_service.get_service", return_value=None):
+            await _store_conflict_alert("u1", "alert text", [{"type": "overlap", "event_a": {"id": "1"}, "event_b": {"id": "2"}}])
+
+    @pytest.mark.asyncio
+    async def test_store_alert_success(self):
+        from services.business.agenda_conflict_service import _store_conflict_alert
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        with patch("services.business.agenda_conflict_service.get_service", return_value=mock_db):
+            await _store_conflict_alert("u1", "test", [{"type": "overlap", "event_a": {"id": "a"}, "event_b": {"id": "b"}}])
+
+    @pytest.mark.asyncio
+    async def test_calendar_exception(self):
+        mock_cal = MagicMock()
+        mock_cal.is_initialized.return_value = True
+        mock_cal.async_get_upcoming_events = AsyncMock(side_effect=Exception("Calendar error"))
+
+        with patch("services.business.agenda_conflict_service.get_service", return_value=mock_cal):
+            result = await detect_conflicts("u1")
+        assert result == []
