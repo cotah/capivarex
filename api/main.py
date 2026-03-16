@@ -56,6 +56,7 @@ from api.routes import (
 from api.routes import webhooks
 from api.routes import push_notifications
 from api.routes import tuya_auth
+from api.routes import whatsapp_webhook
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 from api.routes.voice_ws import router_voice_ws
 from api.routes.twilio_stream import router as twilio_stream_router
@@ -841,5 +842,6 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
 app.include_router(images_serve.router, tags=["Images"])
 app.include_router(webhooks.router, prefix=f"{API_V1}/webhooks", tags=["Webhooks"])
+app.include_router(whatsapp_webhook.router, prefix=f"{API_V1}/webhooks", tags=["WhatsApp"])
 app.include_router(twilio_stream_router, tags=["Twilio Stream"])
 app.include_router(health.router, tags=["Monitoring"])
