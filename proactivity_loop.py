@@ -70,6 +70,20 @@ async def run_proactivity_cycle() -> None:
         logger.error("Finance alerts step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
+    # ── Step 5: Morning briefing (once/day per user, ~08:00 UTC) ──────────
+    try:
+        await _run_morning_briefings()
+    except Exception as e:
+        logger.error("Morning briefing step failed: %s", e)
+        sentry_sdk.capture_exception(e)
+
+    # ── Step 6: Meeting briefings (2h before meetings) ────────────────────
+    try:
+        await _run_meeting_briefings()
+    except Exception as e:
+        logger.error("Meeting briefing step failed: %s", e)
+        sentry_sdk.capture_exception(e)
+
 
 async def _run_proactivity_checks() -> None:
     """Run proactivity insight checks for all users with enabled preferences."""
@@ -351,6 +365,89 @@ async def _run_news_fetch_if_due() -> None:
     except Exception as e:
         logger.error("News: fetch_and_store_news failed: %s", e)
         raise
+
+
+async def _run_morning_briefings() -> None:
+    """Generate morning briefings for all users (once/day, ~06:00-10:00 UTC window)."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    # Only run between 06:00 and 10:00 UTC
+    if not (6 <= now.hour <= 10):
+        return
+
+    db_service = get_service("database")
+    if not db_service or not db_service.is_initialized():
+        return
+
+    try:
+        pref_users = await db_service.get_all_users_with_proactivity_enabled()
+    except Exception:
+        return
+
+    if not pref_users:
+        return
+
+    from services.business.morning_briefing_service import generate_morning_briefing
+
+    for pref in pref_users:
+        user_id = pref["user_id"]
+        try:
+            user_data = await db_service.get_user_by_id(user_id)
+            if not user_data:
+                continue
+
+            user_name = user_data.get("full_name", "")
+            location = user_data.get("location_preference", "Dublin")
+            chat_id = user_data.get("telegram_chat_id")
+
+            result = await generate_morning_briefing(
+                user_id=user_id,
+                user_name=user_name,
+                location=location,
+                chat_id=str(chat_id) if chat_id else None,
+            )
+            if result:
+                logger.info("Morning briefing sent for user={}", user_id[:8])
+        except Exception as e:
+            logger.warning("Morning briefing failed for user={}: {}", user_id[:8], e)
+
+
+async def _run_meeting_briefings() -> None:
+    """Check upcoming meetings and generate briefings for all users."""
+    db_service = get_service("database")
+    if not db_service or not db_service.is_initialized():
+        return
+
+    try:
+        pref_users = await db_service.get_all_users_with_proactivity_enabled()
+    except Exception:
+        return
+
+    if not pref_users:
+        return
+
+    from services.business.meeting_briefing_service import check_upcoming_meetings
+
+    for pref in pref_users:
+        user_id = pref["user_id"]
+        try:
+            user_data = await db_service.get_user_by_id(user_id)
+            if not user_data:
+                continue
+
+            chat_id = user_data.get("telegram_chat_id")
+            briefings = await check_upcoming_meetings(
+                user_id=user_id,
+                chat_id=str(chat_id) if chat_id else None,
+            )
+            if briefings:
+                logger.info(
+                    "Meeting briefings: {} sent for user={}",
+                    len(briefings), user_id[:8],
+                )
+        except Exception as e:
+            logger.warning("Meeting briefing failed for user={}: {}", user_id[:8], e)
 
 
 async def main_loop() -> None:
