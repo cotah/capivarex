@@ -414,3 +414,341 @@ async def check_travel_for_all_users() -> int:
     if alerts_sent:
         logger.info("Travel planner: {} alerts sent across all users", alerts_sent)
     return alerts_sent
+
+
+# ===========================================================================
+# PHASE 2 — Preference Gathering + Itinerary Building
+# ===========================================================================
+
+async def gather_travel_profile(user_id: str) -> Dict[str, Any]:
+    """
+    Gather what we already know about the user from RAG + user_context.
+
+    Returns profile dict with known preferences (may be partially empty).
+    The bot only asks questions about what's MISSING.
+    """
+    profile: Dict[str, Any] = {
+        "travel_style": "",      # relaxed, adventurous, cultural, mixed
+        "budget_level": "",      # budget, mid-range, luxury
+        "accommodation": "",     # hotel, hostel, airbnb, resort
+        "food_prefs": [],        # vegetarian, seafood, local cuisine, etc.
+        "interests": [],         # trekking, beaches, nightlife, museums, shopping
+        "past_trips": [],        # countries/cities visited before
+        "travel_companion": "",  # solo, couple, family, group
+        "pace": "",              # relaxed, moderate, packed
+    }
+
+    # 1. Check user_context for saved travel preferences
+    db = get_service("database")
+    if db and db.is_initialized():
+        try:
+            import json as _json
+            client = db.get_client()
+            ctx = (
+                client.table("user_context")
+                .select("context_data")
+                .eq("user_id", user_id)
+                .eq("context_type", "travel_preferences")
+                .limit(1)
+                .execute()
+            )
+            if ctx.data:
+                data = ctx.data[0].get("context_data", {})
+                if isinstance(data, str):
+                    data = _json.loads(data)
+                profile.update({k: v for k, v in data.items() if v and k in profile})
+        except Exception:
+            pass
+
+    # 2. Query RAG for travel-related memories
+    rag = get_service("rag")
+    if rag and rag.is_initialized():
+        try:
+            results = await rag.search(
+                user_id,
+                "travel preferences vacation trip hotel food activities hobbies",
+                limit=5,
+            )
+            if results and isinstance(results, list):
+                rag_texts = [r.get("content", r.get("text", "")) for r in results[:5]]
+                profile["_rag_context"] = " | ".join(t[:150] for t in rag_texts if t)
+        except Exception:
+            pass
+
+    return profile
+
+
+def build_preference_questions(
+    profile: Dict[str, Any], destination: str, duration_days: int
+) -> str:
+    """
+    Build 3-4 targeted questions based on what we DON'T know yet.
+
+    If RAG already tells us the user likes adventure and seafood,
+    we skip those questions and only ask what's missing.
+    """
+    questions = []
+
+    if not profile.get("travel_companion"):
+        questions.append("Are you traveling solo, as a couple, with family, or in a group?")
+
+    if not profile.get("travel_style") and not profile.get("interests"):
+        questions.append(
+            f"For {destination}, do you prefer a more relaxed vibe (beaches, spa, gastronomy) "
+            "or adventurous (trekking, diving, extreme sports)? Or a mix of both?"
+        )
+
+    if not profile.get("budget_level"):
+        questions.append(
+            "What's your budget style — backpacker/budget, comfortable mid-range, or luxury/splurge?"
+        )
+
+    # Always ask this — it's specific to the destination
+    if duration_days >= 7:
+        questions.append(
+            f"Any specific cities or regions in {destination} you already know you want to visit, "
+            "or should I surprise you with my suggestions?"
+        )
+
+    # Max 4 questions
+    return questions[:4]
+
+
+async def build_itinerary(
+    user_id: str,
+    destination: str,
+    start_date: str,
+    end_date: str,
+    duration_days: int,
+    user_name: str = "",
+    preferences: Dict[str, Any] = None,
+    profile: Dict[str, Any] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Build a complete personalized travel itinerary.
+
+    Combines:
+    - User preferences (from questions)
+    - User profile (from RAG)
+    - Research (via Perplexity)
+    - Weather data
+
+    Returns humanized itinerary via GPT.
+    """
+    prefs = preferences or {}
+    prof = profile or {}
+    name = user_name.split()[0] if user_name else "traveler"
+
+    # Build research query
+    research_query = _build_research_query(destination, duration_days, prefs, prof)
+
+    # Research via Perplexity
+    research_result = ""
+    perplexity = get_service("perplexity")
+    if perplexity:
+        try:
+            await perplexity.initialize()
+            result = await perplexity.search(query=research_query, model="sonar")
+            research_result = result.get("answer", "")
+        except Exception as e:
+            logger.warning("Travel itinerary: Perplexity failed: {}", e)
+
+    # Get weather forecast
+    weather_info = ""
+    weather_svc = get_service("weather")
+    if weather_svc and weather_svc.is_initialized():
+        try:
+            import asyncio
+            w = await asyncio.to_thread(weather_svc.get_current_weather, destination)
+            if w and not isinstance(w, Exception):
+                weather_info = f"Current weather in {destination}: {w.get('temperature', '?')}°C, {w.get('description', '')}"
+        except Exception:
+            pass
+
+    # Build raw itinerary data
+    raw_data = (
+        f"Destination: {destination}\n"
+        f"Dates: {start_date} to {end_date} ({duration_days} days)\n"
+        f"Traveler: {name}\n"
+        f"Companion: {prefs.get('companion', prof.get('travel_companion', 'not specified'))}\n"
+        f"Style: {prefs.get('style', prof.get('travel_style', 'not specified'))}\n"
+        f"Budget: {prefs.get('budget', prof.get('budget_level', 'not specified'))}\n"
+        f"Interests: {prefs.get('interests', ', '.join(prof.get('interests', [])) or 'not specified')}\n"
+        f"Specific cities: {prefs.get('cities', 'let me suggest')}\n"
+        f"Food preferences: {', '.join(prof.get('food_prefs', [])) or 'not specified'}\n"
+        f"Past trips: {', '.join(prof.get('past_trips', [])) or 'not specified'}\n"
+        f"RAG context: {prof.get('_rag_context', 'none')}\n"
+        f"Weather: {weather_info or 'unknown'}\n\n"
+        f"RESEARCH RESULTS:\n{research_result[:3000]}"
+    )
+
+    # Humanize through GPT
+    itinerary = await _humanize_itinerary(raw_data, name, destination, duration_days)
+
+    # Save preferences for future trips
+    await _save_travel_preferences(user_id, prefs, prof)
+
+    # Store itinerary in proactivity_feed
+    title = f"Travel plan: {destination} ({duration_days} days)"
+    await _store_itinerary(user_id, title, itinerary, destination)
+
+    return {
+        "title": title,
+        "itinerary": itinerary,
+        "destination": destination,
+        "duration_days": duration_days,
+    }
+
+
+def _build_research_query(
+    destination: str, duration_days: int,
+    prefs: Dict[str, Any], profile: Dict[str, Any],
+) -> str:
+    """Build a detailed Perplexity query for trip research."""
+    style = prefs.get("style", profile.get("travel_style", "mixed"))
+    companion = prefs.get("companion", profile.get("travel_companion", ""))
+    budget = prefs.get("budget", profile.get("budget_level", "mid-range"))
+    cities = prefs.get("cities", "")
+    interests = prefs.get("interests", ", ".join(profile.get("interests", [])))
+
+    weeks = max(1, duration_days // 7)
+
+    query = (
+        f"Create a detailed {duration_days}-day travel itinerary for {destination}. "
+        f"Split into {weeks} week(s) by region/city. "
+    )
+
+    if cities:
+        query += f"Must include: {cities}. "
+    if style:
+        query += f"Style: {style}. "
+    if companion:
+        query += f"Traveling: {companion}. "
+    if budget:
+        query += f"Budget: {budget}. "
+    if interests:
+        query += f"Interests: {interests}. "
+
+    query += (
+        "For each city/region include: top attractions (include hidden gems), "
+        "best restaurants (local authentic food), nightlife if relevant, "
+        "activities with estimated prices, accommodation suggestions, "
+        "transportation between cities, practical tips. "
+        "Be specific with names and prices."
+    )
+
+    return query
+
+
+async def _humanize_itinerary(
+    raw_data: str, name: str, destination: str, duration_days: int,
+) -> str:
+    """Pass raw itinerary through GPT for warm, friend-like writing."""
+    openai_svc = get_service("openai")
+
+    if openai_svc and openai_svc.is_initialized():
+        prompt = f"""You are CAPIVAREX, a personal AI assistant who LOVES travel. Create a travel itinerary for {name} going to {destination} for {duration_days} days.
+
+RULES:
+- Write like a friend who's been there and is excited to share their favorite spots
+- Structure by WEEK or by CITY (whichever makes more sense for the destination)
+- For each city/region include:
+  • Best attractions (mix tourist must-sees + hidden gems locals love)
+  • Restaurant recommendations (with cuisine type and price range)
+  • Activities based on their style preferences
+  • Practical tips (transport, money, cultural etiquette)
+- Use emojis naturally to mark sections (🏛️ culture, 🍜 food, 🌊 beach, 🎉 nightlife, etc.)
+- Be specific: real names of places, real price estimates, real transport options
+- Include "Pro tip:" sections with insider knowledge
+- End each day/section with a personality touch ("Trust me, the sunset here is worth the hike")
+- Keep it readable on mobile — not too dense, good spacing
+- Maximum ~50 lines (they can ask for more detail on specific parts)
+- End with: "Want me to detail any specific day, or adjust anything?"
+
+TRAVELER DATA:
+{raw_data}
+
+Generate the personalized itinerary:"""
+
+        try:
+            import asyncio
+            response = await asyncio.to_thread(
+                openai_svc.chat_completion,
+                [{"role": "user", "content": prompt}],
+                model="gpt-4o-mini",
+                max_tokens=2000,
+                temperature=0.85,
+            )
+            text = response if isinstance(response, str) else response.get("content", "")
+            if text and len(text) > 50:
+                return text
+        except Exception as e:
+            logger.warning("Travel itinerary: GPT humanization failed: {}", e)
+
+    # Fallback
+    return (
+        f"✈️ **Your {destination} Trip Plan ({duration_days} days)**\n\n"
+        f"Hey {name}! I researched everything for your trip. "
+        f"Here's what I found:\n\n{raw_data[:2000]}\n\n"
+        f"💬 Want me to adjust or detail any part?"
+    )
+
+
+async def _save_travel_preferences(
+    user_id: str, prefs: Dict[str, Any], profile: Dict[str, Any],
+) -> None:
+    """Save learned travel preferences for future trips."""
+    db = get_service("database")
+    if not db or not db.is_initialized():
+        return
+
+    # Merge new prefs with existing profile
+    merged = {k: v for k, v in profile.items() if v and not k.startswith("_")}
+    if prefs.get("companion"):
+        merged["travel_companion"] = prefs["companion"]
+    if prefs.get("style"):
+        merged["travel_style"] = prefs["style"]
+    if prefs.get("budget"):
+        merged["budget_level"] = prefs["budget"]
+
+    if not merged:
+        return
+
+    try:
+        import json as _json
+        client = db.get_client()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "context_type": "travel_preferences",
+                "context_data": _json.dumps(merged),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+            on_conflict="user_id,context_type",
+        ).execute()
+    except Exception as e:
+        logger.warning("Travel: save prefs failed: {}", e)
+
+
+async def _store_itinerary(
+    user_id: str, title: str, itinerary: str, destination: str,
+) -> None:
+    """Store itinerary in proactivity_feed."""
+    db = get_service("database")
+    if not db or not db.is_initialized():
+        return
+
+    try:
+        import json as _json
+        client = db.get_client()
+        client.table("proactivity_feed").insert({
+            "user_id": user_id,
+            "type": "travel_itinerary",
+            "title": title,
+            "message": itinerary[:5000],  # Supabase text limit safety
+            "metadata": _json.dumps({"destination": destination}),
+            "is_read": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.warning("Travel: store itinerary failed: {}", e)

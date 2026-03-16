@@ -10,6 +10,10 @@ from services.business.travel_planner_service import (
     _has_trip_keywords,
     _extract_destination_from_text,
     _parse_date,
+    gather_travel_profile,
+    build_preference_questions,
+    build_itinerary,
+    _build_research_query,
 )
 
 
@@ -409,3 +413,167 @@ class TestCheckTravelForAllUsers:
         with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
             result = await _trip_alert_sent("u1", "evt-new")
         assert result is False
+
+
+# ===========================================================================
+# Phase 2 — Preference Gathering + Itinerary Building
+# ===========================================================================
+
+class TestGatherTravelProfile:
+    """Tests for profile gathering from RAG + user_context."""
+
+    @pytest.mark.asyncio
+    async def test_profile_defaults_no_services(self):
+        """Returns empty profile when no services available."""
+        with patch("services.business.travel_planner_service.get_service", return_value=None):
+            profile = await gather_travel_profile("user-123")
+
+        assert profile["travel_style"] == ""
+        assert profile["budget_level"] == ""
+        assert profile["interests"] == []
+
+    @pytest.mark.asyncio
+    async def test_profile_from_user_context(self):
+        """Loads saved preferences from user_context."""
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[{"context_data": '{"travel_style": "adventurous", "budget_level": "mid-range"}'}]
+        )
+
+        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+            profile = await gather_travel_profile("user-123")
+
+        assert profile["travel_style"] == "adventurous"
+        assert profile["budget_level"] == "mid-range"
+
+    @pytest.mark.asyncio
+    async def test_profile_with_rag(self):
+        """RAG context is included when available."""
+        mock_rag = MagicMock()
+        mock_rag.is_initialized.return_value = True
+        mock_rag.search = AsyncMock(return_value=[
+            {"content": "User loves hiking and Japanese food"},
+        ])
+
+        def fake_svc(name):
+            return mock_rag if name == "rag" else None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            profile = await gather_travel_profile("user-123")
+
+        assert "_rag_context" in profile
+        assert "hiking" in profile["_rag_context"]
+
+
+class TestPreferenceQuestions:
+    """Tests for question generation."""
+
+    def test_all_unknown(self):
+        """Generates all questions when nothing is known."""
+        profile = {"travel_style": "", "budget_level": "", "travel_companion": "", "interests": []}
+        questions = build_preference_questions(profile, "Thailand", 14)
+        assert len(questions) >= 3
+        assert len(questions) <= 4
+
+    def test_companion_known(self):
+        """Skips companion question when already known."""
+        profile = {"travel_style": "", "budget_level": "", "travel_companion": "couple", "interests": []}
+        questions = build_preference_questions(profile, "Japan", 10)
+        # Should NOT ask about companion
+        assert not any("solo" in q.lower() and "couple" in q.lower() for q in questions)
+
+    def test_style_known(self):
+        """Skips style question when interests are known."""
+        profile = {"travel_style": "adventurous", "budget_level": "", "travel_companion": "", "interests": ["hiking"]}
+        questions = build_preference_questions(profile, "Peru", 7)
+        # Should NOT ask about style since interests exist
+        assert not any("relaxed" in q.lower() and "adventurous" in q.lower() for q in questions)
+
+    def test_short_trip_no_city_question(self):
+        """Short trips (<7 days) don't get the cities question."""
+        profile = {"travel_style": "", "budget_level": "", "travel_companion": "", "interests": []}
+        questions = build_preference_questions(profile, "Lisbon", 4)
+        assert not any("cities" in q.lower() or "regions" in q.lower() for q in questions)
+
+
+class TestBuildResearchQuery:
+    """Tests for Perplexity research query building."""
+
+    def test_basic_query(self):
+        query = _build_research_query("Thailand", 14, {}, {})
+        assert "Thailand" in query
+        assert "14-day" in query
+        assert "attractions" in query
+
+    def test_query_with_preferences(self):
+        prefs = {"style": "adventurous", "companion": "couple", "budget": "luxury"}
+        query = _build_research_query("Japan", 10, prefs, {})
+        assert "adventurous" in query
+        assert "couple" in query
+        assert "luxury" in query
+
+    def test_query_with_specific_cities(self):
+        prefs = {"cities": "Chiang Mai, Bangkok, Phuket"}
+        query = _build_research_query("Thailand", 21, prefs, {})
+        assert "Chiang Mai" in query
+
+
+class TestBuildItinerary:
+    """Tests for full itinerary building."""
+
+    @pytest.mark.asyncio
+    async def test_itinerary_no_services(self):
+        """Itinerary still generates with fallback when no services."""
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        def fake_svc(name):
+            return mock_db if name == "database" else None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            result = await build_itinerary(
+                user_id="user-123",
+                destination="Thailand",
+                start_date="Mar 15",
+                end_date="Apr 15",
+                duration_days=30,
+                user_name="Marcos",
+            )
+
+        assert result is not None
+        assert "Thailand" in result["title"]
+        assert result["duration_days"] == 30
+
+    @pytest.mark.asyncio
+    async def test_itinerary_with_preferences(self):
+        """Itinerary uses preferences in query."""
+        def fake_svc(name):
+            return None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            result = await build_itinerary(
+                user_id="user-123",
+                destination="Japan",
+                start_date="May 1",
+                end_date="May 10",
+                duration_days=10,
+                user_name="Ana",
+                preferences={"style": "cultural", "companion": "solo"},
+            )
+
+        assert result is not None
+        assert "Japan" in result["itinerary"]
+
+    @pytest.mark.asyncio
+    async def test_save_prefs_no_db(self):
+        from services.business.travel_planner_service import _save_travel_preferences
+        with patch("services.business.travel_planner_service.get_service", return_value=None):
+            await _save_travel_preferences("u1", {"companion": "solo"}, {})
+
+    @pytest.mark.asyncio
+    async def test_store_itinerary_no_db(self):
+        from services.business.travel_planner_service import _store_itinerary
+        with patch("services.business.travel_planner_service.get_service", return_value=None):
+            await _store_itinerary("u1", "Trip", "itinerary text", "Tokyo")
