@@ -14,6 +14,9 @@ from services.business.travel_planner_service import (
     build_preference_questions,
     build_itinerary,
     _build_research_query,
+    generate_trip_summary,
+    adjust_itinerary,
+    finalize_itinerary,
 )
 
 
@@ -577,3 +580,194 @@ class TestBuildItinerary:
         from services.business.travel_planner_service import _store_itinerary
         with patch("services.business.travel_planner_service.get_service", return_value=None):
             await _store_itinerary("u1", "Trip", "itinerary text", "Tokyo")
+
+
+# ===========================================================================
+# Phase 3 — Presentation + Approval + Final Document
+# ===========================================================================
+
+class TestGenerateTripSummary:
+    """Tests for trip summary/teaser generation."""
+
+    @pytest.mark.asyncio
+    async def test_summary_no_gpt(self):
+        """Fallback summary is still warm and useful."""
+        with patch("services.business.travel_planner_service.get_service", return_value=None):
+            result = await generate_trip_summary(
+                itinerary="Day 1: Bangkok...\nDay 2: Temples...",
+                destination="Thailand",
+                duration_days=14,
+                user_name="Marcos",
+            )
+        assert "Marcos" in result
+        assert "Thailand" in result
+        assert "14" in result
+
+    @pytest.mark.asyncio
+    async def test_summary_contains_cta(self):
+        """Summary asks user to approve or adjust."""
+        with patch("services.business.travel_planner_service.get_service", return_value=None):
+            result = await generate_trip_summary(
+                itinerary="Week 1: Tokyo...",
+                destination="Japan",
+                duration_days=10,
+                user_name="Ana",
+            )
+        assert "adjust" in result.lower() or "plan" in result.lower()
+
+
+class TestAdjustItinerary:
+    """Tests for itinerary adjustment based on user feedback."""
+
+    @pytest.mark.asyncio
+    async def test_adjust_no_gpt(self):
+        """Fallback acknowledges feedback when GPT unavailable."""
+        def fake_svc(name):
+            return None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            result = await adjust_itinerary(
+                user_id="user-123",
+                current_itinerary="Day 1: Chiang Mai temples...",
+                user_feedback="Swap Chiang Mai for Pai",
+                destination="Thailand",
+                duration_days=14,
+                user_name="Marcos",
+            )
+        assert "Swap Chiang Mai for Pai" in result["itinerary"]
+        assert result["adjusted"] is False
+
+    @pytest.mark.asyncio
+    async def test_adjust_with_gpt(self):
+        """GPT adjustment returns modified itinerary."""
+        mock_openai = MagicMock()
+        mock_openai.is_initialized.return_value = True
+        mock_openai.chat_completion.return_value = "Great call swapping Chiang Mai for Pai! Here's the updated plan..."
+
+        def fake_svc(name):
+            return mock_openai if name == "openai" else None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            result = await adjust_itinerary(
+                user_id="user-123",
+                current_itinerary="Day 1: Chiang Mai...",
+                user_feedback="Swap Chiang Mai for Pai",
+                destination="Thailand",
+                duration_days=14,
+                user_name="Marcos",
+            )
+        assert result["adjusted"] is True
+        assert "Pai" in result["itinerary"]
+
+
+class TestFinalizeItinerary:
+    """Tests for final document generation."""
+
+    @pytest.mark.asyncio
+    async def test_finalize_no_services(self):
+        """Finalize works even without GPT/notes (uses current itinerary)."""
+        def fake_svc(name):
+            return None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            result = await finalize_itinerary(
+                user_id="user-123",
+                itinerary="Day 1: Bangkok temples\nDay 2: Street food tour",
+                destination="Thailand",
+                duration_days=14,
+                user_name="Marcos",
+            )
+        assert result is not None
+        assert "Thailand" in result["destination"]
+        assert "Thailand" in result["confirmation"]
+        assert "Marcos" in result["confirmation"]
+
+    @pytest.mark.asyncio
+    async def test_finalize_saves_to_notes(self):
+        """Finalize attempts to save to notes service."""
+        mock_notes = MagicMock()
+        mock_notes.is_initialized.return_value = True
+        mock_notes.create_note = AsyncMock(return_value=True)
+
+        def fake_svc(name):
+            return mock_notes if name == "notes" else None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            result = await finalize_itinerary(
+                user_id="user-123",
+                itinerary="Full itinerary content here...",
+                destination="Japan",
+                duration_days=10,
+                user_name="Ana",
+            )
+        assert result is not None
+        # Notes service was called
+        mock_notes.create_note.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_humanize_confirmation_no_gpt(self):
+        from services.business.travel_planner_service import _humanize_confirmation
+        with patch("services.business.travel_planner_service.get_service", return_value=None):
+            msg = await _humanize_confirmation("Marcos", "Thailand", 14)
+        assert "Marcos" in msg
+        assert "Thailand" in msg
+        assert "notes" in msg.lower()
+
+    @pytest.mark.asyncio
+    async def test_save_to_notes_no_service(self):
+        from services.business.travel_planner_service import _save_to_notes
+        with patch("services.business.travel_planner_service.get_service", return_value=None):
+            await _save_to_notes("u1", "Paris", 5, "content")  # Should not crash
+
+    @pytest.mark.asyncio
+    async def test_save_to_notes_with_db(self):
+        """Saves itinerary to user_context even without notes service."""
+        from services.business.travel_planner_service import _save_to_notes
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+
+        def fake_svc(name):
+            return mock_db if name == "database" else None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            await _save_to_notes("u1", "Tokyo", 7, "My itinerary content")
+
+        mock_db.get_client.return_value.table.assert_called_with("user_context")
+
+    @pytest.mark.asyncio
+    async def test_finalize_with_gpt(self):
+        """Finalize uses GPT for polished document."""
+        mock_openai = MagicMock()
+        mock_openai.is_initialized.return_value = True
+        mock_openai.chat_completion.return_value = "🗺️ Ana's Japan Adventure — 10 Days\n\nDay 1: Tokyo..."
+
+        def fake_svc(name):
+            return mock_openai if name == "openai" else None
+
+        with patch("services.business.travel_planner_service.get_service", fake_svc):
+            result = await finalize_itinerary(
+                user_id="user-456",
+                itinerary="Day 1: Tokyo\nDay 2: Kyoto",
+                destination="Japan",
+                duration_days=10,
+                user_name="Ana Costa",
+            )
+        assert result is not None
+        assert "Japan" in result["document"] or "Ana" in result["document"]
+
+    @pytest.mark.asyncio
+    async def test_summary_with_gpt(self):
+        """Summary uses GPT when available."""
+        mock_openai = MagicMock()
+        mock_openai.is_initialized.return_value = True
+        mock_openai.chat_completion.return_value = "Hey Marcos! I planned 4 weeks across Thailand — Bangkok, Chiang Mai, islands, and more!"
+
+        with patch("services.business.travel_planner_service.get_service", return_value=mock_openai):
+            result = await generate_trip_summary(
+                itinerary="Week 1: Bangkok\nWeek 2: Chiang Mai",
+                destination="Thailand",
+                duration_days=28,
+                user_name="Marcos",
+            )
+        assert "Thailand" in result or "Bangkok" in result
