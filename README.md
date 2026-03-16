@@ -1,122 +1,163 @@
 # Capivarex — Your Proactive AI Life Assistant
 
-Capivarex is a "Jarvis-like" proactive AI assistant that integrates multiple services and provides contextual, intelligent assistance across various interfaces. It manages your daily life — from scheduling meetings and booking flights to controlling your smart home and making phone calls.
+Capivarex is a "Jarvis-like" proactive AI assistant that **anticipates your needs** before you ask. It manages your daily life — from morning briefings and email triage to travel planning and smart home control — across Telegram, WebApp (PWA), and voice interfaces.
 
-## 🚀 Features
+**What makes it different:** Capivarex doesn't just respond — it **thinks ahead**. It detects a trip in your calendar and offers to plan it. It checks your inbox and prioritizes what matters. It wakes you up with a personalized briefing combining weather, calendar, and finance. Every message sounds like a smart friend, not a robot.
 
-### Core
-- **33 Specialized AI Agents**: Sophisticated orchestrator routes requests to domain-specific agents
-- **Shopping Intelligence**: Smart shopping list with receipt OCR, price tracking, grocery synonyms, and daily reminders
-- **Voice Support**: Text-to-speech (ElevenLabs), speech-to-text (Whisper), and AI-powered phone calls (Twilio + Deepgram)
-- **Automated Reports**: Monthly spending reports with Excel export, store rankings, and price drop alerts
-- **Smart Notifications**: Proactive briefings, calendar alerts, shopping reminders, and price drop notifications
-- **Keyword Safety Net**: Fallback routing ensures every message reaches the right agent even without AI classification
-- **Proactive Assistance**: Initiates conversations and provides briefings based on your context
-- **Multi-Language**: Full i18n support (EN/PT/ES) with 500+ translation keys
-- **Persistent Memory**: Remembers your name, preferences, and personal info across all conversations
-- **Multi-Interface**: Telegram Bot, REST API, WebSocket — designed for future, Device, WebApp (PWA) and smartwatch
+## ✨ Intelligence Layer (S-TIER)
 
-### ✅ Implemented Agents & Services
+The brain of Capivarex — 9 proactive services that run autonomously:
+
+| Service | What it does | Trigger |
+|---------|-------------|---------|
+| 🌅 **Morning Briefing** | Weather + calendar + finance + news in one warm message | Daily 06:00-10:00 UTC |
+| 📋 **Meeting Briefing** | Prep with context from RAG 2h before meetings | Every 5 min cycle |
+| 📈 **Finance Alerts** | Notifies when stocks/crypto cross your threshold | Every 5 min cycle |
+| 📊 **Weekly Recap** | Personalized stock + crypto performance summary | Mondays 08:00-10:00 UTC |
+| 📰 **Personalized News** | News tailored to your interests via RAG + Perplexity | 2x/day (07:00 + 18:00) |
+| ✈️ **Travel Planner** | Detects trips in calendar → builds full itinerary | Daily 10:00-12:00 UTC |
+| 🎙️ **Smart Actions** | "Nota que..." → auto-creates notes/reminders/events | Every message |
+| 📬 **Email Triage** | Categorizes inbox by urgency, extracts action items | On demand |
+| 🤝 **Meeting Orchestrator** | "Marca reunião" → event + Meet link + invite + notes | On demand |
+
+**Rule: ALL output is humanized through GPT.** No templates, no robotic lists. Every message sounds like a smart friend with personality.
+
+## 🤖 35 Specialized AI Agents
 
 | Agent | Description | Integration |
 |-------|-------------|-------------|
-| 🤖 **Orchestrator** | Intent analysis & agent routing | OpenAI GPT-4.1-mini |
-| 💬 **Chat** | Conversational AI & general chat | OpenAI GPT-4.1-mini / GPT-5-mini |
-| 📅 **Calendar** | Read/create events, scheduling | Google Calendar API |
+| 🧠 **Orchestrator** | Intent analysis & agent routing | OpenAI GPT-4.1-mini |
+| 💬 **Chat** | Conversational AI with persistent memory (RAG) | OpenAI GPT-4.1-mini / GPT-5-mini |
+| 📅 **Calendar** | Read/create events, scheduling | Google Calendar API (OAuth2) |
 | 🎥 **Meeting** | Create Google Meet video calls | Google Calendar API |
-| 🏠 **SmartHome** | Control lights, sensors, locks | SmartThings OAuth2 (auto-refresh) |
+| 🏠 **SmartHome** | Control lights, sensors, locks | Tuya Cloud API + SmartThings OAuth2 |
 | ✈️ **Travel** | Flight & hotel search with booking links | Duffel API + Booking.com |
 | 🚗 **Car** | EV battery, location, charging, locks | Smartcar API |
-| 🌤 **Weather** | Real-time forecasts | OpenWeatherMap |
-| 💰 **Finance** | Real-time stock quotes | Twelve Data API |
+| 🌤️ **Weather** | Real-time forecasts & alerts | OpenWeatherMap |
+| 💰 **Finance** | Stock quotes + watchlist management | Twelve Data API |
 | 🪙 **Crypto** | Cryptocurrency prices & tracking | CoinGecko API |
-| 🔍 **Research** | Web search & synthesis | Perplexity Sonar AI |
+| 🔍 **Research** | Web search & AI synthesis | Perplexity Sonar AI |
 | 🔎 **Search** | Structured web search results | Serper API |
 | 💻 **Dev** | Code generation & explanation | Anthropic Claude |
-| 🐙 **GitHub** | Create repos, manage code | GitHub API |
-| 📞 **Twilio** | AI-powered phone calls via Telegram | Twilio + Deepgram |
-| 🖼 **Image** | Generate images from text | Google Gemini |
+| 📧 **Email** | Gmail read, send, manage, triage | Gmail API (Google OAuth2) |
+| 📞 **Twilio** | AI-powered phone calls | Twilio + Deepgram |
+| 🖼️ **Image** | Generate images from text | Google Gemini |
 | 🎬 **Video** | Generate videos from text | Google Gemini Veo |
-| 🗣 **Voice** | Text-to-speech | ElevenLabs |
-| 🚌 **Transport** | Public transport info | Transit APIs |
-| 🛒 **Mercado** | Shopping list, receipts, price tracking | Supabase + Google Vision OCR |
-| 📧 **Email** | Gmail read, send, manage | Gmail API (Google OAuth2) |
-| 🎵 **Music** | Spotify search & recommendations | Spotify API |
+| 🗣️ **Voice** | Text-to-speech | ElevenLabs |
+| 🎵 **Music** | Search & recommendations | Spotify API |
+| 📺 **YouTube** | Search & trending videos | YouTube Data API |
 | 📝 **Notes** | Personal note-taking & management | Supabase |
 | 🔔 **Reminder** | Persistent reminders with date/time | Supabase |
-| 🍽 **Restaurant** | Restaurant search & reviews | Google Places API |
-| 🗺 **Maps** | Directions, places, navigation | Google Maps API |
+| 🛒 **Mercado** | Shopping list, receipt OCR, price tracking | Supabase + Google Vision |
+| 🍽️ **Restaurant** | Restaurant search & reviews | Google Places API |
+| 🗺️ **Maps** | Directions, places, navigation | Google Maps API |
 | 🚦 **Traffic** | Real-time traffic conditions | Google Maps Traffic API |
 | 🚶 **Leaving Now** | Departure time + ETA for events | Google Maps + Calendar |
+| 🚌 **Transport** | Public transport info | Transit APIs |
 | 📦 **Tracking** | Package & delivery tracking | 17TRACK API |
 | 🌐 **Translate** | Text translation | AI-powered |
 | ⏰ **Time** | Time zones & conversions | Built-in |
-| ⏱ **Timer** | Alarms, timers, countdowns | Redis + Upstash |
-| 📺 **YouTube** | YouTube search & trending videos | YouTube Data API |
+| ⏱️ **Timer** | Alarms, timers, countdowns | Redis + Upstash |
+| 📡 **Media Cast** | Cast media to devices | Chromecast |
+| 🐙 **GitHub** | Create repos, manage code | GitHub API |
 
-### ⏳ Planned
-- **WhatsApp Business**: Messaging interface
-- **Virtual Avatar**: D-ID powered web avatar
-- **WebApp (PWA)**: Full dashboard with settings
+## 🧩 Business Services
+
+| Service | Purpose |
+|---------|---------|
+| `morning_briefing_service` | Daily briefing: weather + calendar + finance (humanized via GPT) |
+| `meeting_briefing_service` | Meeting prep 2h before events with RAG context |
+| `weekly_recap_service` | Weekly finance recap + watchlist management |
+| `finance_alert_service` | Price movement alerts for stocks/crypto |
+| `finance_news_service` | Personalized news per user via Perplexity + GPT |
+| `travel_planner_service` | Trip detection → preference gathering → itinerary building |
+| `implicit_action_service` | Detects "nota que..." → auto-creates notes/reminders/events |
+| `email_triage_service` | Inbox categorization by urgency + action extraction |
+| `meeting_orchestrator_service` | Full meeting setup: event + Meet link + invite + notes |
+| `proactivity_service` | Context gathering + insight generation |
+| `email_polling_service` | Background email monitoring |
+| `chat_service` | Chat dispatch to specialized agents |
+| `rag_service` | Retrieval-Augmented Generation (persistent memory) |
+| `quota_service` | Usage quotas per plan (Free/Me/Everywhere/Family) |
+| `mercado_service` | Shopping intelligence with OCR + price tracking |
+| `leaving_now_service` | Smart departure alerts with traffic |
+| `user_profile_service` | User preferences + profile management |
 
 ## 🔧 Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Python 3.11, FastAPI |
+| **Frontend** | Next.js 14, TypeScript, Tailwind CSS (PWA) |
 | **Database** | Supabase (PostgreSQL) |
 | **Cache** | Upstash Redis |
-| **Auth** | JWT (JSON Web Tokens), Google OAuth2 |
+| **Auth** | JWT + Google OAuth2 + Tuya OAuth2 |
 | **AI Models** | OpenAI GPT-4.1-mini / GPT-5-mini, Anthropic Claude, Perplexity Sonar, Google Gemini Flash 2.0 |
 | **Voice & Media** | ElevenLabs (TTS), Whisper (STT), Deepgram (real-time STT), Google Gemini Veo (video) |
-| **Interfaces** | Telegram Bot, REST API, WebSockets |
-| **Deploy** | Railway |
-| **CI/Testing** | pytest (2555+ tests, 79%+ coverage), ruff |
+| **Smart Home** | Tuya Cloud API (device control, DP discovery, token refresh) |
+| **Interfaces** | Telegram Bot, WebApp (PWA), REST API, WebSockets |
+| **Deploy** | Railway (backend) + Vercel (frontend) |
+| **CI/CD** | GitHub Actions (lint + test + security audit + Docker build) |
+| **Testing** | pytest (3200+ tests, 79%+ coverage), ruff (0 errors) |
+| **Monitoring** | Sentry (error tracking), circuit breakers (pybreaker) |
 
-## 🏗 Architecture
+## 🏗️ Architecture
 
 ```mermaid
 flowchart LR
-    A["Entry Point\n(API / Telegram Bot)"] --> B["Gateway\n(RequestProcessor)"]
+    A["Entry Points\n(API / Telegram / WebApp)"] --> B["Gateway\n(RequestProcessor)"]
     B --> C["OrchestratorAgent"]
-    C --> D["Specialized Agent"]
-    D --> E["Infrastructure Service"]
+    C --> D["35 Specialized Agents"]
+    D --> E["Infrastructure Services"]
     E --> F["Response"]
     B -.-> G["Keyword Safety Net\n(fallback routing)"]
     G -.-> D
-    H["Timer Loop\n(proactive alerts)"] --> E
-    I["Worker\n(arq + Redis)"] --> E
+    H["Proactivity Loop\n(8 autonomous steps)"] --> E
+    I["Implicit Action Detector"] --> D
 ```
+
+### Proactivity Loop (8 Steps)
+
+Runs every 5 minutes, autonomously:
+
+1. **Context checks** — proactivity insights for all users
+2. **Email polling** — monitor for new emails
+3. **News fetching** — personalized news 2x/day
+4. **Finance alerts** — price movement detection
+5. **Morning briefings** — daily briefing 06:00-10:00 UTC
+6. **Meeting briefings** — prep 2h before meetings
+7. **Weekly recap** — Mondays 08:00-10:00 UTC
+8. **Travel detection** — scan calendar for upcoming trips
 
 ### Directory Structure
 
 | Layer | Directory | Responsibility |
 |-------|-----------|---------------|
-| API | `api/` | REST endpoints & WebSocket (FastAPI), JWT auth |
-| Telegram Bot | `telegram_bot/` | Telegram interface, message handlers, `mercado_callback.py` |
-| Gateway | `utils/request_processor.py` | Request ID, rate limiting, user context |
-| Orchestrator | `agents/specialized/orchestrator_agent.py` | Intent analysis, agent routing |
-| Specialized Agents | `agents/specialized/` | 33 agents — one per domain (calendar, car, chat, dev, etc.) |
-| Business Services | `services/business/` | ChatService, ProactivityService, UserProfileService, PromptCleaner, `grocery_synonyms.py` |
-| Infrastructure | `services/infrastructure/` | Database (Supabase), Redis, Git, FileManager, Notifications, Sentry |
-| Integrations | `services/integrations/` | Google Calendar, Smartcar, Weather, SmartThings, Duffel, Traffic, Gmail, Spotify |
-| AI Services | `services/ai/` | OpenAI, Anthropic (Claude), Perplexity, ElevenLabs |
-| Media Services | `services/media/` | Image, Video, Whisper (transcription) |
-| i18n | `services/i18n/` | Internationalization (EN/PT/ES), `keywords.py` safety net |
-| Autofix | `autofix/` | Autonomous bug triage and patching |
-| Worker | `worker.py` | Async task processing via arq + Redis |
+| API | `api/` | REST endpoints, WebSocket, JWT auth (FastAPI) |
+| Agents | `agents/specialized/` | 35 domain-specific agents |
+| Business Services | `services/business/` | Intelligence layer, proactivity, RAG, chat |
+| Infrastructure | `services/infrastructure/` | Database, Redis, Sentry, security |
+| Integrations | `services/integrations/` | Google, Smartcar, Tuya, Duffel, Gmail, Spotify |
+| AI Services | `services/ai/` | OpenAI, Anthropic, Perplexity, ElevenLabs |
+| Auth | `services/auth/` | Google OAuth2, Spotify OAuth2, Tuya OAuth2 |
+| Media | `services/media/` | Image, Video, Whisper (transcription) |
+| i18n | `services/i18n/` | Internationalization (EN/PT/ES), keyword safety net |
+| Tests | `tests/` | 94 test files, 3200+ tests |
 
 ### Architectural Patterns
-- **Service Registry** — All services register via `@register_service` and are accessed by `get_service(name)`
-- **Agent Registry** — Agents register via `@register_agent` and are accessed by `get_agent(name)`
+
+- **Service Registry** — `@register_service` + `get_service(name)`
+- **Agent Registry** — `@register_agent` + `get_agent(name)`
 - **Circuit Breaker** — External integrations protected by `pybreaker`
-- **Keyword Safety Net** — Dictionary-based fallback routing in `services/i18n/keywords.py`
-- **Strategy Pattern** — Dictionary-based dispatch in ChatService and autofix
-- **RequestProcessor** — Unified gateway for rate limiting, context, and observability
+- **Keyword Safety Net** — Dictionary-based fallback routing
+- **RAG Memory** — Persistent user context across conversations
+- **GPT Humanization** — All proactive output passes through GPT for natural language
+- **State Machine** — Travel planner uses stateful conversation (detected → gathering → building → reviewing → finalized)
 
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python 3.11+
 - Supabase account
 - Upstash Redis account
@@ -125,37 +166,21 @@ flowchart LR
 ### Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/cotah/capivarex.git
 cd capivarex
 
-# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
 cp .env.example .env
 # Edit .env with your API keys
-
-# Configure Google credentials
-cp credentials.example.json credentials.json
-cp service_account.example.json service_account.json
-# Edit JSON files with your Google Cloud Console credentials
 ```
 
 > ⚠️ **Never commit** `.env`, `credentials.json`, or `service_account.json` to Git.
 
-### Running with Docker (Recommended)
-
-```bash
-./start_all.sh
-```
-API available at `http://localhost:8000` — docs at `http://localhost:8000/docs`.
-
-### Running without Docker
+### Running
 
 ```bash
 # API server
@@ -164,72 +189,44 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 # Telegram bot
 python telegram_bot/main.py
 
-# Background worker (optional, requires Redis)
+# Background worker (optional)
 arq worker.WorkerSettings
 ```
 
 ### Running Tests
 
 ```bash
-pytest tests/ -v
+# Full suite
+pytest tests/ -q
+
+# Specific module
+pytest tests/test_morning_briefing_service.py -v
+
+# With coverage
+pytest tests/ --cov=. --cov-report=term-missing -q
 ```
 
 ## 🔒 Security
 
-### JWT Authentication
-All API endpoints are protected by JWT. Generate a secure key:
-```bash
-python -c "import secrets; print(secrets.token_hex(64))"
-```
+- **JWT Authentication** — All API endpoints protected
+- **Google OAuth2** — Calendar, Gmail, Meet
+- **Tuya OAuth2** — Smart home device control with token refresh
+- **Circuit Breakers** — Prevent cascading failures
+- **pip-audit** — Automated vulnerability scanning in CI
+- **Secrets** — All credentials via environment variables
 
-Rotate the key if: exposed in a commit/log, suspected unauthorized access, team member leaves, or every 90 days. See `docs/JWT_ROTATION.md` for zero-downtime rotation.
+## 📊 Project Metrics
 
-### Environment Variables
-All credentials stored via environment variables. For production, use a secret manager (AWS Secrets Manager, GCP Secret Manager, Doppler).
-
-| Variable | Description |
-|----------|-------------|
-| `JWT_SECRET_KEY` | Signs/verifies JWT tokens (≥ 32 bytes random) |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API key |
-| `GEMINI_API_KEY` | Google Gemini API key (image/video generation) |
-| `ELEVENLABS_API_KEY` | ElevenLabs text-to-speech API key |
-| `SONAR_API_KEY` | Perplexity Sonar API key (research) |
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
-| `REDIS_URL` | Redis socket URL (arq worker) |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
-| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth2 client ID (Calendar + Gmail) |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth2 client secret |
-| `GOOGLE_MAPS_API_KEY` | Google Maps API key |
-| `GOOGLE_PLACES_API_KEY` | Google Places API key (restaurants) |
-| `SMARTTHINGS_CLIENT_ID` | SmartThings OAuth2 client ID |
-| `SMARTTHINGS_CLIENT_SECRET` | SmartThings OAuth2 client secret |
-| `SMARTCAR_CLIENT_ID` | Smartcar API client ID |
-| `SMARTCAR_CLIENT_SECRET` | Smartcar API client secret |
-| `TWILIO_ACCOUNT_SID` | Twilio account SID |
-| `TWILIO_AUTH_TOKEN` | Twilio auth token |
-| `DEEPGRAM_API_KEY` | Deepgram speech-to-text API key |
-| `DUFFEL_ACCESS_TOKEN` | Duffel API token (flights) |
-| `SERPER_API_KEY` | Serper API key (web search) |
-| `17TRACK_API_KEY` | 17TRACK API key (package tracking) |
-| `WEATHER_API_KEY` | OpenWeatherMap API key |
-| `TWELVE_DATA_API_KEY` | Twelve Data API key (finance) |
-| `SENTRY_DSN` | Sentry error tracking DSN |
-
-See `.env.example` for the full list.
-
-## 🤝 Contributing
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-Please follow the existing code style and add tests for new functionality.
+| Metric | Value |
+|--------|-------|
+| Specialized Agents | 35 |
+| Business Services | 34 |
+| Test Files | 94 |
+| Total Tests | 3200+ |
+| Code Coverage | 79%+ |
+| Python Files | 363 |
+| Ruff Errors | 0 |
+| CI Pipeline | Lint → Test → Security → Docker |
 
 ## 📄 License
 
