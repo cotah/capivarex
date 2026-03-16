@@ -139,15 +139,16 @@ class TestRateLimitKeyFunction:
         import jwt
         from api.middleware.rate_limit import get_user_plan_key
 
+        _secret = "test-secret-for-rate-limit"
         token = jwt.encode(
             {"sub": "user-abc", "plan": "me"},
-            "secret",
+            _secret,
             algorithm="HS256",
         )
         req = self._make_request(auth_header=f"Bearer {token}")
-        with patch(
-            "api.middleware.rate_limit.get_remote_address",
-            return_value="127.0.0.1",
+        with (
+            patch("api.middleware.rate_limit.get_remote_address", return_value="127.0.0.1"),
+            patch.dict("os.environ", {"JWT_SECRET_KEY": _secret, "JWT_ALGORITHM": "HS256"}),
         ):
             key = get_user_plan_key(req)
         assert "user-abc" in key
@@ -172,11 +173,12 @@ class TestRateLimitKeyFunction:
         import jwt
         from api.middleware.rate_limit import get_user_plan_key
 
-        token = jwt.encode({"sub": "user-xyz"}, "secret", algorithm="HS256")
+        _secret = "test-secret-for-rate-limit"
+        token = jwt.encode({"sub": "user-xyz"}, _secret, algorithm="HS256")
         req = self._make_request(auth_header=f"Bearer {token}")
-        with patch(
-            "api.middleware.rate_limit.get_remote_address",
-            return_value="127.0.0.1",
+        with (
+            patch("api.middleware.rate_limit.get_remote_address", return_value="127.0.0.1"),
+            patch.dict("os.environ", {"JWT_SECRET_KEY": _secret, "JWT_ALGORITHM": "HS256"}),
         ):
             key = get_user_plan_key(req)
         assert "user-xyz" in key

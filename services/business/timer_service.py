@@ -132,6 +132,14 @@ class TimerService(BaseService):
     def __init__(self):
         super().__init__(name="timer")
         self._redis = None
+        self._lock = None  # asyncio.Lock created on first use
+
+    async def _get_lock(self):
+        """Lazy-init asyncio.Lock (must be created in async context)."""
+        if self._lock is None:
+            import asyncio
+            self._lock = asyncio.Lock()
+        return self._lock
 
     async def _initialize(self) -> None:
         from services.core import get_service
@@ -189,9 +197,11 @@ class TimerService(BaseService):
             timer_type=timer_type,
         )
 
-        timers = await self._load_timers()
-        timers.append(timer)
-        await self._save_timers(timers)
+        lock = await self._get_lock()
+        async with lock:
+            timers = await self._load_timers()
+            timers.append(timer)
+            await self._save_timers(timers)
 
         self.logger.info(
             "Timer created: %s for user %s, fires in %.0fs",
@@ -213,18 +223,20 @@ class TimerService(BaseService):
         if not self.is_initialized():
             await self.initialize()
 
-        timers = await self._load_timers()
-        original_count = len(timers)
+        lock = await self._get_lock()
+        async with lock:
+            timers = await self._load_timers()
+            original_count = len(timers)
 
-        timers = [
-            t for t in timers
-            if not (t.timer_id == timer_id and t.user_id == str(user_id))
-        ]
+            timers = [
+                t for t in timers
+                if not (t.timer_id == timer_id and t.user_id == str(user_id))
+            ]
 
-        if len(timers) == original_count:
-            return False  # não encontrado
+            if len(timers) == original_count:
+                return False  # não encontrado
 
-        await self._save_timers(timers)
+            await self._save_timers(timers)
         self.logger.info("Timer %s cancelled for user %s", timer_id, user_id)
         return True
 
@@ -243,7 +255,12 @@ class TimerService(BaseService):
         remaining = [t for t in timers if t.user_id != str(user_id)]
 
         if user_timers:
-            await self._save_timers(remaining)
+            lock = await self._get_lock()
+            async with lock:
+                # Re-read to avoid overwriting concurrent changes
+                timers = await self._load_timers()
+                remaining = [t for t in timers if t.user_id != str(user_id)]
+                await self._save_timers(remaining)
 
         return len(user_timers)
 
@@ -283,17 +300,19 @@ class TimerService(BaseService):
         if not self.is_initialized():
             await self.initialize()
 
-        timers = await self._load_timers()
-        due = [t for t in timers if t.is_due]
-        remaining = [t for t in timers if not t.is_due]
+        lock = await self._get_lock()
+        async with lock:
+            timers = await self._load_timers()
+            due = [t for t in timers if t.is_due]
+            remaining = [t for t in timers if not t.is_due]
 
-        if not due:
-            return []
+            if not due:
+                return []
 
-        # Salva lista sem os vencidos
-        await self._save_timers(remaining)
+            # Salva lista sem os vencidos
+            await self._save_timers(remaining)
 
-        # Notifica
+        # Notifica (outside lock — no need to hold it during I/O)
         if notify_fn:
             for timer in due:
                 try:

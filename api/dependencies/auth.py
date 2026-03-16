@@ -27,6 +27,15 @@ logger = logging.getLogger("capivarex.api.dependencies.auth")
 SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "")
 ALGORITHM: str = os.environ.get("JWT_ALGORITHM", "HS256")
 
+# SECURITY: Block startup if JWT_SECRET_KEY is empty in production
+_env = os.environ.get("ENVIRONMENT", "production").lower()
+if not SECRET_KEY and _env not in ("test", "development", "dev", "ci"):
+    raise RuntimeError(
+        "CRITICAL: JWT_SECRET_KEY is empty. "
+        "Set a strong random secret in your environment variables. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(64))\""
+    )
+
 # OAuth2 scheme -- tokenUrl points at the real auth endpoint (with prefix)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 

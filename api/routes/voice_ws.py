@@ -310,30 +310,32 @@ async def voice_websocket(
                 # TTS failure is non-fatal — text response already sent
 
             # ── Background: memory + personal info extraction ────────────
-            import asyncio as _asyncio
+            from utils.safe_task import safe_create_task as _safe_task
             try:
                 from services.business.rag_service import extract_and_save_memory
-                _asyncio.create_task(extract_and_save_memory(user_id, transcript))
+                _safe_task(extract_and_save_memory(user_id, transcript), name="voice_rag_memory")
             except Exception:
                 pass
             try:
                 from services.business.user_profile_service import extract_and_save_personal_info
-                _asyncio.create_task(extract_and_save_personal_info(user_id, transcript))
+                _safe_task(extract_and_save_personal_info(user_id, transcript), name="voice_personal_info")
             except Exception:
                 pass
 
             # Redis: cache conversation context
             try:
                 if redis_svc and redis_svc.is_initialized():
-                    _asyncio.create_task(
+                    _safe_task(
                         redis_svc.save_conversation_message(
                             user_id, {"role": "user", "content": transcript}
-                        )
+                        ),
+                        name="voice_redis_user",
                     )
-                    _asyncio.create_task(
+                    _safe_task(
                         redis_svc.save_conversation_message(
                             user_id, {"role": "assistant", "content": response_text}
-                        )
+                        ),
+                        name="voice_redis_assistant",
                     )
             except Exception:
                 pass

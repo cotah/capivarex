@@ -35,12 +35,14 @@ _ADMIN_SECRET = os.getenv("ADMIN_SECRET_TOKEN", "")
 
 def verify_admin_token(request: Request) -> None:
     """Verify the request carries the correct ADMIN_SECRET_TOKEN as Bearer."""
+    import hmac as _hmac
+
     auth = request.headers.get("Authorization", "")
     token = auth.removeprefix("Bearer ").strip()
     if not _ADMIN_SECRET:
         logger.error("ADMIN_SECRET_TOKEN is not configured — blocking all admin access")
         raise HTTPException(status_code=503, detail="Admin token not configured")
-    if token != _ADMIN_SECRET:
+    if not _hmac.compare_digest(token, _ADMIN_SECRET):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 

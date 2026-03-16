@@ -12,6 +12,7 @@ Provides:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import time
@@ -162,12 +163,22 @@ class CodeExecutorService(BaseService):
 
             t0 = time.time()
 
+            # SECURITY: Sandbox env — only expose PATH and PYTHONPATH
+            # Prevents user code from accessing API keys, DB credentials, etc.
+            safe_env = {
+                "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                "PYTHONPATH": str(run_dir),
+                "HOME": str(run_dir),
+                "LANG": "en_US.UTF-8",
+            }
+
             proc = subprocess.run(
                 [python_executable, file_path.name],
                 cwd=str(run_dir),
                 capture_output=True,
                 text=True,
                 timeout=timeout_seconds,
+                env=safe_env,
             )
 
             t1 = time.time()

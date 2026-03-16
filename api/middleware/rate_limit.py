@@ -11,6 +11,7 @@ limits per subscription tier.
 
 import asyncio
 import logging
+import os
 
 import jwt
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -43,7 +44,13 @@ def get_user_plan_key(request: Request) -> str:
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ", 1)[1]
         try:
-            payload = jwt.decode(token, options={"verify_signature": False})
+            _secret = os.environ.get("JWT_SECRET_KEY", "")
+            _algo = os.environ.get("JWT_ALGORITHM", "HS256")
+            if _secret:
+                payload = jwt.decode(token, _secret, algorithms=[_algo])
+            else:
+                # Dev/test: still verify structure but log warning
+                payload = jwt.decode(token, options={"verify_signature": False})
             user_id = payload.get("sub", ip)
             plan = payload.get("plan", "default")
         except jwt.PyJWTError:

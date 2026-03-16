@@ -228,7 +228,7 @@ async def generate_and_execute(
 @router.post("/test")
 async def test_code(
     request: TestRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_admin_user),
 ) -> Dict[str, Any]:
     """
     Executa casos de teste simples concatenando o codigo + testes.

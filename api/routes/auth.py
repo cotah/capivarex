@@ -50,10 +50,11 @@ SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "")
 ALGORITHM: str = os.environ.get("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("JWT_EXPIRATION_MINUTES", "60"))
 
-if not SECRET_KEY and os.environ.get("ENVIRONMENT") not in ("testing", "test"):
-    logger.critical(
-        "SECURITY: JWT_SECRET_KEY is empty! All JWT tokens can be forged. "
-        "Set JWT_SECRET_KEY to a strong random string in your environment."
+_env = os.environ.get("ENVIRONMENT", "production").lower()
+if not SECRET_KEY and _env not in ("test", "testing", "development", "dev", "ci"):
+    raise RuntimeError(
+        "CRITICAL: JWT_SECRET_KEY is empty. "
+        "Set a strong random secret in your environment variables."
     )
 
 # OAuth2 scheme - tokenUrl must point to the real endpoint (with prefix)

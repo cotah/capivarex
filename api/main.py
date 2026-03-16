@@ -495,6 +495,27 @@ async def lifespan(app: FastAPI):
     """Startup → yield → Shutdown."""
     # --- Startup ---
     _startup_logger.info("CAPIVAREX Bot API starting up...")
+
+    # Validate critical environment variables
+    import os as _os
+    _env = _os.environ.get("ENVIRONMENT", "production").lower()
+    if _env not in ("test", "testing", "development", "dev", "ci"):
+        _missing = []
+        for _var in ["JWT_SECRET_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY"]:
+            if not _os.environ.get(_var):
+                _missing.append(_var)
+        if _missing:
+            _startup_logger.critical(
+                "MISSING REQUIRED ENV VARS: %s — server cannot start safely",
+                ", ".join(_missing),
+            )
+            raise RuntimeError(f"Missing required environment variables: {', '.join(_missing)}")
+
+        _optional_warnings = ["OPENAI_API_KEY", "ENCRYPTION_KEY", "SENTRY_DSN"]
+        for _var in _optional_warnings:
+            if not _os.environ.get(_var):
+                _startup_logger.warning("ENV WARNING: %s not set (some features will be limited)", _var)
+
     from services import get_service
 
     for service_name in ["database", "openai", "redis"]:
@@ -524,7 +545,9 @@ async def lifespan(app: FastAPI):
             _client = _db_svc.get_client()
             for _tbl in _CRITICAL_TABLES:
                 try:
-                    _client.table(_tbl).select("id").limit(1).execute()
+                    await asyncio.to_thread(
+                        lambda t=_tbl: _client.table(t).select("id").limit(1).execute()
+                    )
                     _startup_logger.info("SCHEMA_HEALTH: table '%s' OK", _tbl)
                 except Exception as _te:
                     _startup_logger.warning(
@@ -625,7 +648,14 @@ app.add_middleware(
     allow_origin_regex=r"https://(app\.)?capivarex\.(com|vercel\.app).*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "X-Webhook-Signature",
+    ],
 )
 
 # ====================================================================
@@ -656,7 +686,9 @@ async def health_check():
         if db and db.is_initialized():
             client = db.get_client()
             if client:
-                client.table("users").select("id").limit(1).execute()
+                await asyncio.to_thread(
+                    lambda: client.table("users").select("id").limit(1).execute()
+                )
                 checks["supabase"] = "ok"
             else:
                 checks["supabase"] = "no_client"

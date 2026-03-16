@@ -10,7 +10,6 @@ import base64
 import glob
 import json as _json
 import os
-import asyncio
 import re
 from datetime import datetime, timezone
 from typing import Optional
@@ -330,32 +329,36 @@ async def webapp_chat(
         )
 
         # RAG: extract and save memory from user message (background, non-blocking)
-        import asyncio as _asyncio
+        from utils.safe_task import safe_create_task
         from services.business.rag_service import extract_and_save_memory
-        _asyncio.create_task(
-            extract_and_save_memory(user_id, body.message)
+        safe_create_task(
+            extract_and_save_memory(user_id, body.message),
+            name="extract_memory",
         )
 
         # Personal info extraction (name, birthday, address → user_context)
         from services.business.user_profile_service import extract_and_save_personal_info
-        _asyncio.create_task(
-            extract_and_save_personal_info(user_id, body.message)
+        safe_create_task(
+            extract_and_save_personal_info(user_id, body.message),
+            name="extract_personal_info",
         )
 
         # Redis: cache conversation context for short-term memory
         try:
             redis_svc = get_service("redis")
             if redis_svc and redis_svc.is_initialized():
-                _asyncio.create_task(
+                safe_create_task(
                     redis_svc.save_conversation_message(
                         user_id, {"role": "user", "content": body.message}
-                    )
+                    ),
+                    name="redis_save_user_msg",
                 )
                 if response_text:
-                    _asyncio.create_task(
+                    safe_create_task(
                         redis_svc.save_conversation_message(
                             user_id, {"role": "assistant", "content": response_text}
-                        )
+                        ),
+                        name="redis_save_assistant_msg",
                     )
         except Exception:
             pass  # Redis is best-effort
@@ -552,16 +555,17 @@ async def webapp_chat_stream(
             # Background tasks (non-blocking)
             from services.business.rag_service import extract_and_save_memory
             from services.business.user_profile_service import extract_and_save_personal_info
-            asyncio.create_task(extract_and_save_memory(user_id, body.message))
-            asyncio.create_task(extract_and_save_personal_info(user_id, body.message))
+            from utils.safe_task import safe_create_task as _safe_task
+            _safe_task(extract_and_save_memory(user_id, body.message), name="rag_memory")
+            _safe_task(extract_and_save_personal_info(user_id, body.message), name="personal_info")
 
             # Redis cache
             try:
                 redis_svc = get_service("redis")
                 if redis_svc and redis_svc.is_initialized():
-                    asyncio.create_task(redis_svc.save_conversation_message(user_id, {"role": "user", "content": body.message}))
+                    _safe_task(redis_svc.save_conversation_message(user_id, {"role": "user", "content": body.message}), name="redis_user_msg")
                     if full_response:
-                        asyncio.create_task(redis_svc.save_conversation_message(user_id, {"role": "assistant", "content": full_response}))
+                        _safe_task(redis_svc.save_conversation_message(user_id, {"role": "assistant", "content": full_response}), name="redis_assistant_msg")
             except Exception:
                 pass
 
