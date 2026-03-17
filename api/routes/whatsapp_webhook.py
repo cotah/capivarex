@@ -183,19 +183,19 @@ async def _handle_free_user_fomo(phone: str, name: str, plan: str) -> None:
     await send_interactive_buttons(
         to=phone,
         body_text=(
-            f"{greeting}Vi que você tentou falar comigo no WhatsApp! 😊\n\n"
-            f"Seu plano atual (*{plan_display}*) inclui o Capivarex no Telegram. "
-            f"Para desbloquear o assistente no *WhatsApp*, faça upgrade para o plano "
+            f"{greeting}Que bom que está aqui! 😊\n\n"
+            f"Seu plano atual (*{plan_display}*) inclui o Capivarex no *Telegram*. "
+            f"Para usar o assistente aqui no *WhatsApp*, faça upgrade para o plano "
             f"*Everywhere*! 🚀\n\n"
             f"Com o Everywhere você ganha:\n"
-            f"✅ Capivarex no WhatsApp\n"
+            f"✅ Capivarex no WhatsApp 24/7\n"
             f"✅ Smart Home (controle por voz)\n"
             f"✅ Agentes ilimitados\n"
             f"✅ Prioridade no suporte\n\n"
             f"Enquanto isso, me manda mensagem no *Telegram* — estou lá te esperando! 💬"
         ),
         buttons=[
-            {"id": "btn_upgrade", "title": "🚀 Ver Plano Everywhere"},
+            {"id": "btn_upgrade", "title": "🚀 Conhecer Everywhere"},
             {"id": "btn_telegram", "title": "💬 Ir para o Telegram"},
         ],
         header="Desbloqueie o WhatsApp! 🔓",

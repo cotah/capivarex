@@ -167,20 +167,22 @@ async def _send_whatsapp_fomo(phone: str, name: str) -> bool:
         await send_interactive_buttons(
             to=phone,
             body_text=(
-                f"{greeting}Bem-vindo ao *Capivarex*! 🎉\n\n"
-                "Sua conta foi criada com sucesso! 🧠\n\n"
-                "O Capivarex no WhatsApp está disponível no plano *Everywhere*. "
-                "Com ele você ganha:\n\n"
-                "✅ Assistente no WhatsApp 24/7\n"
+                f"{greeting}Obrigado por criar sua conta no *Capivarex*! 🎉\n\n"
+                "Seu cadastro foi realizado com sucesso! 🧠\n\n"
+                "Seu plano atual inclui o Capivarex no *Telegram*. "
+                "Para ter seu assistente pessoal aqui no *WhatsApp* 24/7, "
+                "conheça o plano *Everywhere*! 🚀\n\n"
+                "✅ Assistente no WhatsApp\n"
                 "✅ Smart Home (controle por voz)\n"
                 "✅ Agentes ilimitados\n\n"
-                "Enquanto isso, use o Capivarex no *Telegram* — é grátis! 💬"
+                "Enquanto isso, me manda mensagem no *Telegram* — "
+                "estou lá te esperando! 💬"
             ),
             buttons=[
-                {"id": "btn_upgrade", "title": "🚀 Ver Plano Everywhere"},
+                {"id": "btn_upgrade", "title": "🚀 Conhecer Everywhere"},
                 {"id": "btn_telegram", "title": "💬 Abrir no Telegram"},
             ],
-            header="Bem-vindo! 🎉",
+            header="Conta criada com sucesso! 🎉",
             footer="app.capivarex.com/pricing",
         )
         return True
