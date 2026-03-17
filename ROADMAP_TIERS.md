@@ -192,3 +192,16 @@ Professional features for work:
 2. **19 features restantes** (nota ≤7) — quando app estiver rodando em produção
 3. **Work Pack** — módulo profissional como add-on pago
 4. **Business verification** — Meta/WhatsApp live mode
+
+---
+
+## 🔧 PROACTIVE INTEGRATIONS — ✅ COMPLETE
+
+| Integration | Status |
+|------------|--------|
+| 17TRACK API fix — removed RealTime, uses /register + /gettrackinfo | 🟢 Done |
+| 17TRACK Webhook — push notifications on status change | 🟢 Done |
+| Email → Auto-detect tracking numbers from shipping emails | 🟢 Done |
+| Proactive tracking loop — scan emails + check updates + alert | 🟢 Done |
+| Webhook → Notification — 17TRACK push → proactivity_feed | 🟢 Done |
+| Notification Triggers — daily limit 50, push error 10, min quota 20 | 🟢 Done |
