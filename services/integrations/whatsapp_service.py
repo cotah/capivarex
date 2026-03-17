@@ -17,7 +17,7 @@ Flow:
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -216,3 +216,174 @@ def extract_message_from_webhook(body: Dict[str, Any]) -> Optional[Dict[str, Any
     except (IndexError, KeyError, TypeError) as e:
         logger.warning("WhatsApp webhook parse error: %s", e)
         return None
+
+
+async def send_interactive_buttons(
+    to: str,
+    body_text: str,
+    buttons: List[Dict[str, str]],
+    header: str = "",
+    footer: str = "",
+) -> Optional[Dict[str, Any]]:
+    """
+    Send an interactive message with reply buttons (max 3).
+
+    Args:
+        to: Recipient phone number
+        body_text: Main message text
+        buttons: List of {"id": "btn_id", "title": "Button Text"} (max 3)
+        header: Optional header text
+        footer: Optional footer text
+    """
+    if not is_configured():
+        return None
+
+    clean_to = to.replace("+", "").replace(" ", "").replace("-", "")
+
+    action_buttons = [
+        {"type": "reply", "reply": {"id": btn["id"], "title": btn["title"][:20]}}
+        for btn in buttons[:3]
+    ]
+
+    interactive = {
+        "type": "button",
+        "body": {"text": body_text[:1024]},
+        "action": {"buttons": action_buttons},
+    }
+    if header:
+        interactive["header"] = {"type": "text", "text": header[:60]}
+    if footer:
+        interactive["footer"] = {"text": footer[:60]}
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_to,
+        "type": "interactive",
+        "interactive": interactive,
+    }
+
+    url = f"{GRAPH_API_BASE}/{_get_phone_id()}/messages"
+    headers = {
+        "Authorization": f"Bearer {_get_token()}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            data = resp.json()
+
+        if resp.status_code == 200 and data.get("messages"):
+            logger.info("WhatsApp: sent buttons to %s", clean_to[-4:])
+            return data
+        else:
+            logger.error("WhatsApp buttons failed: %s %s", resp.status_code, data.get("error", data))
+            return None
+
+    except Exception as e:
+        logger.error("WhatsApp buttons error: %s", e)
+        return None
+
+
+async def send_link_button(
+    to: str,
+    body_text: str,
+    button_text: str,
+    url_link: str,
+    header: str = "",
+    footer: str = "",
+) -> Optional[Dict[str, Any]]:
+    """
+    Send a CTA URL button (clickable link).
+
+    Args:
+        to: Recipient phone number
+        body_text: Main message text
+        button_text: Button label (max 20 chars)
+        url_link: URL to open when clicked
+    """
+    if not is_configured():
+        return None
+
+    clean_to = to.replace("+", "").replace(" ", "").replace("-", "")
+
+    interactive = {
+        "type": "cta_url",
+        "body": {"text": body_text[:1024]},
+        "action": {
+            "name": "cta_url",
+            "parameters": {
+                "display_text": button_text[:20],
+                "url": url_link,
+            },
+        },
+    }
+    if header:
+        interactive["header"] = {"type": "text", "text": header[:60]}
+    if footer:
+        interactive["footer"] = {"text": footer[:60]}
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_to,
+        "type": "interactive",
+        "interactive": interactive,
+    }
+
+    url = f"{GRAPH_API_BASE}/{_get_phone_id()}/messages"
+    headers = {
+        "Authorization": f"Bearer {_get_token()}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            data = resp.json()
+
+        if resp.status_code == 200 and data.get("messages"):
+            logger.info("WhatsApp: sent link button to %s", clean_to[-4:])
+            return data
+        else:
+            logger.error("WhatsApp link button failed: %s %s", resp.status_code, data.get("error", data))
+            return None
+
+    except Exception as e:
+        logger.error("WhatsApp link button error: %s", e)
+        return None
+
+
+async def update_business_profile(
+    about: str = "",
+    description: str = "",
+    vertical: str = "TECH",
+    websites: Optional[List[str]] = None,
+) -> bool:
+    """Update WhatsApp Business Profile info."""
+    if not is_configured():
+        return False
+
+    url = f"{GRAPH_API_BASE}/{_get_phone_id()}/whatsapp_business_profile"
+    headers = {
+        "Authorization": f"Bearer {_get_token()}",
+        "Content-Type": "application/json",
+    }
+
+    data: Dict[str, Any] = {"messaging_product": "whatsapp"}
+    if about:
+        data["about"] = about[:139]
+    if description:
+        data["description"] = description[:512]
+    if vertical:
+        data["vertical"] = vertical
+    if websites:
+        data["websites"] = websites[:2]
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, json=data, headers=headers)
+        return resp.status_code == 200
+    except Exception:
+        return False
