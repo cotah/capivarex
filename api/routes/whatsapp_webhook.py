@@ -598,3 +598,73 @@ async def verify_link_code(request: Request):
 
     logger.info("WhatsApp linked: user=%s phone=%s", user_id[:8], phone[-4:])
     return {"success": True, "phone": phone}
+
+
+# ---------------------------------------------------------------------------
+# API: Save phone + send welcome (called from frontend after registration)
+# ---------------------------------------------------------------------------
+
+@router.post("/whatsapp/register-phone")
+async def register_phone(request: Request):
+    """
+    Save user phone and send welcome message after frontend registration.
+
+    Body: {"user_id": "uuid", "phone": "+353891234567", "name": "John", "plan": "basic"}
+    Called by frontend after Supabase signUp succeeds.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    user_id = str(body.get("user_id", "")).strip()
+    phone = str(body.get("phone", "")).strip()
+    name = str(body.get("name", "")).strip()
+    plan = str(body.get("plan", "basic")).strip()
+
+    if not user_id or not phone:
+        raise HTTPException(status_code=400, detail="user_id and phone required")
+
+    # Clean phone
+    clean_phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+
+    # Save phone to database
+    try:
+        from services.core import get_service
+        db = get_service("database")
+        if db and db.is_initialized():
+            client = db.get_client()
+
+            # Update users table
+            client.table("users").update(
+                {"phone": clean_phone}
+            ).eq("id", user_id).execute()
+
+            # Save to preferences
+            client.table("user_preferences").upsert({
+                "user_id": user_id,
+                "whatsapp_phone": clean_phone,
+            }).execute()
+
+    except Exception as e:
+        logger.error("Register phone save failed: %s", e)
+
+    # Send welcome message (background)
+    try:
+        from utils.safe_task import safe_create_task
+        from services.business.welcome_service import send_welcome_message
+
+        safe_create_task(
+            send_welcome_message(
+                user_id=user_id,
+                phone=clean_phone,
+                name=name,
+                channel="whatsapp",
+                plan=plan,
+            ),
+            name="register_welcome",
+        )
+    except Exception:
+        pass
+
+    return {"success": True, "phone": clean_phone}

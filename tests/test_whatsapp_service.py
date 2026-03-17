@@ -646,3 +646,35 @@ class TestFOMO:
         with patch("services.core.get_service", return_value=mock_db):
             result = await _get_user_plan("user-123")
         assert result == "basic"
+
+
+class TestRegisterPhone:
+    """Tests for register-phone endpoint."""
+
+    def test_register_phone_endpoint(self):
+        from fastapi.testclient import TestClient
+        from api.routes.whatsapp_webhook import router
+        from fastapi import FastAPI
+        app = FastAPI()
+        app.include_router(router)
+
+        with patch("services.core.get_service", return_value=None):
+            client = TestClient(app)
+            resp = client.post("/whatsapp/register-phone", json={
+                "user_id": "test-user-123",
+                "phone": "+353891234567",
+                "name": "John",
+                "plan": "basic",
+            })
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    def test_register_phone_missing_fields(self):
+        from fastapi.testclient import TestClient
+        from api.routes.whatsapp_webhook import router
+        from fastapi import FastAPI
+        app = FastAPI()
+        app.include_router(router)
+        client = TestClient(app)
+        resp = client.post("/whatsapp/register-phone", json={"user_id": "x"})
+        assert resp.status_code == 400
