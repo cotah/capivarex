@@ -176,18 +176,19 @@ class ChatStreamRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 _AGENT_MAP: Dict[str, tuple] = {
+    # Grupo 1 — Core Business (ativos)
     "weather":   ("weather",   "execute"),
     "finance":   ("finance",   "execute"),
-    "image":     ("image",     "execute"),
-    "video":     ("video",     "execute"),
     "calendar":  ("calendar",  "process"),
-    "traffic":   ("traffic",   "execute"),
     "research":  ("research",  "execute"),
-    "dev":       ("dev",       "execute"),
     "chat":      ("chat",      "execute"),
-    "github":    ("github",    "execute"),
-    "smarthome": ("smarthome", "execute"),
     "voice":     ("voice",     "execute"),
+    # "image":     ("image",     "execute"),  # DISABLED: Fora do escopo executivo atual (Grupo 3)
+    # "video":     ("video",     "execute"),  # DISABLED: Fora do escopo executivo atual (Grupo 3)
+    # "traffic":   ("traffic",   "execute"),  # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "dev":       ("dev",       "execute"),  # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "github":    ("github",    "execute"),  # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "smarthome": ("smarthome", "execute"),  # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
 }
 _VALID_INTENTS = frozenset(_AGENT_MAP) | {"car"}
 

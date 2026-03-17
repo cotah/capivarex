@@ -442,15 +442,16 @@ class ChatService:
     # ------------------------------------------------------------------
 
     _ACTION_HANDLERS: Dict[str, Any] = {
+        # Grupo 1 — Core Business (ativos)
         "search": _handle_search,
-        "dev": _handle_dev,
-        "image": _handle_image,
-        "video": _handle_video,
         "voice": _handle_voice,
         "finance": _handle_finance,
         "calendar": _handle_calendar,
         "weather": _handle_weather,
-        "traffic": _handle_traffic,
-        "car": _handle_car,
         "chat": _handle_chat,
+        # "dev": _handle_dev,          # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+        # "traffic": _handle_traffic,  # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+        # "car": _handle_car,          # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+        # "image": _handle_image,      # DISABLED: Fora do escopo executivo atual (Grupo 3)
+        # "video": _handle_video,      # DISABLED: Fora do escopo executivo atual (Grupo 3)
     }

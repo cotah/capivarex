@@ -63,6 +63,14 @@ from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_r
 from api.routes.voice_ws import router_voice_ws
 from api.routes.twilio_stream import router as twilio_stream_router
 
+# CyberSecurity bot — lives at project root level (../cybersecurity)
+import sys as _sys
+from pathlib import Path as _Path
+_PROJECT_ROOT = str(_Path(__file__).resolve().parent.parent.parent)
+if _PROJECT_ROOT not in _sys.path:
+    _sys.path.insert(0, _PROJECT_ROOT)
+from cybersecurity.api.router import router as cybersecurity_router  # noqa: E402
+
 # Load environment variables
 load_dotenv()
 
@@ -541,6 +549,8 @@ async def lifespan(app: FastAPI):
         "webapp_conversations",
         "webapp_messages",
         "security_events",
+        "cyber_findings",
+        "cyber_scan_runs",
     ]
     try:
         _db_svc = get_service("database")
@@ -564,15 +574,22 @@ async def lifespan(app: FastAPI):
 
     # Background timer/reminder loop
     timer_task = asyncio.create_task(_timer_loop())
-    _startup_logger.info("CAPIVAREX Bot API started successfully")
+
+    # CyberSecurity 24/7 guardian loop
+    from cybersecurity.main import start_cybersecurity_loop
+    cyber_task = asyncio.create_task(start_cybersecurity_loop())
+    _startup_logger.info("CAPIVAREX Bot API started successfully (CyberSecurity guardian active)")
 
     yield
 
     # --- Shutdown ---
     _startup_logger.info("CAPIVAREX Bot API shutting down...")
     timer_task.cancel()
+    cyber_task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await timer_task
+    with contextlib.suppress(asyncio.CancelledError):
+        await cyber_task
 
 
 # ====================================================================
@@ -849,3 +866,4 @@ app.include_router(webhooks.router, prefix=f"{API_V1}/webhooks", tags=["Webhooks
 app.include_router(whatsapp_webhook.router, prefix=f"{API_V1}/webhooks", tags=["WhatsApp"])
 app.include_router(twilio_stream_router, tags=["Twilio Stream"])
 app.include_router(health.router, tags=["Monitoring"])
+app.include_router(cybersecurity_router, tags=["CyberSecurity"])

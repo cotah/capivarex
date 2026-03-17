@@ -23,42 +23,49 @@ from services.i18n.prompts import get_orchestrator_prompt
 
 logger = logging.getLogger(__name__)
 
-# FIX: Adicionados "transport" e "twilio" que estavam implementados mas não registados
+# ── Grupo 1 — CORE BUSINESS: Manter 100% Ativos ──
+# ── Grupo 2 — COMING SOON: Roteamento desativado temporariamente ──
+# ── Grupo 3 — DESATIVADO: Roteamento cortado indefinidamente ──
 ALLOWED_AGENTS = {
+    # Grupo 1 — Core Business (ativos)
     "chat",
-    "research",
-    "dev",
-    "weather",
-    "finance",
-    "image",
-    "video",
-    "voice",
     "calendar",
-    "traffic",
-    "car",
-    "smarthome",
-    "github",
-    "time",
-    "translate",
-    "crypto",
-    "timer",
-    "reminder",
-    "youtube",
-    "tracking",
-    "meeting",
-    "search",
-    "leaving_now",
-    "mercado",
-    "notes",
-    "restaurant",
     "email",
-    "maps",  # Google Maps: directions, places, nearby search
-    "music",  # Spotify: pesquisa músicas, artistas, álbuns, recomendações
-    "transport",  # Transporte público (autocarro, DART, Luas, comboio)
-    "travel",  # FIX: Viagens/voos via Duffel (estava no schema mas faltava aqui)
-    "twilio",  # FIX: Phone calls via Twilio (credenciais configuradas)
-    "media_cast",  # Play content on TV, cast YouTube, Chromecast
+    "meeting",
+    "notes",
+    "reminder",
+    "research",
+    "search",
+    "voice",
+    "translate",
+    "tracking",
+    "finance",
+    "weather",
+    "timer",
+    "maps",
+    # "travel",        # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "restaurant",    # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "mercado",       # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "crypto",        # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "dev",           # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "github",        # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "twilio",        # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "traffic",       # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "leaving_now",   # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "transport",     # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "smarthome",     # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "car",           # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "music",         # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+    # "image",         # DISABLED: Fora do escopo executivo atual (Grupo 3)
+    # "video",         # DISABLED: Fora do escopo executivo atual (Grupo 3)
+    # "youtube",       # DISABLED: Fora do escopo executivo atual (Grupo 3)
+    # "media_cast",    # DISABLED: Fora do escopo executivo atual (Grupo 3)
+    # "time",          # DISABLED: Fora do escopo executivo atual (Grupo 3)
 }
+
+# Agents desativados — usados para retornar mensagem correta ao user
+_COMING_SOON_AGENTS = {"travel", "restaurant", "mercado", "crypto", "dev", "github", "twilio", "traffic", "leaving_now", "transport", "smarthome", "car", "music"}
+_DISABLED_AGENTS = {"image", "video", "youtube", "media_cast", "time"}
 
 
 @register_agent("orchestrator", lazy=False)
@@ -150,10 +157,32 @@ class OrchestratorAgent(BaseAgent):
 
             # Safety guard: ensure agent is in allowed set
             if decision not in ALLOWED_AGENTS:
-                self.logger.warning(
-                    "Agent '%s' not in ALLOWED_AGENTS, defaulting to chat", decision
-                )
+                reason_override = ""
+                if decision in _COMING_SOON_AGENTS:
+                    reason_override = "coming_soon"  # Grupo 2 - Coming Soon Q3 2026
+                    self.logger.info(
+                        "Agent '%s' is Coming Soon (Grupo 2), routing to chat", decision
+                    )
+                elif decision in _DISABLED_AGENTS:
+                    reason_override = "disabled"  # Grupo 3 - Desativado
+                    self.logger.info(
+                        "Agent '%s' is Disabled (Grupo 3), routing to chat", decision
+                    )
+                else:
+                    self.logger.warning(
+                        "Agent '%s' not in ALLOWED_AGENTS, defaulting to chat", decision
+                    )
                 decision = "chat"
+                if reason_override:
+                    return AgentResponse(
+                        status=AgentStatus.SUCCESS,
+                        response=decision,
+                        data={
+                            "agent": decision,
+                            "reason": reason_override,
+                            "original_agent": decision_data.get("agent", ""),
+                        },
+                    )
 
             # Guard: transcription keywords must NOT go to voice (voice is TTS only)
             if decision == "voice":

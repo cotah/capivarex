@@ -55,17 +55,15 @@ class TestChatServiceDispatch:
         """Every action in _ACTION_HANDLERS maps to a callable."""
         svc, _ = _make_service()
         expected = {
+            # Grupo 1 — Core Business (ativos)
             "search",
-            "dev",
-            "image",
-            "video",
             "voice",
             "finance",
             "calendar",
             "weather",
-            "traffic",
-            "car",
             "chat",
+            # Grupo 2 (Coming Soon) e Grupo 3 (Desativado) removidos:
+            # "dev", "traffic", "car", "image", "video"
         }
         assert set(svc._ACTION_HANDLERS.keys()) == expected
 

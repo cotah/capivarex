@@ -338,47 +338,48 @@ class CAPIVAREXBot:
                 )
                 agent_name = "email"
 
-            # Media cast safety net: "põe na TV", "play on TV", "chromecast"
-            if agent_name in (
-                "chat", "youtube", "smarthome", "search", "research"
-            ) and self._is_media_cast_query(text):
-                self.logger.info(
-                    "KEYWORD OVERRIDE: '%s' → media_cast (was: %s)",
-                    text[:60],
-                    agent_name,
-                )
-                agent_name = "media_cast"
+            # Media cast safety net — DISABLED: Fora do escopo executivo atual (Grupo 3)
+            # if agent_name in (
+            #     "chat", "youtube", "smarthome", "search", "research"
+            # ) and self._is_media_cast_query(text):
+            #     self.logger.info(
+            #         "KEYWORD OVERRIDE: '%s' → media_cast (was: %s)",
+            #         text[:60],
+            #         agent_name,
+            #     )
+            #     agent_name = "media_cast"
 
-            # Mercado safety net: GPT often misroutes shopping commands to
-            # notes ("ver lista" → nota), calendar ("exportar março" → events),
-            # or chat. Override when mercado keywords match.
-            if agent_name in (
-                "chat", "notes", "reminder", "calendar", "search", "research"
-            ) and self._is_mercado_query(text):
-                self.logger.info(
-                    "KEYWORD OVERRIDE: '%s' → mercado (was: %s)",
-                    text[:60],
-                    agent_name,
-                )
-                agent_name = "mercado"
+            # Mercado safety net — TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+            # if agent_name in (
+            #     "chat", "notes", "reminder", "calendar", "search", "research"
+            # ) and self._is_mercado_query(text):
+            #     self.logger.info(
+            #         "KEYWORD OVERRIDE: '%s' → mercado (was: %s)",
+            #         text[:60],
+            #         agent_name,
+            #     )
+            #     agent_name = "mercado"
 
-            if agent_name == "chat" and self._is_transport_query(text):
-                self.logger.info(
-                    "KEYWORD OVERRIDE: '%s' → transport (was: chat)", text[:60]
-                )
-                agent_name = "transport"
+            # Transport safety net — TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+            # if agent_name == "chat" and self._is_transport_query(text):
+            #     self.logger.info(
+            #         "KEYWORD OVERRIDE: '%s' → transport (was: chat)", text[:60]
+            #     )
+            #     agent_name = "transport"
 
-            if agent_name == "chat" and self._is_twilio_query(text):
-                self.logger.info(
-                    "KEYWORD OVERRIDE: '%s' → twilio (was: chat)", text[:60]
-                )
-                agent_name = "twilio"
+            # Twilio safety net — TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+            # if agent_name == "chat" and self._is_twilio_query(text):
+            #     self.logger.info(
+            #         "KEYWORD OVERRIDE: '%s' → twilio (was: chat)", text[:60]
+            #     )
+            #     agent_name = "twilio"
 
-            if agent_name == "chat" and self._is_travel_query(text):
-                self.logger.info(
-                    "KEYWORD OVERRIDE: '%s' → travel (was: chat)", text[:60]
-                )
-                agent_name = "travel"
+            # Travel safety net — TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
+            # if agent_name == "chat" and self._is_travel_query(text):
+            #     self.logger.info(
+            #         "KEYWORD OVERRIDE: '%s' → travel (was: chat)", text[:60]
+            #     )
+            #     agent_name = "travel"
 
             if agent_name == "chat" and self._is_search_query(text):
                 self.logger.info(
