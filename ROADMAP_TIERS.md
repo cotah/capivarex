@@ -123,7 +123,7 @@
 
 ---
 
-## 💡 NEW IDEAS (3/5 Done)
+## 💡 NEW IDEAS (5/5 Done) ✅ COMPLETE
 
 | # | Feature | Nota | Status |
 |---|---------|------|--------|
@@ -131,7 +131,7 @@
 | N2 | **Mood Detection** | 8/10 | 🟢 Done |
 | N3 | **Weekly Wins Recap** | 8/10 | 🟢 Done |
 | N4 | **Smart Follow-up** | 10/10 | 🟢 Done |
-| N5 | Context-aware Silence | 7/10 | 🔴 Future |
+| N5 | **Context-aware Silence** | 7/10 | 🟢 Done |
 
 ---
 
@@ -169,9 +169,9 @@ Professional features for work:
 | A-TIER | 12 | 9 ✅ | 1 ⏸️ + 2 📦 |
 | B-TIER | 14 | 6 ✅ | 8 (future) |
 | C-TIER | 10 | 1 ✅ | 9 (future) |
-| New Ideas | 5 | 4 ✅ | 1 (future) |
-| Integrations | 4 | 4 ✅ | 0 |
-| **Total** | **79** | **58 ✅** | **21** |
+| New Ideas | 5 | 5 ✅ | 0 |
+| Integrations | 5 | 5 ✅ | 0 |
+| **Total** | **79** | **60 ✅** | **19** |
 
 ---
 
@@ -179,9 +179,9 @@ Professional features for work:
 
 | Metric | Value |
 |--------|-------|
-| Tests passing | 3825 |
+| Tests passing | 3858 |
 | Tests failing | 0 |
-| Coverage | 79.31% |
+| Coverage | 79.08% |
 | Ruff errors | 0 |
 
 ---
