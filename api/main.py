@@ -58,6 +58,7 @@ from api.routes import push_notifications
 from api.routes import tuya_auth
 from api.routes import whatsapp_webhook
 from api.routes import github_auth
+from api.routes import devgit
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 from api.routes.voice_ws import router_voice_ws
 from api.routes.twilio_stream import router as twilio_stream_router
@@ -821,6 +822,7 @@ app.include_router(notes.router, prefix=f"{API_V1}/notes", tags=["Notes"])
 app.include_router(workspace.router, prefix=f"{API_V1}/workspace", tags=["Workspace"])
 app.include_router(research.router, prefix=f"{API_V1}/research", tags=["Research"])
 app.include_router(dev.router, prefix=f"{API_V1}/dev", tags=["Development"])
+app.include_router(devgit.router, prefix=f"{API_V1}/dev", tags=["DevGit"])
 app.include_router(image.router, prefix=f"{API_V1}/image", tags=["Image"])
 app.include_router(video.router, prefix=f"{API_V1}/video", tags=["Video"])
 app.include_router(voice.router, prefix=f"{API_V1}/voice", tags=["Voice"])
