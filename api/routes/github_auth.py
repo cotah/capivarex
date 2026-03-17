@@ -45,7 +45,7 @@ def _get_callback_url() -> str:
         "API_BASE_URL",
         "https://capivarex-production.up.railway.app",
     )
-    return f"{base}/api/auth/github/callback"
+    return f"{base}/api/v1/auth/github/callback"
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ async def github_callback(
 @router.get("/github/admin-status")
 async def github_admin_status():
     """Check if admin GitHub token is configured (for cybersecurity bot)."""
-    admin_token = os.getenv("GITHUB_ADMIN_TOKEN", "")
+    admin_token = os.getenv("GITHUB_ADMIN_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     return {
         "configured": bool(admin_token),
         "note": "Admin token is for cybersecurity bot system operations only",
