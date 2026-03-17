@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
 
 from cybersecurity.config import BACKEND_ROOT, FRONTEND_ROOT
 from cybersecurity.engine.finding import SecurityFinding

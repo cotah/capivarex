@@ -54,7 +54,7 @@ async def send_weekly_digest(
 
     now = datetime.now(timezone.utc)
     lines = [
-        f"\U0001f6e1\ufe0f *CYBERSECURITY WEEKLY DIGEST*",
+        "\U0001f6e1\ufe0f *CYBERSECURITY WEEKLY DIGEST*",
         f"_{now.strftime('%d/%m/%Y')}_\n",
         f"\U0001f4ca *Compliance Score:* {compliance_score:.0f}/100\n",
         f"\U0001f50d *Findings Abertos:* {total_findings}",

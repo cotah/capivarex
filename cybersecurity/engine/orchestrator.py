@@ -179,7 +179,7 @@ class CyberSecurityOrchestrator:
         """Persist findings, send alerts, create autofix tickets."""
         for finding in findings:
             # 1. Persist to database
-            db_id = await self._upsert_finding(finding)
+            _db_id = await self._upsert_finding(finding)
 
             # 2. Alert on high/critical
             if finding.severity in ALERT_SEVERITIES:

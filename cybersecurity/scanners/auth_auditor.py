@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-from pathlib import Path
 
 from cybersecurity.config import BACKEND_ROOT
 from cybersecurity.engine.finding import SecurityFinding
@@ -47,8 +46,7 @@ class AuthAuditorScanner(BaseScanner):
                 owasp_category="A07:2021-Identification and Authentication Failures",
             ))
 
-        # Check algorithm
-        weak_algorithms = {"none", "HS256"}  # HS256 is okay but note it
+        # Check algorithm — 'none' means no signature (critical)
         if algorithm.lower() == "none":
             findings.append(SecurityFinding(
                 scanner=self.name,

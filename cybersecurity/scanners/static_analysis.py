@@ -13,7 +13,6 @@ from cybersecurity.config import (
     EXCLUDED_DIRS,
     FRONTEND_ROOT,
     PYTHON_EXTENSIONS,
-    TYPESCRIPT_EXTENSIONS,
 )
 from cybersecurity.engine.finding import SecurityFinding
 from cybersecurity.scanners.base_scanner import BaseScanner

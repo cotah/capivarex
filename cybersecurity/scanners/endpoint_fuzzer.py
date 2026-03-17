@@ -6,7 +6,7 @@ running API to detect vulnerabilities at runtime. Only runs when FUZZER_ENABLED=
 
 from __future__ import annotations
 
-from cybersecurity.config import FUZZER_ENABLED, FUZZER_TARGET_HOST
+from cybersecurity.config import FUZZER_ENABLED
 from cybersecurity.engine.finding import SecurityFinding
 from cybersecurity.scanners.base_scanner import BaseScanner
 

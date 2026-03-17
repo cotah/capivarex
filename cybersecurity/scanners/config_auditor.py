@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import os
 import re
-from pathlib import Path
 
-from cybersecurity.config import BACKEND_ROOT, FRONTEND_ROOT
+from cybersecurity.config import BACKEND_ROOT
 from cybersecurity.engine.finding import SecurityFinding
 from cybersecurity.scanners.base_scanner import BaseScanner
 

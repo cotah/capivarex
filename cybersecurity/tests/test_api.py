@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from cybersecurity.api.dashboard import _score_to_grade
 
 
