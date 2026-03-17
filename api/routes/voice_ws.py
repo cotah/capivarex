@@ -8,6 +8,7 @@ Fluxo: áudio binário → STT (Whisper) → LLM (orquestrador) → TTS (ElevenL
 from __future__ import annotations
 
 import base64
+import json
 import os
 import tempfile
 import uuid
@@ -33,11 +34,15 @@ _AUDIO_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 @router_voice_ws.websocket("/voice/ws")
 async def voice_websocket(
     websocket: WebSocket,
-    token: str,
-    conversation_id: str,
+    token: str = "",
+    conversation_id: str = "",
 ) -> None:
     """
     WebSocket de voz em tempo real.
+
+    Auth: Token can be provided via:
+    1. Query param: ?token=xxx (legacy, less secure)
+    2. First JSON message: {"type": "auth", "token": "xxx"} (preferred, secure)
 
     Protocolo:
     - Cliente envia: bytes de áudio (webm/mp4/wav)
@@ -57,6 +62,24 @@ async def voice_websocket(
             return True
         except (WebSocketDisconnect, RuntimeError, Exception):
             return False
+
+    # ── If no token in URL, wait for auth message ────────────────────────
+    if not token:
+        try:
+            import asyncio
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
+            auth_msg = json.loads(raw)
+            if auth_msg.get("type") == "auth":
+                token = auth_msg.get("token", "")
+                conversation_id = auth_msg.get("conversation_id", conversation_id) or conversation_id
+            if not token:
+                await _safe_send({"type": "error", "message": "Auth required"})
+                await websocket.close(code=1008)
+                return
+        except Exception:
+            await _safe_send({"type": "error", "message": "Auth timeout"})
+            await websocket.close(code=1008)
+            return
 
     # ── Init (auth + DB + services) — wrapped in try/except ──────────────
     try:
