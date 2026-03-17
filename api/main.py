@@ -57,6 +57,7 @@ from api.routes import webhooks
 from api.routes import push_notifications
 from api.routes import tuya_auth
 from api.routes import whatsapp_webhook
+from api.routes import github_auth
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 from api.routes.voice_ws import router_voice_ws
 from api.routes.twilio_stream import router as twilio_stream_router
@@ -814,6 +815,7 @@ app.include_router(auth.router, prefix=f"{API_V1}/auth", tags=["Authentication"]
 app.include_router(google_auth.router, tags=["Google Auth"])
 app.include_router(spotify_auth.router, tags=["Spotify Auth"])
 app.include_router(tuya_auth.router, tags=["Tuya Auth"])
+app.include_router(github_auth.router, prefix=f"{API_V1}/auth", tags=["GitHub Auth"])
 app.include_router(chat.router, prefix=f"{API_V1}/chat", tags=["Chat"])
 app.include_router(notes.router, prefix=f"{API_V1}/notes", tags=["Notes"])
 app.include_router(workspace.router, prefix=f"{API_V1}/workspace", tags=["Workspace"])
