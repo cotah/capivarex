@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 import os
 from typing import Any, Dict
@@ -16,6 +17,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Request
 
 from agents import get_agent
+from services.core import get_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -111,9 +113,31 @@ async def tracking_webhook(request: Request):
             status_code,
         )
 
-        # TODO: Match tracking number to user and send notification
-        # This will be connected to package_tracking_service when users
-        # have active tracked packages
+        # Find user and generate notification
+        try:
+            from services.business.package_tracking_service import handle_webhook_update
+            result = await handle_webhook_update(tracking_number, status_code, track_info)
+
+            if result:
+                # Store notification in proactivity_feed for bell display
+                user_id = result["user_id"]
+                message = result["message"]
+
+                db_svc = get_service("database")
+                if db_svc and db_svc.is_initialized():
+                    client = db_svc.get_client()
+                    client.table("proactivity_feed").insert({
+                        "user_id": user_id,
+                        "type": "tracking_webhook",
+                        "content": message,
+                        "metadata": json.dumps({
+                            "tracking_number": tracking_number,
+                            "status_code": status_code,
+                        }),
+                    }).execute()
+
+        except Exception as e:
+            logger.warning("Webhook tracking processing failed: %s", e)
 
     elif event_type == "TRACKING_STOPPED":
         tracking_number = data.get("number", "")

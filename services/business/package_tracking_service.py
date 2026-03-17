@@ -188,8 +188,14 @@ async def check_package_updates(user_id: str) -> List[Dict[str, Any]]:
         return []
 
     tracking_svc = get_service("tracking")
-    if not tracking_svc or not tracking_svc.is_initialized():
+    if not tracking_svc:
         return []
+
+    if not tracking_svc.is_initialized():
+        try:
+            await tracking_svc.initialize()
+        except Exception:
+            return []
 
     updates = []
     updated_packages = []
@@ -201,20 +207,32 @@ async def check_package_updates(user_id: str) -> List[Dict[str, Any]]:
 
         try:
             result = await tracking_svc.track(pkg["number"])
-            current_status = result.get("status", "")
+
+            # Skip if just registered (no data yet)
+            if result.get("just_registered"):
+                updated_packages.append(pkg)
+                continue
+
+            current_status = result.get("status_label", "")
+            current_code = result.get("status_code", 0)
             previous_status = pkg.get("last_status", "")
 
             if current_status and current_status != previous_status:
                 pkg["last_status"] = current_status
+                pkg["last_status_code"] = current_code
                 pkg["last_checked"] = datetime.now(timezone.utc).isoformat()
+                pkg["carrier"] = result.get("carrier", pkg.get("carrier", "auto"))
 
-                if "delivered" in current_status.lower() or "entregue" in current_status.lower():
+                if result.get("delivered"):
                     pkg["delivered"] = True
 
                 updates.append({
                     **pkg,
                     "previous_status": previous_status,
                     "new_status": current_status,
+                    "status_emoji": result.get("status_emoji", "📦"),
+                    "last_location": result.get("last_location", ""),
+                    "estimated_delivery": result.get("estimated_delivery", ""),
                     "events": result.get("events", [])[:3],
                 })
 
@@ -342,3 +360,240 @@ async def handle_tracking_mention(
         num = numbers[0]["number"]
         return f"📦 Got it, {name}! I'm tracking **{num[:12]}...**. I'll notify you when the status changes."
     return f"📦 Got it, {name}! I'm tracking **{saved_count} packages**. I'll keep you updated on each one."
+
+
+# ---------------------------------------------------------------------------
+# PROACTIVE: Email scanning for tracking numbers
+# ---------------------------------------------------------------------------
+
+async def scan_emails_for_tracking(user_id: str) -> int:
+    """
+    Scan recent emails for tracking numbers and auto-register them.
+    Called by proactivity loop.
+
+    Returns count of new packages found.
+    """
+    try:
+        email_svc = get_service("email_polling")
+        if not email_svc or not email_svc.is_initialized():
+            return 0
+
+        gmail = get_service("gmail")
+        if not gmail or not gmail.is_initialized():
+            return 0
+
+        # Search for shipping-related emails from last 24h
+        emails = await gmail.list_emails(
+            user_id=user_id,
+            query="(shipped OR tracking OR delivery OR encomenda OR enviado) newer_than:1d",
+            label="INBOX",
+            max_results=10,
+        )
+
+        found_count = 0
+        existing = await _get_packages(user_id)
+        existing_numbers = {p.get("number", "").upper() for p in existing}
+
+        for email in emails:
+            subject = email.get("subject", "")
+            snippet = email.get("snippet", "")
+            body = email.get("body", "")
+            text = f"{subject} {snippet} {body}"
+
+            numbers = detect_tracking_numbers(text)
+            for num_info in numbers:
+                num = num_info["number"].upper()
+                if num in existing_numbers:
+                    continue
+
+                pkg = {
+                    "number": num,
+                    "carrier": num_info["carrier"],
+                    "source": f"email:{email.get('from', 'unknown')[:50]}",
+                    "email_subject": subject[:100],
+                }
+                if await save_package(user_id, pkg):
+                    found_count += 1
+                    existing_numbers.add(num)
+                    logger.info(
+                        "Auto-detected tracking %s from email for user=%s",
+                        num[:8], user_id[:8],
+                    )
+
+        return found_count
+
+    except Exception as e:
+        logger.warning("Email tracking scan failed: %s", e)
+        return 0
+
+
+# ---------------------------------------------------------------------------
+# PROACTIVE: Main loop entry point
+# ---------------------------------------------------------------------------
+
+async def proactive_tracking_check(
+    user_id: str,
+    user_name: str = "",
+) -> Optional[str]:
+    """
+    Full proactive tracking check. Called by proactivity service.
+
+    1. Scans emails for new tracking numbers
+    2. Checks all packages for status updates
+    3. Generates alert if changes found
+
+    Returns alert message or None.
+    """
+    # Step 1: Scan emails for new tracking numbers (non-blocking)
+    try:
+        new_from_email = await scan_emails_for_tracking(user_id)
+        if new_from_email > 0:
+            logger.info("Found %d new tracking numbers from email for %s", new_from_email, user_id[:8])
+    except Exception:
+        pass
+
+    # Step 2: Check all packages for status updates
+    updates = await check_package_updates(user_id)
+    if not updates:
+        return None
+
+    # Step 3: Generate alert
+    alert = await generate_tracking_alert(user_name, updates)
+
+    # Step 4: Store alert in proactivity feed
+    if alert:
+        await _store_tracking_alert(user_id, alert, updates)
+
+    return alert
+
+
+async def _store_tracking_alert(
+    user_id: str, text: str, updates: List[Dict[str, Any]]
+) -> None:
+    """Store tracking alert in proactivity feed."""
+    try:
+        db = get_service("database")
+        if not db or not db.is_initialized():
+            return
+
+        client = db.get_client()
+        client.table("proactivity_feed").insert({
+            "user_id": user_id,
+            "type": "tracking_alert",
+            "content": text[:2000],
+            "metadata": json.dumps({
+                "packages_updated": len(updates),
+                "numbers": [u.get("number", "")[:12] for u in updates],
+            }),
+        }).execute()
+    except Exception as e:
+        logger.warning("Store tracking alert failed: %s", e)
+
+
+# ---------------------------------------------------------------------------
+# WEBHOOK: Handle 17TRACK push notification
+# ---------------------------------------------------------------------------
+
+async def handle_webhook_update(
+    tracking_number: str,
+    status_code: int,
+    track_data: Dict[str, Any],
+) -> Optional[Dict[str, str]]:
+    """
+    Handle incoming 17TRACK webhook push notification.
+    Finds which user owns this tracking number and prepares notification.
+
+    Args:
+        tracking_number: The tracking number that was updated
+        status_code: New status code from 17TRACK
+        track_data: Full track data from webhook
+
+    Returns:
+        {"user_id": "...", "message": "..."} or None if no user found
+    """
+    try:
+        db = get_service("database")
+        if not db or not db.is_initialized():
+            return None
+
+        client = db.get_client()
+
+        # Find user who has this tracking number
+        # Search in user_context where key = 'tracked_packages'
+        result = (
+            client.table("user_context")
+            .select("user_id, value")
+            .eq("key", STORAGE_KEY)
+            .execute()
+        )
+
+        if not result.data:
+            return None
+
+        # Search through all users' packages
+        for row in result.data:
+            user_id = row.get("user_id", "")
+            packages_raw = row.get("value", "[]")
+            try:
+                packages = json.loads(packages_raw) if isinstance(packages_raw, str) else packages_raw
+            except Exception:
+                continue
+
+            for pkg in packages:
+                if pkg.get("number", "").upper() == tracking_number.upper():
+                    # Found the user! Generate notification
+                    from services.integrations.tracking_service import _STATUS_MAP
+                    emoji, label = _STATUS_MAP.get(status_code, ("📦", f"Status {status_code}"))
+
+                    # Update package status
+                    pkg["last_status"] = label
+                    pkg["last_status_code"] = status_code
+                    pkg["last_checked"] = datetime.now(timezone.utc).isoformat()
+                    if status_code == 40:
+                        pkg["delivered"] = True
+
+                    # Save updated packages
+                    try:
+                        client.table("user_context").upsert({
+                            "user_id": user_id,
+                            "key": STORAGE_KEY,
+                            "value": json.dumps(packages),
+                        }).execute()
+                    except Exception:
+                        pass
+
+                    # Get user name
+                    user_name = ""
+                    try:
+                        user_result = client.table("users").select("name").eq("id", user_id).limit(1).execute()
+                        if user_result.data:
+                            user_name = user_result.data[0].get("name", "")
+                    except Exception:
+                        pass
+
+                    # Generate message
+                    name = user_name.split()[0] if user_name else ""
+                    num_short = tracking_number[:12]
+
+                    if status_code == 40:
+                        msg = f"🎉 **Entregue!** {name}, sua encomenda **{num_short}...** chegou! Confira!"
+                    elif status_code == 20:
+                        msg = f"🚚 **Em trânsito!** {name}, sua encomenda **{num_short}...** está a caminho."
+                    elif status_code == 35:
+                        msg = f"⚠️ **Tentativa de entrega** da encomenda **{num_short}...** falhou. Verifique o endereço."
+                    elif status_code == 30:
+                        msg = f"📬 **Disponível para retirada!** Encomenda **{num_short}...** está pronta."
+                    else:
+                        msg = f"{emoji} Atualização da encomenda **{num_short}...**: {label}"
+
+                    logger.info(
+                        "Webhook: tracking %s → status %d for user=%s",
+                        tracking_number[:8], status_code, user_id[:8],
+                    )
+
+                    return {"user_id": user_id, "message": msg}
+
+    except Exception as e:
+        logger.warning("Webhook tracking handler failed: %s", e)
+
+    return None
