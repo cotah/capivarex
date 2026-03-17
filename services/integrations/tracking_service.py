@@ -23,9 +23,12 @@ Quota 17TRACK:
   - Planos pagos disponíveis para volume maior
   - Rate limit: 3 req/s
 
-Fluxo de uso:
-  1. track() → tenta buscar info já registrada (/gettrackinfo, sem custo)
-  2. Se não encontrada → registra + retorna em tempo real (/getrealtimetrackinfo, -1 quota)
+Fluxo de uso (Standard — sem RealTime Endpoint):
+  1. /gettrackinfo → busca info já registrada (sem custo)
+  2. Se não encontrada → /register → registra tracking number (-1 quota)
+  3. Após registro, 17TRACK busca dados automaticamente
+  4. Próxima consulta via /gettrackinfo retorna dados completos
+  5. Webhook recebe push updates automáticos (se configurado)
 """
 
 import os
@@ -194,7 +197,7 @@ class TrackingService(BaseService):
 
         Estratégia de custo mínimo:
           1. /gettrackinfo → busca cache sem custo
-          2. Se não encontrado → /getrealtimetrackinfo → registra e retorna (-1 quota)
+          2. Se não encontrado → /register → registra (-1 quota) + tenta buscar info
 
         Args:
             tracking_number: Código de rastreio (qualquer formato)
@@ -218,7 +221,7 @@ class TrackingService(BaseService):
             return cached
 
         # Não encontrado → busca em tempo real (consome 1 quota)
-        return await self._get_realtime(number)
+        return await self._register_and_track(number)
 
     async def track_with_carrier(
         self, tracking_number: str, carrier: Any
@@ -245,7 +248,7 @@ class TrackingService(BaseService):
         if cached:
             return cached
 
-        return await self._get_realtime(number, carrier_code)
+        return await self._register_and_track(number, carrier_code)
 
     async def get_quota(self) -> Dict[str, int]:
         """
@@ -274,16 +277,83 @@ class TrackingService(BaseService):
     # PRIVATE — chamadas 17TRACK
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def _get_realtime(
+    async def _register_and_track(
         self, number: str, carrier_code: Optional[int] = None
     ) -> Dict[str, Any]:
-        """POST /getrealtimetrackinfo — registra + retorna em 1 chamada. Consome 1 quota."""
+        """
+        POST /register — register tracking number for monitoring.
+        Then POST /gettrackinfo to fetch available data.
+
+        This is the standard flow (no RealTime endpoint needed).
+        Consumes 1 quota per new tracking number.
+
+        Note: After registration, 17TRACK may take a few minutes to fetch
+        the first tracking data. If no data yet, returns a "registered" status.
+        """
+        # Step 1: Register the tracking number
         payload: Dict = {"number": number}
         if carrier_code:
             payload["carrier"] = carrier_code
 
-        resp = await self._client.post("/getrealtimetrackinfo", json=[payload])
-        return self._parse_api_response(resp, number)
+        try:
+            resp = await self._client.post("/register", json=[payload])
+            data = resp.json()
+
+            if resp.status_code == 429:
+                raise RuntimeError(
+                    "⏱️ Rate limit da 17TRACK (3 req/s). Aguarde 1 segundo e tente novamente."
+                )
+
+            if resp.status_code != 200:
+                raise RuntimeError(f"17TRACK HTTP {resp.status_code}")
+
+            # Check for rejections (17TRACK can return code:0 with rejected items)
+            rejected = data.get("data", {}).get("rejected", [])
+            if rejected:
+                err = rejected[0].get("error", {})
+                err_code = str(err.get("code", ""))
+                # -18010012 = already registered (that's ok!)
+                if "-18010012" not in err_code:
+                    raise ValueError(
+                        f"17TRACK rejeitou '{number}': {err.get('message', 'erro desconhecido')}"
+                    )
+
+            if data.get("code") != 0 and not rejected:
+                self.logger.warning("17TRACK register unexpected code: %s", data.get("code"))
+
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            self.logger.warning("17TRACK register failed: %s", e)
+
+        # Step 2: Try to get tracking info (may have data if already registered before)
+        import asyncio
+        await asyncio.sleep(1)  # Brief pause to let 17TRACK process
+
+        cached = await self._get_track_info(number, carrier_code)
+        if cached:
+            return cached
+
+        # No data yet — return "registered, waiting" status
+        return {
+            "tracking_number":    number,
+            "carrier":            "Auto-detect",
+            "carrier_code":       carrier_code,
+            "status_code":        0,
+            "status_emoji":       "📋",
+            "status_label":       "Registrado — aguardando dados",
+            "sub_status":         "Encomenda registrada no sistema. Dados de rastreio chegam em breve.",
+            "last_location":      "",
+            "last_message":       "Acabei de registrar este código. O 17TRACK vai buscar os dados em alguns minutos.",
+            "last_update":        "",
+            "estimated_delivery": "",
+            "origin_country":     "",
+            "destination_country": "",
+            "events":             [],
+            "total_events":       0,
+            "delivered":          False,
+            "just_registered":    True,
+        }
 
     async def _get_track_info(
         self, number: str, carrier_code: Optional[int] = None

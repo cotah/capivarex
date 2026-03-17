@@ -167,7 +167,7 @@ class TestTrackingServiceTrack:
 
     @pytest.mark.asyncio
     async def test_track_uses_cache_first(self, tracking_service):
-        """Se já registrado, usa /gettrackinfo sem custo (não chama /getrealtimetrackinfo)."""
+        """Se já registrado, usa /gettrackinfo sem custo (não chama /register)."""
         item = _track_item()
         tracking_service._client.post = AsyncMock(
             return_value=_api_response(accepted=[item])
@@ -183,21 +183,23 @@ class TestTrackingServiceTrack:
         assert "gettrackinfo" in first_call_url
 
     @pytest.mark.asyncio
-    async def test_track_falls_back_to_realtime(self, tracking_service):
-        """Se não está no cache, chama /getrealtimetrackinfo."""
+    async def test_track_falls_back_to_register(self, tracking_service):
+        """Se não está no cache, registra via /register e tenta buscar novamente."""
         item = _track_item()
-        # Primeira chamada (gettrackinfo) → vazio
-        # Segunda chamada (getrealtimetrackinfo) → retorna dados
+        # 1st call: gettrackinfo → vazio
+        # 2nd call: register → success
+        # 3rd call: gettrackinfo → retorna dados
         tracking_service._client.post = AsyncMock(
             side_effect=[
                 _api_response(accepted=[]),   # gettrackinfo: nada
-                _api_response(accepted=[item]),  # getrealtimetrackinfo: encontrou
+                _api_response(accepted=[{"number": "NB123456789IE"}]),  # register: ok
+                _api_response(accepted=[item]),  # gettrackinfo: agora encontrou
             ]
         )
 
         result = await tracking_service.track("NB123456789IE")
         assert result["status_code"] == 20
-        assert tracking_service._client.post.call_count == 2
+        assert tracking_service._client.post.call_count == 3
 
     @pytest.mark.asyncio
     async def test_track_normalizes_to_uppercase(self, tracking_service):
@@ -230,14 +232,18 @@ class TestTrackingServiceTrack:
 
     @pytest.mark.asyncio
     async def test_track_rejected_invalid_raises(self, tracking_service):
-        rejected = [{"number": "INVALID", "error": {"code": -18010013, "message": "Invalid"}}]
+        rejected = [{"number": "INVALIDCODE", "error": {"code": -18010013, "message": "Invalid number"}}]
+        resp_rejected = MagicMock()
+        resp_rejected.status_code = 200
+        resp_rejected.json.return_value = {"code": 0, "data": {"accepted": [], "rejected": rejected}}
+
         tracking_service._client.post = AsyncMock(
             side_effect=[
-                _api_response(accepted=[]),          # gettrackinfo: nada
-                _api_response(rejected=rejected),    # getrealtimetrackinfo: rejeitado
+                _api_response(accepted=[]),  # gettrackinfo: nada
+                resp_rejected,               # register: rejected
             ]
         )
-        with pytest.raises(ValueError, match="inválido"):
+        with pytest.raises(ValueError, match="rejeitou"):
             await tracking_service.track("INVALIDCODE")
 
 

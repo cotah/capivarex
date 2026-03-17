@@ -75,3 +75,48 @@ async def email_webhook(request: Request):
     except Exception as e:
         logger.exception("Error processing email webhook")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 17TRACK Webhook — Package tracking push updates
+# ──────────────────────────────────────────────────────────────────────────
+
+@router.post("/tracking")
+async def tracking_webhook(request: Request):
+    """
+    Receive 17TRACK push notifications when tracking status changes.
+
+    17TRACK sends POST with tracking updates (V2.4 format).
+    We match the tracking number to a user and notify them.
+
+    Configure at: admin.17track.net → Settings → Package Webhook
+    URL: https://capivarex-production.up.railway.app/api/v1/webhooks/tracking
+    """
+    try:
+        payload: Dict[str, Any] = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    event_type = payload.get("event", "")
+    data = payload.get("data", {})
+
+    if event_type == "TRACKING_UPDATED":
+        tracking_number = data.get("number", "")
+        track_info = data.get("track", {})
+        status_code = track_info.get("b", 0)
+
+        logger.info(
+            "17TRACK webhook: %s status=%s",
+            tracking_number[-6:] if tracking_number else "?",
+            status_code,
+        )
+
+        # TODO: Match tracking number to user and send notification
+        # This will be connected to package_tracking_service when users
+        # have active tracked packages
+
+    elif event_type == "TRACKING_STOPPED":
+        tracking_number = data.get("number", "")
+        logger.info("17TRACK stopped tracking: %s", tracking_number[-6:] if tracking_number else "?")
+
+    return {"status": "ok"}
