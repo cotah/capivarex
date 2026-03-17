@@ -21,6 +21,29 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=128)
+    phone: Optional[str] = Field(None, max_length=20, description="Phone number with country code (e.g. +353891234567)")
+    country_code: Optional[str] = Field(None, max_length=5, description="Country dial code (e.g. +353)")
+    preferred_channel: Optional[str] = Field("telegram", description="Preferred messaging channel: telegram or whatsapp")
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # Clean phone: remove spaces, dashes, parentheses
+        cleaned = v.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+        if not cleaned.replace("+", "").isdigit():
+            raise ValueError("Phone must contain only digits and optional + prefix")
+        if len(cleaned.replace("+", "")) < 7:
+            raise ValueError("Phone number too short")
+        return cleaned
+
+    @field_validator("preferred_channel")
+    @classmethod
+    def validate_channel(cls, v: Optional[str]) -> Optional[str]:
+        if v and v not in ("telegram", "whatsapp", "both"):
+            raise ValueError("Channel must be telegram, whatsapp, or both")
+        return v or "telegram"
 
 
 class User(UserBase):
@@ -32,6 +55,9 @@ class User(UserBase):
     plan: Optional[str] = "basic"
     messages_limit: Optional[int] = 100
     messages_used: Optional[int] = 0
+
+    # Phone
+    phone: Optional[str] = None
 
     # Novos campos: APIs Pessoais
     github_token: Optional[str] = None

@@ -332,6 +332,7 @@ async def register_user(request: Request, user: UserCreate) -> Dict[str, Any]:
         "email": user.email,
         "full_name": user.full_name,
         "hashed_password": hashed_password,
+        "phone": user.phone or "",
         "plan": "basic",
         "messages_limit": 100,
         "messages_used": 0,
@@ -342,5 +343,37 @@ async def register_user(request: Request, user: UserCreate) -> Dict[str, Any]:
     created_user = created.data[0] if created.data else None
     if not created_user:
         raise HTTPException(status_code=500, detail="Failed to create user")
+
+    # Save preferences (country_code, preferred_channel)
+    if user.phone or user.country_code or user.preferred_channel:
+        try:
+            prefs: Dict[str, Any] = {"user_id": new_user_data["id"]}
+            if user.phone:
+                prefs["whatsapp_phone"] = user.phone
+            if user.country_code:
+                prefs["country_code"] = user.country_code
+            if user.preferred_channel:
+                prefs["preferred_channel"] = user.preferred_channel
+            db.table("user_preferences").upsert(prefs).execute()
+        except Exception as e:
+            logger.warning("Failed to save user preferences: %s", e)
+
+    # Send welcome message on preferred channel (background, non-blocking)
+    if user.phone:
+        try:
+            from utils.safe_task import safe_create_task
+            from services.business.welcome_service import send_welcome_message
+
+            safe_create_task(
+                send_welcome_message(
+                    user_id=new_user_data["id"],
+                    phone=user.phone,
+                    name=user.full_name or "",
+                    channel=user.preferred_channel or "telegram",
+                ),
+                name="welcome_msg",
+            )
+        except Exception:
+            pass  # Don't fail registration if welcome fails
 
     return created_user
