@@ -94,13 +94,116 @@ async def receive_message(request: Request):
     user_id = await _get_user_id_by_phone(sender_phone)
 
     if user_id:
-        # LINKED USER — full AI assistant
-        await _process_linked_user(user_id, sender_phone, sender_name, user_text)
+        # Check plan — only Everywhere/Family get WhatsApp bot
+        plan = await _get_user_plan(user_id)
+
+        # Handle FOMO button clicks regardless of plan
+        text_lower = user_text.lower().strip()
+        if text_lower in ("🚀 ver plano everywhere", "btn_upgrade", "upgrade"):
+            await send_link_button(
+                to=sender_phone,
+                body_text="🚀 *Conheça o plano Everywhere!*\n\nAssistente no WhatsApp, Smart Home, agentes ilimitados e muito mais.",
+                button_text="Ver Planos",
+                url_link="https://app.capivarex.com/pricing",
+            )
+            return {"status": "ok"}
+
+        if text_lower in ("💬 ir para o telegram", "btn_telegram", "telegram"):
+            await send_link_button(
+                to=sender_phone,
+                body_text="💬 *Fale comigo no Telegram!*\n\nEstou lá te esperando. Clique abaixo para abrir:",
+                button_text="Abrir Telegram",
+                url_link="https://t.me/CapivarexBot",
+            )
+            return {"status": "ok"}
+
+        if plan in ("everywhere", "family"):
+            # PREMIUM USER — full AI assistant
+            await _process_linked_user(user_id, sender_phone, sender_name, user_text)
+        else:
+            # FREE/ME USER — FOMO message, then stop
+            await _handle_free_user_fomo(sender_phone, sender_name, plan)
     else:
         # NOT LINKED — onboarding flow
         await _handle_unlinked_user(sender_phone, sender_name, user_text)
 
     return {"status": "ok"}
+
+
+# Track FOMO messages sent (don't spam — max 1 per 24h)
+_fomo_sent: Dict[str, float] = {}
+
+
+# ---------------------------------------------------------------------------
+# PLAN CHECK + FOMO (Free/Me users on WhatsApp)
+# ---------------------------------------------------------------------------
+
+async def _get_user_plan(user_id: str) -> str:
+    """Get user's subscription plan."""
+    try:
+        from services.core import get_service
+        db = get_service("database")
+        if not db or not db.is_initialized():
+            return "basic"
+
+        client = db.get_client()
+        result = (
+            client.table("users")
+            .select("plan")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            return result.data[0].get("plan", "basic")
+    except Exception:
+        pass
+    return "basic"
+
+
+async def _handle_free_user_fomo(phone: str, name: str, plan: str) -> None:
+    """
+    Send FOMO message to free/basic/me users trying WhatsApp.
+
+    Only sends once every 24 hours — not spammy.
+    After the FOMO message, the bot does NOT respond to further messages.
+    """
+    now = time.time()
+    last_fomo = _fomo_sent.get(phone, 0)
+
+    # Only send FOMO once per 24 hours
+    if now - last_fomo < 86400:
+        return  # Silently ignore — already sent FOMO today
+
+    first_name = name.split()[0] if name else ""
+    greeting = f"Oi {first_name}! " if first_name else "Oi! "
+
+    plan_display = "Me" if plan == "me" else "Free"
+
+    await send_interactive_buttons(
+        to=phone,
+        body_text=(
+            f"{greeting}Vi que você tentou falar comigo no WhatsApp! 😊\n\n"
+            f"Seu plano atual (*{plan_display}*) inclui o Capivarex no Telegram. "
+            f"Para desbloquear o assistente no *WhatsApp*, faça upgrade para o plano "
+            f"*Everywhere*! 🚀\n\n"
+            f"Com o Everywhere você ganha:\n"
+            f"✅ Capivarex no WhatsApp\n"
+            f"✅ Smart Home (controle por voz)\n"
+            f"✅ Agentes ilimitados\n"
+            f"✅ Prioridade no suporte\n\n"
+            f"Enquanto isso, me manda mensagem no *Telegram* — estou lá te esperando! 💬"
+        ),
+        buttons=[
+            {"id": "btn_upgrade", "title": "🚀 Ver Plano Everywhere"},
+            {"id": "btn_telegram", "title": "💬 Ir para o Telegram"},
+        ],
+        header="Desbloqueie o WhatsApp! 🔓",
+        footer="app.capivarex.com/pricing",
+    )
+
+    _fomo_sent[phone] = now
+    logger.info("WhatsApp FOMO sent to %s (plan=%s)", phone[-4:], plan)
 
 
 # ---------------------------------------------------------------------------

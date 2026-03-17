@@ -117,7 +117,7 @@ class TestWelcomeService:
             patch("services.business.welcome_service._send_whatsapp_welcome", new_callable=AsyncMock, return_value=True),
             patch("services.business.welcome_service._send_telegram_welcome", new_callable=AsyncMock, return_value=False),
         ):
-            result = await send_welcome_message("user-123", "+353891234567", "John", "whatsapp")
+            result = await send_welcome_message("user-123", "+353891234567", "John", "whatsapp", "everywhere")
         assert result is True
 
     @pytest.mark.asyncio
@@ -126,7 +126,7 @@ class TestWelcomeService:
             patch("services.business.welcome_service._send_whatsapp_welcome", new_callable=AsyncMock, return_value=True),
             patch("services.business.welcome_service._send_telegram_welcome", new_callable=AsyncMock, return_value=True),
         ):
-            result = await send_welcome_message("user-123", "+353891234567", "John", "both")
+            result = await send_welcome_message("user-123", "+353891234567", "John", "both", "family")
         assert result is True
 
     @pytest.mark.asyncio
@@ -142,14 +142,62 @@ class TestWelcomeService:
         with (
             patch("services.business.welcome_service._send_whatsapp_welcome", new_callable=AsyncMock, return_value=True),
         ):
-            result = await send_welcome_message("user-123", "+353891234567", "", "whatsapp")
+            result = await send_welcome_message("user-123", "+353891234567", "", "whatsapp", "everywhere")
         assert result is True
 
     @pytest.mark.asyncio
     async def test_send_welcome_all_fail(self):
         with (
-            patch("services.business.welcome_service._send_whatsapp_welcome", new_callable=AsyncMock, return_value=False),
+            patch("services.business.welcome_service._send_whatsapp_fomo", new_callable=AsyncMock, return_value=False),
             patch("services.business.welcome_service._send_telegram_welcome", new_callable=AsyncMock, return_value=False),
         ):
-            result = await send_welcome_message("user-123", "+353891234567", "John", "both")
+            result = await send_welcome_message("user-123", "+353891234567", "John", "both", "basic")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_free_plan_gets_fomo_on_whatsapp(self):
+        """Free users get FOMO message on WhatsApp, not full welcome."""
+        with (
+            patch("services.business.welcome_service._send_whatsapp_fomo", new_callable=AsyncMock, return_value=True) as mock_fomo,
+            patch("services.business.welcome_service._send_whatsapp_welcome", new_callable=AsyncMock) as mock_welcome,
+        ):
+            await send_welcome_message("user-123", "+353891234567", "John", "whatsapp", "basic")
+        mock_fomo.assert_called_once()
+        mock_welcome.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_everywhere_plan_gets_full_welcome(self):
+        """Everywhere users get full welcome on WhatsApp."""
+        with (
+            patch("services.business.welcome_service._send_whatsapp_fomo", new_callable=AsyncMock) as mock_fomo,
+            patch("services.business.welcome_service._send_whatsapp_welcome", new_callable=AsyncMock, return_value=True) as mock_welcome,
+        ):
+            await send_welcome_message("user-123", "+353891234567", "John", "whatsapp", "everywhere")
+        mock_welcome.assert_called_once()
+        mock_fomo.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_fomo_whatsapp_not_configured(self):
+        from services.business.welcome_service import _send_whatsapp_fomo
+        with patch("services.integrations.whatsapp_service.is_configured", return_value=False):
+            result = await _send_whatsapp_fomo("+353891234567", "John")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_fomo_whatsapp_success(self):
+        from services.business.welcome_service import _send_whatsapp_fomo
+        with (
+            patch("services.integrations.whatsapp_service.is_configured", return_value=True),
+            patch("services.integrations.whatsapp_service.send_interactive_buttons", new_callable=AsyncMock) as mock_btn,
+        ):
+            mock_btn.return_value = {"messages": [{"id": "wamid.fomo"}]}
+            result = await _send_whatsapp_fomo("+353891234567", "John")
+        assert result is True
+        mock_btn.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_fomo_whatsapp_exception(self):
+        from services.business.welcome_service import _send_whatsapp_fomo
+        with patch("services.integrations.whatsapp_service.is_configured", side_effect=Exception("err")):
+            result = await _send_whatsapp_fomo("+353891234567", "John")
         assert result is False

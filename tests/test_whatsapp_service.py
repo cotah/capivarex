@@ -586,3 +586,63 @@ class TestInteractiveEdgeCases:
         ):
             await _handle_unlinked_user("353000111222", "Test", "what time is it?")
         mock_txt.assert_called_once()
+
+
+class TestFOMO:
+    """Tests for plan-gated WhatsApp access."""
+
+    @pytest.mark.asyncio
+    async def test_get_user_plan_no_db(self):
+        from api.routes.whatsapp_webhook import _get_user_plan
+        with patch("services.core.get_service", return_value=None):
+            result = await _get_user_plan("user-123")
+        assert result == "basic"
+
+    @pytest.mark.asyncio
+    async def test_get_user_plan_found(self):
+        from api.routes.whatsapp_webhook import _get_user_plan
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[{"plan": "everywhere"}]
+        )
+        with patch("services.core.get_service", return_value=mock_db):
+            result = await _get_user_plan("user-123")
+        assert result == "everywhere"
+
+    @pytest.mark.asyncio
+    async def test_fomo_sends_once_per_day(self):
+        from api.routes.whatsapp_webhook import _handle_free_user_fomo, _fomo_sent
+        _fomo_sent.pop("353891234567", None)
+
+        with patch("api.routes.whatsapp_webhook.send_interactive_buttons", new_callable=AsyncMock) as mock_btn:
+            await _handle_free_user_fomo("353891234567", "John", "basic")
+        mock_btn.assert_called_once()
+        assert "353891234567" in _fomo_sent
+
+    @pytest.mark.asyncio
+    async def test_fomo_silent_after_first(self):
+        from api.routes.whatsapp_webhook import _handle_free_user_fomo, _fomo_sent
+        _fomo_sent["353000999888"] = time.time()  # Already sent
+
+        with patch("api.routes.whatsapp_webhook.send_interactive_buttons", new_callable=AsyncMock) as mock_btn:
+            await _handle_free_user_fomo("353000999888", "John", "basic")
+        mock_btn.assert_not_called()  # Should NOT send again
+
+    @pytest.mark.asyncio
+    async def test_fomo_me_plan_message(self):
+        from api.routes.whatsapp_webhook import _handle_free_user_fomo, _fomo_sent
+        _fomo_sent.pop("353111222333", None)
+        with patch("api.routes.whatsapp_webhook.send_interactive_buttons", new_callable=AsyncMock) as mock_btn:
+            await _handle_free_user_fomo("353111222333", "Ana", "me")
+        assert "Me" in str(mock_btn.call_args)
+
+    @pytest.mark.asyncio
+    async def test_get_user_plan_exception(self):
+        from api.routes.whatsapp_webhook import _get_user_plan
+        mock_db = MagicMock()
+        mock_db.is_initialized.return_value = True
+        mock_db.get_client.side_effect = Exception("DB error")
+        with patch("services.core.get_service", return_value=mock_db):
+            result = await _get_user_plan("user-123")
+        assert result == "basic"

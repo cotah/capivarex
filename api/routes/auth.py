@@ -370,6 +370,7 @@ async def register_user(request: Request, user: UserCreate) -> Dict[str, Any]:
                     phone=user.phone,
                     name=user.full_name or "",
                     channel=user.preferred_channel or "telegram",
+                    plan=new_user_data.get("plan", "basic"),
                 ),
                 name="welcome_msg",
             )

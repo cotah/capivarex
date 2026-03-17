@@ -17,6 +17,7 @@ async def send_welcome_message(
     phone: str,
     name: str = "",
     channel: str = "telegram",
+    plan: str = "basic",
 ) -> bool:
     """
     Send a welcome message to a newly registered user.
@@ -26,6 +27,7 @@ async def send_welcome_message(
         phone: Phone number (with country code)
         name: User's name for personalization
         channel: "telegram", "whatsapp", or "both"
+        plan: User's plan (basic, me, everywhere, family)
 
     Returns: True if at least one message was sent.
     """
@@ -33,13 +35,17 @@ async def send_welcome_message(
     sent = False
 
     if channel in ("whatsapp", "both"):
-        sent = await _send_whatsapp_welcome(phone, first_name) or sent
+        if plan in ("everywhere", "family"):
+            sent = await _send_whatsapp_welcome(phone, first_name) or sent
+        else:
+            # Free/Me plan — send FOMO teaser on WhatsApp
+            sent = await _send_whatsapp_fomo(phone, first_name) or sent
 
     if channel in ("telegram", "both"):
         sent = await _send_telegram_welcome(phone, first_name) or sent
 
     if sent:
-        logger.info("Welcome sent to user=%s on %s", user_id[:8], channel)
+        logger.info("Welcome sent to user=%s on %s (plan=%s)", user_id[:8], channel, plan)
     else:
         logger.warning("Welcome failed for user=%s on %s", user_id[:8], channel)
 
@@ -143,3 +149,42 @@ async def _send_telegram_welcome(phone: str, name: str) -> bool:
         logger.warning("Telegram welcome failed: %s", e)
 
     return False
+
+
+async def _send_whatsapp_fomo(phone: str, name: str) -> bool:
+    """Send FOMO teaser to free-plan users who registered with WhatsApp."""
+    try:
+        from services.integrations.whatsapp_service import (
+            is_configured,
+            send_interactive_buttons,
+        )
+
+        if not is_configured():
+            return False
+
+        greeting = f"Oi {name}! " if name else "Oi! "
+
+        await send_interactive_buttons(
+            to=phone,
+            body_text=(
+                f"{greeting}Bem-vindo ao *Capivarex*! 🎉\n\n"
+                "Sua conta foi criada com sucesso! 🧠\n\n"
+                "O Capivarex no WhatsApp está disponível no plano *Everywhere*. "
+                "Com ele você ganha:\n\n"
+                "✅ Assistente no WhatsApp 24/7\n"
+                "✅ Smart Home (controle por voz)\n"
+                "✅ Agentes ilimitados\n\n"
+                "Enquanto isso, use o Capivarex no *Telegram* — é grátis! 💬"
+            ),
+            buttons=[
+                {"id": "btn_upgrade", "title": "🚀 Ver Plano Everywhere"},
+                {"id": "btn_telegram", "title": "💬 Abrir no Telegram"},
+            ],
+            header="Bem-vindo! 🎉",
+            footer="app.capivarex.com/pricing",
+        )
+        return True
+
+    except Exception as e:
+        logger.warning("WhatsApp FOMO welcome failed: %s", e)
+        return False
