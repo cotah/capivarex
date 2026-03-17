@@ -255,7 +255,7 @@ Write the email body (no subject line):"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 max_tokens=250,
                 temperature=0.7,
             )
@@ -333,7 +333,7 @@ Write a warm 2-3 sentence message explaining the conflict and suggesting alterna
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 max_tokens=150,
                 temperature=0.8,
             )
@@ -390,7 +390,7 @@ Generate confirmation:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 max_tokens=200,
                 temperature=0.8,
             )
@@ -450,7 +450,7 @@ Only return JSON, no markdown:"""
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             max_tokens=200,
             temperature=0.1,
         )

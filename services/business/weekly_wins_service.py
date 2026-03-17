@@ -178,7 +178,7 @@ async def _generate_ai_wins(name: str, stats: Dict[str, Any]) -> Optional[str]:
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             max_tokens=250,
             temperature=0.8,
         )
