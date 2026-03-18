@@ -25,6 +25,48 @@ from services.core import (
 logger = logging.getLogger("capivarex.services.vehicle_db")
 
 # ---------------------------------------------------------------------------
+# Token encryption helpers (SECURITY: encrypt OAuth tokens at rest)
+# ---------------------------------------------------------------------------
+
+_encryption_svc = None
+
+
+def _get_encryptor():
+    """Lazy-load EncryptionService (avoid import at module level)."""
+    global _encryption_svc
+    if _encryption_svc is None:
+        try:
+            from utils.encryption import EncryptionService
+            _encryption_svc = EncryptionService()
+        except Exception as exc:
+            logger.warning("EncryptionService unavailable, tokens stored as plaintext: %s", exc)
+            return None
+    return _encryption_svc
+
+
+def _encrypt_token(token: str) -> str:
+    """Encrypt a token for storage. Returns plaintext if encryption unavailable."""
+    enc = _get_encryptor()
+    if enc:
+        try:
+            return enc.cipher.encrypt(token.encode()).decode()
+        except Exception:
+            pass
+    return token
+
+
+def _decrypt_token(token: str) -> str:
+    """Decrypt a token from storage. Falls back to plaintext for legacy data."""
+    enc = _get_encryptor()
+    if enc:
+        try:
+            return enc.cipher.decrypt(token.encode()).decode()
+        except Exception:
+            # Legacy plaintext token — return as-is
+            return token
+    return token
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 TABLE_NAME = "user_vehicles"
@@ -157,8 +199,8 @@ class VehicleDbService(BaseService):
         vehicle_data: Dict[str, Any] = {
             "user_id": user_id,
             "vehicle_id": vehicle_id,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
+            "access_token": _encrypt_token(access_token),
+            "refresh_token": _encrypt_token(refresh_token),
             "expires_at": expires_at.isoformat(),
             "token_type": "Bearer",
         }
@@ -206,7 +248,14 @@ class VehicleDbService(BaseService):
                 client.table(TABLE_NAME).select("*").eq("user_id", user_id).execute()
             )
             self._track_call(time.monotonic() - start)
-            return response.data if response.data else []
+            vehicles = response.data if response.data else []
+            # SECURITY: Decrypt tokens that were encrypted at rest
+            for v in vehicles:
+                if "access_token" in v:
+                    v["access_token"] = _decrypt_token(v["access_token"])
+                if "refresh_token" in v:
+                    v["refresh_token"] = _decrypt_token(v["refresh_token"])
+            return vehicles
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
             self.logger.error("Error getting user vehicles: %s", exc, exc_info=True)
@@ -238,7 +287,13 @@ class VehicleDbService(BaseService):
                 .execute()
             )
             self._track_call(time.monotonic() - start)
-            return response.data[0] if response.data else None
+            vehicle = response.data[0] if response.data else None
+            if vehicle:
+                if "access_token" in vehicle:
+                    vehicle["access_token"] = _decrypt_token(vehicle["access_token"])
+                if "refresh_token" in vehicle:
+                    vehicle["refresh_token"] = _decrypt_token(vehicle["refresh_token"])
+            return vehicle
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
             self.logger.error("Error getting vehicle: %s", exc, exc_info=True)
@@ -289,8 +344,8 @@ class VehicleDbService(BaseService):
                 client.table(TABLE_NAME)
                 .update(
                     {
-                        "access_token": access_token,
-                        "refresh_token": refresh_token,
+                        "access_token": _encrypt_token(access_token),
+                        "refresh_token": _encrypt_token(refresh_token),
                         "expires_at": expires_at.isoformat(),
                     }
                 )

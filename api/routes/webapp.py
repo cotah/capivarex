@@ -787,7 +787,8 @@ async def get_conversation(
             f" ({len(messages.data)} messages)"
         )
         return {
-            "conversation_id": conversation_id,
+            "id": conversation_id,
+            "conversation_id": conversation_id,  # backwards compat
             "title": conv.data[0].get("title"),
             "messages": messages.data,
         }
