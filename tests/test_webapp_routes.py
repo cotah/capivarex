@@ -2135,7 +2135,7 @@ class TestQuota:
         body = resp.json()
         assert body["plan"] == "professional"
         assert body["messages_used"] == 0
-        assert body["messages_limit"] == 30
+        assert body["messages_limit"] == 300
 
     def test_quota_unlimited_plan(self, app_client):
         db = _mock_db()

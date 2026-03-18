@@ -2802,7 +2802,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "music",
         "requires_oauth": True,
         "provider": "spotify",
-        "available_plans": ["professional", "executive"],
+        "available_plans": ["executive"],
     },
     {
         "id": "smartcar",
