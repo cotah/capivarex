@@ -12,9 +12,10 @@ import logging
 import os
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from api.dependencies import get_current_user
 from services.business.devgit_bridge import (
     format_push_result,
     format_summary,
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/generate")
-async def dev_generate(request: Request):
+async def dev_generate(request: Request, _user: dict = Depends(get_current_user)):
     """
     Generate a project from a description.
 
@@ -89,7 +90,7 @@ async def dev_preview(preview_id: str):
 
 
 @router.post("/push")
-async def dev_push(request: Request):
+async def dev_push(request: Request, _user: dict = Depends(get_current_user)):
     """
     Push a generated project to GitHub.
 
@@ -125,7 +126,7 @@ async def dev_push(request: Request):
 
 
 @router.get("/project/{project_id}")
-async def dev_project_status(project_id: str):
+async def dev_project_status(project_id: str, _user: dict = Depends(get_current_user)):
     """Get status of a pending project."""
     project = get_pending_project(project_id)
     if not project:

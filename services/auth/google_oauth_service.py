@@ -18,6 +18,8 @@ Usado por:
 """
 
 import base64
+import hashlib
+import hmac as _hmac
 import json
 import logging
 import os
@@ -46,6 +48,35 @@ GOOGLE_SCOPES = [
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+# SECURITY: CSRF protection — sign OAuth state with HMAC
+_OAUTH_STATE_KEY = os.getenv("JWT_SECRET_KEY", "")
+
+
+def _sign_oauth_state(payload_b64: str) -> str:
+    """Sign a base64 OAuth state payload with HMAC-SHA256."""
+    sig = _hmac.new(
+        _OAUTH_STATE_KEY.encode(), payload_b64.encode(), hashlib.sha256
+    ).hexdigest()[:32]
+    return f"{payload_b64}.{sig}"
+
+
+def _verify_oauth_state(signed_state: str) -> str:
+    """Verify and return the payload from a signed OAuth state.
+
+    Raises ValueError if the signature is invalid.
+    """
+    if "." not in signed_state:
+        # Legacy unsigned state — still accept but log warning
+        logger.warning("OAuth state without HMAC signature (legacy)")
+        return signed_state
+    payload_b64, sig = signed_state.rsplit(".", 1)
+    expected = _hmac.new(
+        _OAUTH_STATE_KEY.encode(), payload_b64.encode(), hashlib.sha256
+    ).hexdigest()[:32]
+    if not _hmac.compare_digest(sig, expected):
+        raise ValueError("Invalid OAuth state signature (CSRF protection)")
+    return payload_b64
 
 
 class GoogleOAuthService:
@@ -90,6 +121,7 @@ class GoogleOAuthService:
             }
         )
         state_b64 = base64.urlsafe_b64encode(state_data.encode()).decode()
+        state_signed = _sign_oauth_state(state_b64)
 
         params = {
             "client_id": self.client_id,
@@ -98,7 +130,7 @@ class GoogleOAuthService:
             "scope": " ".join(GOOGLE_SCOPES),
             "access_type": "offline",  # Essencial para refresh_token
             "prompt": "consent",  # Forçar para garantir refresh_token
-            "state": state_b64,
+            "state": state_signed,
             "include_granted_scopes": "true",
         }
         return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
@@ -122,6 +154,8 @@ class GoogleOAuthService:
 
         try:
             state_clean = unquote(state_b64)
+            # SECURITY: Verify HMAC signature on state (CSRF protection)
+            state_clean = _verify_oauth_state(state_clean)
             padding = 4 - len(state_clean) % 4
             if padding != 4:
                 state_clean += "=" * padding

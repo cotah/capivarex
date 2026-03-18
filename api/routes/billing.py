@@ -13,6 +13,7 @@ Endpoints:
 - POST /api/billing/portal           → Stripe billing portal
 """
 
+import hmac
 import os
 
 import stripe
@@ -213,6 +214,11 @@ async def stripe_webhook(request: Request):
     """
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
+
+    # SECURITY: Fail-closed — reject immediately if webhook secret is not configured
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.error("Billing webhook: STRIPE_WEBHOOK_SECRET not configured — rejecting")
+        raise HTTPException(status_code=500, detail="Webhook not configured")
 
     try:
         event = stripe.Webhook.construct_event(
@@ -423,7 +429,7 @@ async def reset_daily_usage(request: Request):
     # Auth check
     auth = request.headers.get("authorization", "")
     token = auth.replace("Bearer ", "").strip()
-    if not CRON_SECRET or token != CRON_SECRET:
+    if not CRON_SECRET or not token or not hmac.compare_digest(token, CRON_SECRET):
         raise HTTPException(status_code=401, detail="Invalid cron token")
 
     db = _get_db()

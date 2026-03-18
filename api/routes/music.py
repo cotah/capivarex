@@ -6,9 +6,11 @@ REST API routes for Spotify music integration.
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-router = APIRouter()
+from api.dependencies import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
 logger = logging.getLogger(__name__)
 
 

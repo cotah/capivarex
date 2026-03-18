@@ -12,6 +12,7 @@ Handles:
 - POST /api/webhooks/whatsapp — Incoming messages
 """
 
+import hmac
 import logging
 import os
 import random
@@ -54,7 +55,7 @@ async def verify_webhook(
     """Meta webhook verification (challenge-response)."""
     verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
 
-    if hub_mode == "subscribe" and hub_verify_token == verify_token:
+    if hub_mode == "subscribe" and hub_verify_token and verify_token and hmac.compare_digest(hub_verify_token, verify_token):
         logger.info("WhatsApp webhook verified successfully")
         return PlainTextResponse(content=hub_challenge, status_code=200)
 
