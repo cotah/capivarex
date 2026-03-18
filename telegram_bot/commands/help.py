@@ -8,14 +8,14 @@ from telegram.ext import ContextTypes
 logger = logging.getLogger("capivarex.telegram.commands.help")
 
 HELP_MESSAGE: str = """
-📖 **Comandos Disponíveis:**
+📖 **Available Commands:**
 
-/start - Iniciar o bot
-/help - Mostrar esta mensagem
-/status - Ver status do bot
+/start - Start the bot
+/help - Show this message
+/status - View bot status
 
-**Como usar:**
-Basta enviar uma mensagem de texto e eu vou processar usando os agentes especializados!
+**How to use:**
+Just send a text message and I'll process it using specialized agents!
 """
 
 

@@ -11,28 +11,47 @@ from cybersecurity.engine.severity import Severity, FindingStatus
 # Finding tests
 # ---------------------------------------------------------------------------
 
+
 class TestSecurityFinding:
     def test_fingerprint_deterministic(self):
         f1 = SecurityFinding(
-            scanner="test", finding_type="xss", severity="high",
-            confidence=0.8, title="XSS in input",
-            file_path="src/app.py", line_number=42,
+            scanner="test",
+            finding_type="xss",
+            severity="high",
+            confidence=0.8,
+            title="XSS in input",
+            file_path="src/app.py",
+            line_number=42,
         )
         f2 = SecurityFinding(
-            scanner="test", finding_type="xss", severity="high",
-            confidence=0.9, title="XSS different title",
-            file_path="src/app.py", line_number=42,
+            scanner="test",
+            finding_type="xss",
+            severity="high",
+            confidence=0.9,
+            title="XSS different title",
+            file_path="src/app.py",
+            line_number=42,
         )
         assert f1.fingerprint == f2.fingerprint
 
     def test_fingerprint_different_for_different_files(self):
         f1 = SecurityFinding(
-            scanner="test", finding_type="xss", severity="high",
-            confidence=0.8, title="XSS", file_path="a.py", line_number=1,
+            scanner="test",
+            finding_type="xss",
+            severity="high",
+            confidence=0.8,
+            title="XSS",
+            file_path="a.py",
+            line_number=1,
         )
         f2 = SecurityFinding(
-            scanner="test", finding_type="xss", severity="high",
-            confidence=0.8, title="XSS", file_path="b.py", line_number=1,
+            scanner="test",
+            finding_type="xss",
+            severity="high",
+            confidence=0.8,
+            title="XSS",
+            file_path="b.py",
+            line_number=1,
         )
         assert f1.fingerprint != f2.fingerprint
 
@@ -54,8 +73,11 @@ class TestSecurityFinding:
 
     def test_code_snippet_truncated(self):
         f = SecurityFinding(
-            scanner="test", finding_type="test", severity="low",
-            confidence=0.5, title="test",
+            scanner="test",
+            finding_type="test",
+            severity="low",
+            confidence=0.5,
+            title="test",
             code_snippet="x" * 5000,
         )
         row = f.to_db_row()
@@ -65,6 +87,7 @@ class TestSecurityFinding:
 # ---------------------------------------------------------------------------
 # Severity tests
 # ---------------------------------------------------------------------------
+
 
 class TestSeverity:
     def test_ordering(self):
@@ -87,10 +110,12 @@ class TestSeverity:
 # Static Analysis Scanner tests
 # ---------------------------------------------------------------------------
 
+
 class TestStaticAnalysisScanner:
     @pytest.mark.asyncio
     async def test_scan_returns_list(self):
         from cybersecurity.scanners.static_analysis import StaticAnalysisScanner
+
         scanner = StaticAnalysisScanner()
         findings = await scanner.scan()
         assert isinstance(findings, list)
@@ -98,6 +123,7 @@ class TestStaticAnalysisScanner:
     @pytest.mark.asyncio
     async def test_execute_wraps_scan(self):
         from cybersecurity.scanners.static_analysis import StaticAnalysisScanner
+
         scanner = StaticAnalysisScanner()
         findings = await scanner.execute()
         assert isinstance(findings, list)
@@ -108,10 +134,12 @@ class TestStaticAnalysisScanner:
 # Secret Scanner tests
 # ---------------------------------------------------------------------------
 
+
 class TestSecretScanner:
     @pytest.mark.asyncio
     async def test_scan_returns_list(self):
         from cybersecurity.scanners.secret_scanner import SecretScanner
+
         scanner = SecretScanner()
         findings = await scanner.scan()
         assert isinstance(findings, list)
@@ -121,10 +149,12 @@ class TestSecretScanner:
 # Config Auditor tests
 # ---------------------------------------------------------------------------
 
+
 class TestConfigAuditor:
     @pytest.mark.asyncio
     async def test_scan_returns_list(self):
         from cybersecurity.scanners.config_auditor import ConfigAuditorScanner
+
         scanner = ConfigAuditorScanner()
         findings = await scanner.scan()
         assert isinstance(findings, list)
@@ -133,6 +163,7 @@ class TestConfigAuditor:
     async def test_detects_missing_jwt(self, monkeypatch):
         monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
         from cybersecurity.scanners.config_auditor import ConfigAuditorScanner
+
         scanner = ConfigAuditorScanner()
         findings = await scanner.scan()
         jwt_findings = [f for f in findings if f.finding_type == "missing_jwt_secret"]
@@ -143,10 +174,12 @@ class TestConfigAuditor:
 # Auth Auditor tests
 # ---------------------------------------------------------------------------
 
+
 class TestAuthAuditor:
     @pytest.mark.asyncio
     async def test_scan_returns_list(self):
         from cybersecurity.scanners.auth_auditor import AuthAuditorScanner
+
         scanner = AuthAuditorScanner()
         findings = await scanner.scan()
         assert isinstance(findings, list)
@@ -155,6 +188,7 @@ class TestAuthAuditor:
     async def test_detects_empty_jwt_secret(self, monkeypatch):
         monkeypatch.setenv("JWT_SECRET_KEY", "")
         from cybersecurity.scanners.auth_auditor import AuthAuditorScanner
+
         scanner = AuthAuditorScanner()
         findings = await scanner.scan()
         jwt_findings = [f for f in findings if "jwt" in f.finding_type.lower()]
@@ -165,10 +199,12 @@ class TestAuthAuditor:
 # Dependency Scanner tests
 # ---------------------------------------------------------------------------
 
+
 class TestDependencyScanner:
     @pytest.mark.asyncio
     async def test_scan_returns_list(self):
         from cybersecurity.scanners.dependency_scanner import DependencyScanner
+
         scanner = DependencyScanner()
         findings = await scanner.scan()
         assert isinstance(findings, list)
@@ -178,10 +214,12 @@ class TestDependencyScanner:
 # Base Scanner tests
 # ---------------------------------------------------------------------------
 
+
 class TestBaseScanner:
     @pytest.mark.asyncio
     async def test_metrics(self):
         from cybersecurity.scanners.static_analysis import StaticAnalysisScanner
+
         scanner = StaticAnalysisScanner()
         metrics = scanner.get_metrics()
         assert metrics["name"] == "static_analysis"

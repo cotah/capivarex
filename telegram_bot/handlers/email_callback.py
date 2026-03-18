@@ -100,9 +100,7 @@ async def _handle_send(
     await query.answer()
 
     if not draft:
-        await query.edit_message_text(
-            t("email_cb_draft_expired", lang=lang)
-        )
+        await query.edit_message_text(t("email_cb_draft_expired", lang=lang))
         return
 
     gmail = get_service("gmail")
@@ -134,9 +132,7 @@ async def _handle_send(
 
     # Auto-create calendar event if draft has proposed_datetime
     has_proposed_dt = bool(draft.get("proposed_datetime"))
-    event_summary = await _try_create_event(
-        user_id, draft, lang
-    )
+    event_summary = await _try_create_event(user_id, draft, lang)
 
     await _delete_draft(user_id, email_id)
     sender = draft.get("from_name", draft.get("to", ""))
@@ -159,9 +155,7 @@ async def _handle_send(
             )
         )
     else:
-        await query.edit_message_text(
-            t("email_cb_sent", lang=lang, sender=sender)
-        )
+        await query.edit_message_text(t("email_cb_sent", lang=lang, sender=sender))
 
 
 async def _handle_edit(
@@ -171,9 +165,7 @@ async def _handle_edit(
     await query.answer()
 
     if not draft:
-        await query.edit_message_text(
-            t("email_cb_draft_expired", lang=lang)
-        )
+        await query.edit_message_text(t("email_cb_draft_expired", lang=lang))
         return
 
     chat_id = query.message.chat_id
@@ -286,9 +278,7 @@ async def _handle_confirm(
     await query.answer()
 
     if not draft:
-        await query.edit_message_text(
-            t("email_cb_draft_expired", lang=lang)
-        )
+        await query.edit_message_text(t("email_cb_draft_expired", lang=lang))
         return
 
     gmail = get_service("gmail")
@@ -320,9 +310,7 @@ async def _handle_confirm(
 
     await _delete_draft(user_id, email_id)
     sender = draft.get("from_name", draft.get("to", ""))
-    await query.edit_message_text(
-        t("email_cb_sent", lang=lang, sender=sender)
-    )
+    await query.edit_message_text(t("email_cb_sent", lang=lang, sender=sender))
 
 
 async def _handle_cancel(
@@ -339,9 +327,7 @@ async def _handle_cancel(
     await query.edit_message_text(t("email_cb_ignored", lang=lang))
 
 
-async def _try_create_event(
-    user_id: str, draft: dict, lang: str
-) -> Optional[str]:
+async def _try_create_event(user_id: str, draft: dict, lang: str) -> Optional[str]:
     """Try to create a calendar event from draft data.
 
     Returns the event summary on success, None on failure or if
@@ -381,9 +367,7 @@ async def _try_create_event(
             return summary
         return None
     except ServiceUnavailableError:
-        logger.warning(
-            "Calendar not connected for event creation"
-        )
+        logger.warning("Calendar not connected for event creation")
         return None
     except Exception as e:
         logger.warning("Event creation failed: %s", e)
@@ -398,29 +382,21 @@ async def _handle_cal_view(
 
     cal = get_service("calendar")
     if not cal:
-        await query.edit_message_text(
-            t("email_cal_unavailable", lang=lang)
-        )
+        await query.edit_message_text(t("email_cal_unavailable", lang=lang))
         return
 
     try:
         events = await cal.async_get_today_events(user_id)
     except ServiceUnavailableError:
-        await query.edit_message_text(
-            t("email_cal_not_connected", lang=lang)
-        )
+        await query.edit_message_text(t("email_cal_not_connected", lang=lang))
         return
     except Exception as e:
         logger.warning("cal_view failed: %s", e)
-        await query.edit_message_text(
-            t("email_cal_unavailable", lang=lang)
-        )
+        await query.edit_message_text(t("email_cal_unavailable", lang=lang))
         return
 
     if not events:
-        await query.edit_message_text(
-            t("email_cal_no_events", lang=lang)
-        )
+        await query.edit_message_text(t("email_cal_no_events", lang=lang))
         return
 
     lines = [t("email_cal_today_header", lang=lang)]
@@ -436,27 +412,19 @@ async def _handle_cal_add(
     await query.answer()
 
     if not draft:
-        await query.edit_message_text(
-            t("email_cb_draft_expired", lang=lang)
-        )
+        await query.edit_message_text(t("email_cb_draft_expired", lang=lang))
         return
 
     if not draft.get("proposed_datetime"):
-        await query.edit_message_text(
-            t("email_cal_no_datetime", lang=lang)
-        )
+        await query.edit_message_text(t("email_cal_no_datetime", lang=lang))
         return
 
     cal = get_service("calendar")
     if not cal:
-        await query.edit_message_text(
-            t("email_cal_unavailable", lang=lang)
-        )
+        await query.edit_message_text(t("email_cal_unavailable", lang=lang))
         return
 
-    event_summary = await _try_create_event(
-        user_id, draft, lang
-    )
+    event_summary = await _try_create_event(user_id, draft, lang)
 
     if event_summary:
         await query.edit_message_text(
@@ -467,9 +435,7 @@ async def _handle_cal_add(
             )
         )
     else:
-        await query.edit_message_text(
-            t("email_cb_error", lang=lang)
-        )
+        await query.edit_message_text(t("email_cb_error", lang=lang))
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -492,9 +458,7 @@ async def _resolve_user_id(telegram_id: int) -> Optional[str]:
     return None
 
 
-async def _get_draft(
-    user_id: str, email_id: str
-) -> Optional[Dict[str, Any]]:
+async def _get_draft(user_id: str, email_id: str) -> Optional[Dict[str, Any]]:
     """Retrieve draft data from Redis."""
     redis = get_service("redis")
     if not redis:

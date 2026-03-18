@@ -20,6 +20,7 @@ async def list_scans(
     """Scan run history."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             raise HTTPException(status_code=503, detail="Database not available")
@@ -27,9 +28,12 @@ async def list_scans(
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
-        query = db.client.table("cyber_scan_runs").select("*").order(
-            "started_at", desc=True
-        ).limit(limit)
+        query = (
+            db.client.table("cyber_scan_runs")
+            .select("*")
+            .order("started_at", desc=True)
+            .limit(limit)
+        )
 
         if scanner:
             query = query.eq("scanner", scanner)

@@ -1,4 +1,5 @@
 """Tests for Sleep/Wake Routine service."""
+
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -78,7 +79,11 @@ class TestFallbackNight:
 
 class TestFallbackMorning:
     def test_with_events(self):
-        data = {"events_today": 3, "first_event": "Standup", "weather": "18°C, ensolarado"}
+        data = {
+            "events_today": 3,
+            "first_event": "Standup",
+            "weather": "18°C, ensolarado",
+        }
         msg = _generate_fallback_morning_message("João", data)
         assert "Bom dia" in msg
         assert "Standup" in msg
@@ -99,7 +104,9 @@ class TestFallbackMorning:
 class TestEventFetching:
     @pytest.mark.asyncio
     async def test_tomorrow_no_db(self):
-        with patch("services.business.sleep_wake_service.get_service", return_value=None):
+        with patch(
+            "services.business.sleep_wake_service.get_service", return_value=None
+        ):
             assert await _get_tomorrow_events("u1") == []
 
     @pytest.mark.asyncio
@@ -107,24 +114,49 @@ class TestEventFetching:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.sleep_wake_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.sleep_wake_service.get_service", return_value=mock_db
+        ):
             assert await _get_tomorrow_events("u1") == []
 
     @pytest.mark.asyncio
     async def test_today_no_db(self):
-        with patch("services.business.sleep_wake_service.get_service", return_value=None):
+        with patch(
+            "services.business.sleep_wake_service.get_service", return_value=None
+        ):
             assert await _get_today_events("u1") == []
 
 
 class TestGenerateRoutines:
     @pytest.mark.asyncio
     async def test_night_routine(self):
-        events = [{"title": "Standup", "start_time": "2026-03-18T09:00:00Z", "end_time": "2026-03-18T09:30:00Z"}]
+        events = [
+            {
+                "title": "Standup",
+                "start_time": "2026-03-18T09:00:00Z",
+                "end_time": "2026-03-18T09:30:00Z",
+            }
+        ]
         with (
-            patch("services.business.sleep_wake_service._get_tomorrow_events", new_callable=AsyncMock, return_value=events),
-            patch("services.business.sleep_wake_service._get_morning_weather", new_callable=AsyncMock, return_value="15°C, nublado"),
-            patch("services.business.sleep_wake_service._generate_ai_night_message", new_callable=AsyncMock, return_value=None),
-            patch("services.business.sleep_wake_service._store_routine", new_callable=AsyncMock),
+            patch(
+                "services.business.sleep_wake_service._get_tomorrow_events",
+                new_callable=AsyncMock,
+                return_value=events,
+            ),
+            patch(
+                "services.business.sleep_wake_service._get_morning_weather",
+                new_callable=AsyncMock,
+                return_value="15°C, nublado",
+            ),
+            patch(
+                "services.business.sleep_wake_service._generate_ai_night_message",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "services.business.sleep_wake_service._store_routine",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_night_routine("u1", "João")
         assert result is not None
@@ -135,10 +167,25 @@ class TestGenerateRoutines:
     async def test_morning_routine(self):
         events = [{"title": "Meeting", "start_time": "2026-03-17T10:00:00Z"}]
         with (
-            patch("services.business.sleep_wake_service._get_today_events", new_callable=AsyncMock, return_value=events),
-            patch("services.business.sleep_wake_service._get_morning_weather", new_callable=AsyncMock, return_value="18°C, sol"),
-            patch("services.business.sleep_wake_service._generate_ai_morning_message", new_callable=AsyncMock, return_value=None),
-            patch("services.business.sleep_wake_service._store_routine", new_callable=AsyncMock),
+            patch(
+                "services.business.sleep_wake_service._get_today_events",
+                new_callable=AsyncMock,
+                return_value=events,
+            ),
+            patch(
+                "services.business.sleep_wake_service._get_morning_weather",
+                new_callable=AsyncMock,
+                return_value="18°C, sol",
+            ),
+            patch(
+                "services.business.sleep_wake_service._generate_ai_morning_message",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "services.business.sleep_wake_service._store_routine",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_morning_routine("u1", "João")
         assert result is not None
@@ -147,10 +194,25 @@ class TestGenerateRoutines:
     @pytest.mark.asyncio
     async def test_night_with_ai(self):
         with (
-            patch("services.business.sleep_wake_service._get_tomorrow_events", new_callable=AsyncMock, return_value=[]),
-            patch("services.business.sleep_wake_service._get_morning_weather", new_callable=AsyncMock, return_value=""),
-            patch("services.business.sleep_wake_service._generate_ai_night_message", new_callable=AsyncMock, return_value="🌙 AI night message"),
-            patch("services.business.sleep_wake_service._store_routine", new_callable=AsyncMock),
+            patch(
+                "services.business.sleep_wake_service._get_tomorrow_events",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "services.business.sleep_wake_service._get_morning_weather",
+                new_callable=AsyncMock,
+                return_value="",
+            ),
+            patch(
+                "services.business.sleep_wake_service._generate_ai_night_message",
+                new_callable=AsyncMock,
+                return_value="🌙 AI night message",
+            ),
+            patch(
+                "services.business.sleep_wake_service._store_routine",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_night_routine("u1")
         assert result["text"] == "🌙 AI night message"
@@ -160,14 +222,20 @@ class TestStoreRoutine:
     @pytest.mark.asyncio
     async def test_store_no_db(self):
         from services.business.sleep_wake_service import _store_routine
-        with patch("services.business.sleep_wake_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.sleep_wake_service.get_service", return_value=None
+        ):
             await _store_routine("u1", "night", "text", {})
 
     @pytest.mark.asyncio
     async def test_store_exception(self):
         from services.business.sleep_wake_service import _store_routine
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.sleep_wake_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.sleep_wake_service.get_service", return_value=mock_db
+        ):
             await _store_routine("u1", "night", "text", {})

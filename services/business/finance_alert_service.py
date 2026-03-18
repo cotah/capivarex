@@ -78,7 +78,9 @@ async def set_alert_config(user_id: str, config: Dict[str, Any]) -> bool:
             on_conflict="user_id,context_type",
         ).execute()
 
-        logger.info("Finance alerts: config updated for user=%s: %s", user_id[:8], merged)
+        logger.info(
+            "Finance alerts: config updated for user=%s: %s", user_id[:8], merged
+        )
         return True
     except Exception as e:
         logger.error("Finance alerts: failed to set config: %s", e)
@@ -134,26 +136,32 @@ async def check_price_alerts() -> int:
                 change = abs(coin.get("change_24h", 0) or 0)
                 if change >= threshold:
                     direction = "📈" if coin.get("change_24h", 0) > 0 else "📉"
-                    alerts.append({
-                        "title": f"{direction} {coin['symbol']} {'+' if coin.get('change_24h', 0) > 0 else ''}{coin.get('change_24h', 0):.1f}%",
-                        "message": f"{coin['name']} is at ${coin.get('price', 0):,.2f} — moved {change:.1f}% in 24h.",
-                        "category": "crypto",
-                    })
+                    alerts.append(
+                        {
+                            "title": f"{direction} {coin['symbol']} {'+' if coin.get('change_24h', 0) > 0 else ''}{coin.get('change_24h', 0):.1f}%",
+                            "message": f"{coin['name']} is at ${coin.get('price', 0):,.2f} — moved {change:.1f}% in 24h.",
+                            "category": "crypto",
+                        }
+                    )
 
             # Check stocks
             for stock in stock_data:
                 change = abs(stock.get("percent_change", 0) or 0)
                 if change >= threshold:
                     direction = "📈" if stock.get("percent_change", 0) > 0 else "📉"
-                    alerts.append({
-                        "title": f"{direction} {stock['symbol']} {'+' if stock.get('percent_change', 0) > 0 else ''}{stock.get('percent_change', 0):.1f}%",
-                        "message": f"{stock.get('name', stock['symbol'])} is at ${stock.get('price', 0):,.2f} — moved {change:.1f}% today.",
-                        "category": "stock",
-                    })
+                    alerts.append(
+                        {
+                            "title": f"{direction} {stock['symbol']} {'+' if stock.get('percent_change', 0) > 0 else ''}{stock.get('percent_change', 0):.1f}%",
+                            "message": f"{stock.get('name', stock['symbol'])} is at ${stock.get('price', 0):,.2f} — moved {change:.1f}% today.",
+                            "category": "stock",
+                        }
+                    )
 
             # Store alerts in proactivity_feed (deduplicate — 1 alert per asset per day)
             now = datetime.now(timezone.utc)
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+            today_start = now.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ).isoformat()
 
             for alert in alerts:
                 try:
@@ -171,21 +179,25 @@ async def check_price_alerts() -> int:
                     if existing.data:
                         continue  # Already sent today
 
-                    client.table("proactivity_feed").insert({
-                        "user_id": user_id,
-                        "type": "finance_alert",
-                        "title": alert["title"],
-                        "message": alert["message"],
-                        "metadata": json.dumps({"category": alert["category"]}),
-                        "is_read": False,
-                        "created_at": now.isoformat(),
-                    }).execute()
+                    client.table("proactivity_feed").insert(
+                        {
+                            "user_id": user_id,
+                            "type": "finance_alert",
+                            "title": alert["title"],
+                            "message": alert["message"],
+                            "metadata": json.dumps({"category": alert["category"]}),
+                            "is_read": False,
+                            "created_at": now.isoformat(),
+                        }
+                    ).execute()
                     alerts_sent += 1
                 except Exception as e:
                     logger.warning("Finance alerts: insert failed: %s", e)
 
         except Exception as e:
-            logger.warning("Finance alerts: check failed for user=%s: %s", user_id[:8], e)
+            logger.warning(
+                "Finance alerts: check failed for user=%s: %s", user_id[:8], e
+            )
 
     if alerts_sent > 0:
         logger.info("Finance alerts: sent %d alerts", alerts_sent)
@@ -226,12 +238,14 @@ async def _get_stock_prices() -> List[Dict[str, Any]]:
         for sym in symbols:
             try:
                 quote = await finance_svc.get_quote(sym)
-                stocks.append({
-                    "symbol": quote.get("symbol", sym),
-                    "name": quote.get("name", sym),
-                    "price": quote.get("price", 0),
-                    "percent_change": quote.get("percent_change", 0),
-                })
+                stocks.append(
+                    {
+                        "symbol": quote.get("symbol", sym),
+                        "name": quote.get("name", sym),
+                        "price": quote.get("price", 0),
+                        "percent_change": quote.get("percent_change", 0),
+                    }
+                )
             except Exception:
                 pass
         return stocks

@@ -67,6 +67,7 @@ def _fetch_supabase_jwks():
 
     try:
         import httpx
+
         jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
         resp = httpx.get(jwks_url, timeout=3)
         if resp.status_code != 200:
@@ -137,18 +138,19 @@ async def verify_webapp_user(
     for _pfx in _INVALID_PREFIXES:
         if token.startswith(_pfx):
             logger.warning(
-                "WebApp auth: stripped invalid token prefix '{}'", _pfx,
+                "WebApp auth: stripped invalid token prefix '{}'",
+                _pfx,
             )
-            token = token[len(_pfx):]
+            token = token[len(_pfx) :]
             break
 
     # Validate JWT structure
     parts = token.split(".")
     if len(parts) != 3:
         logger.error(
-            "WebApp auth: malformed JWT — expected 3 parts, got {}."
-            " Token prefix: '{}'",
-            len(parts), token[:30],
+            "WebApp auth: malformed JWT — expected 3 parts, got {}. Token prefix: '{}'",
+            len(parts),
+            token[:30],
         )
         raise HTTPException(status_code=401, detail="Invalid token format")
 
@@ -160,25 +162,40 @@ async def verify_webapp_user(
 
         # Strategy 1: ES256 with Supabase EC public key
         if SUPABASE_PUBLIC_KEY:
-            strategies.append(("es256_pubkey", {
-                "key": SUPABASE_PUBLIC_KEY,
-                "algorithms": ["ES256"],
-                "options": {"verify_aud": False},
-            }))
+            strategies.append(
+                (
+                    "es256_pubkey",
+                    {
+                        "key": SUPABASE_PUBLIC_KEY,
+                        "algorithms": ["ES256"],
+                        "options": {"verify_aud": False},
+                    },
+                )
+            )
 
         # Strategy 2: HS256 with audience check
         if jwt_secret:
-            strategies.append(("hs256_with_aud", {
-                "key": jwt_secret,
-                "algorithms": ["HS256"],
-                "audience": "authenticated",
-            }))
+            strategies.append(
+                (
+                    "hs256_with_aud",
+                    {
+                        "key": jwt_secret,
+                        "algorithms": ["HS256"],
+                        "audience": "authenticated",
+                    },
+                )
+            )
             # Strategy 3: HS256 without audience check
-            strategies.append(("hs256_no_aud", {
-                "key": jwt_secret,
-                "algorithms": ["HS256"],
-                "options": {"verify_aud": False},
-            }))
+            strategies.append(
+                (
+                    "hs256_no_aud",
+                    {
+                        "key": jwt_secret,
+                        "algorithms": ["HS256"],
+                        "options": {"verify_aud": False},
+                    },
+                )
+            )
 
         last_error = None
         es256_failed = False
@@ -192,13 +209,9 @@ async def verify_webapp_user(
                     )
 
                 if strategy_name == "es256_pubkey":
-                    logger.info(
-                        f"WebApp auth: verified user_id={user_id} via ES256"
-                    )
+                    logger.info(f"WebApp auth: verified user_id={user_id} via ES256")
                 elif strategy_name == "hs256_with_aud":
-                    logger.info(
-                        f"WebApp auth: verified user_id={user_id} via HS256"
-                    )
+                    logger.info(f"WebApp auth: verified user_id={user_id} via HS256")
                 else:
                     logger.warning(
                         f"WebApp auth: used fallback strategy"
@@ -220,9 +233,7 @@ async def verify_webapp_user(
 
         # If ES256 failed on first attempt, try rebuilding the key
         if es256_failed and attempt == 0:
-            logger.warning(
-                "WebApp auth: ES256 failed, rebuilding key from JWKS..."
-            )
+            logger.warning("WebApp auth: ES256 failed, rebuilding key from JWKS...")
             new_key = _build_supabase_ec_key()
             if new_key and new_key != SUPABASE_PUBLIC_KEY:
                 SUPABASE_PUBLIC_KEY = new_key
@@ -242,6 +253,4 @@ async def verify_webapp_user(
         f" ES256_KEY set: {SUPABASE_PUBLIC_KEY is not None},"
         f" token prefix: {token[:20]}..."
     )
-    raise HTTPException(
-        status_code=401, detail="Invalid or expired token"
-    )
+    raise HTTPException(status_code=401, detail="Invalid or expired token")

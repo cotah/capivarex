@@ -28,7 +28,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     bot = context.application.bot_data.get("capivarax_bot")
     if not bot:
         logger.warning("/status called but bot not initialized")
-        await update.message.reply_text("Bot não inicializado.")
+        await update.message.reply_text("Bot not initialized.")
         return
 
     services_status: List[str] = []
@@ -44,23 +44,21 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         agents_status.append(f"✅ {name}")
 
     services_text: str = (
-        chr(10).join(services_status)
-        if services_status
-        else "Nenhum serviço inicializado"
+        chr(10).join(services_status) if services_status else "No services initialized"
     )
     agents_text: str = (
-        chr(10).join(agents_status) if agents_status else "Nenhum agente inicializado"
+        chr(10).join(agents_status) if agents_status else "No agents initialized"
     )
 
     status_message: str = f"""
-🤖 **Status do CAPIVAREX Bot**
+🤖 **CAPIVAREX Bot Status**
 
-**Serviços:**
+**Services:**
 {services_text}
 
-**Agentes:**
+**Agents:**
 {agents_text}
 
-**Versão:** 2.0.0 (Refatorado)
+**Version:** 2.0.0 (Refactored)
 """
     await update.message.reply_text(status_message, parse_mode="Markdown")

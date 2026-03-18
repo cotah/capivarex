@@ -1,4 +1,5 @@
 """Tests for Budget Tracker service."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -115,7 +116,9 @@ class TestDetectCategory:
 class TestSaveSpending:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.budget_tracker_service.get_service", return_value=None):
+        with patch(
+            "services.business.budget_tracker_service.get_service", return_value=None
+        ):
             result = await save_spending("u1", {"amount": 50, "category": "food"})
         assert result is False
 
@@ -123,11 +126,17 @@ class TestSaveSpending:
     async def test_save_success(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{"value": "[]"}])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[{"value": "[]"}]
+        )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.budget_tracker_service.get_service", return_value=mock_db):
-            result = await save_spending("u1", {"amount": 50, "currency": "EUR", "category": "food"})
+        with patch(
+            "services.business.budget_tracker_service.get_service", return_value=mock_db
+        ):
+            result = await save_spending(
+                "u1", {"amount": 50, "currency": "EUR", "category": "food"}
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -135,7 +144,9 @@ class TestSaveSpending:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.budget_tracker_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.budget_tracker_service.get_service", return_value=mock_db
+        ):
             result = await save_spending("u1", {"amount": 50})
         assert result is False
 
@@ -144,8 +155,16 @@ class TestMonthlySummary:
     @pytest.mark.asyncio
     async def test_empty_month(self):
         with (
-            patch("services.business.budget_tracker_service._load_month_entries", new_callable=AsyncMock, return_value=[]),
-            patch("services.business.budget_tracker_service._get_budget_limits", new_callable=AsyncMock, return_value={}),
+            patch(
+                "services.business.budget_tracker_service._load_month_entries",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "services.business.budget_tracker_service._get_budget_limits",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
         ):
             result = await get_monthly_summary("u1")
         assert result["total"] == 0
@@ -159,8 +178,16 @@ class TestMonthlySummary:
             {"amount": 20, "category": "transport", "currency": "EUR"},
         ]
         with (
-            patch("services.business.budget_tracker_service._load_month_entries", new_callable=AsyncMock, return_value=entries),
-            patch("services.business.budget_tracker_service._get_budget_limits", new_callable=AsyncMock, return_value={"total": 500}),
+            patch(
+                "services.business.budget_tracker_service._load_month_entries",
+                new_callable=AsyncMock,
+                return_value=entries,
+            ),
+            patch(
+                "services.business.budget_tracker_service._get_budget_limits",
+                new_callable=AsyncMock,
+                return_value={"total": 500},
+            ),
         ):
             result = await get_monthly_summary("u1")
         assert result["total"] == 100.0
@@ -213,7 +240,9 @@ class TestFormatSummary:
 class TestBudgetLimits:
     @pytest.mark.asyncio
     async def test_set_no_db(self):
-        with patch("services.business.budget_tracker_service.get_service", return_value=None):
+        with patch(
+            "services.business.budget_tracker_service.get_service", return_value=None
+        ):
             result = await set_budget_limit("u1", "food", 300)
         assert result is False
 
@@ -221,9 +250,13 @@ class TestBudgetLimits:
     async def test_set_success(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{"value": "{}"}])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[{"value": "{}"}]
+        )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.budget_tracker_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.budget_tracker_service.get_service", return_value=mock_db
+        ):
             result = await set_budget_limit("u1", "total", 1000)
         assert result is True

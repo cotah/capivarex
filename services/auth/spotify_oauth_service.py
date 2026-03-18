@@ -70,9 +70,7 @@ class SpotifyOAuth:
         query = urlencode(params)
         return f"{SPOTIFY_AUTH_URL}?{query}"
 
-    async def handle_callback(
-        self, code: str, state_b64: str
-    ) -> Dict[str, Any]:
+    async def handle_callback(self, code: str, state_b64: str) -> Dict[str, Any]:
         """Exchange authorization code for tokens and save to Supabase."""
         # Decode state (undo possible double URL-encoding from redirect)
         from urllib.parse import unquote
@@ -85,14 +83,10 @@ class SpotifyOAuth:
             state_clean += "=" * padding
         state = json.loads(base64.urlsafe_b64decode(state_clean))
         user_id = str(state["user_id"])
-        user_id = await resolve_user_uuid(
-            user_id, context="spotify_callback"
-        )
+        user_id = await resolve_user_uuid(user_id, context="spotify_callback")
 
         # Exchange code for tokens
-        logger.debug(
-            f"Spotify token exchange: redirect_uri={self.redirect_uri}"
-        )
+        logger.debug(f"Spotify token exchange: redirect_uri={self.redirect_uri}")
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 SPOTIFY_TOKEN_URL,
@@ -173,9 +167,7 @@ class SpotifyOAuth:
         # Check if expired (with 5 min margin)
         if expires_at_str:
             try:
-                exp = datetime.fromisoformat(
-                    expires_at_str.replace("Z", "+00:00")
-                )
+                exp = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
                 margin = datetime.now(timezone.utc) + timedelta(minutes=5)
                 if margin >= exp:
                     if not refresh_token:
@@ -184,9 +176,7 @@ class SpotifyOAuth:
                             user_id,
                         )
                         return None
-                    new_token = await self._refresh_token(
-                        user_id, refresh_token
-                    )
+                    new_token = await self._refresh_token(user_id, refresh_token)
                     return new_token
             except (ValueError, TypeError):
                 pass
@@ -206,11 +196,9 @@ class SpotifyOAuth:
         if not sb:
             return False
         try:
-            sb.table("user_oauth_tokens").update(
-                {"active": False}
-            ).eq("user_id", user_id).eq(
-                "provider", "spotify"
-            ).execute()
+            sb.table("user_oauth_tokens").update({"active": False}).eq(
+                "user_id", user_id
+            ).eq("provider", "spotify").execute()
             logger.info("Spotify disconnected: user=%s", user_id)
             return True
         except Exception as e:
@@ -252,9 +240,7 @@ class SpotifyOAuth:
             on_conflict="user_id,provider,email",
         ).execute()
 
-    async def _get_token_row(
-        self, user_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def _get_token_row(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Fetch Spotify token row from Supabase."""
         from services.infrastructure.database import get_supabase_client
 
@@ -277,9 +263,7 @@ class SpotifyOAuth:
             logger.error("Failed to get Spotify OAuth tokens: %s", e)
             return None
 
-    async def _refresh_token(
-        self, user_id: str, refresh_token: str
-    ) -> Optional[str]:
+    async def _refresh_token(self, user_id: str, refresh_token: str) -> Optional[str]:
         """Refresh access token using refresh_token."""
         try:
             async with httpx.AsyncClient() as client:

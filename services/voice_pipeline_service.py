@@ -164,7 +164,9 @@ class VoicePipelineService(BaseService):
 
         # ── ETAPA 3: TTS (opcional) ───────────────────────────────────────────
         if return_audio:
-            effective_voice = voice_id or DEFAULT_VOICES.get(language, DEFAULT_VOICES["pt"])
+            effective_voice = voice_id or DEFAULT_VOICES.get(
+                language, DEFAULT_VOICES["pt"]
+            )
             audio_out, tts_latency, tts_error = await self._run_tts(
                 text=response_text,
                 voice_id=effective_voice,
@@ -182,7 +184,9 @@ class VoicePipelineService(BaseService):
                 result["audio_path"] = str(audio_path_out)
                 result["audio_filename"] = filename
                 result["metrics"]["audio_bytes"] = len(audio_out)
-                self.logger.info("TTS OK: %d bytes em %.2fs", len(audio_out), tts_latency)
+                self.logger.info(
+                    "TTS OK: %d bytes em %.2fs", len(audio_out), tts_latency
+                )
 
         return result
 
@@ -213,7 +217,9 @@ class VoicePipelineService(BaseService):
 
         # Trunca texto longo
         if len(text) > TTS_MAX_CHARS:
-            self.logger.warning("Texto truncado: %d → %d chars", len(text), TTS_MAX_CHARS)
+            self.logger.warning(
+                "Texto truncado: %d → %d chars", len(text), TTS_MAX_CHARS
+            )
             text = text[:TTS_MAX_CHARS] + "..."
 
         effective_voice = voice_id or DEFAULT_VOICES.get(language, DEFAULT_VOICES["pt"])

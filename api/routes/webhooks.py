@@ -83,6 +83,7 @@ async def email_webhook(request: Request):
 # 17TRACK Webhook — Package tracking push updates
 # ──────────────────────────────────────────────────────────────────────────
 
+
 @router.post("/tracking")
 async def tracking_webhook(request: Request):
     """
@@ -116,7 +117,10 @@ async def tracking_webhook(request: Request):
         # Find user and generate notification
         try:
             from services.business.package_tracking_service import handle_webhook_update
-            result = await handle_webhook_update(tracking_number, status_code, track_info)
+
+            result = await handle_webhook_update(
+                tracking_number, status_code, track_info
+            )
 
             if result:
                 # Store notification in proactivity_feed for bell display
@@ -126,21 +130,28 @@ async def tracking_webhook(request: Request):
                 db_svc = get_service("database")
                 if db_svc and db_svc.is_initialized():
                     client = db_svc.get_client()
-                    client.table("proactivity_feed").insert({
-                        "user_id": user_id,
-                        "type": "tracking_webhook",
-                        "content": message,
-                        "metadata": json.dumps({
-                            "tracking_number": tracking_number,
-                            "status_code": status_code,
-                        }),
-                    }).execute()
+                    client.table("proactivity_feed").insert(
+                        {
+                            "user_id": user_id,
+                            "type": "tracking_webhook",
+                            "content": message,
+                            "metadata": json.dumps(
+                                {
+                                    "tracking_number": tracking_number,
+                                    "status_code": status_code,
+                                }
+                            ),
+                        }
+                    ).execute()
 
         except Exception as e:
             logger.warning("Webhook tracking processing failed: %s", e)
 
     elif event_type == "TRACKING_STOPPED":
         tracking_number = data.get("number", "")
-        logger.info("17TRACK stopped tracking: %s", tracking_number[-6:] if tracking_number else "?")
+        logger.info(
+            "17TRACK stopped tracking: %s",
+            tracking_number[-6:] if tracking_number else "?",
+        )
 
     return {"status": "ok"}

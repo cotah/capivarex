@@ -23,9 +23,7 @@ async def toggle_proactivity(
     try:
         db = get_service("database")
         if not db:
-            await update.message.reply_text(
-                "❌ Serviço de banco de dados indisponível."
-            )
+            await update.message.reply_text("❌ Database service unavailable.")
             return
 
         if not db.is_initialized():
@@ -44,25 +42,25 @@ async def toggle_proactivity(
         if success:
             if new_status:
                 await update.message.reply_text(
-                    "✅ Notificações proativas **ativadas**!\n\n"
-                    "Você receberá alertas sobre:\n"
-                    "📅 Compromissos próximos\n"
-                    "🌤️ Mudanças no clima\n"
-                    "🚗 Condições de trânsito\n"
-                    "🏠 Status de dispositivos\n"
-                    "🚙 Alertas do carro\n\n"
-                    "Use /proatividade para desativar.",
+                    "✅ Proactive notifications **enabled**!\n\n"
+                    "You'll receive alerts about:\n"
+                    "📅 Upcoming appointments\n"
+                    "🌤️ Weather changes\n"
+                    "🚗 Traffic conditions\n"
+                    "🏠 Device status\n"
+                    "🚙 Car alerts\n\n"
+                    "Use /proactivity to disable.",
                     parse_mode="Markdown",
                 )
             else:
                 await update.message.reply_text(
-                    "✅ Notificações proativas **desativadas**.\n\n"
-                    "Use /proatividade para reativar.",
+                    "✅ Proactive notifications **disabled**.\n\n"
+                    "Use /proactivity to re-enable.",
                     parse_mode="Markdown",
                 )
         else:
             await update.message.reply_text(
-                "❌ Erro ao atualizar preferências de proatividade."
+                "❌ Error updating proactivity preferences."
             )
 
     except Exception as e:
@@ -70,5 +68,5 @@ async def toggle_proactivity(
             "Error toggling proactivity for user %s: %s", user_id, e, exc_info=True
         )
         await update.message.reply_text(
-            "❌ Erro ao alterar configuração de proatividade. Tente novamente."
+            "❌ Error changing proactivity settings. Please try again."
         )

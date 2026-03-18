@@ -70,7 +70,9 @@ async def generate_commute_alert(
         duration_min = commute_info.get("duration_minutes", DEFAULT_COMMUTE_DURATION)
         leave_dt = event_dt - timedelta(minutes=duration_min + DEFAULT_COMMUTE_BUFFER)
         leave_time = leave_dt.strftime("%H:%M")
-        arrival_time = (event_dt - timedelta(minutes=DEFAULT_COMMUTE_BUFFER)).strftime("%H:%M")
+        arrival_time = (event_dt - timedelta(minutes=DEFAULT_COMMUTE_BUFFER)).strftime(
+            "%H:%M"
+        )
     except (ValueError, TypeError):
         leave_time = "?"
         arrival_time = "?"
@@ -161,7 +163,13 @@ async def _estimate_commute(origin: str, destination: str) -> Dict[str, Any]:
             result = await maps_svc.get_directions(origin, destination)
             if result:
                 duration = result.get("duration_minutes", DEFAULT_COMMUTE_DURATION)
-                traffic = "heavy" if duration > 45 else "moderate" if duration > 25 else "light"
+                traffic = (
+                    "heavy"
+                    if duration > 45
+                    else "moderate"
+                    if duration > 25
+                    else "light"
+                )
                 return {
                     "duration_minutes": duration,
                     "traffic": traffic,
@@ -188,11 +196,16 @@ def _generate_commute_message(name: str, data: Dict[str, Any]) -> str:
     route = data.get("route_summary", "")
 
     traffic_emoji = {
-        "light": "🟢", "moderate": "🟡", "heavy": "🔴", "unknown": "⚪",
+        "light": "🟢",
+        "moderate": "🟡",
+        "heavy": "🔴",
+        "unknown": "⚪",
     }
     traffic_label = {
-        "light": "trânsito leve", "moderate": "trânsito moderado",
-        "heavy": "trânsito pesado", "unknown": "trânsito desconhecido",
+        "light": "trânsito leve",
+        "moderate": "trânsito moderado",
+        "heavy": "trânsito pesado",
+        "unknown": "trânsito desconhecido",
     }
 
     emoji = traffic_emoji.get(traffic, "⚪")
@@ -223,11 +236,13 @@ async def _store_commute(user_id: str, text: str, data: Dict[str, Any]) -> None:
             return
 
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "commute_alert",
-            "content": text[:2000],
-            "metadata": json.dumps(data),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "commute_alert",
+                "content": text[:2000],
+                "metadata": json.dumps(data),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Commute store failed: %s", e)

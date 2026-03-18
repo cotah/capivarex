@@ -17,6 +17,7 @@ Usage::
         details={"reason": "invalid_password", "email": email},
     )
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,6 +64,7 @@ class SecurityEventService(BaseService):
     async def _initialize(self) -> None:
         """Verify database connectivity."""
         from services.core import get_service
+
         self._db = get_service("database")
         self._notification = get_service("notification")
         self._admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
@@ -127,9 +129,13 @@ class SecurityEventService(BaseService):
         # Alert admin on high/critical events
         if severity in _ALERT_SEVERITIES and self._admin_chat_id:
             try:
-                await self._send_admin_alert(event_type, severity, user_id, ip_address, details)
+                await self._send_admin_alert(
+                    event_type, severity, user_id, ip_address, details
+                )
             except Exception as exc:
-                logger.debug("SecurityEventService: admin alert failed (non-fatal): %s", exc)
+                logger.debug(
+                    "SecurityEventService: admin alert failed (non-fatal): %s", exc
+                )
 
     async def _send_admin_alert(
         self,
@@ -165,6 +171,7 @@ class SecurityEventService(BaseService):
 # Module-level convenience function
 # ---------------------------------------------------------------------------
 
+
 async def record_security_event(
     event_type: EventType,
     severity: Severity,
@@ -182,6 +189,7 @@ async def record_security_event(
     """
     try:
         from services.core import get_service
+
         svc = get_service("security_events")
         if svc and svc.is_initialized():
             await svc.record(

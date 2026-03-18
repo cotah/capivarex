@@ -137,10 +137,12 @@ def _organize_by_day(events: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, s
             if day_name not in days:
                 days[day_name] = []
 
-            days[day_name].append({
-                "title": event.get("title", "Evento"),
-                "time": time_str,
-            })
+            days[day_name].append(
+                {
+                    "title": event.get("title", "Evento"),
+                    "time": time_str,
+                }
+            )
         except (ValueError, IndexError):
             continue
 
@@ -178,6 +180,7 @@ async def _generate_ai_plan(name: str, data: Dict[str, Any]) -> Optional[str]:
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -247,14 +250,18 @@ async def _store_plan(user_id: str, text: str, data: Dict[str, Any]) -> None:
             return
 
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "weekly_plan",
-            "content": text[:2000],
-            "metadata": json.dumps({
-                "total_events": data.get("total_events", 0),
-                "pending_reminders": data.get("pending_reminders", 0),
-            }),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "weekly_plan",
+                "content": text[:2000],
+                "metadata": json.dumps(
+                    {
+                        "total_events": data.get("total_events", 0),
+                        "pending_reminders": data.get("pending_reminders", 0),
+                    }
+                ),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Weekly planner store failed: %s", e)

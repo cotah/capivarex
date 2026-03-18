@@ -86,8 +86,14 @@ async def orchestrate_meeting(
     # Step 3: Send email invite to attendees
     if send_invite and attendees and event:
         invite_ok = await _send_invite_email(
-            user_id, title, attendees, start_time, end_time,
-            event.get("meet_link", ""), description, user_name,
+            user_id,
+            title,
+            attendees,
+            start_time,
+            end_time,
+            event.get("meet_link", ""),
+            description,
+            user_name,
         )
         result["invite_sent"] = invite_ok
         if not invite_ok:
@@ -96,7 +102,12 @@ async def orchestrate_meeting(
     # Step 4: Create meeting prep notes
     if create_notes and event:
         notes_ok = await _create_meeting_notes(
-            user_id, title, attendees, start_time, description, user_name,
+            user_id,
+            title,
+            attendees,
+            start_time,
+            description,
+            user_name,
         )
         result["notes_created"] = notes_ok
 
@@ -107,7 +118,8 @@ async def orchestrate_meeting(
 
     logger.info(
         "Meeting orchestrator: %s for user=%s — event=%s invite=%s notes=%s",
-        title, user_id[:8],
+        title,
+        user_id[:8],
         "✓" if result["event"] else "✗",
         "✓" if result["invite_sent"] else "✗",
         "✓" if result["notes_created"] else "✗",
@@ -120,8 +132,11 @@ async def orchestrate_meeting(
 # Step 1: Availability Check
 # ---------------------------------------------------------------------------
 
+
 async def _check_availability(
-    user_id: str, start: datetime, end: datetime,
+    user_id: str,
+    start: datetime,
+    end: datetime,
 ) -> Optional[Dict[str, Any]]:
     """Check if the user has a conflicting event."""
     calendar_svc = get_service("calendar")
@@ -130,7 +145,9 @@ async def _check_availability(
 
     try:
         events = await calendar_svc.async_get_upcoming_events(
-            user_id=user_id, max_results=20, days_ahead=30,
+            user_id=user_id,
+            max_results=20,
+            days_ahead=30,
         )
         if not events:
             return None
@@ -142,7 +159,9 @@ async def _check_availability(
                 continue
 
             try:
-                ev_start = datetime.fromisoformat(str(ev_start_str).replace("Z", "+00:00"))
+                ev_start = datetime.fromisoformat(
+                    str(ev_start_str).replace("Z", "+00:00")
+                )
                 ev_end = datetime.fromisoformat(str(ev_end_str).replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 continue
@@ -165,9 +184,14 @@ async def _check_availability(
 # Step 2: Create Calendar Event
 # ---------------------------------------------------------------------------
 
+
 async def _create_meeting_event(
-    user_id: str, title: str, attendees: List[str],
-    start: datetime, end: datetime, description: str,
+    user_id: str,
+    title: str,
+    attendees: List[str],
+    start: datetime,
+    end: datetime,
+    description: str,
 ) -> Optional[Dict[str, Any]]:
     """Create calendar event with Google Meet link."""
     calendar_svc = get_service("calendar")
@@ -193,10 +217,16 @@ async def _create_meeting_event(
 # Step 3: Send Invite Email
 # ---------------------------------------------------------------------------
 
+
 async def _send_invite_email(
-    user_id: str, title: str, attendees: List[str],
-    start: datetime, end: datetime, meet_link: str,
-    description: str, user_name: str,
+    user_id: str,
+    title: str,
+    attendees: List[str],
+    start: datetime,
+    end: datetime,
+    meet_link: str,
+    description: str,
+    user_name: str,
 ) -> bool:
     """Send humanized invite email to all attendees."""
     gmail = get_service("gmail")
@@ -225,8 +255,12 @@ async def _send_invite_email(
 
 
 async def _build_invite_email(
-    title: str, start: datetime, end: datetime,
-    meet_link: str, description: str, user_name: str,
+    title: str,
+    start: datetime,
+    end: datetime,
+    meet_link: str,
+    description: str,
+    user_name: str,
 ) -> str:
     """Build a warm, professional invite email."""
     openai_svc = get_service("openai")
@@ -236,9 +270,9 @@ async def _build_invite_email(
         prompt = f"""Write a brief, professional meeting invite email.
 
 Meeting: {title}
-Date: {start.strftime('%A, %B %d at %H:%M')} - {end.strftime('%H:%M')}
-Meet link: {meet_link or 'TBD'}
-Agenda: {description or 'To be discussed'}
+Date: {start.strftime("%A, %B %d at %H:%M")} - {end.strftime("%H:%M")}
+Meet link: {meet_link or "TBD"}
+Agenda: {description or "To be discussed"}
 From: {name}
 
 RULES:
@@ -252,6 +286,7 @@ Write the email body (no subject line):"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -259,7 +294,9 @@ Write the email body (no subject line):"""
                 max_tokens=250,
                 temperature=0.7,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
@@ -281,9 +318,14 @@ Write the email body (no subject line):"""
 # Step 4: Create Meeting Notes
 # ---------------------------------------------------------------------------
 
+
 async def _create_meeting_notes(
-    user_id: str, title: str, attendees: List[str],
-    start: datetime, description: str, user_name: str,
+    user_id: str,
+    title: str,
+    attendees: List[str],
+    start: datetime,
+    description: str,
+    user_name: str,
 ) -> bool:
     """Create meeting prep notes via notes agent."""
     from agents.core import get_agent
@@ -317,19 +359,24 @@ async def _create_meeting_notes(
 # Humanized Responses
 # ---------------------------------------------------------------------------
 
+
 async def _humanize_conflict(
-    name: str, title: str, conflict: Dict[str, Any], start: datetime,
+    name: str,
+    title: str,
+    conflict: Dict[str, Any],
+    start: datetime,
 ) -> str:
     """Humanized message when there's a calendar conflict."""
     openai_svc = get_service("openai")
 
     if openai_svc and openai_svc.is_initialized():
-        prompt = f"""You are CAPIVAREX, a personal assistant. {name} wants to schedule '{title}' at {start.strftime('%A %H:%M')} but there's a conflict with '{conflict['summary']}' ({conflict['start']}-{conflict['end']}).
+        prompt = f"""You are CAPIVAREX, a personal assistant. {name} wants to schedule '{title}' at {start.strftime("%A %H:%M")} but there's a conflict with '{conflict["summary"]}' ({conflict["start"]}-{conflict["end"]}).
 
 Write a warm 2-3 sentence message explaining the conflict and suggesting alternatives. Use 1 emoji."""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -337,7 +384,9 @@ Write a warm 2-3 sentence message explaining the conflict and suggesting alterna
                 max_tokens=150,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 10:
                 return text
         except Exception:
@@ -351,8 +400,11 @@ Write a warm 2-3 sentence message explaining the conflict and suggesting alterna
 
 
 async def _humanize_confirmation(
-    name: str, title: str, attendees: List[str],
-    start: datetime, result: Dict[str, Any],
+    name: str,
+    title: str,
+    attendees: List[str],
+    start: datetime,
+    result: Dict[str, Any],
 ) -> str:
     """Humanized confirmation after successful orchestration."""
     openai_svc = get_service("openai")
@@ -387,6 +439,7 @@ Generate confirmation:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -394,7 +447,9 @@ Generate confirmation:"""
                 max_tokens=200,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 10:
                 return text
         except Exception:
@@ -418,6 +473,7 @@ Generate confirmation:"""
 # ---------------------------------------------------------------------------
 # Parse Meeting Request (GPT-powered)
 # ---------------------------------------------------------------------------
+
 
 async def parse_meeting_request(message: str) -> Optional[Dict[str, Any]]:
     """
@@ -447,6 +503,7 @@ Only return JSON, no markdown:"""
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],

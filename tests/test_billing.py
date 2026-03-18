@@ -78,13 +78,17 @@ def app_client():
 class TestCreateCheckout:
     """Tests for the create-checkout endpoint."""
 
-    def test_create_checkout_me_plan(self, app_client):
+    def test_create_checkout_professional_plan(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{
-                "email": "user@test.com",
-                "stripe_customer_id": "cus_existing123",
-            }])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "email": "user@test.com",
+                    "stripe_customer_id": "cus_existing123",
+                }
+            ]
         )
 
         mock_session = MagicMock()
@@ -100,7 +104,7 @@ class TestCreateCheckout:
         ):
             resp = app_client.post(
                 "/api/billing/create-checkout",
-                json={"plan": "me"},
+                json={"plan": "professional"},
                 headers=_auth_header(),
             )
 
@@ -133,7 +137,7 @@ class TestStripeWebhook:
             "type": "checkout.session.completed",
             "data": {
                 "object": {
-                    "metadata": {"user_id": "user-1", "plan": "me"},
+                    "metadata": {"user_id": "user-1", "plan": "professional"},
                     "customer": "cus_abc123",
                 }
             },
@@ -158,7 +162,7 @@ class TestStripeWebhook:
         # Verify DB was updated with correct plan
         db.table("users").update.assert_called_once()
         update_args = db.table("users").update.call_args[0][0]
-        assert update_args["plan"] == "me"
+        assert update_args["plan"] == "professional"
         assert update_args["messages_limit"] == 300
         assert update_args["stripe_customer_id"] == "cus_abc123"
 
@@ -184,24 +188,26 @@ class TestStripeWebhook:
 class TestBillingStatus:
     """Tests for the billing status endpoint."""
 
-    def test_billing_status_free_user(self, app_client):
+    def test_billing_status_professional_user(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{
-                "plan": "free",
-                "messages_used": 5,
-                "messages_limit": 30,
-            }])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "plan": "professional",
+                    "messages_used": 5,
+                    "messages_limit": 30,
+                }
+            ]
         )
 
         with patch("api.routes.billing._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/billing/status", headers=_auth_header()
-            )
+            resp = app_client.get("/api/billing/status", headers=_auth_header())
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["plan"] == "free"
+        assert body["plan"] == "professional"
         assert body["messages_used"] == 5
         assert body["messages_limit"] == 30
         assert body["quota_pct"] == 16.7
@@ -222,7 +228,7 @@ class TestQuotaEnforcement:
         db = _mock_db()
         mock_quota = MagicMock()
         mock_quota.check_and_consume = AsyncMock(
-            side_effect=QuotaExceededError("gpt_tokens", 5000, 5000, "free")
+            side_effect=QuotaExceededError("gpt_tokens", 5000, 5000, "professional")
         )
 
         with (
@@ -243,22 +249,26 @@ class TestQuotaEnforcement:
     def test_quota_ok_processes_message(self, app_client):
         db = _mock_db()
         mock_quota = MagicMock()
-        mock_quota.check_and_consume = AsyncMock(return_value={"used": 1, "limit": 5000})
+        mock_quota.check_and_consume = AsyncMock(
+            return_value={"used": 1, "limit": 5000}
+        )
 
         # Conversation creation
-        db.table("webapp_conversations").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "conv-1", "user_id": "user-1"}])
+        db.table(
+            "webapp_conversations"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-1", "user_id": "user-1"}]
         )
         # Message insert
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-1"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-1"}]
         )
 
         orch = MagicMock()
         orch.process = AsyncMock(
-            return_value=AgentResponse(
-                status=AgentStatus.SUCCESS, response="chat"
-            )
+            return_value=AgentResponse(status=AgentStatus.SUCCESS, response="chat")
         )
         chat_agent = MagicMock()
         chat_agent.process = AsyncMock(

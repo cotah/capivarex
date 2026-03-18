@@ -116,7 +116,7 @@ class TestListTenants(unittest.TestCase):
             {
                 "id": "user-1",
                 "email": "u1@test.com",
-                "plan": "free",
+                "plan": "professional",
                 "messages_used": 5,
                 "messages_limit": 30,
                 "stripe_customer_id": None,
@@ -126,7 +126,7 @@ class TestListTenants(unittest.TestCase):
             {
                 "id": "user-2",
                 "email": "u2@test.com",
-                "plan": "me",
+                "plan": "professional",
                 "messages_used": 10,
                 "messages_limit": 300,
                 "stripe_customer_id": "cus_123",
@@ -140,8 +140,8 @@ class TestListTenants(unittest.TestCase):
         users_mock = db.table("users")
         users_mock.execute.return_value = _make_result([], count=2)
         users_mock.select.return_value.execute.return_value = _make_result([], count=2)
-        users_mock.select.return_value.order.return_value.range.return_value.execute.return_value = (
-            _make_result(tenant_data)
+        users_mock.select.return_value.order.return_value.range.return_value.execute.return_value = _make_result(
+            tenant_data
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -159,8 +159,10 @@ class TestListTenants(unittest.TestCase):
         db.table("users").select.return_value.execute.return_value = _make_result(
             [], count=100
         )
-        db.table("users").select.return_value.order.return_value.range.return_value.execute.return_value = (
-            _make_result([{"id": "user-51", "email": "u51@test.com"}])
+        db.table(
+            "users"
+        ).select.return_value.order.return_value.range.return_value.execute.return_value = _make_result(
+            [{"id": "user-51", "email": "u51@test.com"}]
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -176,8 +178,10 @@ class TestListTenants(unittest.TestCase):
         db.table("users").select.return_value.execute.return_value = _make_result(
             [], count=0
         )
-        db.table("users").select.return_value.order.return_value.range.return_value.execute.return_value = (
-            _make_result([])
+        db.table(
+            "users"
+        ).select.return_value.order.return_value.range.return_value.execute.return_value = _make_result(
+            []
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -205,12 +209,14 @@ class TestGetTenant(unittest.TestCase):
         tenant = {
             "id": "user-1",
             "email": "u1@test.com",
-            "plan": "me",
+            "plan": "professional",
             "messages_used": 42,
             "messages_limit": 300,
         }
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_result([tenant])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_result(
+            [tenant]
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -219,12 +225,14 @@ class TestGetTenant(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["tenant"]["id"], "user-1")
-        self.assertEqual(resp.json()["tenant"]["plan"], "me")
+        self.assertEqual(resp.json()["tenant"]["plan"], "professional")
 
     def test_get_tenant_not_found(self):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_result(
+            []
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -246,8 +254,10 @@ class TestOverrideQuota(unittest.TestCase):
 
     def test_override_quota_success(self):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_result([{"id": "user-1", "plan": "free", "messages_limit": 30}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_result(
+            [{"id": "user-1", "plan": "professional", "messages_limit": 30}]
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -265,8 +275,10 @@ class TestOverrideQuota(unittest.TestCase):
 
     def test_override_quota_tenant_not_found(self):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_result(
+            []
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -307,8 +319,10 @@ class TestResetUsage(unittest.TestCase):
 
     def test_reset_usage_success(self):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_result([{"id": "user-1", "messages_used": 25}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_result(
+            [{"id": "user-1", "messages_used": 25}]
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -323,8 +337,10 @@ class TestResetUsage(unittest.TestCase):
 
     def test_reset_usage_tenant_not_found(self):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_result(
+            []
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -360,8 +376,10 @@ class TestListSecurityEvents(unittest.TestCase):
                 "created_at": "2026-03-10T13:00:00",
             },
         ]
-        db.table("security_events").select.return_value.order.return_value.limit.return_value.execute.return_value = (
-            _make_result(events)
+        db.table(
+            "security_events"
+        ).select.return_value.order.return_value.limit.return_value.execute.return_value = _make_result(
+            events
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -375,8 +393,10 @@ class TestListSecurityEvents(unittest.TestCase):
 
     def test_list_security_events_empty(self):
         db = _mock_db()
-        db.table("security_events").select.return_value.order.return_value.limit.return_value.execute.return_value = (
-            _make_result([])
+        db.table(
+            "security_events"
+        ).select.return_value.order.return_value.limit.return_value.execute.return_value = _make_result(
+            []
         )
 
         with patch("api.routes.admin._get_db", return_value=db):
@@ -411,9 +431,7 @@ class TestListAutofixTickets(unittest.TestCase):
 
         # get_last_tickets is imported lazily inside the endpoint function,
         # so we patch it at its source module.
-        with patch(
-            "autofix.core.get_last_tickets", return_value=tickets
-        ):
+        with patch("autofix.core.get_last_tickets", return_value=tickets):
             client = _get_client()
             resp = client.get("/api/admin/autofix/tickets?n=5")
 
@@ -463,7 +481,9 @@ class TestAdminHealth(unittest.TestCase):
 
         mock_agent_registry = MagicMock()
         mock_agent_registry.list_agents.return_value = [
-            "chat", "weather", "orchestrator"
+            "chat",
+            "weather",
+            "orchestrator",
         ]
 
         # Registries are imported lazily inside the endpoint function via
@@ -533,9 +553,7 @@ class TestBillingWebhookNewEvents(unittest.TestCase):
         return _mock_db()
 
     def _webhook_call(self, client, event_payload):
-        with patch(
-            "stripe.Webhook.construct_event", return_value=event_payload
-        ):
+        with patch("stripe.Webhook.construct_event", return_value=event_payload):
             return client.post(
                 "/api/billing/webhook",
                 content=b"raw_body",
@@ -567,7 +585,7 @@ class TestBillingWebhookNewEvents(unittest.TestCase):
 
         with (
             patch("api.routes.billing._get_db", return_value=db),
-            patch("api.routes.billing._plan_from_price", return_value="me"),
+            patch("api.routes.billing._plan_from_price", return_value="professional"),
             patch("api.routes.billing._notify_admin"),
         ):
             client = TestClient(app, raise_server_exceptions=False)
@@ -652,19 +670,19 @@ class TestPlanFromPrice(unittest.TestCase):
 
         self.assertIsNone(_plan_from_price("price_unknown_xyz"))
 
-    def test_me_price(self):
-        from api.routes.billing import _plan_from_price, STRIPE_PRICE_ME
+    def test_professional_price(self):
+        from api.routes.billing import _plan_from_price, STRIPE_PRICE_PROFESSIONAL
 
-        if STRIPE_PRICE_ME:
-            self.assertEqual(_plan_from_price(STRIPE_PRICE_ME), "me")
-
-    def test_everywhere_price(self):
-        from api.routes.billing import _plan_from_price, STRIPE_PRICE_EVERYWHERE
-
-        if STRIPE_PRICE_EVERYWHERE:
+        if STRIPE_PRICE_PROFESSIONAL:
             self.assertEqual(
-                _plan_from_price(STRIPE_PRICE_EVERYWHERE), "everywhere"
+                _plan_from_price(STRIPE_PRICE_PROFESSIONAL), "professional"
             )
+
+    def test_executive_price(self):
+        from api.routes.billing import _plan_from_price, STRIPE_PRICE_EXECUTIVE
+
+        if STRIPE_PRICE_EXECUTIVE:
+            self.assertEqual(_plan_from_price(STRIPE_PRICE_EXECUTIVE), "executive")
 
 
 class TestNotifyAdmin(unittest.TestCase):
@@ -778,9 +796,7 @@ class TestSubscriptionUpdatedWebhook(unittest.TestCase):
             "data": {
                 "object": {
                     "customer": "cus_unknown_price",
-                    "items": {
-                        "data": [{"price": {"id": "price_unknown"}}]
-                    },
+                    "items": {"data": [{"price": {"id": "price_unknown"}}]},
                 }
             },
         }

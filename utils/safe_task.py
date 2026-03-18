@@ -37,7 +37,9 @@ def safe_create_task(coro: Coroutine[Any, Any, Any], name: str = "") -> asyncio.
             task_name = name or t.get_name()
             logger.error(
                 "Background task '%s' failed: %s: %s",
-                task_name, type(exc).__name__, exc,
+                task_name,
+                type(exc).__name__,
+                exc,
             )
 
     task.add_done_callback(_handle_exception)

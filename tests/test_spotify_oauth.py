@@ -177,9 +177,7 @@ class TestSpotifyOAuth:
 
         oauth = SpotifyOAuth()
         sb = MagicMock()
-        sb.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            MagicMock()
-        )
+        sb.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock()
         with patch(
             "services.infrastructure.database.get_supabase_client",
             return_value=sb,
@@ -239,9 +237,7 @@ class TestSpotifyOAuth:
         mock_client.get = mock_get
 
         sb = MagicMock()
-        sb.table.return_value.upsert.return_value.execute.return_value = (
-            MagicMock()
-        )
+        sb.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
         with (
             patch("httpx.AsyncClient") as mock_cls,
@@ -250,9 +246,7 @@ class TestSpotifyOAuth:
                 return_value=sb,
             ),
         ):
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
 
             result = await oauth.handle_callback("code123", state_b64)
@@ -281,9 +275,7 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.play(uri="spotify:track:abc")
         assert result is True
@@ -300,9 +292,7 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.play()  # No URI = resume
         assert result is True
@@ -319,13 +309,9 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
-            result = await svc.play(
-                uri="spotify:album:abc"
-            )
+            result = await svc.play(uri="spotify:album:abc")
         assert result is True
 
     @pytest.mark.asyncio
@@ -340,9 +326,7 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.pause()
         assert result is True
@@ -359,9 +343,7 @@ class TestSpotifyUserService:
         mock_client.post = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.next_track()
         assert result is True
@@ -378,9 +360,7 @@ class TestSpotifyUserService:
         mock_client.post = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.previous_track()
         assert result is True
@@ -397,9 +377,7 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.set_volume(150)  # Should clamp to 100
         assert result is True
@@ -416,9 +394,7 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.set_volume(-10)  # Should clamp to 0
         assert result is True
@@ -435,9 +411,7 @@ class TestSpotifyUserService:
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.get_currently_playing()
         assert result is None
@@ -457,9 +431,7 @@ class TestSpotifyUserService:
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.get_currently_playing()
         assert result is not None
@@ -473,16 +445,12 @@ class TestSpotifyUserService:
 
         svc = SpotifyUserService("fake_token")
         mock_resp = MagicMock(status_code=200)
-        mock_resp.json.return_value = {
-            "devices": [{"id": "dev1", "name": "Phone"}]
-        }
+        mock_resp.json.return_value = {"devices": [{"id": "dev1", "name": "Phone"}]}
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.get_devices()
         assert len(result) == 1
@@ -496,16 +464,12 @@ class TestSpotifyUserService:
 
         svc = SpotifyUserService("fake_token")
         mock_resp = MagicMock(status_code=200)
-        mock_resp.json.return_value = {
-            "items": [{"id": "pl1", "name": "My Playlist"}]
-        }
+        mock_resp.json.return_value = {"items": [{"id": "pl1", "name": "My Playlist"}]}
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.get_playlists()
         assert len(result) == 1
@@ -523,13 +487,9 @@ class TestSpotifyUserService:
         mock_client.post = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
-            result = await svc.add_to_playlist(
-                "pl1", "spotify:track:abc"
-            )
+            result = await svc.add_to_playlist("pl1", "spotify:track:abc")
         assert result is True
 
     @pytest.mark.asyncio
@@ -544,9 +504,7 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.save_track("track123")
         assert result is True
@@ -569,9 +527,7 @@ class TestSpotifyUserService:
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.get_recently_played()
         assert len(result) == 2
@@ -588,9 +544,7 @@ class TestSpotifyUserService:
         mock_client.put = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.play(uri="spotify:track:abc")
         assert result is False
@@ -607,9 +561,7 @@ class TestSpotifyUserService:
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client
-            )
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock()
             result = await svc.get_devices()
         assert result == []
@@ -660,9 +612,7 @@ class TestSpotifyI18nKeys:
                     url="http://example.com",
                     playlist="My Playlist",
                 )
-                assert result and len(result) > 2, (
-                    f"Missing or empty: {key}/{lang}"
-                )
+                assert result and len(result) > 2, f"Missing or empty: {key}/{lang}"
 
     def test_keys_have_all_three_languages(self):
         from services.i18n.strings import STRINGS
@@ -692,9 +642,7 @@ class TestSpotifyI18nKeys:
         for key in playback_keys:
             assert key in STRINGS, f"Key {key} not in STRINGS"
             for lang in ("en", "pt", "es"):
-                assert lang in STRINGS[key], (
-                    f"Missing {lang} for {key}"
-                )
+                assert lang in STRINGS[key], f"Missing {lang} for {key}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -817,9 +765,7 @@ class TestMusicAgentPlayback:
             )
             mock_oauth.return_value = oauth
 
-            result = await agent._handle_playback(
-                "pause", "", "", context, "en"
-            )
+            result = await agent._handle_playback("pause", "", "", context, "en")
             # Should redirect to connect
             assert "Connect Spotify" in result.response
 
@@ -839,18 +785,14 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
             player.pause = AsyncMock(return_value=True)
             mock_svc_cls.return_value = player
 
-            result = await agent._handle_playback(
-                "pause", "", "", context, "en"
-            )
+            result = await agent._handle_playback("pause", "", "", context, "en")
             assert "paused" in result.response.lower()
 
     @pytest.mark.asyncio
@@ -869,18 +811,14 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
             player.set_volume = AsyncMock(return_value=True)
             mock_svc_cls.return_value = player
 
-            result = await agent._handle_playback(
-                "volume", "75", "", context, "en"
-            )
+            result = await agent._handle_playback("volume", "75", "", context, "en")
             assert "75%" in result.response
 
     @pytest.mark.asyncio
@@ -899,20 +837,14 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
-            player.get_currently_playing = AsyncMock(
-                return_value=None
-            )
+            player.get_currently_playing = AsyncMock(return_value=None)
             mock_svc_cls.return_value = player
 
-            result = await agent._handle_playback(
-                "now_playing", "", "", context, "en"
-            )
+            result = await agent._handle_playback("now_playing", "", "", context, "en")
             assert "Nothing" in result.response
 
     @pytest.mark.asyncio
@@ -931,9 +863,7 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
@@ -947,9 +877,7 @@ class TestMusicAgentPlayback:
             )
             mock_svc_cls.return_value = player
 
-            result = await agent._handle_playback(
-                "now_playing", "", "", context, "en"
-            )
+            result = await agent._handle_playback("now_playing", "", "", context, "en")
             assert "Bohemian Rhapsody" in result.response
             assert "Queen" in result.response
 
@@ -983,19 +911,17 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
             player.next_track = AsyncMock(return_value=True)
             mock_svc_cls.return_value = player
 
-            result = await agent._handle_playback(
-                "next", "", "", context, "en"
+            result = await agent._handle_playback("next", "", "", context, "en")
+            assert (
+                "next" in result.response.lower() or "skip" in result.response.lower()
             )
-            assert "next" in result.response.lower() or "skip" in result.response.lower()
 
     @pytest.mark.asyncio
     async def test_handle_playback_previous(self):
@@ -1013,19 +939,18 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
             player.previous_track = AsyncMock(return_value=True)
             mock_svc_cls.return_value = player
 
-            result = await agent._handle_playback(
-                "previous", "", "", context, "en"
+            result = await agent._handle_playback("previous", "", "", context, "en")
+            assert (
+                "previous" in result.response.lower()
+                or "back" in result.response.lower()
             )
-            assert "previous" in result.response.lower() or "back" in result.response.lower()
 
     @pytest.mark.asyncio
     async def test_handle_playback_play_track_success(self):
@@ -1059,9 +984,7 @@ class TestMusicAgentPlayback:
             ),
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
@@ -1097,9 +1020,7 @@ class TestMusicAgentPlayback:
             ),
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
             mock_svc_cls.return_value = AsyncMock()
 
@@ -1124,9 +1045,7 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
@@ -1166,15 +1085,11 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
 
             player = AsyncMock()
-            player.get_currently_playing = AsyncMock(
-                return_value=None
-            )
+            player.get_currently_playing = AsyncMock(return_value=None)
             mock_svc_cls.return_value = player
 
             result = await agent._handle_playback(
@@ -1198,13 +1113,14 @@ class TestMusicAgentPlayback:
             ) as mock_svc_cls,
         ):
             oauth = MagicMock()
-            oauth.get_valid_token = AsyncMock(
-                return_value="token123"
-            )
+            oauth.get_valid_token = AsyncMock(return_value="token123")
             mock_oauth.return_value = oauth
             mock_svc_cls.return_value = AsyncMock()
 
             result = await agent._handle_playback(
                 "unknown_action_xyz", "", "", context, "en"
             )
-            assert "understand" in result.response.lower() or "didn" in result.response.lower()
+            assert (
+                "understand" in result.response.lower()
+                or "didn" in result.response.lower()
+            )

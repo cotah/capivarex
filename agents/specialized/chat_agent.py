@@ -160,6 +160,7 @@ class ChatAgent(BaseAgent):
                     retrieve_relevant_memories,
                     format_memories_for_prompt,
                 )
+
                 memories = await retrieve_relevant_memories(str(user_id), prompt)
                 rag_block = format_memories_for_prompt(memories)
                 if rag_block:
@@ -328,6 +329,7 @@ class ChatAgent(BaseAgent):
                     retrieve_relevant_memories,
                     format_memories_for_prompt,
                 )
+
                 memories = await retrieve_relevant_memories(str(user_id), prompt)
                 rag_block = format_memories_for_prompt(memories)
                 if rag_block:

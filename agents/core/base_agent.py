@@ -18,6 +18,7 @@ from enum import Enum
 
 class AgentStatus(Enum):
     """Agent execution status."""
+
     SUCCESS = "success"
     ERROR = "error"
     PARTIAL = "partial"
@@ -57,7 +58,7 @@ class AgentResponse:
             "data": self.data,
             "error": self.error,
             "metadata": self.metadata,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
     def is_success(self) -> bool:
@@ -88,11 +89,7 @@ class BaseAgent(ABC):
         self._error_count = 0
 
     @abstractmethod
-    async def execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Execute the agent's main logic.
 
@@ -104,11 +101,7 @@ class BaseAgent(ABC):
             AgentResponse with status, response text, and optional data
         """
 
-    async def process(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def process(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """
         Process a request with full lifecycle management.
 
@@ -138,7 +131,7 @@ class BaseAgent(ABC):
                 return AgentResponse(
                     status=AgentStatus.ERROR,
                     response=f"Invalid input: {validation_error}",
-                    error=validation_error
+                    error=validation_error,
                 )
 
             # Execute agent logic
@@ -147,8 +140,8 @@ class BaseAgent(ABC):
                 extra={
                     "prompt_length": len(prompt),
                     "tenant_id": context.get("tenant_id"),
-                    "user_id": context.get("user_id")
-                }
+                    "user_id": context.get("user_id"),
+                },
             )
 
             response = await self.execute(prompt, context)
@@ -160,10 +153,7 @@ class BaseAgent(ABC):
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             self.logger.info(
                 f"{self.name} agent completed",
-                extra={
-                    "duration_seconds": duration,
-                    "status": response.status.value
-                }
+                extra={"duration_seconds": duration, "status": response.status.value},
             )
 
             return response
@@ -173,24 +163,17 @@ class BaseAgent(ABC):
             self.logger.error(
                 f"{self.name} agent failed",
                 exc_info=True,
-                extra={
-                    "error_type": type(e).__name__,
-                    "error_message": str(e)
-                }
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
             )
 
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=f"I encountered an error: {str(e)}",
                 error=str(e),
-                metadata={"error_type": type(e).__name__}
+                metadata={"error_type": type(e).__name__},
             )
 
-    def _validate_input(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ) -> Optional[str]:
+    def _validate_input(self, prompt: str, context: Dict[str, Any]) -> Optional[str]:
         """
         Validate input parameters.
 
@@ -210,22 +193,14 @@ class BaseAgent(ABC):
         # Subclasses can override for custom validation
         return None
 
-    async def _before_execute(
-        self,
-        prompt: str,
-        context: Dict[str, Any]
-    ):
+    async def _before_execute(self, prompt: str, context: Dict[str, Any]):
         """
         Hook called before execute().
 
         Subclasses can override for custom pre-processing.
         """
 
-    async def _after_execute(
-        self,
-        response: AgentResponse,
-        context: Dict[str, Any]
-    ):
+    async def _after_execute(self, response: AgentResponse, context: Dict[str, Any]):
         """
         Hook called after execute().
 
@@ -258,7 +233,7 @@ class BaseAgent(ABC):
                 self._error_count / self._execution_count
                 if self._execution_count > 0
                 else 0.0
-            )
+            ),
         }
 
     def __repr__(self) -> str:

@@ -26,6 +26,7 @@ import pytest
 
 # ─── Factories ───────────────────────────────────────────────────────────────
 
+
 def _track_item(
     number="NB123456789IE",
     carrier_code=100011,
@@ -102,9 +103,11 @@ def _quota_response(remaining=150, total=200, used=50):
 # FIXTURES
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def tracking_service():
     from services.integrations.tracking_service import TrackingService
+
     svc = TrackingService()
     svc._api_key = "test_17track_key"
     svc._client = AsyncMock()
@@ -115,6 +118,7 @@ def tracking_service():
 @pytest.fixture
 def tracking_agent():
     from agents.specialized.tracking_agent import TrackingAgent
+
     return TrackingAgent()
 
 
@@ -122,6 +126,7 @@ def tracking_agent():
 def mock_svc():
     """TrackingService mockado com dados de An Post em trânsito."""
     from services.integrations.tracking_service import TrackingService
+
     svc = AsyncMock(spec=TrackingService)
     svc.is_initialized.return_value = True
 
@@ -140,10 +145,16 @@ def mock_svc():
         "origin_country": "CHN",
         "destination_country": "IRL",
         "events": [
-            {"date": "21/02/2026 08:00", "location": "Dublin",
-             "message": "Parcel in transit — Dublin"},
-            {"date": "20/02/2026 15:00", "location": "Cork",
-             "message": "Arrived at sorting facility — Cork"},
+            {
+                "date": "21/02/2026 08:00",
+                "location": "Dublin",
+                "message": "Parcel in transit — Dublin",
+            },
+            {
+                "date": "20/02/2026 15:00",
+                "location": "Cork",
+                "message": "Arrived at sorting facility — Cork",
+            },
         ],
         "total_events": 2,
         "delivered": False,
@@ -151,11 +162,13 @@ def mock_svc():
 
     svc.track = AsyncMock(return_value=tracking_data)
     svc.track_with_carrier = AsyncMock(return_value=tracking_data)
-    svc.get_quota = AsyncMock(return_value={
-        "quota_remaining": 150,
-        "quota_total": 200,
-        "quota_used": 50,
-    })
+    svc.get_quota = AsyncMock(
+        return_value={
+            "quota_remaining": 150,
+            "quota_total": 200,
+            "quota_used": 50,
+        }
+    )
     return svc
 
 
@@ -163,8 +176,8 @@ def mock_svc():
 # 1. TrackingService — track()
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTrackingServiceTrack:
 
+class TestTrackingServiceTrack:
     @pytest.mark.asyncio
     async def test_track_uses_cache_first(self, tracking_service):
         """Se já registrado, usa /gettrackinfo sem custo (não chama /register)."""
@@ -191,7 +204,7 @@ class TestTrackingServiceTrack:
         # 3rd call: gettrackinfo → retorna dados
         tracking_service._client.post = AsyncMock(
             side_effect=[
-                _api_response(accepted=[]),   # gettrackinfo: nada
+                _api_response(accepted=[]),  # gettrackinfo: nada
                 _api_response(accepted=[{"number": "NB123456789IE"}]),  # register: ok
                 _api_response(accepted=[item]),  # gettrackinfo: agora encontrou
             ]
@@ -232,15 +245,23 @@ class TestTrackingServiceTrack:
 
     @pytest.mark.asyncio
     async def test_track_rejected_invalid_raises(self, tracking_service):
-        rejected = [{"number": "INVALIDCODE", "error": {"code": -18010013, "message": "Invalid number"}}]
+        rejected = [
+            {
+                "number": "INVALIDCODE",
+                "error": {"code": -18010013, "message": "Invalid number"},
+            }
+        ]
         resp_rejected = MagicMock()
         resp_rejected.status_code = 200
-        resp_rejected.json.return_value = {"code": 0, "data": {"accepted": [], "rejected": rejected}}
+        resp_rejected.json.return_value = {
+            "code": 0,
+            "data": {"accepted": [], "rejected": rejected},
+        }
 
         tracking_service._client.post = AsyncMock(
             side_effect=[
                 _api_response(accepted=[]),  # gettrackinfo: nada
-                resp_rejected,               # register: rejected
+                resp_rejected,  # register: rejected
             ]
         )
         with pytest.raises(ValueError, match="rejeitou"):
@@ -251,8 +272,8 @@ class TestTrackingServiceTrack:
 # 2. TrackingService — track_with_carrier()
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTrackingServiceWithCarrier:
 
+class TestTrackingServiceWithCarrier:
     @pytest.mark.asyncio
     async def test_track_with_carrier_name(self, tracking_service):
         item = _track_item(carrier_code=100011)
@@ -286,7 +307,9 @@ class TestTrackingServiceWithCarrier:
         tracking_service._client.post = AsyncMock(
             return_value=_api_response(accepted=[item])
         )
-        await tracking_service.track_with_carrier("NB123456789IE", "carrier desconhecida")
+        await tracking_service.track_with_carrier(
+            "NB123456789IE", "carrier desconhecida"
+        )
 
         call_json = tracking_service._client.post.call_args.kwargs.get("json", [{}])
         assert "carrier" not in call_json[0]
@@ -296,8 +319,8 @@ class TestTrackingServiceWithCarrier:
 # 3. TrackingService — get_quota()
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTrackingServiceQuota:
 
+class TestTrackingServiceQuota:
     @pytest.mark.asyncio
     async def test_get_quota_returns_fields(self, tracking_service):
         tracking_service._client.post = AsyncMock(
@@ -324,10 +347,11 @@ class TestTrackingServiceQuota:
 # 4. TrackingService — _normalize()
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTrackingServiceNormalize:
 
+class TestTrackingServiceNormalize:
     def _svc(self):
         from services.integrations.tracking_service import TrackingService
+
         return TrackingService()
 
     def test_normalize_in_transit(self):
@@ -376,6 +400,7 @@ class TestTrackingServiceNormalize:
 
     def test_normalize_all_status_codes(self):
         from services.integrations.tracking_service import _STATUS_MAP
+
         svc = self._svc()
         for code in _STATUS_MAP:
             item = _track_item(status=code, sub_status="")
@@ -389,39 +414,46 @@ class TestTrackingServiceNormalize:
 # 5. TrackingService — helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTrackingServiceHelpers:
 
+class TestTrackingServiceHelpers:
     def test_fmt_date_utc(self):
         from services.integrations.tracking_service import _fmt_date
+
         assert _fmt_date("2026-02-21T10:30:00Z") == "21/02/2026 10:30"
 
     def test_fmt_date_none(self):
         from services.integrations.tracking_service import _fmt_date
+
         assert _fmt_date(None) == ""
 
     def test_fmt_date_empty(self):
         from services.integrations.tracking_service import _fmt_date
+
         assert _fmt_date("") == ""
 
     def test_validate_number_valid(self):
         from services.integrations.tracking_service import TrackingService
+
         svc = TrackingService()
         svc._validate_number("NB123456789IE")  # não deve levantar
 
     def test_validate_number_too_short(self):
         from services.integrations.tracking_service import TrackingService
+
         svc = TrackingService()
         with pytest.raises(ValueError):
             svc._validate_number("AB1")
 
     def test_validate_number_too_long(self):
         from services.integrations.tracking_service import TrackingService
+
         svc = TrackingService()
         with pytest.raises(ValueError):
             svc._validate_number("A" * 51)
 
     def test_resolve_carrier_code_name(self):
         from services.integrations.tracking_service import TrackingService
+
         svc = TrackingService()
         assert svc._resolve_carrier_code("an post") == 100011
         assert svc._resolve_carrier_code("dhl") == 300004
@@ -429,16 +461,19 @@ class TestTrackingServiceHelpers:
 
     def test_resolve_carrier_code_int(self):
         from services.integrations.tracking_service import TrackingService
+
         svc = TrackingService()
         assert svc._resolve_carrier_code(100011) == 100011
 
     def test_resolve_carrier_code_numeric_string(self):
         from services.integrations.tracking_service import TrackingService
+
         svc = TrackingService()
         assert svc._resolve_carrier_code("100011") == 100011
 
     def test_resolve_carrier_code_unknown(self):
         from services.integrations.tracking_service import TrackingService
+
         svc = TrackingService()
         assert svc._resolve_carrier_code("carrier desconhecida") is None
 
@@ -447,21 +482,29 @@ class TestTrackingServiceHelpers:
 # 6. TrackingAgent — extração de código
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTrackingAgentExtraction:
 
+class TestTrackingAgentExtraction:
     @pytest.fixture
     def agent(self):
         from agents.specialized.tracking_agent import TrackingAgent
+
         return TrackingAgent()
 
     def test_extract_an_post_ie(self, agent):
-        assert agent._extract_tracking_number("Rastreia NB123456789IE") == "NB123456789IE"
+        assert (
+            agent._extract_tracking_number("Rastreia NB123456789IE") == "NB123456789IE"
+        )
 
     def test_extract_correios_br(self, agent):
-        assert agent._extract_tracking_number("tracking QR123456789BR") == "QR123456789BR"
+        assert (
+            agent._extract_tracking_number("tracking QR123456789BR") == "QR123456789BR"
+        )
 
     def test_extract_ups(self, agent):
-        assert agent._extract_tracking_number("onde está 1Z999AA10123456784") == "1Z999AA10123456784"
+        assert (
+            agent._extract_tracking_number("onde está 1Z999AA10123456784")
+            == "1Z999AA10123456784"
+        )
 
     def test_extract_amazon(self, agent):
         assert agent._extract_tracking_number("TBA123456789000") == "TBA123456789000"
@@ -470,7 +513,10 @@ class TestTrackingAgentExtraction:
         assert agent._extract_tracking_number("fedex 123456789012") == "123456789012"
 
     def test_extract_china_post(self, agent):
-        assert agent._extract_tracking_number("RA123456789CN em trânsito") == "RA123456789CN"
+        assert (
+            agent._extract_tracking_number("RA123456789CN em trânsito")
+            == "RA123456789CN"
+        )
 
     def test_extract_not_found(self, agent):
         assert agent._extract_tracking_number("qual o clima em Dublin?") is None
@@ -500,27 +546,31 @@ class TestTrackingAgentExtraction:
 # 7. TrackingAgent — intents
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTrackingAgentIntents:
 
+class TestTrackingAgentIntents:
     @pytest.mark.asyncio
     async def test_track_by_number(self, tracking_agent, mock_svc):
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("Rastreia NB123456789IE", {})
         assert r.is_success()
         mock_svc.track.assert_called_once_with("NB123456789IE")
 
     @pytest.mark.asyncio
     async def test_track_with_carrier_in_prompt(self, tracking_agent, mock_svc):
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
-            r = await tracking_agent.execute(
-                "Rastreia NB123456789IE pela An Post", {}
-            )
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
+            r = await tracking_agent.execute("Rastreia NB123456789IE pela An Post", {})
         assert r.is_success()
         mock_svc.track_with_carrier.assert_called_once_with("NB123456789IE", 100011)
 
     @pytest.mark.asyncio
     async def test_track_context_override(self, tracking_agent, mock_svc):
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute(
                 "rastreia",
                 {"tracking_number": "NB123456789IE"},
@@ -530,13 +580,17 @@ class TestTrackingAgentIntents:
     @pytest.mark.asyncio
     async def test_track_bare_code(self, tracking_agent, mock_svc):
         """Prompt é só o código de rastreio."""
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("NB123456789IE", {})
         assert r.is_success()
 
     @pytest.mark.asyncio
     async def test_quota_intent(self, tracking_agent, mock_svc):
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("Quanto de quota me resta?", {})
         assert r.is_success()
         mock_svc.get_quota.assert_called_once()
@@ -545,7 +599,9 @@ class TestTrackingAgentIntents:
 
     @pytest.mark.asyncio
     async def test_no_tracking_number_returns_help(self, tracking_agent, mock_svc):
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("onde está meu pacote?", {})
         assert not r.is_success()
         assert "NB" in r.response or "código" in r.response.lower()
@@ -573,7 +629,9 @@ class TestTrackingAgentIntents:
         mock_svc.track.side_effect = ValueError(
             "Código 'INVALIDO' inválido ou transportadora não suportada."
         )
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("Rastreia INVALIDO12345", {})
         assert not r.is_success()
         assert "inválido" in r.response.lower()
@@ -581,30 +639,42 @@ class TestTrackingAgentIntents:
     @pytest.mark.asyncio
     async def test_rate_limit_error(self, tracking_agent, mock_svc):
         mock_svc.track.side_effect = RuntimeError("Rate limit da 17TRACK (3 req/s).")
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("Rastreia NB123456789IE", {})
         assert not r.is_success()
         assert "Rate limit" in r.response or "rate" in r.response.lower()
 
     @pytest.mark.asyncio
     async def test_response_contains_status_emoji(self, tracking_agent, mock_svc):
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("NB123456789IE", {})
         assert "🚚" in r.response
 
     @pytest.mark.asyncio
     async def test_response_contains_eta(self, tracking_agent, mock_svc):
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("NB123456789IE", {})
         assert "25/02/2026" in r.response
 
     @pytest.mark.asyncio
     async def test_response_delivered(self, tracking_agent, mock_svc):
-        delivered = {**mock_svc.track.return_value,
-                     "status_code": 40, "status_emoji": "✅",
-                     "status_label": "Entregue", "delivered": True}
+        delivered = {
+            **mock_svc.track.return_value,
+            "status_code": 40,
+            "status_emoji": "✅",
+            "status_label": "Entregue",
+            "delivered": True,
+        }
         mock_svc.track.return_value = delivered
-        with patch("agents.specialized.tracking_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.tracking_agent.get_service", return_value=mock_svc
+        ):
             r = await tracking_agent.execute("NB123456789IE", {})
         assert "✅" in r.response
         assert "entregue" in r.response.lower()

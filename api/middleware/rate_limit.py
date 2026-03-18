@@ -63,20 +63,23 @@ def get_user_plan_key(request: Request) -> str:
 limiter = Limiter(key_func=get_user_plan_key)
 
 
-async def _rate_limit_with_logging(request: Request, exc: RateLimitExceeded) -> Response:
+async def _rate_limit_with_logging(
+    request: Request, exc: RateLimitExceeded
+) -> Response:
     """
     Custom rate limit exceeded handler that logs a security event
     before delegating to the default slowapi handler.
     """
     try:
         from services.infrastructure.security_event_service import record_security_event
+
         asyncio.create_task(
             record_security_event(
                 "rate_limit_exceeded",
                 "medium",
                 ip_address=request.client.host if request.client else None,
                 endpoint=str(request.url.path),
-                details={"detail": str(getattr(exc, 'detail', 'rate limit exceeded'))},
+                details={"detail": str(getattr(exc, "detail", "rate limit exceeded"))},
             )
         )
     except Exception:

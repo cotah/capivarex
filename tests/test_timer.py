@@ -10,6 +10,7 @@ Cobre:
   - Segurança: usuário só cancela seus próprios timers
   - Worker: check_timers dispara notificação correta
 """
+
 import time
 from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
@@ -20,6 +21,7 @@ import pytest
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIXTURES
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def mock_redis():
@@ -52,6 +54,7 @@ def mock_redis():
 def timer_service(mock_redis):
     """TimerService com Redis mockado."""
     from services.business.timer_service import TimerService
+
     svc = TimerService()
     svc._redis = mock_redis
     svc._initialized = True
@@ -61,6 +64,7 @@ def timer_service(mock_redis):
 @pytest.fixture
 def timer_agent():
     from agents.specialized.timer_agent import TimerAgent
+
     return TimerAgent()
 
 
@@ -68,30 +72,35 @@ def timer_agent():
 # 1. TIMER — modelo e helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTimerModel:
 
+class TestTimerModel:
     def test_is_due_when_expired(self):
         from services.business.timer_service import Timer
+
         t = Timer("abc", "u1", "c1", "test", fire_at=time.time() - 1)
         assert t.is_due is True
 
     def test_not_due_when_future(self):
         from services.business.timer_service import Timer
+
         t = Timer("abc", "u1", "c1", "test", fire_at=time.time() + 60)
         assert t.is_due is False
 
     def test_seconds_remaining(self):
         from services.business.timer_service import Timer
+
         t = Timer("abc", "u1", "c1", "test", fire_at=time.time() + 100)
         assert 95 <= t.seconds_remaining <= 105
 
     def test_format_remaining_seconds(self):
         from services.business.timer_service import Timer
+
         t = Timer("abc", "u1", "c1", "test", fire_at=time.time() + 45)
         assert "45s" in t.format_remaining() or "s" in t.format_remaining()
 
     def test_format_remaining_minutes(self):
         from services.business.timer_service import Timer
+
         # Use +601 to avoid race condition where <1s elapses before format_remaining()
         t = Timer("abc", "u1", "c1", "test", fire_at=time.time() + 601)
         result = t.format_remaining()
@@ -99,14 +108,22 @@ class TestTimerModel:
 
     def test_format_remaining_hours(self):
         from services.business.timer_service import Timer
+
         t = Timer("abc", "u1", "c1", "test", fire_at=time.time() + 7201)
         result = t.format_remaining()
         assert "2h" in result
 
     def test_to_dict_and_from_dict(self):
         from services.business.timer_service import Timer
-        t = Timer("abc12345", "u1", "c1", "Ligar pro João",
-                  fire_at=time.time() + 300, timer_type="remind")
+
+        t = Timer(
+            "abc12345",
+            "u1",
+            "c1",
+            "Ligar pro João",
+            fire_at=time.time() + 300,
+            timer_type="remind",
+        )
         d = t.to_dict()
         restored = Timer.from_dict(d)
         assert restored.timer_id == t.timer_id
@@ -119,8 +136,8 @@ class TestTimerModel:
 # 2. TIMER SERVICE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTimerService:
 
+class TestTimerService:
     @pytest.mark.asyncio
     async def test_create_timer_returns_timer(self, timer_service):
         t = await timer_service.create_timer("u1", "c1", 300, "Test", "timer")
@@ -166,8 +183,8 @@ class TestTimerService:
     @pytest.mark.asyncio
     async def test_list_timers_sorted_by_fire_at(self, timer_service):
         await timer_service.create_timer("u1", "c1", 600)  # 10min
-        await timer_service.create_timer("u1", "c1", 60)   # 1min
-        await timer_service.create_timer("u1", "c1", 3600) # 1h
+        await timer_service.create_timer("u1", "c1", 60)  # 1min
+        await timer_service.create_timer("u1", "c1", 3600)  # 1h
 
         timers = await timer_service.list_timers("u1")
         assert len(timers) == 3
@@ -281,45 +298,53 @@ class TestTimerService:
 # 3. PARSERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestDurationParser:
 
+class TestDurationParser:
     def test_minutes(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("marque 10 minutos") == pytest.approx(600)
 
     def test_seconds(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("timer de 30 segundos") == pytest.approx(30)
 
     def test_hours(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("2 horas") == pytest.approx(7200)
 
     def test_hours_and_minutes(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("1h30") == pytest.approx(5400)
 
     def test_short_form_min(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("5min") == pytest.approx(300)
 
     def test_short_form_h(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("3h") == pytest.approx(10800)
 
     def test_no_duration_returns_none(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("como está o tempo?") is None
 
     def test_short_form_s(self):
         from agents.specialized.timer_agent import _parse_duration
+
         assert _parse_duration("45s") == pytest.approx(45)
 
 
 class TestClockParser:
-
     def test_parse_clock_7h(self):
         from agents.specialized.timer_agent import _parse_clock_time
+
         result = _parse_clock_time("me acorde às 7h")
         # Deve retornar segundos até as 7h (entre 0 e 86400)
         assert result is not None
@@ -327,25 +352,28 @@ class TestClockParser:
 
     def test_parse_clock_1430(self):
         from agents.specialized.timer_agent import _parse_clock_time
+
         result = _parse_clock_time("às 14:30")
         assert result is not None
         assert 0 < result <= 86400
 
     def test_invalid_clock_returns_none(self):
         from agents.specialized.timer_agent import _parse_clock_time
+
         assert _parse_clock_time("sem horário aqui") is None
 
 
 class TestLabelExtractor:
-
     def test_extract_label_with_para(self):
         from agents.specialized.timer_agent import _extract_label
+
         label = _extract_label("me lembra em 30min para ligar pro João")
         assert "João" in label
         assert "ligar" in label
 
     def test_extract_label_no_para(self):
         from agents.specialized.timer_agent import _extract_label
+
         label = _extract_label("me lembra em 1 hora")
         assert isinstance(label, str)  # pode ser vazio, não deve crashar
 
@@ -354,11 +382,12 @@ class TestLabelExtractor:
 # 4. TIMER AGENT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTimerAgent:
 
+class TestTimerAgent:
     @pytest.fixture
     def mock_svc(self):
         from services.business.timer_service import Timer, TimerService
+
         svc = AsyncMock(spec=TimerService)
         svc.is_initialized.return_value = True
 
@@ -440,9 +469,7 @@ class TestTimerAgent:
     async def test_cancel_by_id(self, timer_agent, mock_svc):
         svc, _ = mock_svc
         with patch("agents.specialized.timer_agent.get_service", return_value=svc):
-            r = await timer_agent.execute(
-                "Cancela o timer abc12345", {"user_id": "u1"}
-            )
+            r = await timer_agent.execute("Cancela o timer abc12345", {"user_id": "u1"})
         assert r.is_success()
         svc.cancel_timer.assert_called_once_with("u1", "abc12345")
 
@@ -451,9 +478,7 @@ class TestTimerAgent:
         svc, _ = mock_svc
         svc.cancel_timer.return_value = False
         with patch("agents.specialized.timer_agent.get_service", return_value=svc):
-            r = await timer_agent.execute(
-                "Cancela abc12345", {"user_id": "u1"}
-            )
+            r = await timer_agent.execute("Cancela abc12345", {"user_id": "u1"})
         assert not r.is_success()
         assert "não encontrado" in r.response.lower()
 
@@ -461,9 +486,7 @@ class TestTimerAgent:
     async def test_cancel_all(self, timer_agent, mock_svc):
         svc, _ = mock_svc
         with patch("agents.specialized.timer_agent.get_service", return_value=svc):
-            r = await timer_agent.execute(
-                "Cancela todos os timers", {"user_id": "u1"}
-            )
+            r = await timer_agent.execute("Cancela todos os timers", {"user_id": "u1"})
         assert r.is_success()
         assert "2" in r.response
         svc.cancel_all_timers.assert_called_once_with("u1")
@@ -472,9 +495,7 @@ class TestTimerAgent:
     async def test_unknown_intent_returns_help(self, timer_agent, mock_svc):
         svc, _ = mock_svc
         with patch("agents.specialized.timer_agent.get_service", return_value=svc):
-            r = await timer_agent.execute(
-                "blablabla", {"user_id": "u1"}
-            )
+            r = await timer_agent.execute("blablabla", {"user_id": "u1"})
         assert not r.is_success()
         assert "minutos" in r.response.lower() or "7h" in r.response
 

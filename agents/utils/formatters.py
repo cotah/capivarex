@@ -13,10 +13,7 @@ from datetime import datetime
 import re
 
 
-def format_datetime(
-    dt: datetime,
-    format_type: str = "friendly"
-) -> str:
+def format_datetime(dt: datetime, format_type: str = "friendly") -> str:
     """
     Format datetime in a user-friendly way.
 
@@ -52,11 +49,7 @@ def format_datetime(
         return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def format_list(
-    items: List[str],
-    max_items: int = 5,
-    bullet: str = "•"
-) -> str:
+def format_list(items: List[str], max_items: int = 5, bullet: str = "•") -> str:
     """
     Format a list of items with bullets.
 
@@ -82,10 +75,7 @@ def format_list(
     return "\n".join(lines)
 
 
-def format_dict(
-    data: Dict[str, Any],
-    indent: int = 0
-) -> str:
+def format_dict(data: Dict[str, Any], indent: int = 0) -> str:
     """
     Format a dictionary for display.
 
@@ -111,10 +101,7 @@ def format_dict(
     return "\n".join(lines)
 
 
-def format_error(
-    error: str,
-    context: Optional[str] = None
-) -> str:
+def format_error(error: str, context: Optional[str] = None) -> str:
     """
     Format an error message for display.
 
@@ -131,11 +118,7 @@ def format_error(
     return message
 
 
-def truncate_text(
-    text: str,
-    max_length: int = 100,
-    suffix: str = "..."
-) -> str:
+def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
     """
     Truncate text to maximum length.
 
@@ -149,7 +132,7 @@ def truncate_text(
     """
     if len(text) <= max_length:
         return text
-    return text[:max_length - len(suffix)] + suffix
+    return text[: max_length - len(suffix)] + suffix
 
 
 def clean_text(text: str) -> str:
@@ -163,16 +146,13 @@ def clean_text(text: str) -> str:
         Cleaned text
     """
     # Remove extra whitespace
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
     # Remove leading/trailing whitespace
     text = text.strip()
     return text
 
 
-def format_percentage(
-    value: float,
-    decimals: int = 1
-) -> str:
+def format_percentage(value: float, decimals: int = 1) -> str:
     """
     Format a float as percentage.
 
@@ -187,9 +167,7 @@ def format_percentage(
 
 
 def format_currency(
-    amount: float,
-    currency: str = "USD",
-    symbol: Optional[str] = None
+    amount: float, currency: str = "USD", symbol: Optional[str] = None
 ) -> str:
     """
     Format amount as currency.

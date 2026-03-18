@@ -20,12 +20,7 @@ class TestVerificarDescidasPreco:
         """Build a mock DB that returns data for the chained Supabase call."""
         mock_db = MagicMock()
         (
-            mock_db.table.return_value
-            .select.return_value
-            .eq.return_value
-            .gte.return_value
-            .order.return_value
-            .execute.return_value
+            mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.order.return_value.execute.return_value
         ) = MagicMock(data=data)
         return mock_db
 
@@ -50,8 +45,18 @@ class TestVerificarDescidasPreco:
         svc = self._make_service()
         today = date.today().isoformat()
         mock_data = [
-            {"produto": "Leite", "preco_unitario": 1.00, "mercado": "Lidl", "data_compra": today},
-            {"produto": "Pao", "preco_unitario": 0.80, "mercado": "Lidl", "data_compra": today},
+            {
+                "produto": "Leite",
+                "preco_unitario": 1.00,
+                "mercado": "Lidl",
+                "data_compra": today,
+            },
+            {
+                "produto": "Pao",
+                "preco_unitario": 0.80,
+                "mercado": "Lidl",
+                "data_compra": today,
+            },
         ]
         mock_db = self._mock_db(mock_data)
 
@@ -73,14 +78,44 @@ class TestVerificarDescidasPreco:
 
         mock_data = [
             # Latest: 1.00
-            {"produto": "Leite", "preco_unitario": 1.00, "mercado": "Lidl", "data_compra": today},
+            {
+                "produto": "Leite",
+                "preco_unitario": 1.00,
+                "mercado": "Lidl",
+                "data_compra": today,
+            },
             # Older: avg 1.475 (33% drop, 0.475 saving)
-            {"produto": "Leite", "preco_unitario": 1.50, "mercado": "Lidl", "data_compra": old},
-            {"produto": "Leite", "preco_unitario": 1.45, "mercado": "Aldi", "data_compra": old},
+            {
+                "produto": "Leite",
+                "preco_unitario": 1.50,
+                "mercado": "Lidl",
+                "data_compra": old,
+            },
+            {
+                "produto": "Leite",
+                "preco_unitario": 1.45,
+                "mercado": "Aldi",
+                "data_compra": old,
+            },
             # Filler items to pass the len >= 5 check
-            {"produto": "Pao", "preco_unitario": 0.80, "mercado": "Lidl", "data_compra": old},
-            {"produto": "Ovos", "preco_unitario": 2.50, "mercado": "Lidl", "data_compra": old},
-            {"produto": "Manteiga", "preco_unitario": 1.20, "mercado": "Lidl", "data_compra": old},
+            {
+                "produto": "Pao",
+                "preco_unitario": 0.80,
+                "mercado": "Lidl",
+                "data_compra": old,
+            },
+            {
+                "produto": "Ovos",
+                "preco_unitario": 2.50,
+                "mercado": "Lidl",
+                "data_compra": old,
+            },
+            {
+                "produto": "Manteiga",
+                "preco_unitario": 1.20,
+                "mercado": "Lidl",
+                "data_compra": old,
+            },
         ]
 
         mock_db = self._mock_db(mock_data)
@@ -106,12 +141,37 @@ class TestVerificarDescidasPreco:
 
         mock_data = [
             # Latest: 1.40, Old avg: 1.50 (7% drop, 0.10 saving - too small)
-            {"produto": "Pao", "preco_unitario": 1.40, "mercado": "Lidl", "data_compra": today},
-            {"produto": "Pao", "preco_unitario": 1.50, "mercado": "Lidl", "data_compra": old},
+            {
+                "produto": "Pao",
+                "preco_unitario": 1.40,
+                "mercado": "Lidl",
+                "data_compra": today,
+            },
+            {
+                "produto": "Pao",
+                "preco_unitario": 1.50,
+                "mercado": "Lidl",
+                "data_compra": old,
+            },
             # Filler items to pass the len >= 5 check
-            {"produto": "A1", "preco_unitario": 1.00, "mercado": "X", "data_compra": old},
-            {"produto": "A2", "preco_unitario": 1.00, "mercado": "X", "data_compra": old},
-            {"produto": "A3", "preco_unitario": 1.00, "mercado": "X", "data_compra": old},
+            {
+                "produto": "A1",
+                "preco_unitario": 1.00,
+                "mercado": "X",
+                "data_compra": old,
+            },
+            {
+                "produto": "A2",
+                "preco_unitario": 1.00,
+                "mercado": "X",
+                "data_compra": old,
+            },
+            {
+                "produto": "A3",
+                "preco_unitario": 1.00,
+                "mercado": "X",
+                "data_compra": old,
+            },
         ]
 
         mock_db = self._mock_db(mock_data)
@@ -137,10 +197,20 @@ class TestVerificarDescidasPreco:
         for i in range(7):
             prod = f"Produto{i}"
             mock_data.append(
-                {"produto": prod, "preco_unitario": 1.00, "mercado": "Lidl", "data_compra": today}
+                {
+                    "produto": prod,
+                    "preco_unitario": 1.00,
+                    "mercado": "Lidl",
+                    "data_compra": today,
+                }
             )
             mock_data.append(
-                {"produto": prod, "preco_unitario": 2.00, "mercado": "Lidl", "data_compra": old}
+                {
+                    "produto": prod,
+                    "preco_unitario": 2.00,
+                    "mercado": "Lidl",
+                    "data_compra": old,
+                }
             )
 
         mock_db = self._mock_db(mock_data)
@@ -163,12 +233,37 @@ class TestVerificarDescidasPreco:
         old = (date.today() - timedelta(days=30)).isoformat()
 
         mock_data = [
-            {"produto": "Leite", "preco_unitario": 1.00, "mercado": "Lidl", "data_compra": today},
-            {"produto": "Leite", "preco_unitario": 1.50, "mercado": "Lidl", "data_compra": old},
-            {"produto": "Leite", "preco_unitario": 1.50, "mercado": "Aldi", "data_compra": old},
+            {
+                "produto": "Leite",
+                "preco_unitario": 1.00,
+                "mercado": "Lidl",
+                "data_compra": today,
+            },
+            {
+                "produto": "Leite",
+                "preco_unitario": 1.50,
+                "mercado": "Lidl",
+                "data_compra": old,
+            },
+            {
+                "produto": "Leite",
+                "preco_unitario": 1.50,
+                "mercado": "Aldi",
+                "data_compra": old,
+            },
             # Filler items
-            {"produto": "A1", "preco_unitario": 1.00, "mercado": "X", "data_compra": old},
-            {"produto": "A2", "preco_unitario": 1.00, "mercado": "X", "data_compra": old},
+            {
+                "produto": "A1",
+                "preco_unitario": 1.00,
+                "mercado": "X",
+                "data_compra": old,
+            },
+            {
+                "produto": "A2",
+                "preco_unitario": 1.00,
+                "mercado": "X",
+                "data_compra": old,
+            },
         ]
 
         mock_db = self._mock_db(mock_data)

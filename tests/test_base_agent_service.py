@@ -2,11 +2,13 @@
 Tests para BaseAgent e BaseService — cobertura de ciclo de vida e retry logic.
 Adicionado na Fase C do QA.
 """
+
 import pytest
 from agents.core import AgentStatus, AgentResponse
 
 
 # ── BaseAgent ─────────────────────────────────────────────────────────────
+
 
 class ConcreteAgent:
     """Agente concreto mínimo para testes de BaseAgent."""
@@ -98,7 +100,7 @@ def test_agent_response_to_dict():
         response="test",
         data={"key": "val"},
         error=None,
-        metadata={"type": "chat"}
+        metadata={"type": "chat"},
     )
     d = resp.to_dict()
     assert d["status"] == "success"
@@ -108,6 +110,7 @@ def test_agent_response_to_dict():
 
 
 # ── BaseService ─────────────────────────────────────────────────────────────
+
 
 class ConcreteService:
     """Serviço concreto mínimo para testes de BaseService."""
@@ -154,6 +157,7 @@ async def test_service_double_initialize_is_safe():
 async def test_service_initialize_failure_raises():
     """initialize() com falha deve propagar ServiceConfigurationError."""
     from services.core import ServiceConfigurationError
+
     svc = ConcreteService(fail_init=True)
     svc.fail_init = True  # garante o flag
 
@@ -171,6 +175,7 @@ async def test_service_initialize_failure_raises():
 async def test_service_health_check():
     """health_check() deve retornar HEALTHY para serviço saudável."""
     from services.core import ServiceStatus
+
     svc = ConcreteService()
     await svc.initialize()
     status = await svc.health_check()
@@ -189,6 +194,7 @@ def test_service_metrics_structure():
 
 
 # ── retry_on_failure decorator ────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_retry_on_failure_retries_on_timeout():

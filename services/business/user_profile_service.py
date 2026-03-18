@@ -36,10 +36,13 @@ async def build_user_profile_prompt(user_id: str) -> str:
 
     # Guard: only accept UUIDs, never raw telegram IDs
     import uuid as _uuid
+
     try:
         _uuid.UUID(str(user_id))
     except (ValueError, AttributeError):
-        logger.warning("build_user_profile_prompt: non-UUID user_id=%s, skipping", user_id)
+        logger.warning(
+            "build_user_profile_prompt: non-UUID user_id=%s, skipping", user_id
+        )
         return ""
 
     db = get_service("database")
@@ -160,9 +163,7 @@ _TRIGGERS = [
 ]
 
 
-async def extract_and_save_personal_info(
-    user_id: str, user_message: str
-) -> None:
+async def extract_and_save_personal_info(user_id: str, user_message: str) -> None:
     """
     Use a quick GPT call to detect if user shared personal info, save to DB.
 
@@ -295,9 +296,7 @@ async def extract_and_save_personal_info(
                         user_id[:8],
                     )
                 except Exception as loc_exc:
-                    logger.debug(
-                        "Could not auto-save location: %s", loc_exc
-                    )
+                    logger.debug("Could not auto-save location: %s", loc_exc)
 
     except Exception as exc:
         logger.warning("Could not save personal info: %s", exc)

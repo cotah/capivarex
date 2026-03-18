@@ -6,6 +6,7 @@ from agents.core.base_agent import BaseAgent, AgentResponse, AgentStatus
 
 # -- Concrete agent for testing the abstract base class --
 
+
 class _StubAgent(BaseAgent):
     """Minimal concrete agent for testing BaseAgent behaviour."""
 
@@ -24,6 +25,7 @@ class _StubAgent(BaseAgent):
 
 
 # -- AgentResponse --
+
 
 class TestAgentResponse:
     def test_is_success_true(self):
@@ -59,6 +61,7 @@ class TestAgentResponse:
 
 # -- AgentStatus --
 
+
 class TestAgentStatus:
     def test_values(self):
         assert AgentStatus.SUCCESS.value == "success"
@@ -68,6 +71,7 @@ class TestAgentStatus:
 
 
 # -- BaseAgent.process lifecycle --
+
 
 class TestBaseAgentProcess:
     @pytest.mark.asyncio
@@ -103,6 +107,7 @@ class TestBaseAgentProcess:
 
 
 # -- BaseAgent utilities --
+
 
 class TestBaseAgentUtilities:
     def test_get_capabilities_default_empty(self):

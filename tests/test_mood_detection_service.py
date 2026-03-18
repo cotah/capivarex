@@ -1,4 +1,5 @@
 """Tests for Mood Detection service."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -180,17 +181,23 @@ class TestToneInstruction:
 class TestSaveMood:
     @pytest.mark.asyncio
     async def test_save_no_db(self):
-        with patch("services.business.mood_detection_service.get_service", return_value=None):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=None
+        ):
             await save_mood("u1", {"mood": "happy", "score": 0.7, "confidence": 0.8})
 
     @pytest.mark.asyncio
     async def test_save_success(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{"value": "[]"}])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[{"value": "[]"}]
+        )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.mood_detection_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=mock_db
+        ):
             await save_mood("u1", {"mood": "happy", "score": 0.7, "confidence": 0.8})
 
     @pytest.mark.asyncio
@@ -198,14 +205,18 @@ class TestSaveMood:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.mood_detection_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=mock_db
+        ):
             await save_mood("u1", {"mood": "sad", "score": -0.7, "confidence": 0.5})
 
 
 class TestMoodTrend:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.mood_detection_service.get_service", return_value=None):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=None
+        ):
             assert await get_mood_trend("u1") is None
 
     @pytest.mark.asyncio
@@ -215,7 +226,9 @@ class TestMoodTrend:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": '[{"score": 0.5, "timestamp": 1}]'}]
         )
-        with patch("services.business.mood_detection_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=mock_db
+        ):
             assert await get_mood_trend("u1") is None
 
     @pytest.mark.asyncio
@@ -233,12 +246,15 @@ class TestMoodTrend:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": str(history).replace("'", '"')}]
         )
-        with patch("services.business.mood_detection_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=mock_db
+        ):
             assert await get_mood_trend("u1") == "improving"
 
     @pytest.mark.asyncio
     async def test_declining(self):
         import json
+
         history = [
             {"score": 0.7, "timestamp": 1},
             {"score": 0.5, "timestamp": 2},
@@ -252,12 +268,15 @@ class TestMoodTrend:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": json.dumps(history)}]
         )
-        with patch("services.business.mood_detection_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=mock_db
+        ):
             assert await get_mood_trend("u1") == "declining"
 
     @pytest.mark.asyncio
     async def test_stable(self):
         import json
+
         history = [
             {"score": 0.0, "timestamp": 1},
             {"score": 0.1, "timestamp": 2},
@@ -271,7 +290,9 @@ class TestMoodTrend:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": json.dumps(history)}]
         )
-        with patch("services.business.mood_detection_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=mock_db
+        ):
             assert await get_mood_trend("u1") == "stable"
 
     @pytest.mark.asyncio
@@ -279,5 +300,7 @@ class TestMoodTrend:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.mood_detection_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.mood_detection_service.get_service", return_value=mock_db
+        ):
             assert await get_mood_trend("u1") is None

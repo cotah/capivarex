@@ -42,9 +42,7 @@ class TestSpotifyAuth:
         mock_response.raise_for_status = MagicMock()
 
         mock_http = AsyncMock()
-        mock_http.post = AsyncMock(
-            return_value=mock_response
-        )
+        mock_http.post = AsyncMock(return_value=mock_response)
 
         with patch.dict(
             "os.environ",
@@ -77,19 +75,13 @@ class TestSpotifyAuth:
         }
         mock_response.raise_for_status = MagicMock()
 
-        spotify_service._http.post = AsyncMock(
-            return_value=mock_response
-        )
+        spotify_service._http.post = AsyncMock(return_value=mock_response)
 
         await spotify_service._refresh_token()
-        assert (
-            spotify_service._access_token == "new_token"
-        )
+        assert spotify_service._access_token == "new_token"
 
     @pytest.mark.asyncio
-    async def test_health_check_with_token(
-        self, spotify_service
-    ):
+    async def test_health_check_with_token(self, spotify_service):
         result = await spotify_service._health_check()
         assert result is True
 
@@ -111,28 +103,14 @@ class TestSpotifySearch:
                         "name": "Bohemian Rhapsody",
                         "artists": [{"name": "Queen"}],
                         "album": {
-                            "name": (
-                                "A Night at the Opera"
-                            ),
-                            "images": [
-                                {
-                                    "url": (
-                                        "https://img.com"
-                                        "/album.jpg"
-                                    )
-                                }
-                            ],
+                            "name": ("A Night at the Opera"),
+                            "images": [{"url": ("https://img.com/album.jpg")}],
                         },
                         "duration_ms": 354000,
                         "popularity": 92,
-                        "preview_url": (
-                            "https://preview.url"
-                        ),
+                        "preview_url": ("https://preview.url"),
                         "external_urls": {
-                            "spotify": (
-                                "https://open.spotify"
-                                ".com/track/track1"
-                            )
+                            "spotify": ("https://open.spotify.com/track/track1")
                         },
                         "uri": "spotify:track:track1",
                     }
@@ -143,13 +121,9 @@ class TestSpotifySearch:
         mock_resp = MagicMock()
         mock_resp.json.return_value = mock_api_response
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = await spotify_service.search_tracks(
-            "Bohemian Rhapsody"
-        )
+        results = await spotify_service.search_tracks("Bohemian Rhapsody")
         assert len(results) == 1
         assert results[0]["name"] == "Bohemian Rhapsody"
         assert results[0]["artists"] == "Queen"
@@ -168,22 +142,10 @@ class TestSpotifySearch:
                             "classic rock",
                         ],
                         "popularity": 89,
-                        "followers": {
-                            "total": 48000000
-                        },
-                        "images": [
-                            {
-                                "url": (
-                                    "https://img.com"
-                                    "/queen.jpg"
-                                )
-                            }
-                        ],
+                        "followers": {"total": 48000000},
+                        "images": [{"url": ("https://img.com/queen.jpg")}],
                         "external_urls": {
-                            "spotify": (
-                                "https://open.spotify"
-                                ".com/artist/artist1"
-                            )
+                            "spotify": ("https://open.spotify.com/artist/artist1")
                         },
                         "uri": "spotify:artist:artist1",
                     }
@@ -194,13 +156,9 @@ class TestSpotifySearch:
         mock_resp = MagicMock()
         mock_resp.json.return_value = mock_api_response
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = await spotify_service.search_artists(
-            "Queen"
-        )
+        results = await spotify_service.search_artists("Queen")
         assert len(results) == 1
         assert results[0]["name"] == "Queen"
         assert results[0]["type"] == "artist"
@@ -213,19 +171,12 @@ class TestSpotifySearch:
                     {
                         "id": "al1",
                         "name": "Thriller",
-                        "artists": [
-                            {"name": "Michael Jackson"}
-                        ],
+                        "artists": [{"name": "Michael Jackson"}],
                         "release_date": "1982-11-30",
                         "total_tracks": 9,
-                        "images": [
-                            {"url": "https://img.com/t"}
-                        ],
+                        "images": [{"url": "https://img.com/t"}],
                         "external_urls": {
-                            "spotify": (
-                                "https://open.spotify"
-                                ".com/album/al1"
-                            )
+                            "spotify": ("https://open.spotify.com/album/al1")
                         },
                         "uri": "spotify:album:al1",
                     }
@@ -236,33 +187,21 @@ class TestSpotifySearch:
         mock_resp = MagicMock()
         mock_resp.json.return_value = mock_api_response
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = await spotify_service.search_albums(
-            "Thriller"
-        )
+        results = await spotify_service.search_albums("Thriller")
         assert len(results) == 1
         assert results[0]["name"] == "Thriller"
         assert results[0]["type"] == "album"
 
     @pytest.mark.asyncio
-    async def test_search_empty_results(
-        self, spotify_service
-    ):
+    async def test_search_empty_results(self, spotify_service):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "tracks": {"items": []}
-        }
+        mock_resp.json.return_value = {"tracks": {"items": []}}
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = await spotify_service.search_tracks(
-            "nonexistent_xyzzy"
-        )
+        results = await spotify_service.search_tracks("nonexistent_xyzzy")
         assert results == []
 
 
@@ -287,9 +226,7 @@ class TestSpotifyGetById:
         mock_resp = MagicMock()
         mock_resp.json.return_value = track_data
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
         result = await spotify_service.get_track("t1")
         assert result["name"] == "Song"
@@ -311,18 +248,14 @@ class TestSpotifyGetById:
         mock_resp = MagicMock()
         mock_resp.json.return_value = artist_data
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
         result = await spotify_service.get_artist("a1")
         assert result["name"] == "Band"
         assert result["type"] == "artist"
 
     @pytest.mark.asyncio
-    async def test_get_artist_top_tracks(
-        self, spotify_service
-    ):
+    async def test_get_artist_top_tracks(self, spotify_service):
         """Top tracks now uses search with artist: prefix."""
         api_resp = {
             "tracks": {
@@ -338,9 +271,7 @@ class TestSpotifyGetById:
                         "duration_ms": 180000,
                         "popularity": 90,
                         "preview_url": None,
-                        "external_urls": {
-                            "spotify": "url"
-                        },
+                        "external_urls": {"spotify": "url"},
                         "uri": "spotify:track:t1",
                     }
                 ]
@@ -350,21 +281,13 @@ class TestSpotifyGetById:
         mock_resp = MagicMock()
         mock_resp.json.return_value = api_resp
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = (
-            await spotify_service.get_artist_top_tracks(
-                "Band"
-            )
-        )
+        results = await spotify_service.get_artist_top_tracks("Band")
         assert len(results) == 1
         assert results[0]["name"] == "Hit"
         # Verify it searched with artist: prefix
-        call_kwargs = (
-            spotify_service._http.get.call_args
-        )
+        call_kwargs = spotify_service._http.get.call_args
         params = call_kwargs.kwargs.get("params", {})
         assert params["q"] == "artist:Band"
         assert params["type"] == "track"
@@ -372,9 +295,7 @@ class TestSpotifyGetById:
 
 class TestRecommendations:
     @pytest.mark.asyncio
-    async def test_recommendations_with_genre(
-        self, spotify_service
-    ):
+    async def test_recommendations_with_genre(self, spotify_service):
         """Recommendations with genre uses search."""
         api_resp = {
             "tracks": {
@@ -390,9 +311,7 @@ class TestRecommendations:
                         "duration_ms": 200000,
                         "popularity": 60,
                         "preview_url": None,
-                        "external_urls": {
-                            "spotify": "url"
-                        },
+                        "external_urls": {"spotify": "url"},
                         "uri": "spotify:track:r1",
                     }
                 ]
@@ -402,28 +321,18 @@ class TestRecommendations:
         mock_resp = MagicMock()
         mock_resp.json.return_value = api_resp
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = (
-            await spotify_service.get_recommendations(
-                seed_genres=["rock"]
-            )
-        )
+        results = await spotify_service.get_recommendations(seed_genres=["rock"])
         assert len(results) == 1
         assert results[0]["name"] == "Rec Song"
         # Verify it searched with genre: prefix
-        call_kwargs = (
-            spotify_service._http.get.call_args
-        )
+        call_kwargs = spotify_service._http.get.call_args
         params = call_kwargs.kwargs.get("params", {})
         assert params["q"] == "genre:rock"
 
     @pytest.mark.asyncio
-    async def test_recommendations_with_artist(
-        self, spotify_service
-    ):
+    async def test_recommendations_with_artist(self, spotify_service):
         """Recommendations with artist seeds."""
         api_resp = {
             "tracks": {
@@ -439,9 +348,7 @@ class TestRecommendations:
                         "duration_ms": 200000,
                         "popularity": 50,
                         "preview_url": None,
-                        "external_urls": {
-                            "spotify": "url"
-                        },
+                        "external_urls": {"spotify": "url"},
                         "uri": "spotify:track:r2",
                     }
                 ]
@@ -451,43 +358,27 @@ class TestRecommendations:
         mock_resp = MagicMock()
         mock_resp.json.return_value = api_resp
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = (
-            await spotify_service.get_recommendations(
-                seed_artists=["Eminem"]
-            )
-        )
+        results = await spotify_service.get_recommendations(seed_artists=["Eminem"])
         assert len(results) == 1
-        call_kwargs = (
-            spotify_service._http.get.call_args
-        )
+        call_kwargs = spotify_service._http.get.call_args
         params = call_kwargs.kwargs.get("params", {})
         assert params["q"] == "Eminem"
 
     @pytest.mark.asyncio
-    async def test_recommendations_default(
-        self, spotify_service
-    ):
+    async def test_recommendations_default(self, spotify_service):
         """Default recommendations search genre:pop."""
         api_resp = {"tracks": {"items": []}}
         mock_resp = MagicMock()
         mock_resp.json.return_value = api_resp
         mock_resp.raise_for_status = MagicMock()
-        spotify_service._http.get = AsyncMock(
-            return_value=mock_resp
-        )
+        spotify_service._http.get = AsyncMock(return_value=mock_resp)
 
-        results = (
-            await spotify_service.get_recommendations()
-        )
+        results = await spotify_service.get_recommendations()
         assert results == []
         # Should have used genre:pop default
-        call_kwargs = (
-            spotify_service._http.get.call_args
-        )
+        call_kwargs = spotify_service._http.get.call_args
         params = call_kwargs.kwargs.get("params", {})
         assert params["q"] == "genre:pop"
 
@@ -601,9 +492,7 @@ class TestFormatting:
             "images": [{"url": "img"}],
             "external_urls": {"spotify": "url"},
         }
-        result = SpotifyService._format_playlist(
-            playlist
-        )
+        result = SpotifyService._format_playlist(playlist)
         assert result["name"] == "My Playlist"
         assert result["total_tracks"] == 25
         assert result["type"] == "playlist"

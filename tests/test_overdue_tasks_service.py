@@ -1,4 +1,5 @@
 """Tests for overdue tasks service — A6: detect late reminders/tasks + nudge."""
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -17,7 +18,9 @@ class TestDetectOverdueReminders:
 
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.overdue_tasks_service.get_service", return_value=None):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=None
+        ):
             result = await _check_overdue_reminders("u1")
         assert result == []
 
@@ -25,9 +28,13 @@ class TestDetectOverdueReminders:
     async def test_no_overdue(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.lt.return_value.gt.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.lt.return_value.gt.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=mock_db
+        ):
             result = await _check_overdue_reminders("u1")
         assert result == []
 
@@ -37,10 +44,19 @@ class TestDetectOverdueReminders:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.lt.return_value.gt.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"id": "r1", "title": "Call bank", "remind_at": yesterday, "status": "pending"}]
+            data=[
+                {
+                    "id": "r1",
+                    "title": "Call bank",
+                    "remind_at": yesterday,
+                    "status": "pending",
+                }
+            ]
         )
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=mock_db
+        ):
             result = await _check_overdue_reminders("u1")
         assert len(result) == 1
         assert result[0]["title"] == "Call bank"
@@ -51,7 +67,9 @@ class TestDetectOverdueReminders:
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("DB down")
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=mock_db
+        ):
             result = await _check_overdue_reminders("u1")
         assert result == []
 
@@ -61,7 +79,9 @@ class TestDetectOverdueNotes:
 
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.overdue_tasks_service.get_service", return_value=None):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=None
+        ):
             result = await _check_overdue_notes("u1")
         assert result == []
 
@@ -74,7 +94,9 @@ class TestDetectOverdueNotes:
             data=[{"id": "n1", "title": "Submit report", "due_date": yesterday}]
         )
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=mock_db
+        ):
             result = await _check_overdue_notes("u1")
         assert len(result) == 1
 
@@ -84,7 +106,9 @@ class TestDetectAll:
 
     @pytest.mark.asyncio
     async def test_detect_all_no_db(self):
-        with patch("services.business.overdue_tasks_service.get_service", return_value=None):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=None
+        ):
             result = await detect_overdue_items("u1")
         assert result["reminders"] == []
         assert result["notes"] == []
@@ -108,7 +132,9 @@ class TestAlertGeneration:
             "notes": [],
         }
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=None):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=None
+        ):
             result = await generate_overdue_alert("Marcos", overdue)
         assert result is not None
         assert "Marcos" in result
@@ -118,11 +144,17 @@ class TestAlertGeneration:
     @pytest.mark.asyncio
     async def test_fallback_mixed(self):
         overdue = {
-            "reminders": [{"title": "Call bank", "remind_at": "2026-03-14T10:00:00+00:00"}],
-            "notes": [{"title": "Submit report", "due_date": "2026-03-13T00:00:00+00:00"}],
+            "reminders": [
+                {"title": "Call bank", "remind_at": "2026-03-14T10:00:00+00:00"}
+            ],
+            "notes": [
+                {"title": "Submit report", "due_date": "2026-03-13T00:00:00+00:00"}
+            ],
         }
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=None):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=None
+        ):
             result = await generate_overdue_alert("Ana", overdue)
         assert "Ana" in result
         assert "⏰" in result
@@ -131,11 +163,15 @@ class TestAlertGeneration:
     @pytest.mark.asyncio
     async def test_fallback_many_items(self):
         overdue = {
-            "reminders": [{"title": f"Task {i}", "remind_at": "2026-03-14"} for i in range(6)],
+            "reminders": [
+                {"title": f"Task {i}", "remind_at": "2026-03-14"} for i in range(6)
+            ],
             "notes": [],
         }
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=None):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=None
+        ):
             result = await generate_overdue_alert("Test", overdue)
         assert "more" in result
 
@@ -153,7 +189,10 @@ class TestAlertGeneration:
             "notes": [],
         }
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.overdue_tasks_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await generate_overdue_alert("Marcos", overdue)
         assert "Marcos" in result
 
@@ -163,7 +202,9 @@ class TestProactivityLoop:
 
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.overdue_tasks_service.get_service", return_value=None):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=None
+        ):
             result = await check_overdue_for_all_users()
         assert result == 0
 
@@ -173,6 +214,8 @@ class TestProactivityLoop:
         mock_db.is_initialized.return_value = True
         mock_db.get_all_users_with_proactivity_enabled = AsyncMock(return_value=[])
 
-        with patch("services.business.overdue_tasks_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.overdue_tasks_service.get_service", return_value=mock_db
+        ):
             result = await check_overdue_for_all_users()
         assert result == 0

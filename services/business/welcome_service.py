@@ -17,7 +17,7 @@ async def send_welcome_message(
     phone: str,
     name: str = "",
     channel: str = "telegram",
-    plan: str = "basic",
+    plan: str = "professional",
 ) -> bool:
     """
     Send a welcome message to a newly registered user.
@@ -27,7 +27,7 @@ async def send_welcome_message(
         phone: Phone number (with country code)
         name: User's name for personalization
         channel: "telegram", "whatsapp", or "both"
-        plan: User's plan (basic, me, everywhere, family)
+        plan: User's plan (professional, executive, family)
 
     Returns: True if at least one message was sent.
     """
@@ -35,17 +35,19 @@ async def send_welcome_message(
     sent = False
 
     if channel in ("whatsapp", "both"):
-        if plan in ("everywhere", "family"):
+        if plan in ("executive", "family"):
             sent = await _send_whatsapp_welcome(phone, first_name) or sent
         else:
-            # Free/Me plan — send FOMO teaser on WhatsApp
+            # Professional plan — send FOMO teaser on WhatsApp
             sent = await _send_whatsapp_fomo(phone, first_name) or sent
 
     if channel in ("telegram", "both"):
         sent = await _send_telegram_welcome(phone, first_name) or sent
 
     if sent:
-        logger.info("Welcome sent to user=%s on %s (plan=%s)", user_id[:8], channel, plan)
+        logger.info(
+            "Welcome sent to user=%s on %s (plan=%s)", user_id[:8], channel, plan
+        )
     else:
         logger.warning("Welcome failed for user=%s on %s", user_id[:8], channel)
 
@@ -64,30 +66,30 @@ async def _send_whatsapp_welcome(phone: str, name: str) -> bool:
             logger.info("WhatsApp not configured, skipping welcome")
             return False
 
-        greeting = f"Olá {name}! " if name else "Olá! "
+        greeting = f"Hello {name}! " if name else "Hello! "
 
         await send_interactive_buttons(
             to=phone,
             body_text=(
-                f"{greeting}Bem-vindo ao *Capivarex*! 🎉🧠\n\n"
-                "Sua conta foi criada com sucesso! "
-                "Agora você tem acesso ao seu assistente pessoal "
-                "com inteligência artificial.\n\n"
-                "O que posso fazer por você:\n\n"
-                "📅 Gerenciar sua agenda\n"
-                "💰 Acompanhar finanças\n"
-                "📧 Organizar emails\n"
-                "🏠 Controlar sua casa inteligente\n"
-                "🌤️ Previsão do tempo\n"
-                "📦 Rastrear encomendas\n\n"
-                "Comece me perguntando qualquer coisa!"
+                f"{greeting}Welcome to *Capivarex*! 🎉🧠\n\n"
+                "Your account was created successfully! "
+                "You now have access to your personal "
+                "AI assistant.\n\n"
+                "What I can do for you:\n\n"
+                "📅 Manage your calendar\n"
+                "💰 Track finances\n"
+                "📧 Organize emails\n"
+                "🏠 Control your smart home\n"
+                "🌤️ Weather forecast\n"
+                "📦 Track packages\n\n"
+                "Start by asking me anything!"
             ),
             buttons=[
-                {"id": "btn_start", "title": "🚀 Começar"},
-                {"id": "btn_help", "title": "❓ O que posso fazer?"},
-                {"id": "btn_settings", "title": "⚙️ Configurações"},
+                {"id": "btn_start", "title": "🚀 Get Started"},
+                {"id": "btn_help", "title": "❓ What can I do?"},
+                {"id": "btn_settings", "title": "⚙️ Settings"},
             ],
-            header="Bem-vindo ao Capivarex! 🎉",
+            header="Welcome to Capivarex! 🎉",
             footer="app.capivarex.com",
         )
         return True
@@ -125,11 +127,14 @@ async def _send_telegram_welcome(phone: str, name: str) -> bool:
         )
 
         if not result.data or not result.data[0].get("telegram_chat_id"):
-            logger.info("No Telegram chat_id for phone %s, user needs to /start bot first", clean_phone[-4:])
+            logger.info(
+                "No Telegram chat_id for phone %s, user needs to /start bot first",
+                clean_phone[-4:],
+            )
             return False
 
         chat_id = str(result.data[0]["telegram_chat_id"])
-        greeting = f"Olá {name}! " if name else "Olá! "
+        greeting = f"Hello {name}! " if name else "Hello! "
 
         notif = get_service("notification")
         if notif:
@@ -137,10 +142,10 @@ async def _send_telegram_welcome(phone: str, name: str) -> bool:
                 await notif.initialize()
 
             msg = (
-                f"{greeting}Bem-vindo ao *Capivarex*! 🎉🧠\n\n"
-                "Sua conta foi criada com sucesso! "
-                "Agora você tem acesso ao seu assistente pessoal.\n\n"
-                "Me pergunte qualquer coisa ou use /help para ver os comandos."
+                f"{greeting}Welcome to *Capivarex*! 🎉🧠\n\n"
+                "Your account was created successfully! "
+                "You now have access to your personal assistant.\n\n"
+                "Ask me anything or use /help to see commands."
             )
             await notif.send_message("telegram", chat_id, msg)
             return True
@@ -162,27 +167,27 @@ async def _send_whatsapp_fomo(phone: str, name: str) -> bool:
         if not is_configured():
             return False
 
-        greeting = f"Oi {name}! " if name else "Oi! "
+        greeting = f"Hi {name}! " if name else "Hi! "
 
         await send_interactive_buttons(
             to=phone,
             body_text=(
-                f"{greeting}Obrigado por criar sua conta no *Capivarex*! 🎉\n\n"
-                "Seu cadastro foi realizado com sucesso! 🧠\n\n"
-                "Seu plano atual inclui o Capivarex no *Telegram*. "
-                "Para ter seu assistente pessoal aqui no *WhatsApp* 24/7, "
-                "conheça o plano *Everywhere*! 🚀\n\n"
-                "✅ Assistente no WhatsApp\n"
-                "✅ Smart Home (controle por voz)\n"
-                "✅ Agentes ilimitados\n\n"
-                "Enquanto isso, me manda mensagem no *Telegram* — "
-                "estou lá te esperando! 💬"
+                f"{greeting}Thank you for creating your *Capivarex* account! 🎉\n\n"
+                "Your registration was completed successfully! 🧠\n\n"
+                "Your current plan includes Capivarex on *Telegram*. "
+                "To have your personal assistant here on *WhatsApp* 24/7, "
+                "check out the *Everywhere* plan! 🚀\n\n"
+                "✅ WhatsApp Assistant\n"
+                "✅ Smart Home (voice control)\n"
+                "✅ Unlimited agents\n\n"
+                "Meanwhile, message me on *Telegram* — "
+                "I'm waiting for you there! 💬"
             ),
             buttons=[
-                {"id": "btn_upgrade", "title": "🚀 Conhecer Everywhere"},
-                {"id": "btn_telegram", "title": "💬 Abrir no Telegram"},
+                {"id": "btn_upgrade", "title": "🚀 Discover Everywhere"},
+                {"id": "btn_telegram", "title": "💬 Open on Telegram"},
             ],
-            header="Conta criada com sucesso! 🎉",
+            header="Account created successfully! 🎉",
             footer="app.capivarex.com/pricing",
         )
         return True

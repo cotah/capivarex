@@ -88,14 +88,10 @@ async def webapp_chat(
                 .execute()
             )
             if not conv.data:
-                raise HTTPException(
-                    status_code=404, detail="Conversation not found"
-                )
+                raise HTTPException(status_code=404, detail="Conversation not found")
         else:
             conv = (
-                db.table("webapp_conversations")
-                .insert({"user_id": user_id})
-                .execute()
+                db.table("webapp_conversations").insert({"user_id": user_id}).execute()
             )
             conversation_id = conv.data[0]["id"]
 
@@ -119,6 +115,7 @@ async def webapp_chat(
             get_relevant_memories,
             format_memories_for_context,
         )
+
         memories = []
         try:
             memories = await get_relevant_memories(user_id, body.message, limit=5)
@@ -188,8 +185,7 @@ async def webapp_chat(
                             "webp": "image/webp",
                         }.get(ext, "image/jpeg")
                         user_question = (
-                            body.message.split("\n\n")[0]
-                            or "O que achas desta imagem?"
+                            body.message.split("\n\n")[0] or "O que achas desta imagem?"
                         )
                         vision_resp = oai_client.chat.completions.create(
                             model=VISION_MODEL,
@@ -209,19 +205,14 @@ async def webapp_chat(
                             ],
                             max_tokens=800,
                         )
-                        vision_description = (
-                            vision_resp.choices[0].message.content
-                        )
+                        vision_description = vision_resp.choices[0].message.content
                         logger.info(
-                            "WebApp chat: GPT-4o vision analysed image {}"
-                            ", chars={}",
+                            "WebApp chat: GPT-4o vision analysed image {}, chars={}",
                             partial_id,
                             len(vision_description),
                         )
                     except Exception as ve:
-                        logger.warning(
-                            "WebApp chat: GPT-4o vision failed: {}", ve
-                        )
+                        logger.warning("WebApp chat: GPT-4o vision failed: {}", ve)
 
             if vision_description:
                 assistant_msg_data = (
@@ -254,13 +245,11 @@ async def webapp_chat(
                     if msg_count.count == 2:
                         raw_title = body.message.split("\n\n")[0][:50]
                         title = raw_title + (
-                            "..."
-                            if len(body.message.split("\n\n")[0]) > 50
-                            else ""
+                            "..." if len(body.message.split("\n\n")[0]) > 50 else ""
                         )
-                        db.table("webapp_conversations").update(
-                            {"title": title}
-                        ).eq("id", conversation_id).execute()
+                        db.table("webapp_conversations").update({"title": title}).eq(
+                            "id", conversation_id
+                        ).execute()
                         conversation_title = title
                 except Exception:
                     pass
@@ -331,13 +320,17 @@ async def webapp_chat(
         # RAG: extract and save memory from user message (background, non-blocking)
         from utils.safe_task import safe_create_task
         from services.business.rag_service import extract_and_save_memory
+
         safe_create_task(
             extract_and_save_memory(user_id, body.message),
             name="extract_memory",
         )
 
         # Personal info extraction (name, birthday, address → user_context)
-        from services.business.user_profile_service import extract_and_save_personal_info
+        from services.business.user_profile_service import (
+            extract_and_save_personal_info,
+        )
+
         safe_create_task(
             extract_and_save_personal_info(user_id, body.message),
             name="extract_personal_info",
@@ -380,9 +373,9 @@ async def webapp_chat(
             if msg_count.count == 2:
                 raw_title = body.message[:50]
                 title = raw_title + ("..." if len(body.message) > 50 else "")
-                db.table("webapp_conversations").update(
-                    {"title": title}
-                ).eq("id", conversation_id).execute()
+                db.table("webapp_conversations").update({"title": title}).eq(
+                    "id", conversation_id
+                ).execute()
                 conversation_title = title
         except Exception:
             pass  # auto-title is best-effort, don't block the response
@@ -400,9 +393,7 @@ async def webapp_chat(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"WebApp chat error: {type(e).__name__}: {e}", exc_info=True
-        )
+        logger.error(f"WebApp chat error: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process message")
 
 
@@ -435,7 +426,9 @@ async def webapp_chat_stream(
             if quota_svc:
                 await quota_svc.check_and_consume(user_id, "gpt_tokens")
         except QuotaExceededError as qe:
-            raise HTTPException(status_code=429, detail={"error": "quota_exceeded", "message": str(qe)})
+            raise HTTPException(
+                status_code=429, detail={"error": "quota_exceeded", "message": str(qe)}
+            )
         except HTTPException:
             raise
         except Exception as e:
@@ -443,21 +436,34 @@ async def webapp_chat_stream(
 
         # Conversation
         if conversation_id:
-            conv = db.table("webapp_conversations").select("id").eq("id", conversation_id).eq("user_id", user_id).limit(1).execute()
+            conv = (
+                db.table("webapp_conversations")
+                .select("id")
+                .eq("id", conversation_id)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
             if not conv.data:
                 raise HTTPException(status_code=404, detail="Conversation not found")
         else:
-            conv = db.table("webapp_conversations").insert({"user_id": user_id, "title": body.message[:50]}).execute()
+            conv = (
+                db.table("webapp_conversations")
+                .insert({"user_id": user_id, "title": body.message[:50]})
+                .execute()
+            )
             conversation_id = conv.data[0]["id"]
 
         # Save user message
-        db.table("webapp_messages").insert({
-            "conversation_id": conversation_id,
-            "user_id": user_id,
-            "role": "user",
-            "text": body.message,
-            "source": "webapp",
-        }).execute()
+        db.table("webapp_messages").insert(
+            {
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "role": "user",
+                "text": body.message,
+                "source": "webapp",
+            }
+        ).execute()
 
     except HTTPException:
         raise
@@ -477,7 +483,11 @@ async def webapp_chat_stream(
             # --- Heavy work happens here (while user sees "thinking") ---
 
             # RAG memories (run in background, don't block orchestration)
-            from services.business.rag_service import get_relevant_memories, format_memories_for_context
+            from services.business.rag_service import (
+                get_relevant_memories,
+                format_memories_for_context,
+            )
+
             memories = []
             try:
                 memories = await get_relevant_memories(user_id, body.message, limit=5)
@@ -504,7 +514,9 @@ async def webapp_chat_stream(
             if has_file and agent_name == "image":
                 agent_name = "chat"
 
-            logger.info(f"WebApp stream: user={user_id[:8]} msg='{body.message[:60]}' → agent='{agent_name}'")
+            logger.info(
+                f"WebApp stream: user={user_id[:8]} msg='{body.message[:60]}' → agent='{agent_name}'"
+            )
 
             # Send start event with agent info
             yield f"data: {_json.dumps({'type': 'start', 'agent': agent_name, 'conversation_id': conversation_id})}\n\n"
@@ -535,37 +547,63 @@ async def webapp_chat_stream(
             # Save assistant message to DB
             response_type = "text"
             response_data_final = {}
-            if agent_name != "chat" and 'result' in dir():
-                response_type = result.metadata.get("type", "text") if result.metadata else "text"
+            if agent_name != "chat" and "result" in dir():
+                response_type = (
+                    result.metadata.get("type", "text") if result.metadata else "text"
+                )
                 response_data_final = result.data or {}
 
-            assistant_msg = db.table("webapp_messages").insert({
-                "conversation_id": conversation_id,
-                "user_id": user_id,
-                "role": "assistant",
-                "text": full_response,
-                "agent": agent_name,
-                "type": response_type,
-                "data": response_data_final,
-                "source": "webapp",
-            }).execute()
+            assistant_msg = (
+                db.table("webapp_messages")
+                .insert(
+                    {
+                        "conversation_id": conversation_id,
+                        "user_id": user_id,
+                        "role": "assistant",
+                        "text": full_response,
+                        "agent": agent_name,
+                        "type": response_type,
+                        "data": response_data_final,
+                        "source": "webapp",
+                    }
+                )
+                .execute()
+            )
 
             message_id = assistant_msg.data[0]["id"] if assistant_msg.data else ""
 
             # Background tasks (non-blocking)
             from services.business.rag_service import extract_and_save_memory
-            from services.business.user_profile_service import extract_and_save_personal_info
+            from services.business.user_profile_service import (
+                extract_and_save_personal_info,
+            )
             from utils.safe_task import safe_create_task as _safe_task
-            _safe_task(extract_and_save_memory(user_id, body.message), name="rag_memory")
-            _safe_task(extract_and_save_personal_info(user_id, body.message), name="personal_info")
+
+            _safe_task(
+                extract_and_save_memory(user_id, body.message), name="rag_memory"
+            )
+            _safe_task(
+                extract_and_save_personal_info(user_id, body.message),
+                name="personal_info",
+            )
 
             # Redis cache
             try:
                 redis_svc = get_service("redis")
                 if redis_svc and redis_svc.is_initialized():
-                    _safe_task(redis_svc.save_conversation_message(user_id, {"role": "user", "content": body.message}), name="redis_user_msg")
+                    _safe_task(
+                        redis_svc.save_conversation_message(
+                            user_id, {"role": "user", "content": body.message}
+                        ),
+                        name="redis_user_msg",
+                    )
                     if full_response:
-                        _safe_task(redis_svc.save_conversation_message(user_id, {"role": "assistant", "content": full_response}), name="redis_assistant_msg")
+                        _safe_task(
+                            redis_svc.save_conversation_message(
+                                user_id, {"role": "assistant", "content": full_response}
+                            ),
+                            name="redis_assistant_msg",
+                        )
             except Exception:
                 pass
 
@@ -577,10 +615,19 @@ async def webapp_chat_stream(
             # Auto-title
             conversation_title = None
             try:
-                msg_count = db.table("webapp_messages").select("id", count="exact").eq("conversation_id", conversation_id).execute()
+                msg_count = (
+                    db.table("webapp_messages")
+                    .select("id", count="exact")
+                    .eq("conversation_id", conversation_id)
+                    .execute()
+                )
                 if msg_count.count == 2:
-                    title = body.message[:50] + ("..." if len(body.message) > 50 else "")
-                    db.table("webapp_conversations").update({"title": title}).eq("id", conversation_id).execute()
+                    title = body.message[:50] + (
+                        "..." if len(body.message) > 50 else ""
+                    )
+                    db.table("webapp_conversations").update({"title": title}).eq(
+                        "id", conversation_id
+                    ).execute()
                     conversation_title = title
             except Exception:
                 pass
@@ -625,9 +672,7 @@ async def list_conversations(user_id: str = Depends(verify_webapp_user)):
 
         conv_ids = [c["id"] for c in result.data or []]
         if not conv_ids:
-            logger.info(
-                f"WebApp: user={user_id[:8]} listed 0 conversations"
-            )
+            logger.info(f"WebApp: user={user_id[:8]} listed 0 conversations")
             return {"conversations": []}
 
         # Batch: fetch ALL messages for these conversations (2 queries total)
@@ -665,8 +710,7 @@ async def list_conversations(user_id: str = Depends(verify_webapp_user)):
             )
 
         logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" listed {len(conversations)} conversations"
+            f"WebApp: user={user_id[:8]} listed {len(conversations)} conversations"
         )
         return {"conversations": conversations}
 
@@ -675,9 +719,7 @@ async def list_conversations(user_id: str = Depends(verify_webapp_user)):
             f"WebApp list_conversations error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to list conversations"
-        )
+        raise HTTPException(status_code=500, detail="Failed to list conversations")
 
 
 # ====================================================================
@@ -691,11 +733,7 @@ async def create_conversation(user_id: str = Depends(verify_webapp_user)):
     db = _get_db()
 
     try:
-        result = (
-            db.table("webapp_conversations")
-            .insert({"user_id": user_id})
-            .execute()
-        )
+        result = db.table("webapp_conversations").insert({"user_id": user_id}).execute()
         logger.info(
             f"WebApp: user={user_id[:8]}"
             f" created conversation {result.data[0]['id'][:8]}"
@@ -707,9 +745,7 @@ async def create_conversation(user_id: str = Depends(verify_webapp_user)):
             f"WebApp create_conversation error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to create conversation"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create conversation")
 
 
 # ====================================================================
@@ -735,9 +771,7 @@ async def get_conversation(
             .execute()
         )
         if not conv.data:
-            raise HTTPException(
-                status_code=404, detail="Conversation not found"
-            )
+            raise HTTPException(status_code=404, detail="Conversation not found")
 
         messages = (
             db.table("webapp_messages")
@@ -765,9 +799,7 @@ async def get_conversation(
             f"WebApp get_conversation error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to get conversation"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get conversation")
 
 
 # ====================================================================
@@ -784,13 +816,12 @@ async def delete_conversation(
     db = _get_db()
 
     try:
-        db.table("webapp_conversations").delete().eq(
-            "id", conversation_id
-        ).eq("user_id", user_id).execute()
+        db.table("webapp_conversations").delete().eq("id", conversation_id).eq(
+            "user_id", user_id
+        ).execute()
 
         logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" deleted conversation {conversation_id[:8]}"
+            f"WebApp: user={user_id[:8]} deleted conversation {conversation_id[:8]}"
         )
         return {"deleted": True}
 
@@ -799,9 +830,7 @@ async def delete_conversation(
             f"WebApp delete_conversation error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to delete conversation"
-        )
+        raise HTTPException(status_code=500, detail="Failed to delete conversation")
 
 
 # ====================================================================
@@ -828,9 +857,7 @@ async def rename_conversation(
         )
 
         if not result.data:
-            raise HTTPException(
-                status_code=404, detail="Conversation not found"
-            )
+            raise HTTPException(status_code=404, detail="Conversation not found")
 
         logger.info(
             f"WebApp: user={user_id[:8]}"
@@ -846,9 +873,7 @@ async def rename_conversation(
             f"WebApp rename_conversation error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to rename conversation"
-        )
+        raise HTTPException(status_code=500, detail="Failed to rename conversation")
 
 
 # ====================================================================
@@ -957,7 +982,12 @@ async def grocery_stats(
     try:
         chat_id = _get_chat_id(db, user_id)
         if not chat_id:
-            return {"total_spent": 0, "trips": 0, "avg_per_trip": 0, "month": month or ""}
+            return {
+                "total_spent": 0,
+                "trips": 0,
+                "avg_per_trip": 0,
+                "month": month or "",
+            }
 
         start, end, label = _month_range(month)
 
@@ -1040,8 +1070,7 @@ async def grocery_monthly(
             results.append({"month": f"{year}-{mon:02d}", "total": total})
 
         logger.info(
-            f"WebApp: user={user_id[:8]} grocery_monthly"
-            f" {len(results)} months returned"
+            f"WebApp: user={user_id[:8]} grocery_monthly {len(results)} months returned"
         )
         return {"months": results}
 
@@ -1102,8 +1131,7 @@ async def grocery_stores(
         )
 
         logger.info(
-            f"WebApp: user={user_id[:8]} grocery_stores"
-            f" {len(stores)} stores returned"
+            f"WebApp: user={user_id[:8]} grocery_stores {len(stores)} stores returned"
         )
         return {"stores": stores}
 
@@ -1157,9 +1185,7 @@ async def grocery_products(
                 {
                     "name": name,
                     "quantity": round(info["quantity"], 2),
-                    "avg_price": round(
-                        info["total"] / info["count"], 2
-                    )
+                    "avg_price": round(info["total"] / info["count"], 2)
                     if info["count"]
                     else 0,
                     "total": round(info["total"], 2),
@@ -1219,17 +1245,13 @@ async def services_status(user_id: str = Depends(verify_webapp_user)):
 
         services = {}
         for provider in _ALL_PROVIDERS:
-            services[provider] = connected.get(
-                provider, {"connected": False}
-            )
+            services[provider] = connected.get(provider, {"connected": False})
 
         status_summary = ", ".join(
             f"{k}={'connected' if v.get('connected') else 'no'}"
             for k, v in services.items()
         )
-        logger.info(
-            f"WebApp: user={user_id[:8]} services status: {status_summary}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} services status: {status_summary}")
         return {"services": services}
 
     except Exception as e:
@@ -1282,8 +1304,7 @@ async def activity_feed(
             )
 
         logger.info(
-            f"WebApp: user={user_id[:8]} activity feed:"
-            f" {len(activities)} items"
+            f"WebApp: user={user_id[:8]} activity feed: {len(activities)} items"
         )
         return {"activities": activities, "has_more": len(activities) == limit}
 
@@ -1322,11 +1343,14 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
         )
 
         if not token.data or not token.data[0].get("active"):
-            logger.info(f"WebApp: user={user_id[:8]} smarts/devices: not connected or token deactivated")
+            logger.info(
+                f"WebApp: user={user_id[:8]} smarts/devices: not connected or token deactivated"
+            )
             return {"devices": [], "connected": False, "needs_reconnect": True}
 
         # Fetch actual devices from Tuya API
         from services.auth.tuya_oauth_service import get_tuya_oauth
+
         tuya = get_tuya_oauth()
         tuya_user_id = token.data[0].get("user_id", user_id)
         raw_devices = await tuya.get_user_devices(tuya_user_id)
@@ -1367,26 +1391,47 @@ async def smart_devices(user_id: str = Depends(verify_webapp_user)):
             switch_on = False
             if is_online and category in ("dj", "dd", "dc", "cz", "pc", "kg"):
                 try:
-                    status_list = await tuya.get_device_status(tuya_user_id, d.get("id", ""))
-                    for s in (status_list or []):
+                    status_list = await tuya.get_device_status(
+                        tuya_user_id, d.get("id", "")
+                    )
+                    for s in status_list or []:
                         code = s.get("code", "")
-                        if code in ("switch_led", "switch_1", "switch", "switch_led_1") and isinstance(s.get("value"), bool):
+                        if code in (
+                            "switch_led",
+                            "switch_1",
+                            "switch",
+                            "switch_led_1",
+                        ) and isinstance(s.get("value"), bool):
                             switch_on = s["value"]
                             break
                 except Exception:
                     pass
 
-            devices.append({
-                "id": d.get("id", ""),
-                "name": d.get("name") or d.get("custom_name") or "Device",
-                "icon": icon_map.get(category, "📱"),
-                "status": "on" if switch_on else "off",
-                "online": is_online,
-                "room": "",
-                "type": "light" if category in ("dj", "dd", "dc") else "plug" if category in ("cz", "pc", "kg") else "thermostat" if category in ("wk", "kt") else "lock" if category == "cl" else "camera" if category == "sp" else "other",
-            })
+            devices.append(
+                {
+                    "id": d.get("id", ""),
+                    "name": d.get("name") or d.get("custom_name") or "Device",
+                    "icon": icon_map.get(category, "📱"),
+                    "status": "on" if switch_on else "off",
+                    "online": is_online,
+                    "room": "",
+                    "type": "light"
+                    if category in ("dj", "dd", "dc")
+                    else "plug"
+                    if category in ("cz", "pc", "kg")
+                    else "thermostat"
+                    if category in ("wk", "kt")
+                    else "lock"
+                    if category == "cl"
+                    else "camera"
+                    if category == "sp"
+                    else "other",
+                }
+            )
 
-        logger.info(f"WebApp: user={user_id[:8]} smarts/devices: {len(devices)} devices")
+        logger.info(
+            f"WebApp: user={user_id[:8]} smarts/devices: {len(devices)} devices"
+        )
         return {"devices": devices, "connected": True}
 
     except Exception as e:
@@ -1418,11 +1463,15 @@ async def smart_device_command(
     """
     try:
         from services.auth.tuya_oauth_service import get_tuya_oauth
+
         tuya = get_tuya_oauth()
 
         connected = await tuya.is_connected(user_id)
         if not connected:
-            return {"ok": False, "error": "Tuya not connected. Go to Settings to reconnect."}
+            return {
+                "ok": False,
+                "error": "Tuya not connected. Go to Settings to reconnect.",
+            }
 
         # Step 1: Check device online status (real-time from cloud)
         device_online = None
@@ -1440,7 +1489,14 @@ async def smart_device_command(
             logger.warning(f"WebApp: device={device_id[:8]} status query failed: {e}")
 
         device_codes = [s.get("code", "") for s in status_list]
-        known_switch = ["switch_led", "switch_1", "switch", "switch_led_1", "Power", "power"]
+        known_switch = [
+            "switch_led",
+            "switch_1",
+            "switch",
+            "switch_led_1",
+            "Power",
+            "power",
+        ]
 
         codes_to_try = []
         if body.code in device_codes:
@@ -1493,7 +1549,10 @@ async def smart_device_command(
                     ),
                 }
             if result.get("error") == "no_token":
-                return {"ok": False, "error": "Tuya not connected. Go to Settings to reconnect."}
+                return {
+                    "ok": False,
+                    "error": "Tuya not connected. Go to Settings to reconnect.",
+                }
 
         logger.warning(
             f"WebApp: user={user_id[:8]} device={device_id[:8]} "
@@ -1565,35 +1624,48 @@ async def finance_portfolio(user_id: str = Depends(verify_webapp_user)):
     # ── Crypto via CoinGecko service ──
     try:
         from services.core import get_service
+
         crypto_svc = get_service("crypto")
         if crypto_svc:
             await crypto_svc.initialize()
             top = await crypto_svc.get_top_coins(n=10, vs_currency="usd")
             for coin in top:
-                crypto.append({
-                    "symbol": coin.get("symbol", "").upper(),
-                    "name": coin.get("name", ""),
-                    "price": round(coin.get("price", 0) or 0, 2),
-                    "change": round(coin.get("change_24h", 0) or 0, 2),
-                })
+                crypto.append(
+                    {
+                        "symbol": coin.get("symbol", "").upper(),
+                        "name": coin.get("name", ""),
+                        "price": round(coin.get("price", 0) or 0, 2),
+                        "change": round(coin.get("change_24h", 0) or 0, 2),
+                    }
+                )
     except Exception as e:
         logger.warning(f"Finance: crypto fetch failed: {e}")
         # Fallback — inline CoinGecko call
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(
                     "https://api.coingecko.com/api/v3/coins/markets",
-                    params={"vs_currency": "usd", "order": "market_cap_desc", "per_page": 10, "page": 1},
+                    params={
+                        "vs_currency": "usd",
+                        "order": "market_cap_desc",
+                        "per_page": 10,
+                        "page": 1,
+                    },
                 )
                 if resp.status_code == 200:
                     for coin in resp.json():
-                        crypto.append({
-                            "symbol": coin.get("symbol", "").upper(),
-                            "name": coin.get("name", ""),
-                            "price": round(coin.get("current_price", 0), 2),
-                            "change": round(coin.get("price_change_percentage_24h", 0), 2),
-                        })
+                        crypto.append(
+                            {
+                                "symbol": coin.get("symbol", "").upper(),
+                                "name": coin.get("name", ""),
+                                "price": round(coin.get("current_price", 0), 2),
+                                "change": round(
+                                    coin.get("price_change_percentage_24h", 0), 2
+                                ),
+                            }
+                        )
         except Exception:
             pass
 
@@ -1602,18 +1674,21 @@ async def finance_portfolio(user_id: str = Depends(verify_webapp_user)):
     default_symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
     try:
         from services.core import get_service
+
         finance_svc = get_service("finance")
         if finance_svc:
             await finance_svc.initialize()
             for sym in default_symbols:
                 try:
                     quote = await finance_svc.get_quote(sym)
-                    stocks.append({
-                        "symbol": quote.get("symbol", sym),
-                        "name": quote.get("name", sym),
-                        "price": round(quote.get("price", 0), 2),
-                        "change": round(quote.get("percent_change", 0), 2),
-                    })
+                    stocks.append(
+                        {
+                            "symbol": quote.get("symbol", sym),
+                            "name": quote.get("name", sym),
+                            "price": round(quote.get("price", 0), 2),
+                            "change": round(quote.get("percent_change", 0), 2),
+                        }
+                    )
                 except Exception:
                     pass
     except Exception as e:
@@ -1624,9 +1699,13 @@ async def finance_portfolio(user_id: str = Depends(verify_webapp_user)):
         logger.info("Finance: using Yahoo Finance fallback for stocks")
         try:
             import httpx
+
             yahoo_symbols = {
-                "AAPL": "Apple", "MSFT": "Microsoft", "GOOGL": "Alphabet",
-                "AMZN": "Amazon", "TSLA": "Tesla",
+                "AAPL": "Apple",
+                "MSFT": "Microsoft",
+                "GOOGL": "Alphabet",
+                "AMZN": "Amazon",
+                "TSLA": "Tesla",
             }
             async with httpx.AsyncClient(timeout=10) as client:
                 for sym, name in yahoo_symbols.items():
@@ -1640,14 +1719,18 @@ async def finance_portfolio(user_id: str = Depends(verify_webapp_user)):
                             chart = resp.json().get("chart", {}).get("result", [{}])[0]
                             meta = chart.get("meta", {})
                             price = meta.get("regularMarketPrice", 0)
-                            prev = meta.get("previousClose") or meta.get("chartPreviousClose", 0)
+                            prev = meta.get("previousClose") or meta.get(
+                                "chartPreviousClose", 0
+                            )
                             change_pct = ((price - prev) / prev * 100) if prev else 0
-                            stocks.append({
-                                "symbol": sym,
-                                "name": name,
-                                "price": round(price, 2),
-                                "change": round(change_pct, 2),
-                            })
+                            stocks.append(
+                                {
+                                    "symbol": sym,
+                                    "name": name,
+                                    "price": round(price, 2),
+                                    "change": round(change_pct, 2),
+                                }
+                            )
                     except Exception:
                         pass
         except Exception as e:
@@ -1665,6 +1748,7 @@ async def finance_news(
     logger.info(f"WebApp: user={user_id[:8]} finance/news requested")
 
     from services.business.finance_news_service import get_cached_news
+
     articles = await get_cached_news(user_id, limit=limit)
 
     # Auto-refresh if no news or news is stale (>12 hours old)
@@ -1674,6 +1758,7 @@ async def finance_news(
             newest = articles[0].get("time_ago", "")
             if "d ago" in newest or "h ago" in newest:
                 import re
+
                 hours_match = re.search(r"(\d+)h ago", newest)
                 days_match = re.search(r"(\d+)d ago", newest)
                 if days_match or (hours_match and int(hours_match.group(1)) >= 12):
@@ -1683,6 +1768,7 @@ async def finance_news(
 
     if should_refresh:
         from services.business.finance_news_service import fetch_and_store_news
+
         try:
             await fetch_and_store_news(user_id=user_id)
             articles = await get_cached_news(user_id, limit=limit)
@@ -1727,9 +1813,7 @@ async def get_user_me(user_id: str = Depends(verify_webapp_user)):
         )
 
         if not result.data:
-            raise HTTPException(
-                status_code=404, detail="User not found"
-            )
+            raise HTTPException(status_code=404, detail="User not found")
 
         row = result.data[0]
 
@@ -1740,7 +1824,7 @@ async def get_user_me(user_id: str = Depends(verify_webapp_user)):
             "name": row.get("full_name") or row.get("display_name") or "",
             "phone_number": row.get("phone_number"),
             "language": row.get("preferred_language") or "en",
-            "plan": row.get("plan") or "free",
+            "plan": row.get("plan") or "professional",
             "messages_used": row.get("messages_used") or 0,
             "messages_limit": row.get("messages_limit") or 30,
             "created_at": row.get("created_at"),
@@ -1749,12 +1833,8 @@ async def get_user_me(user_id: str = Depends(verify_webapp_user)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"WebApp: get_user_me error user={user_id[:8]}: {e}"
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch user profile"
-        )
+        logger.error(f"WebApp: get_user_me error user={user_id[:8]}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch user profile")
 
 
 @router.patch("/user/profile")
@@ -1767,9 +1847,7 @@ async def update_user_profile(
 
     update_data = body.model_dump(exclude_none=True)
     if not update_data:
-        raise HTTPException(
-            status_code=400, detail="No fields to update"
-        )
+        raise HTTPException(status_code=400, detail="No fields to update")
 
     # Whitelist — nunca permitir sobrescrever campos de sistema
     for forbidden in ("id", "user_id", "plan", "email", "created_at"):
@@ -1786,29 +1864,19 @@ async def update_user_profile(
         db_data[db_key] = value
 
     if not db_data:
-        raise HTTPException(
-            status_code=400, detail="No fields to update"
-        )
+        raise HTTPException(status_code=400, detail="No fields to update")
 
     try:
-        db.table("users").update(db_data).eq(
-            "id", user_id
-        ).execute()
+        db.table("users").update(db_data).eq("id", user_id).execute()
 
         logger.info(
-            f"WebApp: user={user_id[:8]} profile updated"
-            f" fields={list(db_data.keys())}"
+            f"WebApp: user={user_id[:8]} profile updated fields={list(db_data.keys())}"
         )
         return {"ok": True, "updated": list(db_data.keys())}
 
     except Exception as e:
-        logger.error(
-            f"WebApp: update_user_profile error"
-            f" user={user_id[:8]}: {e}"
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to update profile"
-        )
+        logger.error(f"WebApp: update_user_profile error user={user_id[:8]}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
 
 
 # ====================================================================
@@ -1833,16 +1901,16 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
 
         if not user_result.data:
             return {
-                "plan": "free",
+                "plan": "professional",
                 "messages_used": 0,
-                "messages_limit": 30,
+                "messages_limit": 300,
                 "quota_pct": 0.0,
                 "is_unlimited": False,
-                "messages_remaining": 30,
+                "messages_remaining": 300,
             }
 
         u = user_result.data[0]
-        plan = u.get("plan") or "free"
+        plan = u.get("plan") or "professional"
         limit = u.get("messages_limit") or 30
         is_unlimited = limit >= 999999
 
@@ -1850,9 +1918,11 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
         from datetime import datetime as _dt
         from datetime import timezone as _tz
 
-        period_start = _dt.now(_tz.utc).replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        ).isoformat()
+        period_start = (
+            _dt.now(_tz.utc)
+            .replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            .isoformat()
+        )
         usage_result = (
             db.table("tenant_usage")
             .select("used")
@@ -1863,17 +1933,13 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
             .limit(1)
             .execute()
         )
-        used = (
-            usage_result.data[0].get("used", 0)
-            if usage_result.data
-            else 0
-        )
+        used = usage_result.data[0].get("used", 0) if usage_result.data else 0
 
         # Sincronizar users.messages_used como cache (best-effort)
         try:
-            db.table("users").update(
-                {"messages_used": used}
-            ).eq("id", user_id).execute()
+            db.table("users").update({"messages_used": used}).eq(
+                "id", user_id
+            ).execute()
         except Exception:
             pass  # não crítico
 
@@ -1885,30 +1951,21 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
             else 100.0
         )
 
-        logger.info(
-            f"WebApp: user={user_id[:8]} quota"
-            f" plan={plan} used={used}/{limit}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} quota plan={plan} used={used}/{limit}")
         return {
             "plan": plan,
             "messages_used": used,
             "messages_limit": limit,
             "quota_pct": quota_pct,
             "is_unlimited": is_unlimited,
-            "messages_remaining": (
-                0 if is_unlimited else max(0, limit - used)
-            ),
+            "messages_remaining": (0 if is_unlimited else max(0, limit - used)),
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"WebApp: get_quota error user={user_id[:8]}: {e}"
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch quota"
-        )
+        logger.error(f"WebApp: get_quota error user={user_id[:8]}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch quota")
 
 
 # ====================================================================
@@ -1924,9 +1981,7 @@ async def get_weather(
     """Proxy server-side para WeatherAPI — mantém API key no servidor."""
     api_key = os.getenv("WEATHER_API_KEY")
     if not api_key:
-        raise HTTPException(
-            status_code=503, detail="Weather service not configured"
-        )
+        raise HTTPException(status_code=503, detail="Weather service not configured")
 
     try:
         async with httpx.AsyncClient() as client:
@@ -1942,9 +1997,7 @@ async def get_weather(
                     detail="Weather API error",
                 )
 
-            logger.info(
-                f"WebApp: user={user_id[:8]} weather q='{q}'"
-            )
+            logger.info(f"WebApp: user={user_id[:8]} weather q='{q}'")
             return resp.json()
 
     except HTTPException:
@@ -1954,9 +2007,7 @@ async def get_weather(
             f"WebApp weather error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=502, detail="Weather service unavailable"
-        )
+        raise HTTPException(status_code=502, detail="Weather service unavailable")
 
 
 # ====================================================================
@@ -1978,10 +2029,7 @@ async def list_notes(user_id: str = Depends(verify_webapp_user)):
             .execute()
         )
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" listed {len(result.data or [])} notes"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} listed {len(result.data or [])} notes")
         return result.data or []
 
     except Exception as e:
@@ -2001,15 +2049,10 @@ async def create_note(
     db = _get_db()
 
     try:
-        result = (
-            db.table("notes")
-            .insert({**body, "user_id": user_id})
-            .execute()
-        )
+        result = db.table("notes").insert({**body, "user_id": user_id}).execute()
 
         logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" created note {result.data[0]['id'][:8]}"
+            f"WebApp: user={user_id[:8]} created note {result.data[0]['id'][:8]}"
         )
         return result.data[0]
 
@@ -2043,10 +2086,7 @@ async def update_note(
         if not result.data:
             raise HTTPException(status_code=404, detail="Note not found")
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" updated note {note_id[:8]}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} updated note {note_id[:8]}")
         return result.data[0]
 
     except HTTPException:
@@ -2068,14 +2108,9 @@ async def delete_note(
     db = _get_db()
 
     try:
-        db.table("notes").delete().eq(
-            "id", note_id
-        ).eq("user_id", user_id).execute()
+        db.table("notes").delete().eq("id", note_id).eq("user_id", user_id).execute()
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" deleted note {note_id[:8]}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} deleted note {note_id[:8]}")
         return Response(status_code=204)
 
     except Exception as e:
@@ -2083,9 +2118,7 @@ async def delete_note(
             f"WebApp delete_note error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to delete note"
-        )
+        raise HTTPException(status_code=500, detail="Failed to delete note")
 
 
 # ====================================================================
@@ -2123,9 +2156,7 @@ async def voice_transcribe(
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to transcribe audio"
-        )
+        raise HTTPException(status_code=500, detail="Failed to transcribe audio")
 
 
 class SynthesizeRequest(BaseModel):
@@ -2145,9 +2176,7 @@ async def voice_synthesize(
     tts = _get_service_or_503("elevenlabs", "ElevenLabs TTS")
 
     try:
-        audio_bytes = await tts.text_to_speech(
-            body.text, voice_id=body.voice_id
-        )
+        audio_bytes = await tts.text_to_speech(body.text, voice_id=body.voice_id)
         audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         logger.info(
@@ -2168,9 +2197,7 @@ async def voice_synthesize(
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to synthesize speech"
-        )
+        raise HTTPException(status_code=500, detail="Failed to synthesize speech")
 
 
 # ====================================================================
@@ -2203,22 +2230,21 @@ async def get_memory(user_id: str = Depends(verify_webapp_user)):
         for row in result.data or []:
             key = row.get("key") or row.get("category") or "memory"
             value = row.get("value") or row.get("content") or ""
-            memories.append({
-                "id": row.get("id"),
-                "key": key,
-                "value": value,
-                "content": row.get("content") or row.get("value") or "",
-                "category": row.get("category") or row.get("key") or "general",
-                "confidence": row.get("confidence"),
-                "source": row.get("source", ""),
-                "created_at": row.get("created_at", ""),
-                "updated_at": row.get("updated_at", ""),
-            })
+            memories.append(
+                {
+                    "id": row.get("id"),
+                    "key": key,
+                    "value": value,
+                    "content": row.get("content") or row.get("value") or "",
+                    "category": row.get("category") or row.get("key") or "general",
+                    "confidence": row.get("confidence"),
+                    "source": row.get("source", ""),
+                    "created_at": row.get("created_at", ""),
+                    "updated_at": row.get("updated_at", ""),
+                }
+            )
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" memory entries={len(memories)}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} memory entries={len(memories)}")
         return {"memories": memories}
 
     except HTTPException:
@@ -2229,9 +2255,7 @@ async def get_memory(user_id: str = Depends(verify_webapp_user)):
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to get memory"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get memory")
 
 
 @router.delete("/memory/{memory_id}", status_code=204)
@@ -2243,14 +2267,11 @@ async def delete_memory(
     db = _get_db()
 
     try:
-        db.table("user_memory").delete().eq(
-            "id", memory_id
-        ).eq("user_id", user_id).execute()
+        db.table("user_memory").delete().eq("id", memory_id).eq(
+            "user_id", user_id
+        ).execute()
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" deleted memory {memory_id[:8]}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} deleted memory {memory_id[:8]}")
         return Response(status_code=204)
 
     except Exception as e:
@@ -2258,9 +2279,7 @@ async def delete_memory(
             f"WebApp memory delete error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to delete memory"
-        )
+        raise HTTPException(status_code=500, detail="Failed to delete memory")
 
 
 @router.post("/memory", status_code=201)
@@ -2272,12 +2291,11 @@ async def upsert_memory(
     key = body.get("key", "").strip()
     value = body.get("value", "").strip()
     if not key or not value:
-        raise HTTPException(
-            status_code=422, detail="key and value are required"
-        )
+        raise HTTPException(status_code=422, detail="key and value are required")
 
     try:
         from services.business.rag_service import upsert_memory_with_embedding
+
         success = await upsert_memory_with_embedding(
             user_id=user_id,
             key=key,
@@ -2288,10 +2306,7 @@ async def upsert_memory(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to upsert memory")
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" upserted memory key={key[:30]}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} upserted memory key={key[:30]}")
         return {"ok": True}
 
     except HTTPException:
@@ -2301,9 +2316,7 @@ async def upsert_memory(
             f"WebApp memory upsert error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to upsert memory"
-        )
+        raise HTTPException(status_code=500, detail="Failed to upsert memory")
 
 
 # ====================================================================
@@ -2325,10 +2338,7 @@ async def list_reminders(user_id: str = Depends(verify_webapp_user)):
             .execute()
         )
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" reminders={len(result.data or [])}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} reminders={len(result.data or [])}")
         return result.data or []
 
     except HTTPException:
@@ -2339,9 +2349,7 @@ async def list_reminders(user_id: str = Depends(verify_webapp_user)):
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to list reminders"
-        )
+        raise HTTPException(status_code=500, detail="Failed to list reminders")
 
 
 @router.patch("/reminders/{reminder_id}")
@@ -2363,14 +2371,9 @@ async def update_reminder(
         )
 
         if not result.data:
-            raise HTTPException(
-                status_code=404, detail="Reminder not found"
-            )
+            raise HTTPException(status_code=404, detail="Reminder not found")
 
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" updated reminder {reminder_id[:8]}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} updated reminder {reminder_id[:8]}")
         return result.data[0]
 
     except HTTPException:
@@ -2381,14 +2384,13 @@ async def update_reminder(
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to update reminder"
-        )
+        raise HTTPException(status_code=500, detail="Failed to update reminder")
 
 
 # ---------------------------------------------------------------------------
 # Security Events (Sprint 8+)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/security/events")
 async def get_security_events(
@@ -2404,7 +2406,9 @@ async def get_security_events(
         # Fetch recent events for this user
         result = (
             db.table("security_events")
-            .select("id, event_type, severity, ip_address, endpoint, created_at, details")
+            .select(
+                "id, event_type, severity, ip_address, endpoint, created_at, details"
+            )
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .limit(limit)
@@ -2414,6 +2418,7 @@ async def get_security_events(
 
         # Build summary: auth failures in last 24h
         from datetime import timedelta
+
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
         failures_result = (
             db.table("security_events")
@@ -2450,7 +2455,10 @@ async def get_security_events(
                     .execute()
                 )
                 if last_msg.data:
-                    last_login_row = {"created_at": last_msg.data[0]["created_at"], "ip_address": None}
+                    last_login_row = {
+                        "created_at": last_msg.data[0]["created_at"],
+                        "ip_address": None,
+                    }
             except Exception:
                 pass
 
@@ -2460,7 +2468,9 @@ async def get_security_events(
                 "total_events": len(events),
                 "auth_failures_24h": auth_failures_24h,
                 "last_login": last_login_row["created_at"] if last_login_row else None,
-                "last_login_ip": last_login_row["ip_address"] if last_login_row else None,
+                "last_login_ip": last_login_row["ip_address"]
+                if last_login_row
+                else None,
             },
         }
     except Exception as e:
@@ -2511,12 +2521,14 @@ async def get_security_events(
 # ====================================================================
 
 # Whitelist of columns the user may update via PUT /proactivity/preferences
-_PROACTIVITY_PREF_WHITELIST = frozenset({
-    "proactive_enabled",
-    "notify_weather",
-    "notify_traffic",
-    "notify_reminders",
-})
+_PROACTIVITY_PREF_WHITELIST = frozenset(
+    {
+        "proactive_enabled",
+        "notify_weather",
+        "notify_traffic",
+        "notify_reminders",
+    }
+)
 
 # Defaults returned when no row exists yet
 _PROACTIVITY_PREF_DEFAULTS = {
@@ -2553,8 +2565,7 @@ async def proactivity_feed(
             query = query.eq("is_read", False)
 
         result = (
-            query
-            .order("created_at", desc=True)
+            query.order("created_at", desc=True)
             .range(offset, offset + limit - 1)
             .execute()
         )
@@ -2593,9 +2604,7 @@ async def proactivity_feed(
             f"WebApp proactivity/feed error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to load proactivity feed"
-        )
+        raise HTTPException(status_code=500, detail="Failed to load proactivity feed")
 
 
 @router.patch("/proactivity/feed/{item_id}/read")
@@ -2609,10 +2618,12 @@ async def mark_feed_item_read(
     try:
         result = (
             db.table("proactivity_feed")
-            .update({
-                "is_read": True,
-                "read_at": datetime.now(timezone.utc).isoformat(),
-            })
+            .update(
+                {
+                    "is_read": True,
+                    "read_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
             .eq("id", item_id)
             .eq("user_id", user_id)
             .execute()
@@ -2633,9 +2644,7 @@ async def mark_feed_item_read(
             f"WebApp proactivity/feed read error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to mark feed item as read"
-        )
+        raise HTTPException(status_code=500, detail="Failed to mark feed item as read")
 
 
 @router.patch("/proactivity/feed/read-all")
@@ -2647,14 +2656,14 @@ async def mark_all_feed_read(
 
     try:
         now = datetime.now(timezone.utc).isoformat()
-        db.table("proactivity_feed").update({
-            "is_read": True,
-            "read_at": now,
-        }).eq("user_id", user_id).eq("is_read", False).execute()
+        db.table("proactivity_feed").update(
+            {
+                "is_read": True,
+                "read_at": now,
+            }
+        ).eq("user_id", user_id).eq("is_read", False).execute()
 
-        logger.info(
-            f"WebApp: user={user_id[:8]} marked all feed items as read"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} marked all feed items as read")
         return {"ok": True}
 
     except Exception as e:
@@ -2686,7 +2695,10 @@ async def get_proactivity_preferences(
 
         prefs = result.data if result.data else {}
         # Merge with defaults so the frontend always gets every key
-        merged = {**_PROACTIVITY_PREF_DEFAULTS, **{k: v for k, v in prefs.items() if v is not None}}
+        merged = {
+            **_PROACTIVITY_PREF_DEFAULTS,
+            **{k: v for k, v in prefs.items() if v is not None},
+        }
 
         logger.info(
             f"WebApp: user={user_id[:8]} proactivity/preferences"
@@ -2780,7 +2792,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "calendar",
         "requires_oauth": True,
         "provider": "google",
-        "available_plans": ["me", "everywhere"],
+        "available_plans": ["professional", "executive"],
     },
     {
         "id": "spotify",
@@ -2790,7 +2802,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "music",
         "requires_oauth": True,
         "provider": "spotify",
-        "available_plans": ["me", "everywhere"],
+        "available_plans": ["professional", "executive"],
     },
     {
         "id": "smartcar",
@@ -2800,7 +2812,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "car",
         "requires_oauth": True,
         "provider": "smartcar",
-        "available_plans": ["everywhere"],
+        "available_plans": ["executive"],
     },
     {
         "id": "tuya",
@@ -2810,7 +2822,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "home",
         "requires_oauth": True,
         "provider": "tuya",
-        "available_plans": ["me", "everywhere"],
+        "available_plans": ["professional", "executive"],
     },
     {
         "id": "github",
@@ -2820,7 +2832,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "code",
         "requires_oauth": True,
         "provider": "github",
-        "available_plans": ["me", "everywhere"],
+        "available_plans": ["professional", "executive"],
     },
     {
         "id": "telegram",
@@ -2830,7 +2842,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "message",
         "requires_oauth": False,
         "provider": "telegram",
-        "available_plans": ["free", "me", "everywhere"],
+        "available_plans": ["professional", "executive"],
     },
     {
         "id": "twilio_voice",
@@ -2840,7 +2852,7 @@ _INTEGRATIONS_CATALOG = [
         "icon": "phone",
         "requires_oauth": False,
         "provider": "twilio",
-        "available_plans": ["everywhere"],
+        "available_plans": ["executive"],
     },
 ]
 
@@ -2861,22 +2873,16 @@ async def list_integrations(
             .eq("user_id", user_id)
             .execute()
         )
-        connected_providers = {
-            t["provider"] for t in (tokens_result.data or [])
-        }
+        connected_providers = {t["provider"] for t in (tokens_result.data or [])}
 
         # Buscar plano do usuário
         user_result = (
-            db.table("users")
-            .select("plan")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
+            db.table("users").select("plan").eq("id", user_id).limit(1).execute()
         )
         user_plan = (
-            user_result.data[0].get("plan", "free")
+            user_result.data[0].get("plan", "professional")
             if user_result.data
-            else "free"
+            else "professional"
         )
 
         # Montar resposta com status de conexão
@@ -2888,13 +2894,15 @@ async def list_integrations(
             is_connected = integration["provider"] in connected_providers
             is_available = user_plan in integration["available_plans"]
 
-            integrations.append({
-                **integration,
-                "connected": is_connected,
-                "is_connected": is_connected,
-                "is_available": is_available,
-                "upgrade_required": not is_available,
-            })
+            integrations.append(
+                {
+                    **integration,
+                    "connected": is_connected,
+                    "is_connected": is_connected,
+                    "is_available": is_available,
+                    "upgrade_required": not is_available,
+                }
+            )
 
         logger.info(
             f"WebApp: user={user_id[:8]} market/integrations"
@@ -2908,9 +2916,7 @@ async def list_integrations(
             f"WebApp market/integrations error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to list integrations"
-        )
+        raise HTTPException(status_code=500, detail="Failed to list integrations")
 
 
 @router.get("/market/integrations/{integration_id}/status")
@@ -2927,9 +2933,7 @@ async def get_integration_status(
             None,
         )
         if not integration:
-            raise HTTPException(
-                status_code=404, detail="Integration not found"
-            )
+            raise HTTPException(status_code=404, detail="Integration not found")
 
         token_result = (
             db.table("user_oauth_tokens")
@@ -2951,12 +2955,8 @@ async def get_integration_status(
             "integration_id": integration_id,
             "is_connected": is_connected,
             "provider": integration["provider"],
-            "connected_at": (
-                token_data.get("created_at") if token_data else None
-            ),
-            "expires_at": (
-                token_data.get("expires_at") if token_data else None
-            ),
+            "connected_at": (token_data.get("created_at") if token_data else None),
+            "expires_at": (token_data.get("expires_at") if token_data else None),
         }
 
     except HTTPException:
@@ -2966,9 +2966,7 @@ async def get_integration_status(
             f"WebApp market/integrations status error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to get integration status"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get integration status")
 
 
 @router.delete("/market/integrations/{integration_id}/disconnect")
@@ -2985,17 +2983,14 @@ async def disconnect_integration(
             None,
         )
         if not integration:
-            raise HTTPException(
-                status_code=404, detail="Integration not found"
-            )
+            raise HTTPException(status_code=404, detail="Integration not found")
 
-        db.table("user_oauth_tokens").delete().eq(
-            "user_id", user_id
-        ).eq("provider", integration["provider"]).execute()
+        db.table("user_oauth_tokens").delete().eq("user_id", user_id).eq(
+            "provider", integration["provider"]
+        ).execute()
 
         logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" disconnected integration {integration_id}"
+            f"WebApp: user={user_id[:8]} disconnected integration {integration_id}"
         )
         return {
             "success": True,
@@ -3010,9 +3005,7 @@ async def disconnect_integration(
             f"WebApp market disconnect error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to disconnect integration"
-        )
+        raise HTTPException(status_code=500, detail="Failed to disconnect integration")
 
 
 # ====================================================================
@@ -3025,8 +3018,6 @@ class InitiateCallRequest(BaseModel):
 
     phone_number: str
     message: str = "Olá! Aqui é o CAPIVAREX. Como posso ajudar?"
-
-
 
 
 @router.post("/calls/initiate")
@@ -3046,15 +3037,13 @@ async def initiate_call(
             .limit(1)
             .execute()
         )
-        user_data = (
-            user_result.data[0] if user_result.data else {}
-        )
-        user_plan = user_data.get("plan", "free")
+        user_data = user_result.data[0] if user_result.data else {}
+        user_plan = user_data.get("plan", "professional")
 
-        if user_plan not in ("everywhere",):
+        if user_plan not in ("executive",):
             raise HTTPException(
                 status_code=403,
-                detail="Voice calls require the Everywhere plan",
+                detail="Voice calls require the Executive plan",
             )
 
         # Tentar iniciar via serviço Twilio existente
@@ -3095,9 +3084,7 @@ async def initiate_call(
             )
             .execute()
         )
-        call_id = (
-            log_result.data[0]["id"] if log_result.data else None
-        )
+        call_id = log_result.data[0]["id"] if log_result.data else None
 
         logger.info(
             f"WebApp: user={user_id[:8]}"
@@ -3119,9 +3106,7 @@ async def initiate_call(
             f"WebApp calls/initiate error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to initiate call"
-        )
+        raise HTTPException(status_code=500, detail="Failed to initiate call")
 
 
 @router.get("/calls/history")
@@ -3143,10 +3128,7 @@ async def get_call_history(
         )
 
         calls = result.data or []
-        logger.info(
-            f"WebApp: user={user_id[:8]}"
-            f" calls/history total={len(calls)}"
-        )
+        logger.info(f"WebApp: user={user_id[:8]} calls/history total={len(calls)}")
         return {"calls": calls, "total": len(calls)}
 
     except Exception as e:
@@ -3161,9 +3143,7 @@ async def get_call_history(
             f"WebApp calls/history error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch call history"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch call history")
 
 
 @router.get("/calls/{call_id}/status")
@@ -3185,9 +3165,7 @@ async def get_call_status(
         )
 
         if not result.data:
-            raise HTTPException(
-                status_code=404, detail="Call not found"
-            )
+            raise HTTPException(status_code=404, detail="Call not found")
 
         return result.data
 
@@ -3198,6 +3176,4 @@ async def get_call_status(
             f"WebApp calls/status error: {type(e).__name__}: {e}",
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch call status"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch call status")

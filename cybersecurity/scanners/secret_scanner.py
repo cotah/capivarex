@@ -29,7 +29,9 @@ _SECRET_PATTERNS: list[tuple[re.Pattern, str, str, str]] = [
         "critical",
     ),
     (
-        re.compile(r"(?:aws_secret|AWS_SECRET)[_A-Z]*\s*=\s*['\"][A-Za-z0-9/+=]{30,}['\"]"),
+        re.compile(
+            r"(?:aws_secret|AWS_SECRET)[_A-Z]*\s*=\s*['\"][A-Za-z0-9/+=]{30,}['\"]"
+        ),
         "aws_secret_key",
         "AWS Secret Key encontrada no codigo",
         "critical",
@@ -77,7 +79,10 @@ _SECRET_PATTERNS: list[tuple[re.Pattern, str, str, str]] = [
         "high",
     ),
     (
-        re.compile(r"(?:sendgrid|twilio|stripe)[_.](?:api[_.])?(?:key|token|secret)\s*=\s*['\"][a-zA-Z0-9_\-.]{20,}['\"]", re.I),
+        re.compile(
+            r"(?:sendgrid|twilio|stripe)[_.](?:api[_.])?(?:key|token|secret)\s*=\s*['\"][a-zA-Z0-9_\-.]{20,}['\"]",
+            re.I,
+        ),
         "service_api_key",
         "API key de servico externo hardcoded",
         "high",
@@ -98,8 +103,12 @@ _SECRET_PATTERNS: list[tuple[re.Pattern, str, str, str]] = [
 
 # Files to always skip
 _SKIP_FILES = {
-    ".env.example", ".env.prod.example", "package-lock.json",
-    "requirements.txt", "poetry.lock", "yarn.lock",
+    ".env.example",
+    ".env.prod.example",
+    "package-lock.json",
+    "requirements.txt",
+    "poetry.lock",
+    "yarn.lock",
 }
 
 _SKIP_EXTENSIONS = {".map", ".min.js", ".min.css", ".svg", ".png", ".jpg", ".ico"}
@@ -114,7 +123,13 @@ def _should_scan(path: Path) -> bool:
         return False
     # Only scan code files + config files
     return path.suffix in ALL_CODE_EXTENSIONS or path.suffix in {
-        ".json", ".yaml", ".yml", ".toml", ".cfg", ".ini", ".env",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".cfg",
+        ".ini",
+        ".env",
     }
 
 
@@ -149,13 +164,16 @@ class SecretScanner(BaseScanner):
         # Skip test/example/fixture files
         rel = str(fpath)
         lower_rel = rel.lower()
-        if any(skip in lower_rel for skip in ("test", "example", "fixture", "mock", "conftest")):
+        if any(
+            skip in lower_rel
+            for skip in ("test", "example", "fixture", "mock", "conftest")
+        ):
             return results
 
         lines = content.splitlines()
         for pattern, ftype, title, severity in _SECRET_PATTERNS:
             for m in pattern.finditer(content):
-                lineno = content[:m.start()].count("\n") + 1
+                lineno = content[: m.start()].count("\n") + 1
                 line_text = lines[lineno - 1].strip() if lineno <= len(lines) else ""
 
                 # Skip comments
@@ -164,7 +182,11 @@ class SecretScanner(BaseScanner):
                     continue
 
                 # Skip env var references (os.getenv, process.env)
-                if "getenv" in line_text or "process.env" in line_text or "os.environ" in line_text:
+                if (
+                    "getenv" in line_text
+                    or "process.env" in line_text
+                    or "os.environ" in line_text
+                ):
                     continue
 
                 try:
@@ -175,19 +197,21 @@ class SecretScanner(BaseScanner):
                 # Redact the actual secret in the snippet
                 redacted = _redact_secret(line_text, m.group())
 
-                results.append(SecurityFinding(
-                    scanner=self.name,
-                    finding_type=ftype,
-                    severity=severity,
-                    confidence=0.8,
-                    title=title,
-                    description=f"Secret detectado em {rel_path}:{lineno}",
-                    file_path=rel_path,
-                    line_number=lineno,
-                    code_snippet=redacted[:200],
-                    suggested_fix="Mover para variavel de ambiente (.env) e usar os.getenv()",
-                    owasp_category="A07:2021-Security Misconfiguration",
-                ))
+                results.append(
+                    SecurityFinding(
+                        scanner=self.name,
+                        finding_type=ftype,
+                        severity=severity,
+                        confidence=0.8,
+                        title=title,
+                        description=f"Secret detectado em {rel_path}:{lineno}",
+                        file_path=rel_path,
+                        line_number=lineno,
+                        code_snippet=redacted[:200],
+                        suggested_fix="Mover para variavel de ambiente (.env) e usar os.getenv()",
+                        owasp_category="A07:2021-Security Misconfiguration",
+                    )
+                )
         return results
 
     def _scan_committed_env_files(self) -> list[SecurityFinding]:
@@ -200,22 +224,27 @@ class SecretScanner(BaseScanner):
                 result = subprocess.run(
                     ["git", "ls-files", "--cached", "*.env", ".env*"],
                     cwd=str(root),
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 for line in result.stdout.strip().splitlines():
                     name = line.strip()
                     if name and not name.endswith(".example"):
-                        findings.append(SecurityFinding(
-                            scanner=self.name,
-                            finding_type="env_file_committed",
-                            severity="critical",
-                            confidence=0.95,
-                            title=f"Arquivo .env commitado no git: {name}",
-                            description="Arquivos .env com secrets NAO devem ser commitados",
-                            file_path=name,
-                            suggested_fix="Adicionar ao .gitignore e remover do git: git rm --cached " + name,
-                            owasp_category="A07:2021-Security Misconfiguration",
-                        ))
+                        findings.append(
+                            SecurityFinding(
+                                scanner=self.name,
+                                finding_type="env_file_committed",
+                                severity="critical",
+                                confidence=0.95,
+                                title=f"Arquivo .env commitado no git: {name}",
+                                description="Arquivos .env com secrets NAO devem ser commitados",
+                                file_path=name,
+                                suggested_fix="Adicionar ao .gitignore e remover do git: git rm --cached "
+                                + name,
+                                owasp_category="A07:2021-Security Misconfiguration",
+                            )
+                        )
             except (subprocess.TimeoutExpired, FileNotFoundError):
                 pass
         return findings

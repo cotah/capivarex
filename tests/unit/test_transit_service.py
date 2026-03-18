@@ -11,6 +11,7 @@ from services.integrations.transit_service import TransitService
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service(**overrides):
     """Create a TransitService with mocked internals."""
     with patch.object(TransitService, "__init__", lambda self: None):
@@ -40,7 +41,9 @@ def _mock_response(status_code=200, json_data=None, content=b""):
     resp.raise_for_status = MagicMock()
     if status_code >= 400:
         resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "error", request=MagicMock(), response=resp,
+            "error",
+            request=MagicMock(),
+            response=resp,
         )
     return resp
 
@@ -49,13 +52,18 @@ def _mock_response(status_code=200, json_data=None, content=b""):
 # Lifecycle tests
 # ---------------------------------------------------------------------------
 
+
 class TestTransitLifecycle:
     @pytest.mark.asyncio
     async def test_initialize_with_keys(self):
         svc = TransitService()
-        with patch("services.integrations.transit_service.os.getenv", side_effect=lambda k, d=None: {
-            "GOOGLE_MAPS_API_KEY": "gk", "NTA_API_KEY": "nk",
-        }.get(k, d)):
+        with patch(
+            "services.integrations.transit_service.os.getenv",
+            side_effect=lambda k, d=None: {
+                "GOOGLE_MAPS_API_KEY": "gk",
+                "NTA_API_KEY": "nk",
+            }.get(k, d),
+        ):
             with patch("services.integrations.transit_service.httpx.AsyncClient"):
                 await svc._initialize()
         assert svc._gmaps_key == "gk"
@@ -64,16 +72,21 @@ class TestTransitLifecycle:
     @pytest.mark.asyncio
     async def test_initialize_without_gmaps_key(self):
         svc = TransitService()
-        with patch("services.integrations.transit_service.os.getenv", return_value=None):
+        with patch(
+            "services.integrations.transit_service.os.getenv", return_value=None
+        ):
             with pytest.raises(Exception):
                 await svc._initialize()
 
     @pytest.mark.asyncio
     async def test_initialize_without_nta_key(self):
         svc = TransitService()
-        with patch("services.integrations.transit_service.os.getenv", side_effect=lambda k, d=None: {
-            "GOOGLE_MAPS_API_KEY": "gk",
-        }.get(k, d)):
+        with patch(
+            "services.integrations.transit_service.os.getenv",
+            side_effect=lambda k, d=None: {
+                "GOOGLE_MAPS_API_KEY": "gk",
+            }.get(k, d),
+        ):
             with patch("services.integrations.transit_service.httpx.AsyncClient"):
                 await svc._initialize()
         assert svc._gmaps_key == "gk"
@@ -109,16 +122,21 @@ class TestTransitLifecycle:
 # _parse_transit_steps tests
 # ---------------------------------------------------------------------------
 
+
 class TestParseTransitSteps:
     def test_walking_step(self):
         route = {
-            "legs": [{
-                "steps": [{
-                    "travelMode": "WALK",
-                    "navigationInstruction": {"instructions": "Walk north"},
-                    "staticDuration": "300s",
-                }]
-            }]
+            "legs": [
+                {
+                    "steps": [
+                        {
+                            "travelMode": "WALK",
+                            "navigationInstruction": {"instructions": "Walk north"},
+                            "staticDuration": "300s",
+                        }
+                    ]
+                }
+            ]
         }
         steps, lines, walking = TransitService._parse_transit_steps(route)
         assert len(steps) == 1
@@ -129,32 +147,36 @@ class TestParseTransitSteps:
 
     def test_transit_step_with_line(self):
         route = {
-            "legs": [{
-                "steps": [{
-                    "travelMode": "TRANSIT",
-                    "navigationInstruction": {"instructions": "Take bus"},
-                    "staticDuration": "600s",
-                    "transitDetails": {
-                        "stopDetails": {
-                            "departureStop": {"name": "Stop A"},
-                            "arrivalStop": {"name": "Stop B"},
-                        },
-                        "transitLine": {
-                            "nameShort": "39A",
-                            "name": "Dublin Bus 39A",
-                            "vehicle": {"type": "BUS", "name": {"text": "Bus"}},
-                            "color": "#0000FF",
-                            "agencies": [{"name": "Dublin Bus"}],
-                        },
-                        "localizedValues": {
-                            "departureTime": {"time": {"text": "08:30"}},
-                            "arrivalTime": {"time": {"text": "08:50"}},
-                        },
-                        "stopCount": 12,
-                        "headsign": "City Centre",
-                    },
-                }]
-            }]
+            "legs": [
+                {
+                    "steps": [
+                        {
+                            "travelMode": "TRANSIT",
+                            "navigationInstruction": {"instructions": "Take bus"},
+                            "staticDuration": "600s",
+                            "transitDetails": {
+                                "stopDetails": {
+                                    "departureStop": {"name": "Stop A"},
+                                    "arrivalStop": {"name": "Stop B"},
+                                },
+                                "transitLine": {
+                                    "nameShort": "39A",
+                                    "name": "Dublin Bus 39A",
+                                    "vehicle": {"type": "BUS", "name": {"text": "Bus"}},
+                                    "color": "#0000FF",
+                                    "agencies": [{"name": "Dublin Bus"}],
+                                },
+                                "localizedValues": {
+                                    "departureTime": {"time": {"text": "08:30"}},
+                                    "arrivalTime": {"time": {"text": "08:50"}},
+                                },
+                                "stopCount": 12,
+                                "headsign": "City Centre",
+                            },
+                        }
+                    ]
+                }
+            ]
         }
         steps, lines, walking = TransitService._parse_transit_steps(route)
         assert len(steps) == 1
@@ -171,22 +193,37 @@ class TestParseTransitSteps:
 
     def test_mixed_steps(self):
         route = {
-            "legs": [{
-                "steps": [
-                    {"travelMode": "WALK", "navigationInstruction": {}, "staticDuration": "120s"},
-                    {
-                        "travelMode": "TRANSIT", "navigationInstruction": {},
-                        "staticDuration": "900s",
-                        "transitDetails": {
-                            "stopDetails": {},
-                            "transitLine": {"nameShort": "DART", "vehicle": {}, "name": "DART"},
-                            "localizedValues": {},
-                            "stopCount": 5,
+            "legs": [
+                {
+                    "steps": [
+                        {
+                            "travelMode": "WALK",
+                            "navigationInstruction": {},
+                            "staticDuration": "120s",
                         },
-                    },
-                    {"travelMode": "WALK", "navigationInstruction": {}, "staticDuration": "180s"},
-                ]
-            }]
+                        {
+                            "travelMode": "TRANSIT",
+                            "navigationInstruction": {},
+                            "staticDuration": "900s",
+                            "transitDetails": {
+                                "stopDetails": {},
+                                "transitLine": {
+                                    "nameShort": "DART",
+                                    "vehicle": {},
+                                    "name": "DART",
+                                },
+                                "localizedValues": {},
+                                "stopCount": 5,
+                            },
+                        },
+                        {
+                            "travelMode": "WALK",
+                            "navigationInstruction": {},
+                            "staticDuration": "180s",
+                        },
+                    ]
+                }
+            ]
         }
         steps, lines, walking = TransitService._parse_transit_steps(route)
         assert len(steps) == 3
@@ -202,18 +239,26 @@ class TestParseTransitSteps:
 
     def test_transit_without_agencies(self):
         route = {
-            "legs": [{
-                "steps": [{
-                    "travelMode": "TRANSIT",
-                    "navigationInstruction": {},
-                    "staticDuration": "0s",
-                    "transitDetails": {
-                        "stopDetails": {},
-                        "transitLine": {"nameShort": "Luas", "vehicle": {}, "name": "Luas"},
-                        "localizedValues": {},
-                    },
-                }]
-            }]
+            "legs": [
+                {
+                    "steps": [
+                        {
+                            "travelMode": "TRANSIT",
+                            "navigationInstruction": {},
+                            "staticDuration": "0s",
+                            "transitDetails": {
+                                "stopDetails": {},
+                                "transitLine": {
+                                    "nameShort": "Luas",
+                                    "vehicle": {},
+                                    "name": "Luas",
+                                },
+                                "localizedValues": {},
+                            },
+                        }
+                    ]
+                }
+            ]
         }
         steps, lines, _ = TransitService._parse_transit_steps(route)
         assert steps[0]["transit"]["agency"] == ""
@@ -223,20 +268,27 @@ class TestParseTransitSteps:
 # JSON parsers tests
 # ---------------------------------------------------------------------------
 
+
 class TestJsonParsers:
     def test_parse_trip_updates_json_with_delays(self):
-        resp = _mock_response(json_data={
-            "entity": [{
-                "tripUpdate": {
-                    "trip": {"tripId": "T1", "routeId": "39A"},
-                    "stopTimeUpdate": [{
-                        "departure": {"delay": 300},
-                        "stopSequence": 5,
-                        "stopId": "S1",
-                    }],
-                }
-            }]
-        })
+        resp = _mock_response(
+            json_data={
+                "entity": [
+                    {
+                        "tripUpdate": {
+                            "trip": {"tripId": "T1", "routeId": "39A"},
+                            "stopTimeUpdate": [
+                                {
+                                    "departure": {"delay": 300},
+                                    "stopSequence": 5,
+                                    "stopId": "S1",
+                                }
+                            ],
+                        }
+                    }
+                ]
+            }
+        )
         result = TransitService._parse_trip_updates_json(resp, None)
         assert len(result) == 1
         assert result[0]["trip_id"] == "T1"
@@ -244,25 +296,59 @@ class TestJsonParsers:
         assert result[0]["delay_minutes"] == 5.0
 
     def test_parse_trip_updates_json_with_filter(self):
-        resp = _mock_response(json_data={
-            "entity": [
-                {"tripUpdate": {"trip": {"tripId": "T1", "routeId": "39A"}, "stopTimeUpdate": [{"departure": {"delay": 300}, "stopSequence": 1, "stopId": "S1"}]}},
-                {"tripUpdate": {"trip": {"tripId": "T2", "routeId": "46A"}, "stopTimeUpdate": [{"departure": {"delay": 600}, "stopSequence": 2, "stopId": "S2"}]}},
-            ]
-        })
+        resp = _mock_response(
+            json_data={
+                "entity": [
+                    {
+                        "tripUpdate": {
+                            "trip": {"tripId": "T1", "routeId": "39A"},
+                            "stopTimeUpdate": [
+                                {
+                                    "departure": {"delay": 300},
+                                    "stopSequence": 1,
+                                    "stopId": "S1",
+                                }
+                            ],
+                        }
+                    },
+                    {
+                        "tripUpdate": {
+                            "trip": {"tripId": "T2", "routeId": "46A"},
+                            "stopTimeUpdate": [
+                                {
+                                    "departure": {"delay": 600},
+                                    "stopSequence": 2,
+                                    "stopId": "S2",
+                                }
+                            ],
+                        }
+                    },
+                ]
+            }
+        )
         result = TransitService._parse_trip_updates_json(resp, "39A")
         assert len(result) == 1
         assert result[0]["route_id"] == "39A"
 
     def test_parse_trip_updates_json_cancelled(self):
-        resp = _mock_response(json_data={
-            "entity": [{
-                "tripUpdate": {
-                    "trip": {"tripId": "T1", "routeId": "DART"},
-                    "stopTimeUpdate": [{"scheduleRelationship": "SKIPPED", "stopSequence": 3, "stopId": "S3"}],
-                }
-            }]
-        })
+        resp = _mock_response(
+            json_data={
+                "entity": [
+                    {
+                        "tripUpdate": {
+                            "trip": {"tripId": "T1", "routeId": "DART"},
+                            "stopTimeUpdate": [
+                                {
+                                    "scheduleRelationship": "SKIPPED",
+                                    "stopSequence": 3,
+                                    "stopId": "S3",
+                                }
+                            ],
+                        }
+                    }
+                ]
+            }
+        )
         result = TransitService._parse_trip_updates_json(resp, None)
         assert len(result) == 1
         assert result[0]["is_cancelled"] is True
@@ -274,16 +360,24 @@ class TestJsonParsers:
         assert result == []
 
     def test_parse_alerts_json(self):
-        resp = _mock_response(json_data={
-            "entity": [{
-                "alert": {
-                    "headerText": {"translation": [{"text": "Service disruption"}]},
-                    "descriptionText": {"translation": [{"text": "Bus 39A delayed"}]},
-                    "cause": "ACCIDENT",
-                    "effect": "SIGNIFICANT_DELAYS",
-                }
-            }]
-        })
+        resp = _mock_response(
+            json_data={
+                "entity": [
+                    {
+                        "alert": {
+                            "headerText": {
+                                "translation": [{"text": "Service disruption"}]
+                            },
+                            "descriptionText": {
+                                "translation": [{"text": "Bus 39A delayed"}]
+                            },
+                            "cause": "ACCIDENT",
+                            "effect": "SIGNIFICANT_DELAYS",
+                        }
+                    }
+                ]
+            }
+        )
         result = TransitService._parse_alerts_json(resp)
         assert len(result) == 1
         assert result[0]["header_text"] == "Service disruption"
@@ -297,23 +391,35 @@ class TestJsonParsers:
 
     @pytest.mark.asyncio
     async def test_parse_vehicle_positions_json(self):
-        resp = _mock_response(json_data={
-            "entity": [{
-                "vehicle": {
-                    "vehicle": {"id": "V1"},
-                    "trip": {"tripId": "T1", "routeId": "39A"},
-                    "position": {"latitude": 53.3, "longitude": -6.2, "bearing": 90, "speed": 10},
-                    "timestamp": 1234567890,
-                }
-            }]
-        })
+        resp = _mock_response(
+            json_data={
+                "entity": [
+                    {
+                        "vehicle": {
+                            "vehicle": {"id": "V1"},
+                            "trip": {"tripId": "T1", "routeId": "39A"},
+                            "position": {
+                                "latitude": 53.3,
+                                "longitude": -6.2,
+                                "bearing": 90,
+                                "speed": 10,
+                            },
+                            "timestamp": 1234567890,
+                        }
+                    }
+                ]
+            }
+        )
         # Force JSON fallback by making protobuf import fail
         import builtins
+
         original_import = builtins.__import__
+
         def mock_import(name, *args, **kwargs):
             if "gtfs_realtime_pb2" in str(name):
                 raise ImportError("no gtfs")
             return original_import(name, *args, **kwargs)
+
         with patch("builtins.__import__", side_effect=mock_import):
             result = await TransitService._parse_vehicle_positions(resp)
         assert len(result) == 1
@@ -325,11 +431,14 @@ class TestJsonParsers:
     async def test_parse_vehicle_positions_empty(self):
         resp = _mock_response(json_data={"entity": []})
         import builtins
+
         original_import = builtins.__import__
+
         def mock_import(name, *args, **kwargs):
             if "gtfs_realtime_pb2" in str(name):
                 raise ImportError("no gtfs")
             return original_import(name, *args, **kwargs)
+
         with patch("builtins.__import__", side_effect=mock_import):
             result = await TransitService._parse_vehicle_positions(resp)
         assert result == []
@@ -339,23 +448,33 @@ class TestJsonParsers:
 # _geocode tests
 # ---------------------------------------------------------------------------
 
+
 class TestGeocode:
     @pytest.mark.asyncio
     async def test_geocode_success(self):
         svc = _make_service()
-        svc._client.get = AsyncMock(return_value=_mock_response(json_data={
-            "status": "OK",
-            "results": [{"geometry": {"location": {"lat": 53.3, "lng": -6.2}}}],
-        }))
+        svc._client.get = AsyncMock(
+            return_value=_mock_response(
+                json_data={
+                    "status": "OK",
+                    "results": [{"geometry": {"location": {"lat": 53.3, "lng": -6.2}}}],
+                }
+            )
+        )
         result = await svc._geocode("Dublin")
         assert result == {"lat": 53.3, "lng": -6.2}
 
     @pytest.mark.asyncio
     async def test_geocode_no_results(self):
         svc = _make_service()
-        svc._client.get = AsyncMock(return_value=_mock_response(json_data={
-            "status": "ZERO_RESULTS", "results": [],
-        }))
+        svc._client.get = AsyncMock(
+            return_value=_mock_response(
+                json_data={
+                    "status": "ZERO_RESULTS",
+                    "results": [],
+                }
+            )
+        )
         result = await svc._geocode("nowhere")
         assert result is None
 
@@ -371,18 +490,31 @@ class TestGeocode:
 # _fetch_trip_updates tests
 # ---------------------------------------------------------------------------
 
+
 class TestFetchTripUpdates:
     @pytest.mark.asyncio
     async def test_fetch_json_mode(self):
         svc = _make_service(gtfs_available=False)
-        svc._client.get = AsyncMock(return_value=_mock_response(json_data={
-            "entity": [{
-                "tripUpdate": {
-                    "trip": {"tripId": "T1", "routeId": "39A"},
-                    "stopTimeUpdate": [{"departure": {"delay": 300}, "stopSequence": 1, "stopId": "S1"}],
+        svc._client.get = AsyncMock(
+            return_value=_mock_response(
+                json_data={
+                    "entity": [
+                        {
+                            "tripUpdate": {
+                                "trip": {"tripId": "T1", "routeId": "39A"},
+                                "stopTimeUpdate": [
+                                    {
+                                        "departure": {"delay": 300},
+                                        "stopSequence": 1,
+                                        "stopId": "S1",
+                                    }
+                                ],
+                            }
+                        }
+                    ]
                 }
-            }]
-        }))
+            )
+        )
         result = await svc._fetch_trip_updates()
         assert len(result) == 1
 
@@ -398,6 +530,7 @@ class TestFetchTripUpdates:
 # _fetch_service_alerts tests
 # ---------------------------------------------------------------------------
 
+
 class TestFetchServiceAlerts:
     @pytest.mark.asyncio
     async def test_fetch_alerts_no_nta_key(self):
@@ -408,14 +541,22 @@ class TestFetchServiceAlerts:
     @pytest.mark.asyncio
     async def test_fetch_alerts_json_mode(self):
         svc = _make_service(gtfs_available=False)
-        svc._client.get = AsyncMock(return_value=_mock_response(json_data={
-            "entity": [{
-                "alert": {
-                    "headerText": {"translation": [{"text": "Delays"}]},
-                    "descriptionText": {"translation": [{"text": "Bus 39A"}]},
+        svc._client.get = AsyncMock(
+            return_value=_mock_response(
+                json_data={
+                    "entity": [
+                        {
+                            "alert": {
+                                "headerText": {"translation": [{"text": "Delays"}]},
+                                "descriptionText": {
+                                    "translation": [{"text": "Bus 39A"}]
+                                },
+                            }
+                        }
+                    ]
                 }
-            }]
-        }))
+            )
+        )
         result = await svc._fetch_service_alerts()
         assert len(result) == 1
 
@@ -431,26 +572,41 @@ class TestFetchServiceAlerts:
 # get_vehicle_positions tests
 # ---------------------------------------------------------------------------
 
+
 class TestGetVehiclePositions:
     @pytest.mark.asyncio
     async def test_get_positions_success(self):
         svc = _make_service(gtfs_available=False)
-        svc._client.get = AsyncMock(return_value=_mock_response(json_data={
-            "entity": [{
-                "vehicle": {
-                    "vehicle": {"id": "V1"},
-                    "trip": {"tripId": "T1", "routeId": "R1"},
-                    "position": {"latitude": 53.3, "longitude": -6.2, "bearing": 0, "speed": 5},
-                    "timestamp": 1000,
+        svc._client.get = AsyncMock(
+            return_value=_mock_response(
+                json_data={
+                    "entity": [
+                        {
+                            "vehicle": {
+                                "vehicle": {"id": "V1"},
+                                "trip": {"tripId": "T1", "routeId": "R1"},
+                                "position": {
+                                    "latitude": 53.3,
+                                    "longitude": -6.2,
+                                    "bearing": 0,
+                                    "speed": 5,
+                                },
+                                "timestamp": 1000,
+                            }
+                        }
+                    ]
                 }
-            }]
-        }))
+            )
+        )
         import builtins
+
         original_import = builtins.__import__
+
         def mock_import(name, *args, **kwargs):
             if "gtfs_realtime_pb2" in str(name):
                 raise ImportError("no gtfs")
             return original_import(name, *args, **kwargs)
+
         with patch("builtins.__import__", side_effect=mock_import):
             result = await svc.get_vehicle_positions()
         assert len(result) == 1

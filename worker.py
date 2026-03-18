@@ -36,7 +36,11 @@ worker_logger = get_logger("arq_worker")
 
 
 async def generate_image_task(
-    ctx, prompt: str, user_id: str, user_plan: str = "basic", aspect_ratio: str = "1:1"
+    ctx,
+    prompt: str,
+    user_id: str,
+    user_plan: str = "professional",
+    aspect_ratio: str = "1:1",
 ):
     """
     Background task to generate an image using the Image service (Google Imagen 4).

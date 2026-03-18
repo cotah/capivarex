@@ -5,9 +5,8 @@ services/business/quota_service.py
 Gestão de quotas por tenant — Resource Metering para o Jarvis SaaS.
 
 Planos:
-    Free        → porta de entrada, funcionalidades básicas
-    Me          → assistente pessoal (Telegram), uso moderado
-    Everywhere  → presença total, todos os canais, quotas generosas
+    Professional → assistente pessoal completo, uso moderado
+    Executive    → presença total, todos os canais, quotas generosas
 
 Recursos controlados (cobre TODOS os serviços do Jarvis):
 
@@ -54,106 +53,86 @@ from services.core import BaseService, register_service
 # ─── Definição dos planos ────────────────────────────────────────────────────
 
 PLANS: Dict[str, Dict[str, Any]] = {
-    "free": {
-        "display_name": "Free",
-        "price_eur": 0.0,
-        "description": "Experimenta o Jarvis sem compromisso",
-        "quotas": {
-            # IA / LLM
-            "gpt_tokens":           5_000,
-            "image_gen":            2,       # 2 imagens/mês
-            "video_gen":            0,       # sem vídeo
-            # Voz
-            "twilio_mins":          0,       # sem chamadas
-            "elevenlabs_chars":     0,       # sem TTS
-            # Google APIs
-            "google_places":        10,
-            "maps_reqs":            10,
-            "search_reqs":          10,
-            # APIs Externas
-            "weather_reqs":         20,
-            "crypto_reqs":          20,
-            "youtube_reqs":         10,
-            "translate_reqs":       10,
-            "tracking_reqs":        5,
-            "perplexity_reqs":      5,
-            "smartcar_reqs":        0,       # sem carro
-            "mercado_scans":        3,       # 3 recibos/mês
-            # Stock
-            "reminders":            3,
-            "notes":                10,
-        },
-    },
-    "me": {
-        "display_name": "Me",
+    "professional": {
+        "display_name": "Professional",
         "price_eur": 9.99,
         "description": "O teu assistente pessoal, focado em ti — Telegram",
         "quotas": {
             # IA / LLM
-            "gpt_tokens":           50_000,
-            "image_gen":            20,
-            "video_gen":            3,
+            "gpt_tokens": 50_000,
+            "image_gen": 20,
+            "video_gen": 3,
             # Voz
-            "twilio_mins":          15,
-            "elevenlabs_chars":     10_000,
+            "twilio_mins": 15,
+            "elevenlabs_chars": 10_000,
             # Google APIs
-            "google_places":        100,
-            "maps_reqs":            100,
-            "search_reqs":          100,
+            "google_places": 100,
+            "maps_reqs": 100,
+            "search_reqs": 100,
             # APIs Externas
-            "weather_reqs":         200,
-            "crypto_reqs":          200,
-            "youtube_reqs":         100,
-            "translate_reqs":       100,
-            "tracking_reqs":        30,
-            "perplexity_reqs":      50,
-            "smartcar_reqs":        50,
-            "mercado_scans":        20,
+            "weather_reqs": 200,
+            "crypto_reqs": 200,
+            "youtube_reqs": 100,
+            "translate_reqs": 100,
+            "tracking_reqs": 30,
+            "perplexity_reqs": 50,
+            "smartcar_reqs": 50,
+            "mercado_scans": 20,
             # Stock
-            "reminders":            20,
-            "notes":                100,
+            "reminders": 20,
+            "notes": 100,
         },
     },
-    "everywhere": {
-        "display_name": "Everywhere",
+    "executive": {
+        "display_name": "Executive",
         "price_eur": 29.99,
         "description": "O Jarvis em todo o lado — todos os canais",
         "quotas": {
             # IA / LLM
-            "gpt_tokens":           200_000,
-            "image_gen":            100,
-            "video_gen":            20,
+            "gpt_tokens": 200_000,
+            "image_gen": 100,
+            "video_gen": 20,
             # Voz
-            "twilio_mins":          60,
-            "elevenlabs_chars":     50_000,
+            "twilio_mins": 60,
+            "elevenlabs_chars": 50_000,
             # Google APIs
-            "google_places":        500,
-            "maps_reqs":            500,
-            "search_reqs":          500,
+            "google_places": 500,
+            "maps_reqs": 500,
+            "search_reqs": 500,
             # APIs Externas
-            "weather_reqs":         1_000,
-            "crypto_reqs":          1_000,
-            "youtube_reqs":         500,
-            "translate_reqs":       500,
-            "tracking_reqs":        100,
-            "perplexity_reqs":      200,
-            "smartcar_reqs":        200,
-            "mercado_scans":        100,
+            "weather_reqs": 1_000,
+            "crypto_reqs": 1_000,
+            "youtube_reqs": 500,
+            "translate_reqs": 500,
+            "tracking_reqs": 100,
+            "perplexity_reqs": 200,
+            "smartcar_reqs": 200,
+            "mercado_scans": 100,
             # Stock
-            "reminders":            100,
-            "notes":                500,
+            "reminders": 100,
+            "notes": 500,
         },
     },
 }
 
 # Recursos cumulativos: contagem reset no início de cada mês
 CUMULATIVE_RESOURCES = {
-    "gpt_tokens", "image_gen", "video_gen",
-    "twilio_mins", "elevenlabs_chars",
-    "google_places", "maps_reqs", "search_reqs",
-    "weather_reqs", "crypto_reqs", "youtube_reqs",
-    "translate_reqs", "tracking_reqs", "perplexity_reqs",
-    "smartcar_reqs", "mercado_scans",
+    "gpt_tokens",
+    "image_gen",
+    "video_gen",
+    "twilio_mins",
+    "elevenlabs_chars",
+    "google_places",
+    "maps_reqs",
+    "search_reqs",
+    "weather_reqs",
+    "crypto_reqs",
+    "youtube_reqs",
+    "translate_reqs",
+    "tracking_reqs",
+    "perplexity_reqs",
+    "smartcar_reqs",
+    "mercado_scans",
 }
 
 # Recursos de stock: limite de quantidade total (não resetam)
@@ -161,24 +140,24 @@ STOCK_RESOURCES = {"reminders", "notes"}
 
 # Ícones para formatação no Telegram
 RESOURCE_ICONS: Dict[str, str] = {
-    "gpt_tokens":           "🧠 IA (tokens)",
-    "image_gen":            "🖼️ Imagens IA",
-    "video_gen":            "🎬 Vídeos IA",
-    "twilio_mins":          "📞 Chamadas",
-    "elevenlabs_chars":     "🎙️ Voz TTS",
-    "google_places":        "🗺️ Restaurantes",
-    "maps_reqs":            "🧭 Mapas",
-    "search_reqs":          "🔎 Pesquisas Web",
-    "weather_reqs":         "🌤️ Meteorologia",
-    "crypto_reqs":          "💰 Crypto",
-    "youtube_reqs":         "▶️ YouTube",
-    "translate_reqs":       "🌐 Traduções",
-    "tracking_reqs":        "📦 Rastreio",
-    "perplexity_reqs":      "🔍 Research",
-    "smartcar_reqs":        "🚗 Carro",
-    "mercado_scans":        "🧾 Recibos",
-    "reminders":            "🔔 Lembretes",
-    "notes":                "📝 Notas",
+    "gpt_tokens": "🧠 IA (tokens)",
+    "image_gen": "🖼️ Imagens IA",
+    "video_gen": "🎬 Vídeos IA",
+    "twilio_mins": "📞 Chamadas",
+    "elevenlabs_chars": "🎙️ Voz TTS",
+    "google_places": "🗺️ Restaurantes",
+    "maps_reqs": "🧭 Mapas",
+    "search_reqs": "🔎 Pesquisas Web",
+    "weather_reqs": "🌤️ Meteorologia",
+    "crypto_reqs": "💰 Crypto",
+    "youtube_reqs": "▶️ YouTube",
+    "translate_reqs": "🌐 Traduções",
+    "tracking_reqs": "📦 Rastreio",
+    "perplexity_reqs": "🔍 Research",
+    "smartcar_reqs": "🚗 Carro",
+    "mercado_scans": "🧾 Recibos",
+    "reminders": "🔔 Lembretes",
+    "notes": "📝 Notas",
 }
 
 USAGE_TABLE = "tenant_usage"
@@ -233,6 +212,7 @@ class QuotaService(BaseService):
 
     async def _initialize(self) -> None:
         from services.core import get_service
+
         self._db = get_service("database")
         if self._db and not self._db.is_initialized():
             await self._db.initialize()
@@ -263,7 +243,7 @@ class QuotaService(BaseService):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def get_plan(self, tenant_id: str) -> str:
-        """Retorna o plano actual do tenant. Default: 'free'."""
+        """Retorna o plano actual do tenant. Default: 'professional'."""
         if not self.is_initialized():
             await self.initialize()
         try:
@@ -283,16 +263,16 @@ class QuotaService(BaseService):
                 return response.data[0]["plan"]
         except Exception as e:
             self.logger.warning("Erro ao buscar plano de %s: %s", tenant_id, e)
-        return "free"
+        return "professional"
 
     def get_plan_info(self, plan: str) -> Dict[str, Any]:
         """Informações completas de um plano."""
-        return PLANS.get(plan, PLANS["free"])
+        return PLANS.get(plan, PLANS["professional"])
 
     async def get_quota(self, tenant_id: str, resource: str) -> int:
         """Limite de quota para um recurso no plano actual do tenant."""
         plan = await self.get_plan(tenant_id)
-        return PLANS.get(plan, PLANS["free"])["quotas"].get(resource, 0)
+        return PLANS.get(plan, PLANS["professional"])["quotas"].get(resource, 0)
 
     # ──────────────────────────────────────────────────────────────────────────
     # USO
@@ -317,7 +297,7 @@ class QuotaService(BaseService):
             await self.initialize()
 
         plan = await self.get_plan(tenant_id)
-        quotas = PLANS.get(plan, PLANS["free"])["quotas"]
+        quotas = PLANS.get(plan, PLANS["professional"])["quotas"]
 
         if resource:
             used = await self._get_used(tenant_id, resource)
@@ -333,9 +313,7 @@ class QuotaService(BaseService):
     # VERIFICAÇÃO E CONSUMO
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def check(
-        self, tenant_id: str, resource: str, amount: int = 1
-    ) -> bool:
+    async def check(self, tenant_id: str, resource: str, amount: int = 1) -> bool:
         """Verifica se o tenant tem quota (sem consumir)."""
         if not self.is_initialized():
             await self.initialize()
@@ -352,13 +330,17 @@ class QuotaService(BaseService):
         if not self.is_initialized():
             await self.initialize()
         plan = await self.get_plan(tenant_id)
-        limit = PLANS.get(plan, PLANS["free"])["quotas"].get(resource, 0)
+        limit = PLANS.get(plan, PLANS["professional"])["quotas"].get(resource, 0)
         await self._increment_usage(tenant_id, resource, amount)
         await self._log_usage(tenant_id, resource, amount, plan)
         used = await self._get_used(tenant_id, resource)
         self.logger.info(
             "Consumed: tenant=%s resource=%s amount=%d used=%d/%d",
-            tenant_id, resource, amount, used, limit,
+            tenant_id,
+            resource,
+            amount,
+            used,
+            limit,
         )
         return self._usage_dict(resource, used, limit, plan)
 
@@ -374,7 +356,7 @@ class QuotaService(BaseService):
         if not self.is_initialized():
             await self.initialize()
         plan = await self.get_plan(tenant_id)
-        limit = PLANS.get(plan, PLANS["free"])["quotas"].get(resource, 0)
+        limit = PLANS.get(plan, PLANS["professional"])["quotas"].get(resource, 0)
         if limit == 0:
             raise QuotaExceededError(resource, 0, 0, plan)
         used = await self._get_used(tenant_id, resource)
@@ -390,28 +372,30 @@ class QuotaService(BaseService):
         """Resumo completo para dashboard."""
         usage = await self.get_usage(tenant_id)
         plan_name = usage["plan"]
-        plan_info = PLANS.get(plan_name, PLANS["free"])
+        plan_info = PLANS.get(plan_name, PLANS["professional"])
 
         exhausted = [
-            r for r, d in usage["resources"].items()
+            r
+            for r, d in usage["resources"].items()
             if d["remaining"] == 0 and d["limit"] > 0
         ]
         low = [
-            r for r, d in usage["resources"].items()
+            r
+            for r, d in usage["resources"].items()
             if 0 < d["remaining"] <= d["limit"] * 0.1
         ]
 
         return {
-            "tenant_id":        tenant_id,
-            "plan":             plan_name,
-            "plan_display":     plan_info["display_name"],
+            "tenant_id": tenant_id,
+            "plan": plan_name,
+            "plan_display": plan_info["display_name"],
             "plan_description": plan_info["description"],
-            "price_eur":        plan_info["price_eur"],
-            "resources":        usage["resources"],
+            "price_eur": plan_info["price_eur"],
+            "resources": usage["resources"],
             "exhausted_resources": exhausted,
-            "low_resources":    low,
-            "reset_date":       self._next_reset_date(),
-            "upgrade_available": plan_name != "everywhere",
+            "low_resources": low,
+            "reset_date": self._next_reset_date(),
+            "upgrade_available": plan_name != "executive",
         }
 
     async def format_summary_telegram(self, tenant_id: str) -> str:
@@ -419,7 +403,7 @@ class QuotaService(BaseService):
         summary = await self.get_summary(tenant_id)
         plan = summary["plan_display"]
         price = summary["price_eur"]
-        price_str = "Grátis" if price == 0 else f"€{price:.2f}/mês"
+        price_str = f"€{price:.2f}/mês"
 
         lines = [
             "📊 *O teu plano Jarvis*\n",
@@ -432,11 +416,19 @@ class QuotaService(BaseService):
             ("🤖 Inteligência Artificial", ["gpt_tokens", "image_gen", "video_gen"]),
             ("📞 Comunicação", ["twilio_mins", "elevenlabs_chars"]),
             ("🗺️ Localização", ["google_places", "maps_reqs", "search_reqs"]),
-            ("🌍 Serviços Externos", [
-                "weather_reqs", "crypto_reqs", "youtube_reqs",
-                "translate_reqs", "tracking_reqs", "perplexity_reqs",
-                "smartcar_reqs", "mercado_scans",
-            ]),
+            (
+                "🌍 Serviços Externos",
+                [
+                    "weather_reqs",
+                    "crypto_reqs",
+                    "youtube_reqs",
+                    "translate_reqs",
+                    "tracking_reqs",
+                    "perplexity_reqs",
+                    "smartcar_reqs",
+                    "mercado_scans",
+                ],
+            ),
             ("💾 Dados Pessoais", ["reminders", "notes"]),
         ]
 
@@ -466,7 +458,7 @@ class QuotaService(BaseService):
             lines.append(f"⚡ *Quase no limite:* {', '.join(labels)}")
 
         if summary["upgrade_available"]:
-            next_plan = "me" if summary["plan"] == "free" else "everywhere"
+            next_plan = "executive"
             next_display = PLANS[next_plan]["display_name"]
             next_price = PLANS[next_plan]["price_eur"]
             lines.append(
@@ -492,7 +484,9 @@ class QuotaService(BaseService):
             except Exception as e:
                 self.logger.warning(
                     "Redis quota lookup failed for %s/%s, falling back to DB: %s",
-                    tenant_id, resource, e,
+                    tenant_id,
+                    resource,
+                    e,
                 )
 
         try:
@@ -515,7 +509,9 @@ class QuotaService(BaseService):
         except Exception as e:
             self.logger.warning(
                 "DB quota check failed for %s/%s, trying users fallback: %s",
-                tenant_id, resource, e,
+                tenant_id,
+                resource,
+                e,
             )
             try:
                 user_id = str(tenant_id).replace("user-", "")
@@ -533,14 +529,17 @@ class QuotaService(BaseService):
                 if user_resp.data:
                     return user_resp.data.get("messages_used", 0)
                 self.logger.error(
-                    "User %s not found in fallback — blocking access", user_id,
+                    "User %s not found in fallback — blocking access",
+                    user_id,
                 )
                 return 999_999
             except Exception as db_error:
                 self.logger.error("DB quota fallback also failed: %s", db_error)
                 return 999_999  # fail-safe: block when all systems down
 
-    async def _increment_usage(self, tenant_id: str, resource: str, amount: int) -> None:
+    async def _increment_usage(
+        self, tenant_id: str, resource: str, amount: int
+    ) -> None:
         period = _month_start() if resource in CUMULATIVE_RESOURCES else "stock"
         now = _utcnow().isoformat()
         try:
@@ -575,14 +574,16 @@ class QuotaService(BaseService):
                     lambda: (
                         self._client()
                         .table(USAGE_TABLE)
-                        .insert({
-                            "tenant_id": str(tenant_id),
-                            "resource": resource,
-                            "used": amount,
-                            "period_start": period,
-                            "created_at": now,
-                            "updated_at": now,
-                        })
+                        .insert(
+                            {
+                                "tenant_id": str(tenant_id),
+                                "resource": resource,
+                                "used": amount,
+                                "period_start": period,
+                                "created_at": now,
+                                "updated_at": now,
+                            }
+                        )
                         .execute()
                     ),
                 )
@@ -598,9 +599,11 @@ class QuotaService(BaseService):
 
         # Sync tenant_usage to keep both systems consistent
         try:
-            period_start = _utcnow().replace(
-                day=1, hour=0, minute=0, second=0, microsecond=0
-            ).isoformat()
+            period_start = (
+                _utcnow()
+                .replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                .isoformat()
+            )
             existing = await self._loop().run_in_executor(
                 None,
                 lambda: (
@@ -621,8 +624,10 @@ class QuotaService(BaseService):
                         self._client()
                         .table("tenant_usage")
                         .update(
-                            {"used": existing.data[0]["used"] + 1,
-                             "updated_at": now_iso}
+                            {
+                                "used": existing.data[0]["used"] + 1,
+                                "updated_at": now_iso,
+                            }
                         )
                         .eq("id", existing.data[0]["id"])
                         .execute()
@@ -634,34 +639,40 @@ class QuotaService(BaseService):
                     lambda: (
                         self._client()
                         .table("tenant_usage")
-                        .insert({
-                            "tenant_id": f"user-{tenant_id}",
-                            "resource": "gpt_tokens",
-                            "used": 1,
-                            "period_start": period_start,
-                            "created_at": now_iso,
-                            "updated_at": now_iso,
-                        })
+                        .insert(
+                            {
+                                "tenant_id": f"user-{tenant_id}",
+                                "resource": "gpt_tokens",
+                                "used": 1,
+                                "period_start": period_start,
+                                "created_at": now_iso,
+                                "updated_at": now_iso,
+                            }
+                        )
                         .execute()
                     ),
                 )
         except Exception:
             pass  # quota sync is best-effort, never block the main flow
 
-    async def _log_usage(self, tenant_id: str, resource: str, amount: int, plan: str) -> None:
+    async def _log_usage(
+        self, tenant_id: str, resource: str, amount: int, plan: str
+    ) -> None:
         try:
             await self._loop().run_in_executor(
                 None,
                 lambda: (
                     self._client()
                     .table(USAGE_LOG_TABLE)
-                    .insert({
-                        "tenant_id": str(tenant_id),
-                        "resource": resource,
-                        "amount": amount,
-                        "plan": plan,
-                        "created_at": _utcnow().isoformat(),
-                    })
+                    .insert(
+                        {
+                            "tenant_id": str(tenant_id),
+                            "resource": resource,
+                            "amount": amount,
+                            "plan": plan,
+                            "created_at": _utcnow().isoformat(),
+                        }
+                    )
                     .execute()
                 ),
             )
@@ -673,12 +684,12 @@ class QuotaService(BaseService):
         remaining = max(0, limit - used) if limit > 0 else 0
         percent = round((used / limit) * 100, 1) if limit > 0 else 100.0
         return {
-            "resource":  resource,
-            "used":      used,
-            "limit":     limit,
+            "resource": resource,
+            "used": used,
+            "limit": limit,
             "remaining": remaining,
-            "percent":   percent,
-            "plan":      plan,
+            "percent": percent,
+            "plan": plan,
             "exhausted": remaining == 0 and limit > 0,
         }
 
@@ -693,13 +704,25 @@ class QuotaService(BaseService):
         month = now.month % 12 + 1
         year = now.year + (1 if now.month == 12 else 0)
         months_pt = [
-            "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+            "",
+            "Janeiro",
+            "Fevereiro",
+            "Março",
+            "Abril",
+            "Maio",
+            "Junho",
+            "Julho",
+            "Agosto",
+            "Setembro",
+            "Outubro",
+            "Novembro",
+            "Dezembro",
         ]
         return f"1 de {months_pt[month]} de {year}"
 
 
 # ─── Decorator @requires_quota ───────────────────────────────────────────────
+
 
 def requires_quota(resource: str, amount: int = 1):
     """
@@ -716,16 +739,19 @@ def requires_quota(resource: str, amount: int = 1):
         async def chat(self, tenant_id: str, ...):
             ...
     """
+
     def decorator(func):
         import functools
 
         @functools.wraps(func)
         async def wrapper(self, tenant_id, *args, **kwargs):
             from services.core import get_service
+
             quota_svc = get_service("quota")
             if quota_svc:
                 await quota_svc.check_and_consume(tenant_id, resource, amount)
             return await func(self, tenant_id, *args, **kwargs)
 
         return wrapper
+
     return decorator

@@ -1,4 +1,5 @@
 """Tests for birthday detection service — A1."""
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -64,12 +65,16 @@ class TestDetectUpcoming:
     async def test_detect_birthday_in_calendar(self):
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("João's Birthday", start_days=3),
-            _make_event("Team Meeting", start_days=2),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event("João's Birthday", start_days=3),
+                _make_event("Team Meeting", start_days=2),
+            ]
+        )
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_cal
+        ):
             result = await detect_upcoming_birthdays("u1")
 
         assert len(result) == 1
@@ -80,11 +85,15 @@ class TestDetectUpcoming:
     async def test_skip_past_birthdays(self):
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Old birthday", start_days=-2),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event("Old birthday", start_days=-2),
+            ]
+        )
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_cal
+        ):
             result = await detect_upcoming_birthdays("u1")
         assert len(result) == 0
 
@@ -104,7 +113,9 @@ class TestBirthdayAlert:
 
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
         mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
         def fake_svc(name):
@@ -120,8 +131,13 @@ class TestBirthdayAlert:
 
     @pytest.mark.asyncio
     async def test_alert_dedup(self):
-        birthday = {"event_id": "evt-dup", "person_name": "Ana", "date": "Mar 20",
-                     "days_until": 2, "summary": "Ana birthday"}
+        birthday = {
+            "event_id": "evt-dup",
+            "person_name": "Ana",
+            "date": "Mar 20",
+            "days_until": 2,
+            "summary": "Ana birthday",
+        }
 
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
@@ -129,7 +145,9 @@ class TestBirthdayAlert:
             data=[{"id": "1", "metadata": '{"event_id": "evt-dup"}'}]
         )
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_db
+        ):
             result = await generate_birthday_alert("u1", birthday, "Marcos")
         assert result is None
 
@@ -149,7 +167,9 @@ class TestCheckAll:
         mock_db.is_initialized.return_value = True
         mock_db.get_all_users_with_proactivity_enabled = AsyncMock(return_value=[])
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_db
+        ):
             result = await check_birthdays_for_all_users()
         assert result == 0
 
@@ -160,6 +180,7 @@ class TestBirthdayHelpers:
     @pytest.mark.asyncio
     async def test_alert_no_db(self):
         from services.business.birthday_service import _alert_already_sent
+
         with patch("services.business.birthday_service.get_service", return_value=None):
             result = await _alert_already_sent("u1", "evt-1")
         assert result is False
@@ -167,12 +188,14 @@ class TestBirthdayHelpers:
     @pytest.mark.asyncio
     async def test_store_no_db(self):
         from services.business.birthday_service import _store_alert
+
         with patch("services.business.birthday_service.get_service", return_value=None):
             await _store_alert("u1", "evt-1", "Title", "Message")
 
     @pytest.mark.asyncio
     async def test_humanize_fallback_today(self):
         from services.business.birthday_service import _humanize_birthday_alert
+
         with patch("services.business.birthday_service.get_service", return_value=None):
             result = await _humanize_birthday_alert("Marcos", "João", 0, "Mar 16")
         assert "today" in result.lower()
@@ -190,13 +213,22 @@ class TestBirthdayHelpers:
         """Birthday with ISO datetime format (not date-only)."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        start = (datetime.now(timezone.utc) + timedelta(days=5))
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            {"id": "evt-iso", "summary": "Ana's Birthday", "start": start.isoformat(),
-             "end": start.isoformat(), "description": ""},
-        ])
+        start = datetime.now(timezone.utc) + timedelta(days=5)
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "id": "evt-iso",
+                    "summary": "Ana's Birthday",
+                    "start": start.isoformat(),
+                    "end": start.isoformat(),
+                    "description": "",
+                },
+            ]
+        )
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_cal
+        ):
             result = await detect_upcoming_birthdays("u1")
         assert len(result) == 1
         assert "Ana" in result[0]["person_name"]
@@ -205,19 +237,24 @@ class TestBirthdayHelpers:
     async def test_detect_multiple_birthdays(self):
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Birthday João", start_days=2),
-            _make_event("Aniversário Maria", start_days=5),
-            _make_event("Standup meeting", start_days=1),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event("Birthday João", start_days=2),
+                _make_event("Aniversário Maria", start_days=5),
+                _make_event("Standup meeting", start_days=1),
+            ]
+        )
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_cal
+        ):
             result = await detect_upcoming_birthdays("u1")
         assert len(result) == 2
 
     @pytest.mark.asyncio
     async def test_humanize_birthday_gpt(self):
         from services.business.birthday_service import _humanize_birthday_alert
+
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = (
@@ -225,7 +262,9 @@ class TestBirthdayHelpers:
             "How about a nice gift or dinner? Want me to help?"
         )
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_openai
+        ):
             result = await _humanize_birthday_alert("Marcos", "João", 3, "Mar 20")
         assert "João" in result
         assert "Marcos" in result
@@ -235,12 +274,22 @@ class TestBirthdayHelpers:
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
         from datetime import datetime, timezone, timedelta
-        start = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d")
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            {"id": "evt-desc", "summary": "Party for Pedro",
-             "start": start, "end": start, "description": "Birthday celebration"},
-        ])
 
-        with patch("services.business.birthday_service.get_service", return_value=mock_cal):
+        start = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d")
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "id": "evt-desc",
+                    "summary": "Party for Pedro",
+                    "start": start,
+                    "end": start,
+                    "description": "Birthday celebration",
+                },
+            ]
+        )
+
+        with patch(
+            "services.business.birthday_service.get_service", return_value=mock_cal
+        ):
             result = await detect_upcoming_birthdays("u1")
         assert len(result) == 1

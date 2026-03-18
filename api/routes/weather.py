@@ -4,6 +4,7 @@ Weather Routes - Refactored to use services.
 Endpoints for fetching current weather and forecasts via the
 registered ``weather`` service from the refactored service registry.
 """
+
 import logging
 from typing import Any, Dict
 
@@ -31,7 +32,9 @@ async def _get_weather_service():
 
 
 @router.get("/auto")
-async def get_weather_auto(request: Request, current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_weather_auto(
+    request: Request, current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
     Busca o clima atual baseado no IP do cliente (detecção automática).
 
@@ -120,7 +123,9 @@ async def get_week_forecast_auto(
 
 
 @router.get("/{city}")
-async def get_weather_by_city(city: str, current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_weather_by_city(
+    city: str, current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
     Busca o clima atual para uma cidade específica.
 
@@ -259,6 +264,7 @@ async def get_weather_alerts(
         service = await _get_weather_service()
         # Usa o agente para formatar — aproveita a lógica de _handle_alerts
         from agents import get_agent
+
         agent = get_agent("weather")
         if agent:
             result = await agent.execute(

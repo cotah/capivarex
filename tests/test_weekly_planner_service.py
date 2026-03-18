@@ -1,4 +1,5 @@
 """Tests for Weekly Planner service."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,7 +15,9 @@ from services.business.weekly_planner_service import (
 class TestGetWeekEvents:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.weekly_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.weekly_planner_service.get_service", return_value=None
+        ):
             assert await _get_week_events("u1") == []
 
     @pytest.mark.asyncio
@@ -22,9 +25,18 @@ class TestGetWeekEvents:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"title": "Standup", "start_time": "2026-03-18T09:00:00Z", "end_time": "2026-03-18T09:30:00Z", "description": ""}]
+            data=[
+                {
+                    "title": "Standup",
+                    "start_time": "2026-03-18T09:00:00Z",
+                    "end_time": "2026-03-18T09:30:00Z",
+                    "description": "",
+                }
+            ]
         )
-        with patch("services.business.weekly_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.weekly_planner_service.get_service", return_value=mock_db
+        ):
             result = await _get_week_events("u1")
         assert len(result) == 1
 
@@ -33,14 +45,18 @@ class TestGetWeekEvents:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.weekly_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.weekly_planner_service.get_service", return_value=mock_db
+        ):
             assert await _get_week_events("u1") == []
 
 
 class TestGetPendingReminders:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.weekly_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.weekly_planner_service.get_service", return_value=None
+        ):
             assert await _get_pending_reminders("u1") == []
 
     @pytest.mark.asyncio
@@ -48,14 +64,19 @@ class TestGetPendingReminders:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.weekly_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.weekly_planner_service.get_service", return_value=mock_db
+        ):
             assert await _get_pending_reminders("u1") == []
 
 
 class TestOrganizeByDay:
     def test_organize_events(self):
         events = [
-            {"title": "Meeting", "start_time": "2026-03-18T09:00:00+00:00"},  # Wednesday
+            {
+                "title": "Meeting",
+                "start_time": "2026-03-18T09:00:00+00:00",
+            },  # Wednesday
             {"title": "Lunch", "start_time": "2026-03-18T12:00:00+00:00"},
             {"title": "Dentist", "start_time": "2026-03-19T10:00:00+00:00"},  # Thursday
         ]
@@ -81,7 +102,10 @@ class TestFallbackPlan:
     def test_busy_week(self):
         data = {
             "days": {
-                "Segunda": [{"title": "Standup", "time": "09:00"}, {"title": "Sprint", "time": "14:00"}],
+                "Segunda": [
+                    {"title": "Standup", "time": "09:00"},
+                    {"title": "Sprint", "time": "14:00"},
+                ],
                 "Terça": [{"title": "Dentist", "time": "10:00"}],
                 "Quarta": [{"title": "Meeting", "time": "11:00"}],
             },
@@ -129,10 +153,25 @@ class TestGenerateWeeklyPlan:
     async def test_full_flow(self):
         events = [{"title": "Meeting", "start_time": "2026-03-18T09:00:00+00:00"}]
         with (
-            patch("services.business.weekly_planner_service._get_week_events", new_callable=AsyncMock, return_value=events),
-            patch("services.business.weekly_planner_service._get_pending_reminders", new_callable=AsyncMock, return_value=[]),
-            patch("services.business.weekly_planner_service._generate_ai_plan", new_callable=AsyncMock, return_value=None),
-            patch("services.business.weekly_planner_service._store_plan", new_callable=AsyncMock),
+            patch(
+                "services.business.weekly_planner_service._get_week_events",
+                new_callable=AsyncMock,
+                return_value=events,
+            ),
+            patch(
+                "services.business.weekly_planner_service._get_pending_reminders",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "services.business.weekly_planner_service._generate_ai_plan",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "services.business.weekly_planner_service._store_plan",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_weekly_plan("u1", "João")
         assert result is not None
@@ -142,10 +181,25 @@ class TestGenerateWeeklyPlan:
     @pytest.mark.asyncio
     async def test_with_ai(self):
         with (
-            patch("services.business.weekly_planner_service._get_week_events", new_callable=AsyncMock, return_value=[]),
-            patch("services.business.weekly_planner_service._get_pending_reminders", new_callable=AsyncMock, return_value=[]),
-            patch("services.business.weekly_planner_service._generate_ai_plan", new_callable=AsyncMock, return_value="📅 AI weekly plan!"),
-            patch("services.business.weekly_planner_service._store_plan", new_callable=AsyncMock),
+            patch(
+                "services.business.weekly_planner_service._get_week_events",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "services.business.weekly_planner_service._get_pending_reminders",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "services.business.weekly_planner_service._generate_ai_plan",
+                new_callable=AsyncMock,
+                return_value="📅 AI weekly plan!",
+            ),
+            patch(
+                "services.business.weekly_planner_service._store_plan",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_weekly_plan("u1")
         assert result["text"] == "📅 AI weekly plan!"
@@ -155,14 +209,20 @@ class TestStorePlan:
     @pytest.mark.asyncio
     async def test_store_no_db(self):
         from services.business.weekly_planner_service import _store_plan
-        with patch("services.business.weekly_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.weekly_planner_service.get_service", return_value=None
+        ):
             await _store_plan("u1", "text", {})
 
     @pytest.mark.asyncio
     async def test_store_exception(self):
         from services.business.weekly_planner_service import _store_plan
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.weekly_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.weekly_planner_service.get_service", return_value=mock_db
+        ):
             await _store_plan("u1", "text", {})

@@ -37,6 +37,7 @@ def _mock_tenancy_resolve(tenant_context=None):
 # Rate limiting
 # -------------------------------------------------------------------
 
+
 class TestRateLimiting:
     def test_first_message_not_limited(self):
         proc = RequestProcessor(user_identifier=100)
@@ -59,12 +60,15 @@ class TestRateLimiting:
 # Context binding
 # -------------------------------------------------------------------
 
+
 class TestBindContextVars:
     def test_bind_with_no_context(self):
         proc = RequestProcessor(user_identifier=1)
         proc.request_id = "req-123"
         # Should not raise even without user/tenant context
-        with patch("utils.request_processor.structlog.contextvars.bind_contextvars") as mock_bind:
+        with patch(
+            "utils.request_processor.structlog.contextvars.bind_contextvars"
+        ) as mock_bind:
             proc._bind_context_vars()
             mock_bind.assert_called_once_with(request_id="req-123")
 
@@ -73,15 +77,19 @@ class TestBindContextVars:
         proc.request_id = "req-456"
 
         from schemas.context import UserContext
+
         proc.user_context = UserContext(
             user_id="uid", telegram_chat_id=1, full_name="Test"
         )
         from bot.core.tenancy import TenantContext
+
         proc.tenant_context = TenantContext(
             tenant_id="tid", user_id="uid", channel="telegram"
         )
 
-        with patch("utils.request_processor.structlog.contextvars.bind_contextvars") as mock_bind:
+        with patch(
+            "utils.request_processor.structlog.contextvars.bind_contextvars"
+        ) as mock_bind:
             proc._bind_context_vars()
             call_kwargs = mock_bind.call_args[1]
             assert call_kwargs["request_id"] == "req-456"
@@ -92,6 +100,7 @@ class TestBindContextVars:
 # -------------------------------------------------------------------
 # _fetch_user_context
 # -------------------------------------------------------------------
+
 
 class TestFetchUserContext:
     @pytest.mark.asyncio
@@ -148,6 +157,7 @@ class TestFetchUserContext:
 # _resolve_tenant
 # -------------------------------------------------------------------
 
+
 class TestResolveTenant:
     @pytest.mark.asyncio
     async def test_resolve_success(self):
@@ -177,6 +187,7 @@ class TestResolveTenant:
 # Full pipeline: process()
 # -------------------------------------------------------------------
 
+
 class TestProcess:
     @pytest.mark.asyncio
     async def test_process_full_pipeline(self):
@@ -186,6 +197,7 @@ class TestProcess:
             "full_name": "Test",
         }
         from bot.core.tenancy import TenantContext
+
         tc = TenantContext(tenant_id="t1", user_id="u1", channel="telegram")
 
         mock_db = _mock_db_service(user_data)
@@ -216,6 +228,7 @@ class TestProcess:
 # -------------------------------------------------------------------
 # FastAPI dependency
 # -------------------------------------------------------------------
+
 
 class TestGetRequestProcessor:
     @pytest.mark.asyncio

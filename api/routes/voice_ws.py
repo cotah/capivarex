@@ -5,6 +5,7 @@ Voice WebSocket Route
 Endpoint WebSocket para pipeline completo de voz em tempo real.
 Fluxo: áudio binário → STT (Whisper) → LLM (orquestrador) → TTS (ElevenLabs) → áudio base64
 """
+
 from __future__ import annotations
 
 import base64
@@ -67,11 +68,14 @@ async def voice_websocket(
     if not token:
         try:
             import asyncio
+
             raw = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
             auth_msg = json.loads(raw)
             if auth_msg.get("type") == "auth":
                 token = auth_msg.get("token", "")
-                conversation_id = auth_msg.get("conversation_id", conversation_id) or conversation_id
+                conversation_id = (
+                    auth_msg.get("conversation_id", conversation_id) or conversation_id
+                )
             if not token:
                 await _safe_send({"type": "error", "message": "Auth required"})
                 await websocket.close(code=1008)
@@ -89,22 +93,37 @@ async def voice_websocket(
 
         strategies: list[tuple[str, dict]] = []
         if SUPABASE_PUBLIC_KEY:
-            strategies.append(("es256", {
-                "key": SUPABASE_PUBLIC_KEY,
-                "algorithms": ["ES256"],
-                "options": {"verify_aud": False},
-            }))
+            strategies.append(
+                (
+                    "es256",
+                    {
+                        "key": SUPABASE_PUBLIC_KEY,
+                        "algorithms": ["ES256"],
+                        "options": {"verify_aud": False},
+                    },
+                )
+            )
         if jwt_secret:
-            strategies.append(("hs256_aud", {
-                "key": jwt_secret,
-                "algorithms": ["HS256"],
-                "audience": "authenticated",
-            }))
-            strategies.append(("hs256_noaud", {
-                "key": jwt_secret,
-                "algorithms": ["HS256"],
-                "options": {"verify_aud": False},
-            }))
+            strategies.append(
+                (
+                    "hs256_aud",
+                    {
+                        "key": jwt_secret,
+                        "algorithms": ["HS256"],
+                        "audience": "authenticated",
+                    },
+                )
+            )
+            strategies.append(
+                (
+                    "hs256_noaud",
+                    {
+                        "key": jwt_secret,
+                        "algorithms": ["HS256"],
+                        "options": {"verify_aud": False},
+                    },
+                )
+            )
 
         payload = None
         for strat_name, kwargs in strategies:
@@ -128,11 +147,22 @@ async def voice_websocket(
 
         # Supabase tokens: sub = user UUID.  Legacy tokens: sub = email.
         import uuid as _uuid
+
         try:
             _uuid.UUID(sub_value)
-            user_resp = db.table("users").select("id, plan, email").eq("id", sub_value).execute()
+            user_resp = (
+                db.table("users")
+                .select("id, plan, email")
+                .eq("id", sub_value)
+                .execute()
+            )
         except (ValueError, AttributeError):
-            user_resp = db.table("users").select("id, plan, email").eq("email", sub_value).execute()
+            user_resp = (
+                db.table("users")
+                .select("id, plan, email")
+                .eq("email", sub_value)
+                .execute()
+            )
 
         if not user_resp.data:
             await _safe_send({"type": "error", "message": "User not found"})
@@ -141,7 +171,7 @@ async def voice_websocket(
 
         user = user_resp.data[0]
         user_id = str(user["id"])
-        user_plan = user.get("plan", "free")
+        user_plan = user.get("plan", "professional")
 
         # ── Verify conversation belongs to user ──────────────────────────
         conv_resp = (
@@ -186,9 +216,13 @@ async def voice_websocket(
             pass
         return
 
-    logger.info("VoiceWS: user={} conv={} connected, stt={}, tts={}",
-                user_id[:8], conversation_id[:8],
-                stt_service.is_initialized(), tts_service.is_initialized() if tts_service else False)
+    logger.info(
+        "VoiceWS: user={} conv={} connected, stt={}, tts={}",
+        user_id[:8],
+        conversation_id[:8],
+        stt_service.is_initialized(),
+        tts_service.is_initialized() if tts_service else False,
+    )
 
     # ── Main loop ────────────────────────────────────────────────────────
 
@@ -214,7 +248,9 @@ async def voice_websocket(
                 tmp_path.unlink(missing_ok=True)
 
             if not transcript:
-                await _safe_send({"type": "error", "message": "Could not transcribe audio"})
+                await _safe_send(
+                    {"type": "error", "message": "Could not transcribe audio"}
+                )
                 continue
 
             await _safe_send({"type": "transcription", "text": transcript})
@@ -222,9 +258,10 @@ async def voice_websocket(
             # ── Context ──────────────────────────────────────────────────────
             conversation_context: List[Dict[str, Any]] = []
             try:
-                conversation_context = await redis_svc.get_conversation_context(
-                    user_id=user_id, last_n=10
-                ) or []
+                conversation_context = (
+                    await redis_svc.get_conversation_context(user_id=user_id, last_n=10)
+                    or []
+                )
             except Exception:
                 pass
 
@@ -244,13 +281,15 @@ async def voice_websocket(
 
             # Save user message
             try:
-                db.table("webapp_messages").insert({
-                    "conversation_id": conversation_id,
-                    "user_id": user_id,
-                    "role": "user",
-                    "text": transcript,
-                    "source": "voice",
-                }).execute()
+                db.table("webapp_messages").insert(
+                    {
+                        "conversation_id": conversation_id,
+                        "user_id": user_id,
+                        "role": "user",
+                        "text": transcript,
+                        "source": "voice",
+                    }
+                ).execute()
             except Exception as db_err:
                 logger.warning("VoiceWS: failed to save user msg: {}", db_err)
 
@@ -295,25 +334,31 @@ async def voice_websocket(
 
             # Save assistant message
             try:
-                db.table("webapp_messages").insert({
-                    "conversation_id": conversation_id,
-                    "user_id": user_id,
-                    "role": "assistant",
-                    "text": response_text,
-                    "source": "voice",
-                }).execute()
+                db.table("webapp_messages").insert(
+                    {
+                        "conversation_id": conversation_id,
+                        "user_id": user_id,
+                        "role": "assistant",
+                        "text": response_text,
+                        "source": "voice",
+                    }
+                ).execute()
             except Exception as db_err:
                 logger.warning("VoiceWS: failed to save assistant msg: {}", db_err)
 
             # Send text response
-            agent_data = getattr(agent_result, 'data', None) if 'agent_result' in dir() else None
-            await _safe_send({
-                "type": "response",
-                "text": response_text,
-                "response_type": "text",
-                "data": agent_data if isinstance(agent_data, dict) else None,
-                "conversation_title": None,
-            })
+            agent_data = (
+                getattr(agent_result, "data", None) if "agent_result" in dir() else None
+            )
+            await _safe_send(
+                {
+                    "type": "response",
+                    "text": response_text,
+                    "response_type": "text",
+                    "data": agent_data if isinstance(agent_data, dict) else None,
+                    "conversation_title": None,
+                }
+            )
 
             # ── TTS ──────────────────────────────────────────────────────────
             try:
@@ -323,25 +368,38 @@ async def voice_websocket(
                     )
                     if audio_bytes:
                         audio_b64 = base64.b64encode(audio_bytes).decode()
-                        await _safe_send({
-                            "type": "audio",
-                            "audio_base64": audio_b64,
-                            "content_type": "audio/mpeg",
-                        })
+                        await _safe_send(
+                            {
+                                "type": "audio",
+                                "audio_base64": audio_b64,
+                                "content_type": "audio/mpeg",
+                            }
+                        )
             except Exception as e:
                 logger.warning("VoiceWS TTS failed for user={}: {}", user_id[:8], e)
                 # TTS failure is non-fatal — text response already sent
 
             # ── Background: memory + personal info extraction ────────────
             from utils.safe_task import safe_create_task as _safe_task
+
             try:
                 from services.business.rag_service import extract_and_save_memory
-                _safe_task(extract_and_save_memory(user_id, transcript), name="voice_rag_memory")
+
+                _safe_task(
+                    extract_and_save_memory(user_id, transcript),
+                    name="voice_rag_memory",
+                )
             except Exception:
                 pass
             try:
-                from services.business.user_profile_service import extract_and_save_personal_info
-                _safe_task(extract_and_save_personal_info(user_id, transcript), name="voice_personal_info")
+                from services.business.user_profile_service import (
+                    extract_and_save_personal_info,
+                )
+
+                _safe_task(
+                    extract_and_save_personal_info(user_id, transcript),
+                    name="voice_personal_info",
+                )
             except Exception:
                 pass
 
@@ -372,8 +430,12 @@ async def voice_websocket(
         if "not connected" in str(e).lower() or "accept" in str(e).lower():
             logger.info("VoiceWS: user={} connection lost (RuntimeError)", user_id[:8])
         else:
-            logger.opt(exception=True).error("VoiceWS error for user={}: {}", user_id[:8], e)
+            logger.opt(exception=True).error(
+                "VoiceWS error for user={}: {}", user_id[:8], e
+            )
             await _safe_send({"type": "error", "message": "Internal server error"})
     except Exception as e:
-        logger.opt(exception=True).error("VoiceWS error for user={}: {}", user_id[:8], e)
+        logger.opt(exception=True).error(
+            "VoiceWS error for user={}: {}", user_id[:8], e
+        )
         await _safe_send({"type": "error", "message": "Internal server error"})

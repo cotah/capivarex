@@ -95,9 +95,9 @@ async def unsubscribe_push(
     db = _get_db()
 
     try:
-        db.table("push_subscriptions").delete().eq(
-            "user_id", user_id
-        ).eq("endpoint", body.endpoint).execute()
+        db.table("push_subscriptions").delete().eq("user_id", user_id).eq(
+            "endpoint", body.endpoint
+        ).execute()
 
         logger.info("Push: user={} unsubscribed", user_id[:8])
         return {"status": "unsubscribed"}
@@ -152,13 +152,15 @@ async def send_push_to_user(
     if not result.data:
         return 0
 
-    payload = json.dumps({
-        "title": title,
-        "body": body,
-        "url": url,
-        "icon": "/icons/icon-192x192.png",
-        "badge": "/icons/icon-72x72.png",
-    })
+    payload = json.dumps(
+        {
+            "title": title,
+            "body": body,
+            "url": url,
+            "icon": "/icons/icon-192x192.png",
+            "badge": "/icons/icon-72x72.png",
+        }
+    )
 
     sent = 0
     expired = []
@@ -193,14 +195,18 @@ async def send_push_to_user(
     # Clean up expired subscriptions
     for endpoint in expired:
         try:
-            db.table("push_subscriptions").delete().eq(
-                "user_id", user_id
-            ).eq("endpoint", endpoint).execute()
+            db.table("push_subscriptions").delete().eq("user_id", user_id).eq(
+                "endpoint", endpoint
+            ).execute()
         except Exception:
             pass
 
     if expired:
-        logger.info("Push: cleaned {} expired subscriptions for user={}", len(expired), user_id[:8])
+        logger.info(
+            "Push: cleaned {} expired subscriptions for user={}",
+            len(expired),
+            user_id[:8],
+        )
 
     logger.info("Push: sent {} notifications to user={}", sent, user_id[:8])
     return sent

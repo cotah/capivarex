@@ -70,8 +70,7 @@ def safe_write_json(path: Path, data: Any):
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
-            encoding=DEFAULT_ENCODING
+            json.dumps(data, indent=2, ensure_ascii=False), encoding=DEFAULT_ENCODING
         )
     except Exception as e:
         logger.error(f"Failed to write JSON to {path}: {e}")
@@ -167,6 +166,6 @@ def sanitize_input(text: str, max_length: int = 10000) -> str:
         text = text[:max_length]
 
     # Remove null bytes
-    text = text.replace('\x00', '')
+    text = text.replace("\x00", "")
 
     return text.strip()

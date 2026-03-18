@@ -80,7 +80,10 @@ class TenancyManager:
             return None
         except Exception as e:
             logger.error(
-                "Failed to resolve context for %s/%s: %s", channel, channel_identifier, e
+                "Failed to resolve context for %s/%s: %s",
+                channel,
+                channel_identifier,
+                e,
             )
             return None
 
@@ -123,7 +126,9 @@ class TenancyManager:
         """Register (or update) a webapp identity mapping."""
         success = False
         if session_id:
-            success = await self._upsert_identity("webapp", session_id, user_id) or success
+            success = (
+                await self._upsert_identity("webapp", session_id, user_id) or success
+            )
         if email:
             success = await self._upsert_identity("webapp", email, user_id) or success
         return success

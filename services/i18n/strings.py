@@ -2614,9 +2614,9 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "📺 ¡TV encendida!",
     },
     "media_found_videos": {
-        "en": "🔍 Found videos for \"{query}\":",
-        "pt": "🔍 Encontrei vídeos para \"{query}\":",
-        "es": "🔍 Encontré videos para \"{query}\":",
+        "en": '🔍 Found videos for "{query}":',
+        "pt": '🔍 Encontrei vídeos para "{query}":',
+        "es": '🔍 Encontré videos para "{query}":',
     },
     "media_watch": {
         "en": "Watch",
@@ -2629,14 +2629,14 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "💡 ¡Toca el enlace y luego el ícono Cast 📲 para enviar a tu TV!",
     },
     "media_no_results": {
-        "en": "😕 No videos found for \"{query}\". Try a different search.",
-        "pt": "😕 Não encontrei vídeos para \"{query}\". Tenta outra pesquisa.",
-        "es": "😕 No encontré videos para \"{query}\". Intenta otra búsqueda.",
+        "en": '😕 No videos found for "{query}". Try a different search.',
+        "pt": '😕 Não encontrei vídeos para "{query}". Tenta outra pesquisa.',
+        "es": '😕 No encontré videos para "{query}". Intenta otra búsqueda.',
     },
     "media_cast_help": {
-        "en": "📺 I can help you play content on your TV!\n\nTry:\n• \"Play Palmeiras on TV\"\n• \"Turn on the TV\"\n• \"Watch cooking videos on TV\"",
-        "pt": "📺 Posso ajudar-te a pôr conteúdo na TV!\n\nTenta:\n• \"Põe Palmeiras na TV\"\n• \"Liga a TV\"\n• \"Assistir vídeos de culinária na TV\"",
-        "es": "📺 ¡Puedo ayudarte a poner contenido en la TV!\n\nIntenta:\n• \"Pon Palmeiras en la TV\"\n• \"Enciende la TV\"\n• \"Ver videos de cocina en la TV\"",
+        "en": '📺 I can help you play content on your TV!\n\nTry:\n• "Play Palmeiras on TV"\n• "Turn on the TV"\n• "Watch cooking videos on TV"',
+        "pt": '📺 Posso ajudar-te a pôr conteúdo na TV!\n\nTenta:\n• "Põe Palmeiras na TV"\n• "Liga a TV"\n• "Assistir vídeos de culinária na TV"',
+        "es": '📺 ¡Puedo ayudarte a poner contenido en la TV!\n\nIntenta:\n• "Pon Palmeiras en la TV"\n• "Enciende la TV"\n• "Ver videos de cocina en la TV"',
     },
     # ══════════════════════════════════════════════════════════════
     # Spotify Playback Control
@@ -2692,9 +2692,9 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "es": "❌ No pude reproducir. Asegúrate de que Spotify esté abierto.",
     },
     "music_not_found": {
-        "en": "🔍 No tracks found for \"{query}\".",
-        "pt": "🔍 Não encontrei faixas para \"{query}\".",
-        "es": "🔍 No encontré canciones para \"{query}\".",
+        "en": '🔍 No tracks found for "{query}".',
+        "pt": '🔍 Não encontrei faixas para "{query}".',
+        "es": '🔍 No encontré canciones para "{query}".',
     },
     "music_nothing_to_add": {
         "en": "🔇 Nothing is playing to add to a playlist.",

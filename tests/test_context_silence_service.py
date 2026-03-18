@@ -1,4 +1,5 @@
 """Tests for Context-aware Silence service."""
+
 import pytest
 import time
 import json
@@ -21,8 +22,16 @@ class TestCheckFocusMode:
     @pytest.mark.asyncio
     async def test_focus_active(self):
         with (
-            patch("services.business.focus_mode_service.is_focus_active", new_callable=AsyncMock, return_value=True),
-            patch("services.business.focus_mode_service.get_focus_state", new_callable=AsyncMock, return_value={"ends_at": time.time() + 3600}),
+            patch(
+                "services.business.focus_mode_service.is_focus_active",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "services.business.focus_mode_service.get_focus_state",
+                new_callable=AsyncMock,
+                return_value={"ends_at": time.time() + 3600},
+            ),
         ):
             result = await _check_focus_mode("u1")
         assert result["silent"] is True
@@ -30,13 +39,21 @@ class TestCheckFocusMode:
 
     @pytest.mark.asyncio
     async def test_focus_not_active(self):
-        with patch("services.business.focus_mode_service.is_focus_active", new_callable=AsyncMock, return_value=False):
+        with patch(
+            "services.business.focus_mode_service.is_focus_active",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
             result = await _check_focus_mode("u1")
         assert result["silent"] is False
 
     @pytest.mark.asyncio
     async def test_focus_error(self):
-        with patch("services.business.focus_mode_service.is_focus_active", new_callable=AsyncMock, side_effect=Exception("err")):
+        with patch(
+            "services.business.focus_mode_service.is_focus_active",
+            new_callable=AsyncMock,
+            side_effect=Exception("err"),
+        ):
             result = await _check_focus_mode("u1")
         assert result["silent"] is False
 
@@ -49,7 +66,10 @@ class TestCheckMeeting:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.lte.return_value.gte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"title": "Sprint Review", "end_time": "2026-03-17T15:00:00+00:00"}]
         )
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _check_current_meeting("u1")
         assert result["silent"] is True
         assert result["reason"] == "meeting"
@@ -59,14 +79,21 @@ class TestCheckMeeting:
     async def test_no_meeting(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.lte.return_value.gte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.lte.return_value.gte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _check_current_meeting("u1")
         assert result["silent"] is False
 
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.context_silence_service.get_service", return_value=None):
+        with patch(
+            "services.business.context_silence_service.get_service", return_value=None
+        ):
             result = await _check_current_meeting("u1")
         assert result["silent"] is False
 
@@ -74,7 +101,11 @@ class TestCheckMeeting:
 class TestCheckQuietHours:
     @pytest.mark.asyncio
     async def test_during_quiet(self):
-        with patch("services.business.context_silence_service._get_quiet_hours", new_callable=AsyncMock, return_value=(0, 23)):
+        with patch(
+            "services.business.context_silence_service._get_quiet_hours",
+            new_callable=AsyncMock,
+            return_value=(0, 23),
+        ):
             result = await _check_quiet_hours("u1")
         assert result["silent"] is True
         assert result["reason"] == "sleeping"
@@ -85,13 +116,21 @@ class TestCheckQuietHours:
         now_hour = datetime.now(timezone.utc).hour
         quiet_start = (now_hour + 2) % 24
         quiet_end = (now_hour + 4) % 24
-        with patch("services.business.context_silence_service._get_quiet_hours", new_callable=AsyncMock, return_value=(quiet_start, quiet_end)):
+        with patch(
+            "services.business.context_silence_service._get_quiet_hours",
+            new_callable=AsyncMock,
+            return_value=(quiet_start, quiet_end),
+        ):
             result = await _check_quiet_hours("u1")
         assert result["silent"] is False
 
     @pytest.mark.asyncio
     async def test_error(self):
-        with patch("services.business.context_silence_service._get_quiet_hours", new_callable=AsyncMock, side_effect=Exception("err")):
+        with patch(
+            "services.business.context_silence_service._get_quiet_hours",
+            new_callable=AsyncMock,
+            side_effect=Exception("err"),
+        ):
             result = await _check_quiet_hours("u1")
         assert result["silent"] is False
 
@@ -105,7 +144,10 @@ class TestCheckDND:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": json.dumps({"active": True, "until": future_ts})}]
         )
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _check_dnd("u1")
         assert result["silent"] is True
         assert result["reason"] == "dnd"
@@ -118,7 +160,10 @@ class TestCheckDND:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": json.dumps({"active": True, "until": past_ts})}]
         )
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _check_dnd("u1")
         assert result["silent"] is False
 
@@ -126,8 +171,13 @@ class TestCheckDND:
     async def test_no_dnd(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _check_dnd("u1")
         assert result["silent"] is False
 
@@ -136,7 +186,16 @@ class TestShouldBeSilent:
     @pytest.mark.asyncio
     async def test_focus_takes_priority(self):
         with (
-            patch("services.business.context_silence_service._check_focus_mode", new_callable=AsyncMock, return_value={"silent": True, "reason": "focus", "until": "16:00", "details": "Focus Mode"}),
+            patch(
+                "services.business.context_silence_service._check_focus_mode",
+                new_callable=AsyncMock,
+                return_value={
+                    "silent": True,
+                    "reason": "focus",
+                    "until": "16:00",
+                    "details": "Focus Mode",
+                },
+            ),
         ):
             result = await should_be_silent("u1")
         assert result["silent"] is True
@@ -145,8 +204,26 @@ class TestShouldBeSilent:
     @pytest.mark.asyncio
     async def test_meeting_if_no_focus(self):
         with (
-            patch("services.business.context_silence_service._check_focus_mode", new_callable=AsyncMock, return_value={"silent": False, "reason": None, "until": None, "details": None}),
-            patch("services.business.context_silence_service._check_current_meeting", new_callable=AsyncMock, return_value={"silent": True, "reason": "meeting", "until": "15:00", "details": "Standup"}),
+            patch(
+                "services.business.context_silence_service._check_focus_mode",
+                new_callable=AsyncMock,
+                return_value={
+                    "silent": False,
+                    "reason": None,
+                    "until": None,
+                    "details": None,
+                },
+            ),
+            patch(
+                "services.business.context_silence_service._check_current_meeting",
+                new_callable=AsyncMock,
+                return_value={
+                    "silent": True,
+                    "reason": "meeting",
+                    "until": "15:00",
+                    "details": "Standup",
+                },
+            ),
         ):
             result = await should_be_silent("u1")
         assert result["reason"] == "meeting"
@@ -155,10 +232,26 @@ class TestShouldBeSilent:
     async def test_not_silent(self):
         not_silent = {"silent": False, "reason": None, "until": None, "details": None}
         with (
-            patch("services.business.context_silence_service._check_focus_mode", new_callable=AsyncMock, return_value=not_silent),
-            patch("services.business.context_silence_service._check_current_meeting", new_callable=AsyncMock, return_value=not_silent),
-            patch("services.business.context_silence_service._check_quiet_hours", new_callable=AsyncMock, return_value=not_silent),
-            patch("services.business.context_silence_service._check_dnd", new_callable=AsyncMock, return_value=not_silent),
+            patch(
+                "services.business.context_silence_service._check_focus_mode",
+                new_callable=AsyncMock,
+                return_value=not_silent,
+            ),
+            patch(
+                "services.business.context_silence_service._check_current_meeting",
+                new_callable=AsyncMock,
+                return_value=not_silent,
+            ),
+            patch(
+                "services.business.context_silence_service._check_quiet_hours",
+                new_callable=AsyncMock,
+                return_value=not_silent,
+            ),
+            patch(
+                "services.business.context_silence_service._check_dnd",
+                new_callable=AsyncMock,
+                return_value=not_silent,
+            ),
         ):
             result = await should_be_silent("u1")
         assert result["silent"] is False
@@ -167,24 +260,35 @@ class TestShouldBeSilent:
 class TestQueueNotification:
     @pytest.mark.asyncio
     async def test_queue_no_db(self):
-        with patch("services.business.context_silence_service.get_service", return_value=None):
+        with patch(
+            "services.business.context_silence_service.get_service", return_value=None
+        ):
             await queue_notification("u1", "Test notification")  # Should not raise
 
     @pytest.mark.asyncio
     async def test_queue_success(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{"value": "[]"}])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[{"value": "[]"}]
+        )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             await queue_notification("u1", "New email from João", "email")
 
 
 class TestFlushQueue:
     @pytest.mark.asyncio
     async def test_empty_queue(self):
-        with patch("services.business.context_silence_service._get_queue", new_callable=AsyncMock, return_value=[]):
+        with patch(
+            "services.business.context_silence_service._get_queue",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
             result = await flush_queue("u1", "João")
         assert result is None
 
@@ -200,8 +304,15 @@ class TestFlushQueue:
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
         with (
-            patch("services.business.context_silence_service._get_queue", new_callable=AsyncMock, return_value=queue),
-            patch("services.business.context_silence_service.get_service", return_value=mock_db),
+            patch(
+                "services.business.context_silence_service._get_queue",
+                new_callable=AsyncMock,
+                return_value=queue,
+            ),
+            patch(
+                "services.business.context_silence_service.get_service",
+                return_value=mock_db,
+            ),
         ):
             result = await flush_queue("u1", "João")
 
@@ -215,8 +326,15 @@ class TestFlushQueue:
     async def test_flush_single(self):
         queue = [{"text": "Alerta", "source": "", "time": time.time()}]
         with (
-            patch("services.business.context_silence_service._get_queue", new_callable=AsyncMock, return_value=queue),
-            patch("services.business.context_silence_service.get_service", return_value=None),
+            patch(
+                "services.business.context_silence_service._get_queue",
+                new_callable=AsyncMock,
+                return_value=queue,
+            ),
+            patch(
+                "services.business.context_silence_service.get_service",
+                return_value=None,
+            ),
         ):
             result = await flush_queue("u1")
         assert "1 notificação" in result
@@ -225,7 +343,9 @@ class TestFlushQueue:
 class TestGetQueue:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.context_silence_service.get_service", return_value=None):
+        with patch(
+            "services.business.context_silence_service.get_service", return_value=None
+        ):
             assert await _get_queue("u1") == []
 
     @pytest.mark.asyncio
@@ -235,7 +355,10 @@ class TestGetQueue:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": '[{"text": "test", "time": 1}]'}]
         )
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _get_queue("u1")
         assert len(result) == 1
 
@@ -244,5 +367,8 @@ class TestGetQueue:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.context_silence_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.context_silence_service.get_service",
+            return_value=mock_db,
+        ):
             assert await _get_queue("u1") == []

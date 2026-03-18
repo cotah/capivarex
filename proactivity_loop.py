@@ -29,10 +29,13 @@ async def _get_proactivity_service():
 async def run_proactivity_cycle() -> None:
     """Execute a proactive verification cycle for all users.
 
-    Runs three independent steps:
-    1. Proactivity checks (insights, smart home alerts)
+    Active steps (post-triagem):
+    1. Proactivity checks (insights)
     2. Email polling (Gmail → Telegram notifications)
-    3. News fetching (2x/day at 07:00 and 18:00 UTC via Perplexity)
+    3. Finance price alerts (every cycle — ~5 min)
+    4. Morning briefing (once/day per user, ~08:00 UTC)
+    5. Meeting briefings (2h before meetings)
+    6. Weekly finance recap (Mondays ~09:00 UTC)
 
     Each step is isolated — a failure or early exit in one
     does NOT prevent the other from running.
@@ -53,16 +56,12 @@ async def run_proactivity_cycle() -> None:
         logger.error("Email polling step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
-    # ── Step 3: News fetching (2x/day — 07:00 and 18:00 UTC) ─────────────
-    try:
-        await _run_news_fetch_if_due()
-    except Exception as e:
-        logger.error("News fetch step failed: %s", e)
-        sentry_sdk.capture_exception(e)
+    # ── Step 3 (news): PAUSED — TODO: Reativar no Q3 2026
 
-    # ── Step 4: Finance price alerts (every cycle — ~5 min) ───────────────
+    # ── Step 3: Finance price alerts (every cycle — ~5 min) ───────────────
     try:
         from services.business.finance_alert_service import check_price_alerts
+
         alerts = await check_price_alerts()
         if alerts:
             logger.info("Finance alerts: %d alerts sent this cycle", alerts)
@@ -70,40 +69,29 @@ async def run_proactivity_cycle() -> None:
         logger.error("Finance alerts step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
-    # ── Step 5: Morning briefing (once/day per user, ~08:00 UTC) ──────────
+    # ── Step 4: Morning briefing (once/day per user, ~08:00 UTC) ──────────
     try:
         await _run_morning_briefings()
     except Exception as e:
         logger.error("Morning briefing step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
-    # ── Step 6: Meeting briefings (2h before meetings) ────────────────────
+    # ── Step 5: Meeting briefings (2h before meetings) ────────────────────
     try:
         await _run_meeting_briefings()
     except Exception as e:
         logger.error("Meeting briefing step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
-    # ── Step 7: Weekly finance recap (Mondays ~09:00 UTC) ─────────────────
+    # ── Step 6: Weekly finance recap (Mondays ~09:00 UTC) ─────────────────
     try:
         await _run_weekly_recap()
     except Exception as e:
         logger.error("Weekly recap step failed: %s", e)
         sentry_sdk.capture_exception(e)
 
-    # ── Step 8: Travel planner detection (once/day, 10:00-12:00 UTC) ──────
-    try:
-        await _run_travel_detection()
-    except Exception as e:
-        logger.error("Travel detection step failed: %s", e)
-        sentry_sdk.capture_exception(e)
-
-    # ── Step 9: Birthday detection (once/day, 08:00-10:00 UTC) ────────────
-    try:
-        await _run_birthday_detection()
-    except Exception as e:
-        logger.error("Birthday detection step failed: %s", e)
-        sentry_sdk.capture_exception(e)
+    # ── Step 7 (travel): PAUSED — TODO: Reativar no Q3 2026
+    # ── Step 8 (birthday): PAUSED — TODO: Reativar no Q3 2026
 
 
 async def _run_proactivity_checks() -> None:
@@ -241,13 +229,9 @@ async def _run_email_polling() -> None:
             # Resolve user data for lang + chat_id
             user_data = await db_service.get_user_by_id(user_id)
             lang = (user_data or {}).get("preferred_language", "en")
-            chat_id = (user_data or {}).get(
-                "telegram_chat_id", user_id
-            )
+            chat_id = (user_data or {}).get("telegram_chat_id", user_id)
 
-            batch = await eps.summarize_for_notification(
-                new_emails, user_id, lang
-            )
+            batch = await eps.summarize_for_notification(new_emails, user_id, lang)
             if not batch.notifications and not batch.grouped_text:
                 continue
 
@@ -273,14 +257,10 @@ async def _run_email_polling() -> None:
                     if not notif.text:
                         continue
                     needs_reply = (
-                        notif.analysis.needs_reply
-                        if notif.analysis
-                        else False
+                        notif.analysis.needs_reply if notif.analysis else False
                     )
                     event_req = (
-                        notif.analysis.event_request
-                        if notif.analysis
-                        else False
+                        notif.analysis.event_request if notif.analysis else False
                     )
                     keyboard = _build_email_keyboard(
                         notif.email_id,
@@ -297,14 +277,10 @@ async def _run_email_polling() -> None:
                     notified += 1
                     await _store_email_draft(user_id, notif)
 
-            await eps.mark_as_notified(
-                user_id, [e["id"] for e in new_emails]
-            )
+            await eps.mark_as_notified(user_id, [e["id"] for e in new_emails])
 
         except asyncio.TimeoutError:
-            logger.warning(
-                "Email polling timed out for user %s", user_id
-            )
+            logger.warning("Email polling timed out for user %s", user_id)
         except Exception as e:
             logger.error(
                 "Email polling failed for user %s: %s",
@@ -348,44 +324,14 @@ async def _store_email_draft(user_id: str, notif) -> None:
         "from_name": notif.from_name,
         "user_id": notif.user_id,
         "lang": notif.lang,
-        "suggested_reply": (
-            analysis.suggested_reply if analysis else ""
-        ),
-        "proposed_datetime": (
-            analysis.proposed_datetime if analysis else None
-        ),
-        "proposed_location": (
-            analysis.proposed_location if analysis else ""
-        ),
+        "suggested_reply": (analysis.suggested_reply if analysis else ""),
+        "proposed_datetime": (analysis.proposed_datetime if analysis else None),
+        "proposed_location": (analysis.proposed_location if analysis else ""),
     }
     await store_email_draft(user_id, notif.email_id, draft_data)
 
 
-async def _run_news_fetch_if_due() -> None:
-    """Fetch financial news 2x/day at 07:00 and 18:00 UTC.
-
-    Since the proactivity loop runs every 5 minutes, we check if the
-    current time falls within a 5-minute window of the target hours.
-    """
-    from datetime import datetime, timezone
-
-    now = datetime.now(timezone.utc)
-    hour = now.hour
-    minute = now.minute
-
-    # Only run at 07:00-07:04 or 18:00-18:04 UTC
-    if not ((hour == 7 and minute < 5) or (hour == 18 and minute < 5)):
-        return
-
-    logger.info("News: time window hit (%02d:%02d UTC), fetching news...", hour, minute)
-
-    try:
-        from services.business.finance_news_service import fetch_and_store_news
-        articles = await fetch_and_store_news()
-        logger.info("News: fetched %d articles", len(articles))
-    except Exception as e:
-        logger.error("News: fetch_and_store_news failed: %s", e)
-        raise
+# _run_news_fetch_if_due: PAUSED — TODO: Reativar no Q3 2026
 
 
 async def _run_morning_briefings() -> None:
@@ -465,7 +411,8 @@ async def _run_meeting_briefings() -> None:
             if briefings:
                 logger.info(
                     "Meeting briefings: {} sent for user={}",
-                    len(briefings), user_id[:8],
+                    len(briefings),
+                    user_id[:8],
                 )
         except Exception as e:
             logger.warning("Meeting briefing failed for user={}: {}", user_id[:8], e)
@@ -504,7 +451,9 @@ async def _run_weekly_recap() -> None:
             result = await generate_weekly_recap(
                 user_id=user_id,
                 user_name=user_data.get("full_name", ""),
-                chat_id=str(user_data.get("telegram_chat_id")) if user_data.get("telegram_chat_id") else None,
+                chat_id=str(user_data.get("telegram_chat_id"))
+                if user_data.get("telegram_chat_id")
+                else None,
             )
             if result:
                 logger.info("Weekly recap sent for user={}", user_id[:8])
@@ -512,33 +461,8 @@ async def _run_weekly_recap() -> None:
             logger.warning("Weekly recap failed for user={}: {}", user_id[:8], e)
 
 
-async def _run_birthday_detection() -> None:
-    """Detect upcoming birthdays (once/day, 08:00-10:00 UTC)."""
-    from datetime import datetime, timezone
-
-    now = datetime.now(timezone.utc)
-    if not (8 <= now.hour <= 10):
-        return
-
-    from services.business.birthday_service import check_birthdays_for_all_users
-    alerts = await check_birthdays_for_all_users()
-    if alerts:
-        logger.info("Birthday detection: %d alerts sent", alerts)
-
-
-async def _run_travel_detection() -> None:
-    """Detect upcoming trips in calendar (once/day, 10:00-12:00 UTC)."""
-    from datetime import datetime, timezone
-
-    now = datetime.now(timezone.utc)
-    # Only run between 10:00-12:00 UTC (once per day)
-    if not (10 <= now.hour <= 12):
-        return
-
-    from services.business.travel_planner_service import check_travel_for_all_users
-    alerts = await check_travel_for_all_users()
-    if alerts:
-        logger.info("Travel detection: %d trip alerts sent", alerts)
+# _run_birthday_detection: PAUSED — TODO: Reativar no Q3 2026
+# _run_travel_detection: PAUSED — TODO: Reativar no Q3 2026
 
 
 async def main_loop() -> None:

@@ -9,6 +9,7 @@ Endpoints:
     GET  /next-meeting  - Get the next upcoming meeting
     GET  /briefing      - Get calendar briefing for morning briefing
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,14 +29,17 @@ logger = logging.getLogger("capivarex.api.routes.calendar")
 # Request / Response models
 # ---------------------------------------------------------------------------
 
+
 class CalendarQuery(BaseModel):
     """Calendar query request model."""
+
     query: str
     context: Optional[Dict[str, Any]] = None
 
 
 class CalendarResponse(BaseModel):
     """Calendar response model."""
+
     success: bool
     response: str
     events: List[Any] = []
@@ -45,6 +49,7 @@ class CalendarResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_calendar_agent():
     """Retrieve the calendar agent from the registry, raising if absent."""
@@ -57,14 +62,18 @@ def _get_calendar_agent():
     return agent
 
 
-def _build_context(current_user: Dict[str, Any], extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _build_context(
+    current_user: Dict[str, Any], extra: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """Build a standard context dict from the authenticated user."""
     context = extra.copy() if extra else {}
-    context.update({
-        "user_id": current_user.get("id"),
-        "tenant_id": current_user.get("tenant_id", "default"),
-        "channel": "api",
-    })
+    context.update(
+        {
+            "user_id": current_user.get("id"),
+            "tenant_id": current_user.get("tenant_id", "default"),
+            "channel": "api",
+        }
+    )
     return context
 
 
@@ -105,6 +114,7 @@ async def _calendar_request(
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.post("/query", response_model=CalendarResponse)
 async def query_calendar(
     request: CalendarQuery,
@@ -112,7 +122,10 @@ async def query_calendar(
 ) -> CalendarResponse:
     """Query calendar information."""
     return await _calendar_request(
-        request.query, current_user, request.context, error_label="calendar query",
+        request.query,
+        current_user,
+        request.context,
+        error_label="calendar query",
     )
 
 
@@ -122,7 +135,9 @@ async def get_today_events(
 ) -> CalendarResponse:
     """Get today's calendar events."""
     return await _calendar_request(
-        "What's on my calendar today?", current_user, error_label="today's events",
+        "What's on my calendar today?",
+        current_user,
+        error_label="today's events",
     )
 
 
@@ -132,7 +147,9 @@ async def get_next_meeting(
 ) -> CalendarResponse:
     """Get the next upcoming meeting."""
     return await _calendar_request(
-        "What's my next meeting?", current_user, error_label="next meeting",
+        "What's my next meeting?",
+        current_user,
+        error_label="next meeting",
     )
 
 
@@ -142,5 +159,7 @@ async def get_calendar_briefing(
 ) -> CalendarResponse:
     """Get calendar briefing for morning briefing."""
     return await _calendar_request(
-        "Give me my calendar briefing", current_user, error_label="calendar briefing",
+        "Give me my calendar briefing",
+        current_user,
+        error_label="calendar briefing",
     )

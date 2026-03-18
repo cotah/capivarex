@@ -19,6 +19,7 @@ from functools import wraps
 
 class ServiceStatus(Enum):
     """Service health status."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -73,9 +74,7 @@ def _is_retryable(exc: Exception) -> bool:
 
 
 def retry_on_failure(
-    max_retries: int = 3,
-    backoff_factor: float = 2.0,
-    exceptions: tuple = (Exception,)
+    max_retries: int = 3, backoff_factor: float = 2.0, exceptions: tuple = (Exception,)
 ):
     """
     Decorator for retrying failed operations with exponential backoff.
@@ -89,8 +88,10 @@ def retry_on_failure(
         backoff_factor: Multiplier for delay between retries
         exceptions: Tuple of exceptions to catch
     """
+
     def decorator(func: Callable):
         """Register *cls* and return it unchanged."""
+
         @wraps(func)
         async def wrapper(*args, **kwargs):
             """Execute *func* with retry and exponential back-off on transient errors."""
@@ -110,7 +111,11 @@ def retry_on_failure(
                         logger = logging.getLogger("capivarex.services.retry")
                         logger.warning(
                             "Attempt %d/%d failed for %s: %s. Retrying in %.1fs...",
-                            attempt + 1, max_retries, func.__name__, e, delay,
+                            attempt + 1,
+                            max_retries,
+                            func.__name__,
+                            e,
+                            delay,
                         )
                         await asyncio.sleep(delay)
                         delay *= backoff_factor
@@ -120,6 +125,7 @@ def retry_on_failure(
             raise last_exception
 
         return wrapper
+
     return decorator
 
 
@@ -171,8 +177,7 @@ class BaseService(ABC):
         except Exception as e:
             self._status = ServiceStatus.UNHEALTHY
             self.logger.error(
-                f"Failed to initialize {self.name} service: {e}",
-                exc_info=True
+                f"Failed to initialize {self.name} service: {e}", exc_info=True
             )
             raise ServiceConfigurationError(
                 f"Failed to initialize {self.name}: {e}"
@@ -195,7 +200,9 @@ class BaseService(ABC):
         """
         try:
             is_healthy = await self._health_check()
-            self._status = ServiceStatus.HEALTHY if is_healthy else ServiceStatus.DEGRADED
+            self._status = (
+                ServiceStatus.HEALTHY if is_healthy else ServiceStatus.DEGRADED
+            )
         except Exception as e:
             self.logger.error(f"Health check failed for {self.name}: {e}")
             self._status = ServiceStatus.UNHEALTHY
@@ -219,15 +226,11 @@ class BaseService(ABC):
             Dictionary with metrics
         """
         avg_latency = (
-            self._total_latency / self._call_count
-            if self._call_count > 0
-            else 0.0
+            self._total_latency / self._call_count if self._call_count > 0 else 0.0
         )
 
         error_rate = (
-            self._error_count / self._call_count
-            if self._call_count > 0
-            else 0.0
+            self._error_count / self._call_count if self._call_count > 0 else 0.0
         )
 
         return {

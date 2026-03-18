@@ -131,9 +131,7 @@ class SpotifyUserService:
                 return r.json().get("items", [])
             return []
 
-    async def add_to_playlist(
-        self, playlist_id: str, track_uri: str
-    ) -> bool:
+    async def add_to_playlist(self, playlist_id: str, track_uri: str) -> bool:
         """Add a track to a playlist."""
         async with httpx.AsyncClient() as client:
             r = await client.post(
@@ -153,9 +151,7 @@ class SpotifyUserService:
             )
             return r.status_code == 200
 
-    async def get_recently_played(
-        self, limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    async def get_recently_played(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recently played tracks."""
         async with httpx.AsyncClient() as client:
             r = await client.get(

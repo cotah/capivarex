@@ -235,12 +235,13 @@ class CAPIVAREXBot:
 
                     # Auto-register if user doesn't exist yet
                     if not user_row:
-                        self.logger.info(
-                            "Auto-registering telegram_id=%s", telegram_id
-                        )
+                        self.logger.info("Auto-registering telegram_id=%s", telegram_id)
                         try:
-                            from telegram_bot.commands.start import _ensure_user_registered
+                            from telegram_bot.commands.start import (
+                                _ensure_user_registered,
+                            )
                             from types import SimpleNamespace
+
                             fake_user = SimpleNamespace(
                                 id=int(telegram_id),
                                 full_name=context.get("username", "Telegram User"),
@@ -252,7 +253,8 @@ class CAPIVAREXBot:
                         except Exception as reg_err:
                             self.logger.warning(
                                 "Auto-register failed for telegram_id=%s: %s",
-                                telegram_id, reg_err,
+                                telegram_id,
+                                reg_err,
                             )
 
                     if user_row:
@@ -273,7 +275,11 @@ class CAPIVAREXBot:
                             telegram_id,
                         )
                         # CRITICAL: remove non-UUID user_id to prevent DB errors
-                        context = {**context, "user_id": "", "telegram_user_id": telegram_id}
+                        context = {
+                            **context,
+                            "user_id": "",
+                            "telegram_user_id": telegram_id,
+                        }
             except Exception as e:
                 self.logger.warning("Could not resolve user UUID: %s", e)
                 context = {**context, "user_id": "", "telegram_user_id": telegram_id}
@@ -322,7 +328,11 @@ class CAPIVAREXBot:
             # Protege contra falhas do GPT-4o-mini no routing.
             # "conectar google" → calendar (LLM confunde "google" com search)
             # "meus emails" → email (LLM pode enviar para chat/search)
-            if agent_name in ("chat", "search", "research") and self._is_calendar_connect_query(text):
+            if agent_name in (
+                "chat",
+                "search",
+                "research",
+            ) and self._is_calendar_connect_query(text):
                 self.logger.info(
                     "KEYWORD OVERRIDE: '%s' → calendar (was: %s)",
                     text[:60],
@@ -330,7 +340,9 @@ class CAPIVAREXBot:
                 )
                 agent_name = "calendar"
 
-            if agent_name in ("chat", "search", "research") and self._is_email_query(text):
+            if agent_name in ("chat", "search", "research") and self._is_email_query(
+                text
+            ):
                 self.logger.info(
                     "KEYWORD OVERRIDE: '%s' → email (was: %s)",
                     text[:60],
@@ -425,9 +437,7 @@ class CAPIVAREXBot:
                         extract_and_save_personal_info,
                     )
 
-                    asyncio.create_task(
-                        extract_and_save_personal_info(user_uuid, text)
-                    )
+                    asyncio.create_task(extract_and_save_personal_info(user_uuid, text))
                 except Exception as e:
                     self.logger.debug("Could not schedule info extraction: %s", e)
 
@@ -435,9 +445,7 @@ class CAPIVAREXBot:
                 try:
                     from services.business.rag_service import extract_and_save_memory
 
-                    asyncio.create_task(
-                        extract_and_save_memory(user_uuid, text)
-                    )
+                    asyncio.create_task(extract_and_save_memory(user_uuid, text))
                 except Exception as e:
                     self.logger.debug("Could not schedule RAG extraction: %s", e)
 
@@ -453,7 +461,8 @@ class CAPIVAREXBot:
                         if result and result.response:
                             asyncio.create_task(
                                 redis_svc.save_conversation_message(
-                                    user_uuid, {"role": "assistant", "content": result.response}
+                                    user_uuid,
+                                    {"role": "assistant", "content": result.response},
                                 )
                             )
                 except Exception as e:

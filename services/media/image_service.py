@@ -152,9 +152,7 @@ class ImageService(BaseService):
         except Exception as e:
             latency = time.time() - start_time
             self._track_call(latency, error=True)
-            self.logger.warning(
-                "Imagen 4 failed, trying DALL-E fallback: %s", e
-            )
+            self.logger.warning("Imagen 4 failed, trying DALL-E fallback: %s", e)
 
             # ── DALL-E 3 fallback ────────────────────────────────────────
             try:
@@ -197,7 +195,9 @@ class ImageService(BaseService):
         start = time.time()
         client = AsyncOpenAI(api_key=openai_key)
 
-        self.logger.info("DALL-E 3 fallback: prompt='%s...', size=%s", prompt[:60], size)
+        self.logger.info(
+            "DALL-E 3 fallback: prompt='%s...', size=%s", prompt[:60], size
+        )
 
         response = await client.images.generate(
             model="dall-e-3",
@@ -223,7 +223,9 @@ class ImageService(BaseService):
         with open(output_path, "wb") as f:
             f.write(img_resp.content)
 
-        self.logger.info("DALL-E fallback image saved: %s (%.1fs)", output_path, time.time() - start)
+        self.logger.info(
+            "DALL-E fallback image saved: %s (%.1fs)", output_path, time.time() - start
+        )
 
         return {
             "success": True,

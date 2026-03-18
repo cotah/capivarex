@@ -101,14 +101,18 @@ class TestUpdateUserPreferences:
         svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = _chain_result(
             {"id": "00000000-0000-0000-0000-000000000001"}
         )
-        result = await svc.update_user_preferences("00000000-0000-0000-0000-000000000001", {"locale": "pt_BR"})
+        result = await svc.update_user_preferences(
+            "00000000-0000-0000-0000-000000000001", {"locale": "pt_BR"}
+        )
         assert result is True
 
     @pytest.mark.asyncio
     async def test_failure(self):
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db")
-        result = await svc.update_user_preferences("00000000-0000-0000-0000-000000000001", {})
+        result = await svc.update_user_preferences(
+            "00000000-0000-0000-0000-000000000001", {}
+        )
         assert result is False
 
 
@@ -124,7 +128,9 @@ class TestProactivityPreferences:
         svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
             [{"user_id": "00000000-0000-0000-0000-000000000001", "enabled": True}]
         )
-        result = await svc.get_proactivity_preferences("00000000-0000-0000-0000-000000000001")
+        result = await svc.get_proactivity_preferences(
+            "00000000-0000-0000-0000-000000000001"
+        )
         assert result["enabled"] is True
 
     @pytest.mark.asyncio
@@ -133,7 +139,9 @@ class TestProactivityPreferences:
         svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
             []
         )
-        result = await svc.get_proactivity_preferences("00000000-0000-0000-0000-000000000001")
+        result = await svc.get_proactivity_preferences(
+            "00000000-0000-0000-0000-000000000001"
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -142,15 +150,21 @@ class TestProactivityPreferences:
         # Simulate no existing record
         svc.get_proactivity_preferences = AsyncMock(return_value=None)
         svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
-        result = await svc.update_proactivity_preferences("00000000-0000-0000-0000-000000000001", True)
+        result = await svc.update_proactivity_preferences(
+            "00000000-0000-0000-0000-000000000001", True
+        )
         assert result is True
 
     @pytest.mark.asyncio
     async def test_update_existing(self):
         svc = _make_service()
-        svc.get_proactivity_preferences = AsyncMock(return_value={"user_id": "00000000-0000-0000-0000-000000000001"})
+        svc.get_proactivity_preferences = AsyncMock(
+            return_value={"user_id": "00000000-0000-0000-0000-000000000001"}
+        )
         svc.client.table.return_value.update.return_value.eq.return_value.execute.return_value = Mock()
-        result = await svc.update_proactivity_preferences("00000000-0000-0000-0000-000000000001", False)
+        result = await svc.update_proactivity_preferences(
+            "00000000-0000-0000-0000-000000000001", False
+        )
         assert result is True
 
     @pytest.mark.asyncio
@@ -176,7 +190,9 @@ class TestUserContext:
             []
         )
         svc.client.table.return_value.insert.return_value.execute.return_value = Mock()
-        result = await svc.save_user_context("00000000-0000-0000-0000-000000000001", "location", {"lat": 53.3})
+        result = await svc.save_user_context(
+            "00000000-0000-0000-0000-000000000001", "location", {"lat": 53.3}
+        )
         assert result is True
 
     @pytest.mark.asyncio
@@ -186,7 +202,9 @@ class TestUserContext:
             [{"id": "existing"}]
         )
         svc.client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = Mock()
-        result = await svc.save_user_context("00000000-0000-0000-0000-000000000001", "location", {"lat": 53.3})
+        result = await svc.save_user_context(
+            "00000000-0000-0000-0000-000000000001", "location", {"lat": 53.3}
+        )
         assert result is True
 
     @pytest.mark.asyncio
@@ -195,7 +213,9 @@ class TestUserContext:
         svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
             [{"data": {"lat": 53.3}}]
         )
-        result = await svc.get_user_context("00000000-0000-0000-0000-000000000001", "location")
+        result = await svc.get_user_context(
+            "00000000-0000-0000-0000-000000000001", "location"
+        )
         assert result == {"lat": 53.3}
 
     @pytest.mark.asyncio
@@ -204,7 +224,9 @@ class TestUserContext:
         svc.client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = _chain_result(
             []
         )
-        result = await svc.get_user_context("00000000-0000-0000-0000-000000000001", "location")
+        result = await svc.get_user_context(
+            "00000000-0000-0000-0000-000000000001", "location"
+        )
         assert result is None
 
 
@@ -224,7 +246,9 @@ class TestCalendarCredentials:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_calendar_credentials("00000000-0000-0000-0000-000000000001", {"token": "tok"})
+            result = await svc.save_calendar_credentials(
+                "00000000-0000-0000-0000-000000000001", {"token": "tok"}
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -237,7 +261,9 @@ class TestCalendarCredentials:
             "services.infrastructure.database.decrypt_token",
             return_value='{"token":"tok"}',
         ):
-            result = await svc.get_calendar_credentials("00000000-0000-0000-0000-000000000001")
+            result = await svc.get_calendar_credentials(
+                "00000000-0000-0000-0000-000000000001"
+            )
         assert result == {"token": "tok"}
 
     @pytest.mark.asyncio
@@ -246,7 +272,9 @@ class TestCalendarCredentials:
         svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
             []
         )
-        result = await svc.get_calendar_credentials("00000000-0000-0000-0000-000000000001")
+        result = await svc.get_calendar_credentials(
+            "00000000-0000-0000-0000-000000000001"
+        )
         assert result is None
 
 
@@ -266,7 +294,9 @@ class TestCarConnections:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_car_connection("00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31")
+            result = await svc.save_car_connection(
+                "00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31"
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -278,7 +308,9 @@ class TestCarConnections:
         with patch(
             "services.infrastructure.database.decrypt_token", side_effect=["at", "rt"]
         ):
-            result = await svc.get_car_connection("00000000-0000-0000-0000-000000000001")
+            result = await svc.get_car_connection(
+                "00000000-0000-0000-0000-000000000001"
+            )
         assert result["access_token"] == "at"
 
     @pytest.mark.asyncio
@@ -307,7 +339,9 @@ class TestGithubConnections:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_github_connection("00000000-0000-0000-0000-000000000001", "ghuser", "gh_token")
+            result = await svc.save_github_connection(
+                "00000000-0000-0000-0000-000000000001", "ghuser", "gh_token"
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -319,7 +353,9 @@ class TestGithubConnections:
         with patch(
             "services.infrastructure.database.decrypt_token", return_value="gh_token"
         ):
-            result = await svc.get_github_connection("00000000-0000-0000-0000-000000000001")
+            result = await svc.get_github_connection(
+                "00000000-0000-0000-0000-000000000001"
+            )
         assert result["access_token"] == "gh_token"
 
     @pytest.mark.asyncio
@@ -495,7 +531,10 @@ class TestGetAllUsersWithPreferences:
     async def test_success_with_proactivity(self):
         svc = _make_service()
         users = [
-            {"id": "00000000-0000-0000-0000-000000000001", "proactivity_preferences": {"enabled": True}},
+            {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "proactivity_preferences": {"enabled": True},
+            },
             {"id": "u2", "proactivity_preferences": {"enabled": False}},
             {"id": "u3", "proactivity_preferences": {}},
         ]
@@ -623,7 +662,9 @@ class TestProactivityPreferencesErrors:
         """Lines 247-249: exception returns None."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        result = await svc.get_proactivity_preferences("00000000-0000-0000-0000-000000000001")
+        result = await svc.get_proactivity_preferences(
+            "00000000-0000-0000-0000-000000000001"
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -640,7 +681,9 @@ class TestProactivityPreferencesErrors:
         """Lines 267-269: exception returns False."""
         svc = _make_service()
         svc.get_proactivity_preferences = AsyncMock(side_effect=RuntimeError("db"))
-        result = await svc.update_proactivity_preferences("00000000-0000-0000-0000-000000000001", True)
+        result = await svc.update_proactivity_preferences(
+            "00000000-0000-0000-0000-000000000001", True
+        )
         assert result is False
 
     @pytest.mark.asyncio
@@ -649,7 +692,9 @@ class TestProactivityPreferencesErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        await svc.update_proactivity_preferences("00000000-0000-0000-0000-000000000001", True)
+        await svc.update_proactivity_preferences(
+            "00000000-0000-0000-0000-000000000001", True
+        )
         # initialize is called twice: once inside update_, once inside get_
         assert svc.initialize.await_count >= 1
 
@@ -692,7 +737,9 @@ class TestUserContextErrors:
         """Lines 312-314: exception returns False."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        result = await svc.save_user_context("00000000-0000-0000-0000-000000000001", "type", {"k": "v"})
+        result = await svc.save_user_context(
+            "00000000-0000-0000-0000-000000000001", "type", {"k": "v"}
+        )
         assert result is False
 
     @pytest.mark.asyncio
@@ -701,7 +748,9 @@ class TestUserContextErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        await svc.save_user_context("00000000-0000-0000-0000-000000000001", "type", {"k": "v"})
+        await svc.save_user_context(
+            "00000000-0000-0000-0000-000000000001", "type", {"k": "v"}
+        )
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -709,7 +758,9 @@ class TestUserContextErrors:
         """Lines 328-330: exception returns None."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        result = await svc.get_user_context("00000000-0000-0000-0000-000000000001", "type")
+        result = await svc.get_user_context(
+            "00000000-0000-0000-0000-000000000001", "type"
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -739,7 +790,9 @@ class TestCarConnectionErrors:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_car_connection("00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31")
+            result = await svc.save_car_connection(
+                "00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31"
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -750,7 +803,9 @@ class TestCarConnectionErrors:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_car_connection("00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31")
+            result = await svc.save_car_connection(
+                "00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31"
+            )
         assert result is False
 
     @pytest.mark.asyncio
@@ -759,7 +814,9 @@ class TestCarConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        await svc.save_car_connection("00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31")
+        await svc.save_car_connection(
+            "00000000-0000-0000-0000-000000000001", "v1", "at", "rt", "2026-12-31"
+        )
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -797,7 +854,9 @@ class TestCalendarCredentialsErrors:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_calendar_credentials("00000000-0000-0000-0000-000000000001", {"token": "tok"})
+            result = await svc.save_calendar_credentials(
+                "00000000-0000-0000-0000-000000000001", {"token": "tok"}
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -805,7 +864,9 @@ class TestCalendarCredentialsErrors:
         """Lines 482-484: exception returns False."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        result = await svc.save_calendar_credentials("00000000-0000-0000-0000-000000000001", {"token": "tok"})
+        result = await svc.save_calendar_credentials(
+            "00000000-0000-0000-0000-000000000001", {"token": "tok"}
+        )
         assert result is False
 
     @pytest.mark.asyncio
@@ -814,7 +875,9 @@ class TestCalendarCredentialsErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        await svc.save_calendar_credentials("00000000-0000-0000-0000-000000000001", {"token": "tok"})
+        await svc.save_calendar_credentials(
+            "00000000-0000-0000-0000-000000000001", {"token": "tok"}
+        )
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -822,7 +885,9 @@ class TestCalendarCredentialsErrors:
         """Lines 502-504: exception returns None."""
         svc = _make_service()
         svc.client.table.side_effect = RuntimeError("db error")
-        result = await svc.get_calendar_credentials("00000000-0000-0000-0000-000000000001")
+        result = await svc.get_calendar_credentials(
+            "00000000-0000-0000-0000-000000000001"
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -852,7 +917,9 @@ class TestGithubConnectionErrors:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_github_connection("00000000-0000-0000-0000-000000000001", "ghuser", "gh_token")
+            result = await svc.save_github_connection(
+                "00000000-0000-0000-0000-000000000001", "ghuser", "gh_token"
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -863,7 +930,9 @@ class TestGithubConnectionErrors:
         with patch(
             "services.infrastructure.database.encrypt_token", return_value="enc"
         ):
-            result = await svc.save_github_connection("00000000-0000-0000-0000-000000000001", "ghuser", "gh_token")
+            result = await svc.save_github_connection(
+                "00000000-0000-0000-0000-000000000001", "ghuser", "gh_token"
+            )
         assert result is False
 
     @pytest.mark.asyncio
@@ -872,7 +941,9 @@ class TestGithubConnectionErrors:
         svc = _make_service()
         svc.client = None
         svc.initialize = AsyncMock()
-        await svc.save_github_connection("00000000-0000-0000-0000-000000000001", "ghuser", "gh_token")
+        await svc.save_github_connection(
+            "00000000-0000-0000-0000-000000000001", "ghuser", "gh_token"
+        )
         svc.initialize.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -961,7 +1032,9 @@ class TestBackwardCompatGetAllUsers:
         )
 
         mock_svc = _make_service()
-        mock_svc.get_all_users_with_preferences = AsyncMock(return_value=[{"id": "00000000-0000-0000-0000-000000000001"}])
+        mock_svc.get_all_users_with_preferences = AsyncMock(
+            return_value=[{"id": "00000000-0000-0000-0000-000000000001"}]
+        )
         with patch("services.core.get_service", return_value=mock_svc):
             result = await compat_fn()
         assert result == [{"id": "00000000-0000-0000-0000-000000000001"}]

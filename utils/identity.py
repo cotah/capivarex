@@ -65,8 +65,7 @@ async def resolve_user_uuid(raw_id: str, context: str = "") -> str:
                     return uuid
                 else:
                     logger.warning(
-                        "[identity] {} telegram_id {} not found"
-                        " in public.users",
+                        "[identity] {} telegram_id {} not found in public.users",
                         context or "resolve",
                         raw_id,
                     )

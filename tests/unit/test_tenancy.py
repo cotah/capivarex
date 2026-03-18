@@ -32,6 +32,7 @@ def _mock_db(query_result=None, upsert_fail=False):
 # resolve_context
 # -------------------------------------------------------------------
 
+
 class TestResolveContext:
     @pytest.mark.asyncio
     async def test_resolve_telegram_success(self):
@@ -83,6 +84,7 @@ class TestResolveContext:
 # Convenience helpers
 # -------------------------------------------------------------------
 
+
 class TestConvenienceHelpers:
     @pytest.mark.asyncio
     async def test_get_context_for_telegram(self):
@@ -109,7 +111,9 @@ class TestConvenienceHelpers:
             call_count += 1
             if identifier == "user@example.com":
                 return TenantContext(
-                    tenant_id="u1", user_id="u1", channel="webapp",
+                    tenant_id="u1",
+                    user_id="u1",
+                    channel="webapp",
                     session_id="user@example.com",
                 )
             return None
@@ -135,6 +139,7 @@ class TestConvenienceHelpers:
 # -------------------------------------------------------------------
 # Registration
 # -------------------------------------------------------------------
+
 
 class TestRegistration:
     @pytest.mark.asyncio
@@ -170,6 +175,7 @@ class TestRegistration:
 # TenantContext dataclass
 # -------------------------------------------------------------------
 
+
 class TestTenantContext:
     def test_defaults(self):
         tc = TenantContext(tenant_id="t1", user_id="u1", channel="cli")
@@ -178,8 +184,11 @@ class TestTenantContext:
 
     def test_full_fields(self):
         tc = TenantContext(
-            tenant_id="t1", user_id="u1", channel="telegram",
-            session_id="s1", chat_id="c1",
+            tenant_id="t1",
+            user_id="u1",
+            channel="telegram",
+            session_id="s1",
+            chat_id="c1",
         )
         assert tc.session_id == "s1"
         assert tc.chat_id == "c1"

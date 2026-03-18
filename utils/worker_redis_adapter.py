@@ -50,7 +50,12 @@ class ArqRedisRestAdapter:
             raise RuntimeError("RedisService not available for arq adapter")
 
         commands: List[List[Any]] = [
-            ["HSET", f"arq:job:{job_id}", "payload", job_payload.decode("utf-8", errors="replace")],
+            [
+                "HSET",
+                f"arq:job:{job_id}",
+                "payload",
+                job_payload.decode("utf-8", errors="replace"),
+            ],
             ["ZADD", f"arq:queue:{queue_name}", score, job_id],
             ["PUBLISH", f"arq:q:{queue_name}", "1"],
         ]

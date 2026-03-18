@@ -21,9 +21,17 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=128)
-    phone: Optional[str] = Field(None, max_length=20, description="Phone number with country code (e.g. +353891234567)")
-    country_code: Optional[str] = Field(None, max_length=5, description="Country dial code (e.g. +353)")
-    preferred_channel: Optional[str] = Field("telegram", description="Preferred messaging channel: telegram or whatsapp")
+    phone: Optional[str] = Field(
+        None,
+        max_length=20,
+        description="Phone number with country code (e.g. +353891234567)",
+    )
+    country_code: Optional[str] = Field(
+        None, max_length=5, description="Country dial code (e.g. +353)"
+    )
+    preferred_channel: Optional[str] = Field(
+        "telegram", description="Preferred messaging channel: telegram or whatsapp"
+    )
 
     @field_validator("phone")
     @classmethod
@@ -52,8 +60,8 @@ class User(UserBase):
     id: uuid.UUID
 
     # Novos campos: Planos e Limites
-    plan: Optional[str] = "basic"
-    messages_limit: Optional[int] = 100
+    plan: Optional[str] = "professional"
+    messages_limit: Optional[int] = 300
     messages_used: Optional[int] = 0
 
     # Phone

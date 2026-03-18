@@ -192,21 +192,25 @@ class ResearchService(BaseService):
         for query in queries:
             try:
                 result = await perplexity.search(query, model=model)
-                results.append({
-                    "query": query,
-                    "answer": result["answer"],
-                    "sources": result["sources"],
-                })
+                results.append(
+                    {
+                        "query": query,
+                        "answer": result["answer"],
+                        "sources": result["sources"],
+                    }
+                )
                 all_sources.extend(result["sources"])
             except Exception as exc:
                 self.logger.warning(
                     f"Sub-query failed in deep research: '{query}': {exc}"
                 )
-                results.append({
-                    "query": query,
-                    "answer": f"Error: {exc}",
-                    "sources": [],
-                })
+                results.append(
+                    {
+                        "query": query,
+                        "answer": f"Error: {exc}",
+                        "sources": [],
+                    }
+                )
 
         # Generate an aggregated summary
         summary_query = f"Summarize the following research on '{topic}':\n\n"
@@ -290,6 +294,7 @@ class ResearchService(BaseService):
 # ---------------------------------------------------------------------------
 # Backward-compatibility helpers
 # ---------------------------------------------------------------------------
+
 
 def get_research_service() -> ResearchService:
     """

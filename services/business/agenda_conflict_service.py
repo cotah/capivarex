@@ -96,21 +96,24 @@ def _parse_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         except (ValueError, TypeError):
             continue
 
-        parsed.append({
-            "id": event.get("id", ""),
-            "summary": event.get("summary", "Event"),
-            "location": event.get("location", ""),
-            "start_dt": start_dt,
-            "end_dt": end_dt,
-            "start_str": start_dt.strftime("%a %b %d, %H:%M"),
-            "end_str": end_dt.strftime("%H:%M"),
-        })
+        parsed.append(
+            {
+                "id": event.get("id", ""),
+                "summary": event.get("summary", "Event"),
+                "location": event.get("location", ""),
+                "start_dt": start_dt,
+                "end_dt": end_dt,
+                "start_str": start_dt.strftime("%a %b %d, %H:%M"),
+                "end_str": end_dt.strftime("%H:%M"),
+            }
+        )
 
     return parsed
 
 
 def _check_pair(
-    ev_a: Dict[str, Any], ev_b: Dict[str, Any],
+    ev_a: Dict[str, Any],
+    ev_b: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
     """Check if two events conflict."""
     a_start, a_end = ev_a["start_dt"], ev_a["end_dt"]
@@ -135,7 +138,8 @@ def _check_pair(
 
     if (
         0 <= gap_minutes < MIN_TRAVEL_GAP
-        and loc_a and loc_b
+        and loc_a
+        and loc_b
         and loc_a.lower() != loc_b.lower()
     ):
         return {
@@ -156,6 +160,7 @@ def _check_pair(
 # ---------------------------------------------------------------------------
 # Alert Generation
 # ---------------------------------------------------------------------------
+
 
 async def generate_conflict_alert(
     user_name: str,
@@ -190,6 +195,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -197,14 +203,18 @@ Generate:"""
                 max_tokens=300,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
             pass
 
     # Fallback
-    lines = [f"⚠️ Hey {name}, I found {len(conflicts)} calendar conflict{'s' if len(conflicts) > 1 else ''}:\n"]
+    lines = [
+        f"⚠️ Hey {name}, I found {len(conflicts)} calendar conflict{'s' if len(conflicts) > 1 else ''}:\n"
+    ]
     for c in conflicts[:3]:
         if c["type"] == "overlap":
             lines.append(f"📅 {c['description']}")
@@ -218,6 +228,7 @@ Generate:"""
 # ---------------------------------------------------------------------------
 # Proactivity Loop Runner
 # ---------------------------------------------------------------------------
+
 
 async def check_conflicts_for_all_users() -> int:
     """Run conflict detection for all proactivity-enabled users.
@@ -233,7 +244,7 @@ async def check_conflicts_for_all_users() -> int:
         return 0
 
     alerts_sent = 0
-    for pref in (pref_users or []):
+    for pref in pref_users or []:
         user_id = pref["user_id"]
         try:
             user_data = await db.get_user_by_id(user_id)
@@ -255,7 +266,11 @@ async def check_conflicts_for_all_users() -> int:
             )
             if alert:
                 # Send via notification
-                chat_id = str(user_data.get("telegram_chat_id")) if user_data.get("telegram_chat_id") else None
+                chat_id = (
+                    str(user_data.get("telegram_chat_id"))
+                    if user_data.get("telegram_chat_id")
+                    else None
+                )
                 if chat_id:
                     try:
                         notif = get_service("notification")
@@ -279,7 +294,8 @@ async def check_conflicts_for_all_users() -> int:
 
 
 async def _filter_already_alerted(
-    user_id: str, conflicts: List[Dict[str, Any]],
+    user_id: str,
+    conflicts: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Filter out conflicts that were already alerted today."""
     # Simple dedup: use event IDs to check
@@ -288,7 +304,9 @@ async def _filter_already_alerted(
 
 
 async def _store_conflict_alert(
-    user_id: str, alert: str, conflicts: List[Dict[str, Any]],
+    user_id: str,
+    alert: str,
+    conflicts: List[Dict[str, Any]],
 ) -> None:
     """Store conflict alert in proactivity_feed."""
     import json
@@ -300,17 +318,18 @@ async def _store_conflict_alert(
     try:
         client = db.get_client()
         conflict_ids = [
-            f"{c['event_a']['id']}-{c['event_b']['id']}"
-            for c in conflicts[:5]
+            f"{c['event_a']['id']}-{c['event_b']['id']}" for c in conflicts[:5]
         ]
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "agenda_conflict",
-            "title": f"⚠️ {len(conflicts)} calendar conflict(s) detected",
-            "message": alert,
-            "metadata": json.dumps({"conflict_ids": conflict_ids}),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "agenda_conflict",
+                "title": f"⚠️ {len(conflicts)} calendar conflict(s) detected",
+                "message": alert,
+                "metadata": json.dumps({"conflict_ids": conflict_ids}),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Store conflict alert failed: %s", e)

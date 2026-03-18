@@ -80,9 +80,7 @@ def init_sentry() -> None:
     )
 
     try:
-        traces_rate = float(
-            os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.3")
-        )
+        traces_rate = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.3"))
     except (ValueError, TypeError):
         traces_rate = 0.3
 

@@ -50,7 +50,7 @@ _FIX_TEMPLATES: dict[str, str] = {
         "3. Testar a aplicacao apos atualizar"
     ),
     "missing_jwt_secret": (
-        "1. Gerar secret seguro: python -c \"import secrets; print(secrets.token_hex(32))\"\n"
+        '1. Gerar secret seguro: python -c "import secrets; print(secrets.token_hex(32))"\n'
         "2. Adicionar JWT_SECRET_KEY=<secret> ao .env\n"
         "3. Validar no startup que a key nao esta vazia"
     ),
@@ -84,10 +84,12 @@ def _get_claude_client():
     global _anthropic_client
     if _anthropic_client is None:
         from cybersecurity.config import CYBER_ANTHROPIC_API_KEY
+
         if not CYBER_ANTHROPIC_API_KEY:
             return None
         try:
             from anthropic import AsyncAnthropic
+
             _anthropic_client = AsyncAnthropic(api_key=CYBER_ANTHROPIC_API_KEY)
         except ImportError:
             logger.warning("anthropic package not installed — LLM patch gen disabled")
@@ -144,14 +146,20 @@ async def _generate_llm_patch(finding: SecurityFinding) -> str | None:
             full_path = root.parent / finding.file_path
             if full_path.exists():
                 try:
-                    lines = full_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+                    lines = full_path.read_text(
+                        encoding="utf-8", errors="ignore"
+                    ).splitlines()
                     start = max(0, finding.line_number - 10)
                     end = min(len(lines), finding.line_number + 10)
                     numbered = [
                         f"{'→' if i + 1 == finding.line_number else ' '} {i + 1:4d} | {line}"
                         for i, line in enumerate(lines[start:end], start=start)
                     ]
-                    source_context = f"\nSource code ({finding.file_path}, lines {start + 1}-{end}):\n```\n" + "\n".join(numbered) + "\n```"
+                    source_context = (
+                        f"\nSource code ({finding.file_path}, lines {start + 1}-{end}):\n```\n"
+                        + "\n".join(numbered)
+                        + "\n```"
+                    )
                 except OSError:
                     pass
                 break
@@ -191,7 +199,8 @@ async def _generate_llm_patch(finding: SecurityFinding) -> str | None:
         if content:
             logger.info(
                 "Claude generated patch for: %s (%d chars)",
-                finding.title[:60], len(content),
+                finding.title[:60],
+                len(content),
             )
             return content
     except Exception:
@@ -217,6 +226,7 @@ async def suggest_fix(finding: SecurityFinding) -> str | None:
     # 1. Try knowledge base first
     try:
         from cybersecurity.intelligence.knowledge_base import search_similar_fixes
+
         similar_fixes = await search_similar_fixes(
             f"{finding.title} {finding.finding_type}", limit=1
         )
@@ -281,6 +291,7 @@ async def auto_remediate(finding: SecurityFinding) -> bool:
     # Check eligibility
     try:
         from cybersecurity.intelligence.confidence_scorer import is_auto_fix_eligible
+
         eligible = await is_auto_fix_eligible(finding.finding_type)
         if not eligible:
             logger.debug(
@@ -294,16 +305,19 @@ async def auto_remediate(finding: SecurityFinding) -> bool:
     # Create autofix ticket and PR
     try:
         from cybersecurity.integrations.autofix_bridge import create_ticket_from_finding
+
         ticket = await create_ticket_from_finding(finding)
 
         if ticket:
             # Notify admin after the fact
             from cybersecurity.integrations.notification_bridge import alert_finding
+
             finding.metadata["auto_fixed"] = True
             await alert_finding(finding)
 
             # Store success in knowledge base
             from cybersecurity.intelligence.knowledge_base import store_resolution
+
             await store_resolution(
                 finding_id=ticket.get("id", ""),
                 resolution=f"Auto-fixed: {finding.suggested_fix or 'automated patch'}",

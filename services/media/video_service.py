@@ -31,17 +31,12 @@ logger = logging.getLogger(__name__)
 
 # Veo 3.1 model variants by plan tier
 PLAN_VIDEO_MODELS: Dict[str, Dict[str, Any]] = {
-    "basic": {
+    "professional": {
         "model": "veo-3.1-fast-generate-preview",
         "max_duration": 5,
         "allowed_ratios": ["16:9", "9:16"],
     },
-    "pro": {
-        "model": "veo-3.1-generate-preview",
-        "max_duration": 8,
-        "allowed_ratios": ["16:9", "9:16"],
-    },
-    "enterprise": {
+    "executive": {
         "model": "veo-3.1-generate-preview",
         "max_duration": 8,
         "allowed_ratios": ["16:9", "9:16"],
@@ -81,6 +76,7 @@ class VideoService(BaseService):
 
         try:
             from google import genai
+
             self.client = genai.Client(api_key=api_key)
             self.logger.info("Gemini Veo 3.1 client initialized successfully")
         except Exception as e:
@@ -90,7 +86,9 @@ class VideoService(BaseService):
         """Check if Video service is healthy."""
         return self.client is not None
 
-    def validate_access(self, user_plan: str, duration: int, ratio: str) -> Dict[str, Any]:
+    def validate_access(
+        self, user_plan: str, duration: int, ratio: str
+    ) -> Dict[str, Any]:
         """
         Validate duration and ratio based on plan.
 
@@ -147,7 +145,9 @@ class VideoService(BaseService):
         if not self.client:
             await self.initialize()
 
-        access = self.validate_access(user_plan=user_plan, duration=duration, ratio=ratio)
+        access = self.validate_access(
+            user_plan=user_plan, duration=duration, ratio=ratio
+        )
         if not access["allowed"]:
             return {"success": False, "error": access["error"]}
 
@@ -160,7 +160,8 @@ class VideoService(BaseService):
 
             self.logger.info(
                 "Generating text-to-video with %s, prompt: %s...",
-                model_name, prompt[:100]
+                model_name,
+                prompt[:100],
             )
 
             operation = self.client.models.generate_videos(
@@ -218,7 +219,9 @@ class VideoService(BaseService):
         if not self.client:
             await self.initialize()
 
-        access = self.validate_access(user_plan=user_plan, duration=duration, ratio=ratio)
+        access = self.validate_access(
+            user_plan=user_plan, duration=duration, ratio=ratio
+        )
         if not access["allowed"]:
             return {"success": False, "error": access["error"]}
 
@@ -231,7 +234,8 @@ class VideoService(BaseService):
 
             self.logger.info(
                 "Generating image-to-video with %s, image: %s",
-                model_name, image_path[:80]
+                model_name,
+                image_path[:80],
             )
 
             # Load image
@@ -331,5 +335,6 @@ def get_video_service() -> VideoService:
     global _video_service
     if _video_service is None:
         from services.core import get_service
+
         _video_service = get_service("video")
     return _video_service

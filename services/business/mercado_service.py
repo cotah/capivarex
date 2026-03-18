@@ -1850,11 +1850,13 @@ class MercadoService(BaseService):
 
             res = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: db.table("shopping_list")
-                .select("item, created_at")
-                .eq("user_id", chat_id)
-                .order("created_at", desc=False)
-                .execute(),
+                lambda: (
+                    db.table("shopping_list")
+                    .select("item, created_at")
+                    .eq("user_id", chat_id)
+                    .order("created_at", desc=False)
+                    .execute()
+                ),
             )
 
             items = res.data or []

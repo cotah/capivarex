@@ -60,10 +60,7 @@ async def test_create_event_missing_title(mock_calendar_service, sample_context)
     result = await agent.execute("Create event", context)
 
     assert result.status == AgentStatus.ERROR
-    assert (
-        "tulo" in result.response.lower()
-        or "title" in result.response.lower()
-    )
+    assert "tulo" in result.response.lower() or "title" in result.response.lower()
     mock_calendar_service.async_create_event.assert_not_called()
 
 
@@ -188,10 +185,7 @@ async def test_get_next_meeting_no_results(mock_calendar_service, sample_context
     result = await agent.execute("next meeting", sample_context)
 
     assert result.is_success()
-    assert (
-        "reuni" in result.response.lower()
-        or "meeting" in result.response.lower()
-    )
+    assert "reuni" in result.response.lower() or "meeting" in result.response.lower()
 
 
 @pytest.mark.unit
@@ -293,10 +287,7 @@ async def test_traffic_check_success(mock_calendar_service):
         )
 
     assert result.is_success()
-    assert (
-        "Alerta de Tr" in result.response
-        or "Traffic Alert" in result.response
-    )
+    assert "Alerta de Tr" in result.response or "Traffic Alert" in result.response
 
 
 @pytest.mark.unit

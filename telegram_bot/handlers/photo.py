@@ -12,9 +12,7 @@ from utils.request_processor import RequestProcessor
 logger = logging.getLogger("capivarex.telegram.handlers.photo")
 
 
-async def _classify_photo(
-    image_data: bytes, mime_type: str = "image/jpeg"
-) -> str:
+async def _classify_photo(image_data: bytes, mime_type: str = "image/jpeg") -> str:
     """
     Use Gemini Flash to classify photo content for smart routing.
 
@@ -28,9 +26,7 @@ async def _classify_photo(
 
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        logger.warning(
-            "GEMINI_API_KEY not set, cannot classify photo"
-        )
+        logger.warning("GEMINI_API_KEY not set, cannot classify photo")
         return "processar imagem"
 
     b64 = base64.b64encode(image_data).decode()
@@ -107,18 +103,12 @@ async def _classify_photo(
 
         if text:
             logger.info("Photo classified: %s", text)
-            return (
-                "The user sent a photo. "
-                f"{text}. "
-                "Process it accordingly."
-            )
+            return f"The user sent a photo. {text}. Process it accordingly."
 
         return "processar imagem"
 
     except Exception as e:
-        logger.warning(
-            "Photo classification failed: %s", e
-        )
+        logger.warning("Photo classification failed: %s", e)
         return "processar imagem"
 
 
@@ -200,6 +190,4 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     except Exception as e:
         logger.error("Error processing photo: %s", e, exc_info=True)
-        await update.message.reply_text(
-            t("photo_processing_error", lang="en")
-        )
+        await update.message.reply_text(t("photo_processing_error", lang="en"))

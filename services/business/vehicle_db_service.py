@@ -60,9 +60,9 @@ class VehicleDbService(BaseService):
         Raises:
             ServiceConfigurationError: If required env vars are missing.
         """
-        supabase_url: Optional[str] = self.config.get(
-            "supabase_url"
-        ) or os.getenv("SUPABASE_URL")
+        supabase_url: Optional[str] = self.config.get("supabase_url") or os.getenv(
+            "SUPABASE_URL"
+        )
         supabase_key: Optional[str] = self.config.get(
             "supabase_service_key"
         ) or os.getenv("SUPABASE_SERVICE_KEY")
@@ -92,10 +92,7 @@ class VehicleDbService(BaseService):
             return False
         try:
             response = (
-                self._client.table(TABLE_NAME)
-                .select("vehicle_id")
-                .limit(1)
-                .execute()
+                self._client.table(TABLE_NAME).select("vehicle_id").limit(1).execute()
             )
             # A successful response (even with empty data) means healthy.
             return response is not None
@@ -111,8 +108,7 @@ class VehicleDbService(BaseService):
         """Return the Supabase client, raising if not initialised."""
         if self._client is None:
             raise ServiceError(
-                "VehicleDbService has not been initialized. "
-                "Call initialize() first."
+                "VehicleDbService has not been initialized. Call initialize() first."
             )
         return self._client
 
@@ -184,9 +180,7 @@ class VehicleDbService(BaseService):
                 .execute()
             )
             self._track_call(time.monotonic() - start)
-            self.logger.debug(
-                "Vehicle saved: user=%s vehicle=%s", user_id, vehicle_id
-            )
+            self.logger.debug("Vehicle saved: user=%s vehicle=%s", user_id, vehicle_id)
             return response.data[0] if response.data else {}
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
@@ -209,18 +203,13 @@ class VehicleDbService(BaseService):
 
         try:
             response = (
-                client.table(TABLE_NAME)
-                .select("*")
-                .eq("user_id", user_id)
-                .execute()
+                client.table(TABLE_NAME).select("*").eq("user_id", user_id).execute()
             )
             self._track_call(time.monotonic() - start)
             return response.data if response.data else []
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
-            self.logger.error(
-                "Error getting user vehicles: %s", exc, exc_info=True
-            )
+            self.logger.error("Error getting user vehicles: %s", exc, exc_info=True)
             return []
 
     @retry_on_failure(max_retries=2, backoff_factor=1.5)
@@ -252,14 +241,10 @@ class VehicleDbService(BaseService):
             return response.data[0] if response.data else None
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
-            self.logger.error(
-                "Error getting vehicle: %s", exc, exc_info=True
-            )
+            self.logger.error("Error getting vehicle: %s", exc, exc_info=True)
             return None
 
-    async def get_primary_vehicle(
-        self, user_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_primary_vehicle(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
         Get the user's primary (first) vehicle.
 
@@ -314,15 +299,11 @@ class VehicleDbService(BaseService):
                 .execute()
             )
             self._track_call(time.monotonic() - start)
-            self.logger.debug(
-                "Tokens updated: user=%s vehicle=%s", user_id, vehicle_id
-            )
+            self.logger.debug("Tokens updated: user=%s vehicle=%s", user_id, vehicle_id)
             return response.data[0] if response.data else {}
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
-            self.logger.error(
-                "Error updating tokens: %s", exc, exc_info=True
-            )
+            self.logger.error("Error updating tokens: %s", exc, exc_info=True)
             return {"error": str(exc)}
 
     @retry_on_failure(max_retries=2, backoff_factor=1.5)
@@ -341,24 +322,18 @@ class VehicleDbService(BaseService):
         start = time.monotonic()
 
         try:
-            client.table(TABLE_NAME).delete().eq(
-                "user_id", user_id
-            ).eq("vehicle_id", vehicle_id).execute()
+            client.table(TABLE_NAME).delete().eq("user_id", user_id).eq(
+                "vehicle_id", vehicle_id
+            ).execute()
             self._track_call(time.monotonic() - start)
-            self.logger.info(
-                "Vehicle deleted: user=%s vehicle=%s", user_id, vehicle_id
-            )
+            self.logger.info("Vehicle deleted: user=%s vehicle=%s", user_id, vehicle_id)
             return True
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
-            self.logger.error(
-                "Error deleting vehicle: %s", exc, exc_info=True
-            )
+            self.logger.error("Error deleting vehicle: %s", exc, exc_info=True)
             return False
 
-    async def is_token_expired(
-        self, user_id: str, vehicle_id: str
-    ) -> bool:
+    async def is_token_expired(self, user_id: str, vehicle_id: str) -> bool:
         """
         Check whether the vehicle token has expired.
 
@@ -376,9 +351,7 @@ class VehicleDbService(BaseService):
         try:
             raw_expires = vehicle["expires_at"]
             # Handle Supabase ISO strings that may end with 'Z'
-            expires_at = datetime.fromisoformat(
-                raw_expires.replace("Z", "+00:00")
-            )
+            expires_at = datetime.fromisoformat(raw_expires.replace("Z", "+00:00"))
             return self._utcnow() >= expires_at
         except (KeyError, ValueError, TypeError) as exc:
             self.logger.warning(
@@ -389,9 +362,7 @@ class VehicleDbService(BaseService):
             return True
 
     @retry_on_failure(max_retries=2, backoff_factor=1.5)
-    async def update_last_synced(
-        self, user_id: str, vehicle_id: str
-    ) -> None:
+    async def update_last_synced(self, user_id: str, vehicle_id: str) -> None:
         """
         Update the ``last_synced_at`` timestamp for a vehicle.
 
@@ -405,9 +376,7 @@ class VehicleDbService(BaseService):
         try:
             client.table(TABLE_NAME).update(
                 {"last_synced_at": self._utcnow().isoformat()}
-            ).eq("user_id", user_id).eq(
-                "vehicle_id", vehicle_id
-            ).execute()
+            ).eq("user_id", user_id).eq("vehicle_id", vehicle_id).execute()
             self._track_call(time.monotonic() - start)
             self.logger.debug(
                 "last_synced_at updated: user=%s vehicle=%s",
@@ -416,6 +385,4 @@ class VehicleDbService(BaseService):
             )
         except Exception as exc:
             self._track_call(time.monotonic() - start, error=True)
-            self.logger.error(
-                "Error updating last_synced: %s", exc, exc_info=True
-            )
+            self.logger.error("Error updating last_synced: %s", exc, exc_info=True)

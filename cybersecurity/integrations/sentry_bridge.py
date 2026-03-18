@@ -22,6 +22,7 @@ async def get_unresolved_issues(limit: int = 20) -> list[dict]:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
                 f"https://sentry.io/api/0/projects/{org}/{project}/issues/",
@@ -48,6 +49,7 @@ async def get_issue_events(issue_id: str, limit: int = 5) -> list[dict]:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
                 f"https://sentry.io/api/0/issues/{issue_id}/events/",

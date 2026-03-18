@@ -62,9 +62,7 @@ class TestExtractContentQuery:
     def test_removes_tv_words(self):
         from agents.specialized.media_cast_agent import MediaCastAgent
 
-        result = MediaCastAgent._extract_content_query(
-            "play cooking videos on tv"
-        )
+        result = MediaCastAgent._extract_content_query("play cooking videos on tv")
         assert result and "cooking" in result.lower()
         assert "tv" not in result.lower()
 
@@ -81,12 +79,8 @@ class TestBuildCastResponse:
     def test_includes_video_title(self):
         from agents.specialized.media_cast_agent import MediaCastAgent
 
-        videos = [
-            {"title": "Test Video", "id": "abc123", "channel": "TestCh"}
-        ]
-        result = MediaCastAgent._build_cast_response(
-            videos, "test", None, "en"
-        )
+        videos = [{"title": "Test Video", "id": "abc123", "channel": "TestCh"}]
+        result = MediaCastAgent._build_cast_response(videos, "test", None, "en")
         assert "Test Video" in result
         assert "abc123" in result
 
@@ -103,9 +97,7 @@ class TestBuildCastResponse:
         from agents.specialized.media_cast_agent import MediaCastAgent
 
         videos = [{"title": "Test", "id": "abc"}]
-        result = MediaCastAgent._build_cast_response(
-            videos, "test", None, "en"
-        )
+        result = MediaCastAgent._build_cast_response(videos, "test", None, "en")
         assert "Cast" in result
 
     def test_uses_url_field_when_available(self):
@@ -118,9 +110,7 @@ class TestBuildCastResponse:
                 "url": "https://youtu.be/abc",
             }
         ]
-        result = MediaCastAgent._build_cast_response(
-            videos, "test", None, "en"
-        )
+        result = MediaCastAgent._build_cast_response(videos, "test", None, "en")
         assert "youtu.be/abc" in result
 
     def test_includes_duration_and_views(self):
@@ -135,9 +125,7 @@ class TestBuildCastResponse:
                 "views": "1.2M",
             }
         ]
-        result = MediaCastAgent._build_cast_response(
-            videos, "test", None, "en"
-        )
+        result = MediaCastAgent._build_cast_response(videos, "test", None, "en")
         assert "12:34" in result
         assert "1.2M" in result
 
@@ -282,9 +270,7 @@ class TestMediaCastExecute:
                 agent, "_search_youtube", new_callable=AsyncMock, return_value=videos
             ),
         ):
-            result = await agent.execute(
-                "liga a TV e põe Palmeiras na TV", {}
-            )
+            result = await agent.execute("liga a TV e põe Palmeiras na TV", {})
             assert result.status == AgentStatus.SUCCESS
             assert "TV ligada" in result.response
             assert "Palmeiras" in result.response
@@ -300,9 +286,7 @@ class TestTurnOnTV:
         agent = MediaCastAgent()
         mock_smarthome = MagicMock()
         mock_smarthome.process = AsyncMock(
-            return_value=AgentResponse(
-                status=AgentStatus.SUCCESS, response="TV on"
-            )
+            return_value=AgentResponse(status=AgentStatus.SUCCESS, response="TV on")
         )
         with patch(
             "agents.core.get_agent",
@@ -355,9 +339,7 @@ class TestSearchYoutube:
         mock_svc = MagicMock()
         mock_svc.is_initialized.return_value = False
         mock_svc.initialize = AsyncMock()
-        mock_svc.search_videos = AsyncMock(
-            return_value=[{"title": "V1", "id": "x"}]
-        )
+        mock_svc.search_videos = AsyncMock(return_value=[{"title": "V1", "id": "x"}])
         with patch(
             "agents.specialized.media_cast_agent.get_service",
             return_value=mock_svc,

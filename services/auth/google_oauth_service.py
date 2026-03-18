@@ -83,10 +83,12 @@ class GoogleOAuthService:
         Returns:
             URL completa para redirecionar o user
         """
-        state_data = json.dumps({
-            "user_id": user_id,
-            "extra": extra_state,
-        })
+        state_data = json.dumps(
+            {
+                "user_id": user_id,
+                "extra": extra_state,
+            }
+        )
         state_b64 = base64.urlsafe_b64encode(state_data.encode()).decode()
 
         params = {
@@ -94,16 +96,14 @@ class GoogleOAuthService:
             "redirect_uri": self.redirect_uri,
             "response_type": "code",
             "scope": " ".join(GOOGLE_SCOPES),
-            "access_type": "offline",    # Essencial para refresh_token
-            "prompt": "consent",         # Forçar para garantir refresh_token
+            "access_type": "offline",  # Essencial para refresh_token
+            "prompt": "consent",  # Forçar para garantir refresh_token
             "state": state_b64,
             "include_granted_scopes": "true",
         }
         return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
 
-    async def handle_callback(
-        self, code: str, state_b64: str
-    ) -> Dict[str, Any]:
+    async def handle_callback(self, code: str, state_b64: str) -> Dict[str, Any]:
         """
         Processa callback do Google OAuth2.
         Troca code por tokens, obtém perfil, guarda no Supabase.
@@ -129,9 +129,7 @@ class GoogleOAuthService:
                 base64.urlsafe_b64decode(state_clean.encode()).decode()
             )
             user_id = str(state_data["user_id"])
-            user_id = await resolve_user_uuid(
-                user_id, context="google_callback"
-            )
+            user_id = await resolve_user_uuid(user_id, context="google_callback")
         except Exception as e:
             raise ValueError(t("oauth_state_invalid", error=str(e)))
 
@@ -168,7 +166,11 @@ class GoogleOAuthService:
                         "message": "Failed to connect Google. Please try again.",
                     }
                 raise RuntimeError(
-                    t("oauth_token_exchange_failed", status=resp.status_code, detail=resp.text)
+                    t(
+                        "oauth_token_exchange_failed",
+                        status=resp.status_code,
+                        detail=resp.text,
+                    )
                 )
             tokens = resp.json()
 
@@ -183,9 +185,7 @@ class GoogleOAuthService:
                 headers={"Authorization": f"Bearer {access_token}"},
             )
             if resp.status_code != 200:
-                raise RuntimeError(
-                    t("oauth_profile_failed", detail=resp.text)
-                )
+                raise RuntimeError(t("oauth_profile_failed", detail=resp.text))
             profile = resp.json()
 
         email = profile.get("email", "")
@@ -200,9 +200,7 @@ class GoogleOAuthService:
             expires_in=expires_in,
         )
 
-        logger.info(
-            "Google OAuth connected: user=%s email=%s", user_id, email
-        )
+        logger.info("Google OAuth connected: user=%s email=%s", user_id, email)
 
         # Auto-activate email polling for new Gmail connections
         try:
@@ -242,9 +240,7 @@ class GoogleOAuthService:
 
         sb = get_supabase_client()
         if not sb:
-            raise RuntimeError(
-                t("oauth_supabase_unavailable")
-            )
+            raise RuntimeError(t("oauth_supabase_unavailable"))
 
         expires_at = (
             datetime.now(timezone.utc) + timedelta(seconds=expires_in)
@@ -264,9 +260,7 @@ class GoogleOAuthService:
             on_conflict="user_id,provider,email",
         ).execute()
 
-    async def get_valid_access_token(
-        self, user_id: str
-    ) -> Optional[str]:
+    async def get_valid_access_token(self, user_id: str) -> Optional[str]:
         """
         Obtém access_token válido para o user.
         Se expirado, renova automaticamente com refresh_token.
@@ -287,9 +281,7 @@ class GoogleOAuthService:
 
         # Verificar expiração (com 5 min de margem)
         try:
-            expires_at = datetime.fromisoformat(
-                expires_at_str.replace("Z", "+00:00")
-            )
+            expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
             margin = datetime.now(timezone.utc) + timedelta(minutes=5)
             if margin >= expires_at:
                 if not refresh_token:
@@ -324,20 +316,16 @@ class GoogleOAuthService:
         if not sb:
             return False
         try:
-            sb.table("user_oauth_tokens").update(
-                {"active": False}
-            ).eq("user_id", user_id).eq(
-                "provider", "google"
-            ).execute()
+            sb.table("user_oauth_tokens").update({"active": False}).eq(
+                "user_id", user_id
+            ).eq("provider", "google").execute()
             logger.info("Google disconnected: user=%s", user_id)
             return True
         except Exception as e:
             logger.error("Failed to disconnect Google: %s", e)
             return False
 
-    async def get_connected_accounts(
-        self, user_id: str
-    ) -> List[Dict[str, Any]]:
+    async def get_connected_accounts(self, user_id: str) -> List[Dict[str, Any]]:
         """Lista todas as contas Google conectadas do user."""
         from services.infrastructure.database import get_supabase_client
 
@@ -360,9 +348,7 @@ class GoogleOAuthService:
 
     # ── Private Helpers ─────────────────────────────────────────────────────
 
-    async def _get_token_row(
-        self, user_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def _get_token_row(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Busca token row do Supabase."""
         from services.infrastructure.database import get_supabase_client
 
@@ -385,9 +371,7 @@ class GoogleOAuthService:
             logger.error("Failed to get OAuth tokens: %s", e)
             return None
 
-    async def _refresh_token(
-        self, user_id: str, email: str, refresh_token: str
-    ) -> str:
+    async def _refresh_token(self, user_id: str, email: str, refresh_token: str) -> str:
         """Renova access_token usando refresh_token."""
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -400,9 +384,7 @@ class GoogleOAuthService:
                 },
             )
             if resp.status_code != 200:
-                raise RuntimeError(
-                    t("oauth_token_refresh_failed", detail=resp.text)
-                )
+                raise RuntimeError(t("oauth_token_refresh_failed", detail=resp.text))
             tokens = resp.json()
 
         new_access_token = tokens["access_token"]

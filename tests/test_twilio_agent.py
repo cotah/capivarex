@@ -686,7 +686,9 @@ class TestTwilioAgentErrors:
 
         agent = _twilio_agent()
         twilio_svc = _mock_twilio_service(
-            make_call_side_effect=QuotaExceededError("twilio_mins", 15, 15, "me")
+            make_call_side_effect=QuotaExceededError(
+                "twilio_mins", 15, 15, "professional"
+            )
         )
 
         with patch(

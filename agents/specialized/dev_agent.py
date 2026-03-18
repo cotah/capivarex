@@ -423,6 +423,7 @@ class DevAgent(BaseAgent):
                     return None
 
             import os
+
             codex_model = os.getenv("OPENAI_CODEX_MODEL", "codex-mini-latest")
 
             self.logger.info(
@@ -445,7 +446,8 @@ class DevAgent(BaseAgent):
                 )
             except asyncio.TimeoutError:
                 self.logger.warning(
-                    "DevAgent: OpenAI Codex timed out after %ds", _OPENAI_TIMEOUT_SECONDS
+                    "DevAgent: OpenAI Codex timed out after %ds",
+                    _OPENAI_TIMEOUT_SECONDS,
                 )
                 return None
 
@@ -493,9 +495,9 @@ class DevAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "⚠️ O pedido de código demorou demais (>45s).\n"
-                    "Os serviços de IA estão lentos no momento.\n"
-                    "Tente novamente em alguns instantes."
+                    "⚠️ Code request took too long (>45s).\n"
+                    "AI services are slow right now.\n"
+                    "Please try again in a moment."
                 ),
                 error=f"Global timeout ({_GLOBAL_TIMEOUT_SECONDS}s)",
             )
@@ -508,7 +510,7 @@ class DevAgent(BaseAgent):
         if not dev_prompt:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="Não recebi um prompt de desenvolvimento.",
+                response="I didn't receive a development prompt.",
                 error="Empty dev prompt",
             )
 
@@ -533,7 +535,7 @@ class DevAgent(BaseAgent):
             self.logger.error("DevAgent failed: %s", e, exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao processar comando de desenvolvimento: {e}",
+                response=f"Error processing development command: {e}",
                 error=str(e),
             )
 
@@ -551,9 +553,9 @@ class DevAgent(BaseAgent):
                 status=AgentStatus.ERROR,
                 # FIX 3: Mensagem clara com diagnóstico
                 response=(
-                    "⚠️ Não foi possível gerar o código no momento.\n"
-                    "Os serviços de IA (Claude e Codex) não responderam a tempo.\n"
-                    "Tente novamente em alguns instantes."
+                    "⚠️ Unable to generate code right now.\n"
+                    "AI services (Claude and Codex) did not respond in time.\n"
+                    "Please try again in a moment."
                 ),
                 error="No AI response (both Anthropic Claude and OpenAI Codex failed or timed out)",
             )
@@ -571,7 +573,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível explicar o código no momento. Tente novamente.",
+                response="⚠️ Unable to explain the code right now. Please try again.",
                 error="No AI response",
             )
         return AgentResponse(
@@ -588,7 +590,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível fazer o code review no momento. Tente novamente.",
+                response="⚠️ Unable to perform code review right now. Please try again.",
                 error="No AI response",
             )
         return AgentResponse(
@@ -605,7 +607,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível ajudar com debugging no momento. Tente novamente.",
+                response="⚠️ Unable to help with debugging right now. Please try again.",
                 error="No AI response",
             )
         return AgentResponse(
@@ -622,7 +624,7 @@ class DevAgent(BaseAgent):
         if not text:
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response="⚠️ Não foi possível otimizar o código no momento. Tente novamente.",
+                response="⚠️ Unable to optimize code right now. Please try again.",
                 error="No AI response",
             )
         return AgentResponse(
@@ -635,22 +637,22 @@ class DevAgent(BaseAgent):
         self, prompt: str = "", analysis: Dict[str, Any] = None
     ) -> AgentResponse:
         help_text = (
-            "💻 **Dev Agent — Comandos Disponíveis**\n\n"
-            "**Geração de Código:**\n"
-            '• "crie uma função Python para [tarefa]"\n'
-            '• "gere código JavaScript para [tarefa]"\n'
-            '• "escreve um script para [tarefa]"\n\n'
-            "**Explicação:**\n"
-            '• "explique este código: [código]"\n'
-            '• "o que este código faz?"\n\n'
+            "💻 **Dev Agent — Available Commands**\n\n"
+            "**Code Generation:**\n"
+            '• "create a Python function for [task]"\n'
+            '• "generate JavaScript code for [task]"\n'
+            '• "write a script for [task]"\n\n'
+            "**Explanation:**\n"
+            '• "explain this code: [code]"\n'
+            '• "what does this code do?"\n\n'
             "**Code Review:**\n"
-            '• "faça code review deste código: [código]"\n\n'
+            '• "review this code: [code]"\n\n'
             "**Debugging:**\n"
-            '• "como debugar este erro: [erro]"\n'
-            '• "ajude a corrigir este bug"\n\n'
-            "**Otimização:**\n"
-            '• "otimize este código: [código]"\n'
-            '• "melhore a performance deste código"'
+            '• "how to debug this error: [error]"\n'
+            '• "help fix this bug"\n\n'
+            "**Optimization:**\n"
+            '• "optimize this code: [code]"\n'
+            '• "improve performance of this code"'
         )
         return AgentResponse(status=AgentStatus.SUCCESS, response=help_text)
 

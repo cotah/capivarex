@@ -62,6 +62,9 @@ def register_all_services() -> None:
     from .integrations.restaurant_service import RestaurantService  # noqa: F401
     from .integrations.spotify_service import SpotifyService  # noqa: F401
     from .integrations.gmail_service import GmailService  # noqa: F401
+    from .integrations.outlook_service import OutlookService  # noqa: F401
+    from .integrations.outlook_calendar_service import MicrosoftCalendarService  # noqa: F401
+    from .integrations.notion_service import NotionService  # noqa: F401
 
     # Serviços de Mídia
     from .media.grok_video_service import GrokVideoService  # noqa: F401

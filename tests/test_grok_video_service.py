@@ -48,20 +48,14 @@ class TestGrokVideoService:
         assert await svc._health_check() is False
 
     @pytest.mark.asyncio
-    async def test_image_to_video_success(
-        self, service, fake_image_bytes
-    ):
+    async def test_image_to_video_success(self, service, fake_image_bytes):
         mock_response = MagicMock()
         mock_response.url = "https://vidgen.x.ai/test/video.mp4"
         mock_response.duration = 8
         mock_response.respect_moderation = True
-        service.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        service.client.video.generate = MagicMock(return_value=mock_response)
 
-        with patch.object(
-            service, "_download_video", new_callable=AsyncMock
-        ) as dl:
+        with patch.object(service, "_download_video", new_callable=AsyncMock) as dl:
             dl.return_value = "/tmp/test_video.mp4"
             result = await service.image_to_video(
                 image_data=fake_image_bytes,
@@ -74,18 +68,12 @@ class TestGrokVideoService:
         assert result["model_used"] == "grok-imagine-video"
 
     @pytest.mark.asyncio
-    async def test_image_to_video_moderation_blocked(
-        self, service, fake_image_bytes
-    ):
+    async def test_image_to_video_moderation_blocked(self, service, fake_image_bytes):
         mock_response = MagicMock()
         mock_response.respect_moderation = False
-        service.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        service.client.video.generate = MagicMock(return_value=mock_response)
 
-        result = await service.image_to_video(
-            image_data=fake_image_bytes
-        )
+        result = await service.image_to_video(image_data=fake_image_bytes)
         assert result["success"] is False
         assert "moderation" in result["error"]
 
@@ -95,17 +83,11 @@ class TestGrokVideoService:
         mock_response.url = "https://vidgen.x.ai/test/video2.mp4"
         mock_response.duration = 10
         mock_response.respect_moderation = True
-        service.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        service.client.video.generate = MagicMock(return_value=mock_response)
 
-        with patch.object(
-            service, "_download_video", new_callable=AsyncMock
-        ) as dl:
+        with patch.object(service, "_download_video", new_callable=AsyncMock) as dl:
             dl.return_value = "/tmp/test_video2.mp4"
-            result = await service.text_to_video(
-                prompt="A cat playing"
-            )
+            result = await service.text_to_video(prompt="A cat playing")
 
         assert result["success"] is True
         assert result["provider"] == "grok"
@@ -114,62 +96,40 @@ class TestGrokVideoService:
     async def test_text_to_video_moderation_blocked(self, service):
         mock_response = MagicMock()
         mock_response.respect_moderation = False
-        service.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        service.client.video.generate = MagicMock(return_value=mock_response)
 
-        result = await service.text_to_video(
-            prompt="Something blocked"
-        )
+        result = await service.text_to_video(prompt="Something blocked")
         assert result["success"] is False
         assert "moderation" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_image_to_video_api_error(
-        self, service, fake_image_bytes
-    ):
-        service.client.video.generate = MagicMock(
-            side_effect=Exception("API timeout")
-        )
-        result = await service.image_to_video(
-            image_data=fake_image_bytes
-        )
+    async def test_image_to_video_api_error(self, service, fake_image_bytes):
+        service.client.video.generate = MagicMock(side_effect=Exception("API timeout"))
+        result = await service.image_to_video(image_data=fake_image_bytes)
         assert result["success"] is False
         assert "API timeout" in result["error"]
 
     @pytest.mark.asyncio
     async def test_text_to_video_api_error(self, service):
-        service.client.video.generate = MagicMock(
-            side_effect=Exception("API error")
-        )
+        service.client.video.generate = MagicMock(side_effect=Exception("API error"))
         result = await service.text_to_video(prompt="test prompt")
         assert result["success"] is False
         assert "API error" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_default_prompt_when_empty(
-        self, service, fake_image_bytes
-    ):
+    async def test_default_prompt_when_empty(self, service, fake_image_bytes):
         mock_response = MagicMock()
         mock_response.url = "https://vidgen.x.ai/test/v.mp4"
         mock_response.duration = 8
         mock_response.respect_moderation = True
-        service.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        service.client.video.generate = MagicMock(return_value=mock_response)
 
-        with patch.object(
-            service, "_download_video", new_callable=AsyncMock
-        ) as dl:
+        with patch.object(service, "_download_video", new_callable=AsyncMock) as dl:
             dl.return_value = "/tmp/v.mp4"
-            await service.image_to_video(
-                image_data=fake_image_bytes, prompt=""
-            )
+            await service.image_to_video(image_data=fake_image_bytes, prompt="")
 
         call_args = service.client.video.generate.call_args
-        used_prompt = call_args.kwargs.get(
-            "prompt", call_args[1].get("prompt", "")
-        )
+        used_prompt = call_args.kwargs.get("prompt", call_args[1].get("prompt", ""))
         assert "Animate" in used_prompt
 
     @pytest.mark.asyncio
@@ -179,13 +139,9 @@ class TestGrokVideoService:
         mock_response.url = "https://vidgen.x.ai/test/v.mp4"
         mock_response.duration = 15
         mock_response.respect_moderation = True
-        service.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        service.client.video.generate = MagicMock(return_value=mock_response)
 
-        with patch.object(
-            service, "_download_video", new_callable=AsyncMock
-        ) as dl:
+        with patch.object(service, "_download_video", new_callable=AsyncMock) as dl:
             dl.return_value = "/tmp/v.mp4"
             await service.image_to_video(
                 image_data=fake_image_bytes,
@@ -197,21 +153,15 @@ class TestGrokVideoService:
         assert call_args.kwargs.get("duration") == 15
 
     @pytest.mark.asyncio
-    async def test_image_to_video_latency_tracked(
-        self, service, fake_image_bytes
-    ):
+    async def test_image_to_video_latency_tracked(self, service, fake_image_bytes):
         """Successful calls track latency."""
         mock_response = MagicMock()
         mock_response.url = "https://vidgen.x.ai/test/v.mp4"
         mock_response.duration = 8
         mock_response.respect_moderation = True
-        service.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        service.client.video.generate = MagicMock(return_value=mock_response)
 
-        with patch.object(
-            service, "_download_video", new_callable=AsyncMock
-        ) as dl:
+        with patch.object(service, "_download_video", new_callable=AsyncMock) as dl:
             dl.return_value = "/tmp/v.mp4"
             result = await service.image_to_video(
                 image_data=fake_image_bytes, prompt="test"
@@ -265,15 +215,10 @@ class TestDetectAspectRatio:
 
     def test_invalid_bytes_fallback(self):
         """Invalid image bytes should fallback to 16:9."""
-        assert (
-            GrokVideoService._detect_aspect_ratio(b"not an image")
-            == "16:9"
-        )
+        assert GrokVideoService._detect_aspect_ratio(b"not an image") == "16:9"
 
     @pytest.mark.asyncio
-    async def test_auto_detection_in_image_to_video(
-        self, fake_image_bytes
-    ):
+    async def test_auto_detection_in_image_to_video(self, fake_image_bytes):
         """image_to_video with aspect_ratio='auto' calls detection."""
         svc = GrokVideoService()
         svc._initialized = True
@@ -283,21 +228,18 @@ class TestDetectAspectRatio:
         mock_response.url = "https://vidgen.x.ai/test/v.mp4"
         mock_response.duration = 8
         mock_response.respect_moderation = True
-        svc.client.video.generate = MagicMock(
-            return_value=mock_response
-        )
+        svc.client.video.generate = MagicMock(return_value=mock_response)
 
-        with patch.object(
-            svc, "_download_video", new_callable=AsyncMock
-        ) as dl, patch.object(
-            GrokVideoService,
-            "_detect_aspect_ratio",
-            return_value="4:3",
-        ) as detect:
+        with (
+            patch.object(svc, "_download_video", new_callable=AsyncMock) as dl,
+            patch.object(
+                GrokVideoService,
+                "_detect_aspect_ratio",
+                return_value="4:3",
+            ) as detect,
+        ):
             dl.return_value = "/tmp/v.mp4"
-            await svc.image_to_video(
-                image_data=fake_image_bytes, prompt="test"
-            )
+            await svc.image_to_video(image_data=fake_image_bytes, prompt="test")
 
         detect.assert_called_once_with(fake_image_bytes)
         call_args = svc.client.video.generate.call_args

@@ -63,6 +63,7 @@ class TestRequiresPermission:
     @pytest.mark.asyncio
     async def test_context_in_kwargs(self):
         """Permission check finds UserContext in positional args."""
+
         @requires_permission("write")
         async def protected(a, b, ctx):
             return "ok"

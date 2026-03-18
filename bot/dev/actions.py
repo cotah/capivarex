@@ -26,12 +26,7 @@ DEV_ACTION_ALIASES = {
 }
 
 # Valid action types after normalization
-VALID_ACTION_TYPES = {
-    "create_file",
-    "overwrite_file",
-    "append_file",
-    "replace_in_file"
-}
+VALID_ACTION_TYPES = {"create_file", "overwrite_file", "append_file", "replace_in_file"}
 
 
 def extract_actions_json(text: str) -> Dict:
@@ -56,9 +51,7 @@ def extract_actions_json(text: str) -> Dict:
 
     # 1) Collect all ```json ... ``` blocks
     json_blocks = re.findall(
-        r"```json\s*(\{[\s\S]*?\})\s*```",
-        text,
-        flags=re.IGNORECASE
+        r"```json\s*(\{[\s\S]*?\})\s*```", text, flags=re.IGNORECASE
     )
     for block in json_blocks:
         try:
@@ -70,9 +63,7 @@ def extract_actions_json(text: str) -> Dict:
 
     # 2) Fallback: find loose JSON objects with "actions" key
     loose_matches = re.findall(
-        r'(\{[^`]*?"actions"\s*:\s*\[[^\]]*\][^`]*?\})',
-        text,
-        flags=re.DOTALL
+        r'(\{[^`]*?"actions"\s*:\s*\[[^\]]*\][^`]*?\})', text, flags=re.DOTALL
     )
     for match in loose_matches:
         try:
@@ -289,7 +280,9 @@ def dry_run_has_rejections(actions_obj: Dict, base_dir: Path) -> Tuple[bool, Lis
 
         # Check type
         if t_norm not in VALID_ACTION_TYPES:
-            reasons.append(f"Action {i}: REJECTED (unknown type: '{t_raw}') — {path_norm}")
+            reasons.append(
+                f"Action {i}: REJECTED (unknown type: '{t_raw}') — {path_norm}"
+            )
             continue
 
         # Check path

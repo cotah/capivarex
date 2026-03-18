@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Default quiet hours (UTC) — user can customize
 DEFAULT_QUIET_START = 23  # 23:00
-DEFAULT_QUIET_END = 7     # 07:00
+DEFAULT_QUIET_END = 7  # 07:00
 
 # Max queued notifications
 MAX_QUEUE = 30
@@ -77,7 +77,11 @@ async def should_be_silent(user_id: str) -> Dict[str, Any]:
 async def _check_focus_mode(user_id: str) -> Dict[str, Any]:
     """Check if Focus Mode is active."""
     try:
-        from services.business.focus_mode_service import is_focus_active, get_focus_state
+        from services.business.focus_mode_service import (
+            is_focus_active,
+            get_focus_state,
+        )
+
         if await is_focus_active(user_id):
             state = await get_focus_state(user_id)
             ends_at = ""
@@ -191,6 +195,7 @@ async def _check_dnd(user_id: str) -> Dict[str, Any]:
 
         if result.data:
             import json
+
             val = result.data[0].get("value", "{}")
             data = json.loads(val) if isinstance(val, str) else val
             if data.get("active"):
@@ -200,7 +205,12 @@ async def _check_dnd(user_id: str) -> Dict[str, Any]:
                     try:
                         until_ts = float(until)
                         if until_ts < time.time():
-                            return {"silent": False, "reason": None, "until": None, "details": None}
+                            return {
+                                "silent": False,
+                                "reason": None,
+                                "until": None,
+                                "details": None,
+                            }
                         until = datetime.fromtimestamp(until_ts).strftime("%H:%M")
                     except (ValueError, TypeError):
                         pass
@@ -237,9 +247,12 @@ async def _get_quiet_hours(user_id: str) -> tuple:
 
         if result.data:
             import json
+
             val = result.data[0].get("value", "{}")
             data = json.loads(val) if isinstance(val, str) else val
-            return data.get("start", DEFAULT_QUIET_START), data.get("end", DEFAULT_QUIET_END)
+            return data.get("start", DEFAULT_QUIET_START), data.get(
+                "end", DEFAULT_QUIET_END
+            )
 
     except Exception:
         pass
@@ -251,10 +264,12 @@ async def _get_quiet_hours(user_id: str) -> tuple:
 # Notification Queue — hold notifications during silence
 # ---------------------------------------------------------------------------
 
+
 async def queue_notification(user_id: str, notification: str, source: str = "") -> None:
     """Queue a notification to be delivered when user is available."""
     try:
         import json
+
         db = get_service("database")
         if not db or not db.is_initialized():
             return
@@ -262,20 +277,24 @@ async def queue_notification(user_id: str, notification: str, source: str = "") 
         client = db.get_client()
         queue = await _get_queue(user_id)
 
-        queue.append({
-            "text": notification[:500],
-            "source": source,
-            "time": time.time(),
-        })
+        queue.append(
+            {
+                "text": notification[:500],
+                "source": source,
+                "time": time.time(),
+            }
+        )
 
         # Keep max
         queue = queue[-MAX_QUEUE:]
 
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": "notification_queue",
-            "value": json.dumps(queue),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": "notification_queue",
+                "value": json.dumps(queue),
+            }
+        ).execute()
 
     except Exception as e:
         logger.warning("Queue notification failed: %s", e)
@@ -297,14 +316,17 @@ async def flush_queue(user_id: str, user_name: str = "") -> Optional[str]:
     # Clear queue
     try:
         import json
+
         db = get_service("database")
         if db and db.is_initialized():
             client = db.get_client()
-            client.table("user_context").upsert({
-                "user_id": user_id,
-                "key": "notification_queue",
-                "value": json.dumps([]),
-            }).execute()
+            client.table("user_context").upsert(
+                {
+                    "user_id": user_id,
+                    "key": "notification_queue",
+                    "value": json.dumps([]),
+                }
+            ).execute()
     except Exception:
         pass
 
@@ -333,6 +355,7 @@ async def _get_queue(user_id: str) -> List[Dict[str, Any]]:
     """Get queued notifications."""
     try:
         import json
+
         db = get_service("database")
         if not db or not db.is_initialized():
             return []

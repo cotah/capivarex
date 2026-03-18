@@ -1,4 +1,5 @@
 """Tests for leaving home check service — A2: departure briefing."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -7,7 +8,7 @@ from services.business.leaving_home_check_service import (
     generate_departure_briefing,
     _check_weather,
     _check_next_event,
-    _check_smart_home,
+    # _check_smart_home,  # PAUSED — TODO: Reativar no Q3 2026
     _humanize_briefing,
 )
 
@@ -42,7 +43,10 @@ class TestWeatherCheck:
 
     @pytest.mark.asyncio
     async def test_no_weather_service(self):
-        with patch("services.business.leaving_home_check_service.get_service", return_value=None):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=None,
+        ):
             result = await _check_weather("Dublin")
         assert result is None
 
@@ -54,12 +58,20 @@ class TestWeatherCheck:
     async def test_weather_with_rain(self):
         mock_weather = MagicMock()
         mock_weather.is_initialized.return_value = True
-        mock_weather.get_weather = AsyncMock(return_value={
-            "temperature": 12, "description": "cloudy", "feels_like": 10,
-            "rain_chance": 80, "wind_speed": 15,
-        })
+        mock_weather.get_weather = AsyncMock(
+            return_value={
+                "temperature": 12,
+                "description": "cloudy",
+                "feels_like": 10,
+                "rain_chance": 80,
+                "wind_speed": 15,
+            }
+        )
 
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_weather):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=mock_weather,
+        ):
             result = await _check_weather("Dublin")
         assert result is not None
         assert "umbrella" in result.lower()
@@ -68,12 +80,20 @@ class TestWeatherCheck:
     async def test_weather_no_warnings(self):
         mock_weather = MagicMock()
         mock_weather.is_initialized.return_value = True
-        mock_weather.get_weather = AsyncMock(return_value={
-            "temperature": 22, "description": "sunny", "feels_like": 22,
-            "rain_chance": 5, "wind_speed": 10,
-        })
+        mock_weather.get_weather = AsyncMock(
+            return_value={
+                "temperature": 22,
+                "description": "sunny",
+                "feels_like": 22,
+                "rain_chance": 5,
+                "wind_speed": 10,
+            }
+        )
 
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_weather):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=mock_weather,
+        ):
             result = await _check_weather("Dublin")
         assert result is not None
         assert "umbrella" not in result.lower()
@@ -84,7 +104,10 @@ class TestNextEvent:
 
     @pytest.mark.asyncio
     async def test_no_services(self):
-        with patch("services.business.leaving_home_check_service.get_service", return_value=None):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=None,
+        ):
             result = await _check_next_event("u1", "Dublin")
         assert result is None
 
@@ -99,48 +122,15 @@ class TestNextEvent:
                 return mock_cal
             return None
 
-        with patch("services.business.leaving_home_check_service.get_service", fake_svc):
+        with patch(
+            "services.business.leaving_home_check_service.get_service", fake_svc
+        ):
             result = await _check_next_event("u1", "")
         assert result is not None
         assert "no events" in result.lower() or "enjoy" in result.lower()
 
 
-class TestSmartHome:
-    """Tests for smart home check."""
-
-    @pytest.mark.asyncio
-    async def test_no_service(self):
-        with patch("services.business.leaving_home_check_service.get_service", return_value=None):
-            result = await _check_smart_home("u1")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_lights_on(self):
-        mock_sh = MagicMock()
-        mock_sh.is_initialized.return_value = True
-        mock_sh.get_devices = AsyncMock(return_value=[
-            {"name": "Living Room", "type": "light", "status": {"switch": "on"}},
-            {"name": "Kitchen", "type": "light", "status": {"switch": "off"}},
-            {"name": "Front Door", "type": "lock", "status": {"lock": "unlocked"}},
-        ])
-
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_sh):
-            result = await _check_smart_home("u1")
-        assert result is not None
-        assert "Living Room" in result
-        assert "Front Door" in result
-
-    @pytest.mark.asyncio
-    async def test_all_off(self):
-        mock_sh = MagicMock()
-        mock_sh.is_initialized.return_value = True
-        mock_sh.get_devices = AsyncMock(return_value=[
-            {"name": "Living Room", "type": "light", "status": {"switch": "off"}},
-        ])
-
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_sh):
-            result = await _check_smart_home("u1")
-        assert result is None
+# TestSmartHome: PAUSED — _check_smart_home removed (Grupo 2 — Q3 2026)
 
 
 class TestFullBriefing:
@@ -148,16 +138,22 @@ class TestFullBriefing:
 
     @pytest.mark.asyncio
     async def test_no_data(self):
-        with patch("services.business.leaving_home_check_service.get_service", return_value=None):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=None,
+        ):
             result = await generate_departure_briefing("u1", "Marcos")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_fallback_briefing(self):
-        result = await _humanize_briefing("Marcos", {
-            "weather": "12°C, cloudy. ⚠️ rain likely — bring an umbrella",
-            "event": "Next: Team Meeting at 15:00",
-        })
+        result = await _humanize_briefing(
+            "Marcos",
+            {
+                "weather": "12°C, cloudy. ⚠️ rain likely — bring an umbrella",
+                "event": "Next: Team Meeting at 15:00",
+            },
+        )
         assert "Marcos" in result
         assert "🌤️" in result or "📅" in result
 
@@ -174,8 +170,13 @@ class TestBriefingGPT:
             "📅 You have a meeting at 15:00. Have a great one! 👋"
         )
 
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_openai):
-            result = await _humanize_briefing("Marcos", {"weather": "22°C sunny", "event": "Meeting 15:00"})
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=mock_openai,
+        ):
+            result = await _humanize_briefing(
+                "Marcos", {"weather": "22°C sunny", "event": "Meeting 15:00"}
+            )
         assert "Marcos" in result
 
 
@@ -188,19 +189,14 @@ class TestEdgeCases:
         mock_weather.is_initialized.return_value = True
         mock_weather.get_weather = AsyncMock(side_effect=Exception("API error"))
 
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_weather):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=mock_weather,
+        ):
             result = await _check_weather("Dublin")
         assert result is None
 
-    @pytest.mark.asyncio
-    async def test_smarthome_exception(self):
-        mock_sh = MagicMock()
-        mock_sh.is_initialized.return_value = True
-        mock_sh.get_devices = AsyncMock(side_effect=Exception("Device error"))
-
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_sh):
-            result = await _check_smart_home("u1")
-        assert result is None
+    # test_smarthome_exception: PAUSED — _check_smart_home removed (Grupo 2 — Q3 2026)
 
     @pytest.mark.asyncio
     async def test_weather_no_data(self):
@@ -208,7 +204,10 @@ class TestEdgeCases:
         mock_weather.is_initialized.return_value = True
         mock_weather.get_weather = AsyncMock(return_value=None)
 
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_weather):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=mock_weather,
+        ):
             result = await _check_weather("Dublin")
         assert result is None
 
@@ -216,39 +215,44 @@ class TestEdgeCases:
     async def test_weather_strong_wind(self):
         mock_weather = MagicMock()
         mock_weather.is_initialized.return_value = True
-        mock_weather.get_weather = AsyncMock(return_value={
-            "temperature": 18, "description": "windy", "wind_speed": 50,
-        })
+        mock_weather.get_weather = AsyncMock(
+            return_value={
+                "temperature": 18,
+                "description": "windy",
+                "wind_speed": 50,
+            }
+        )
 
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_weather):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=mock_weather,
+        ):
             result = await _check_weather("Dublin")
         assert "wind" in result.lower()
 
-    @pytest.mark.asyncio
-    async def test_smarthome_no_devices(self):
-        mock_sh = MagicMock()
-        mock_sh.is_initialized.return_value = True
-        mock_sh.get_devices = AsyncMock(return_value=[])
-
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_sh):
-            result = await _check_smart_home("u1")
-        assert result is None
+    # test_smarthome_no_devices: PAUSED — _check_smart_home removed (Grupo 2 — Q3 2026)
 
     @pytest.mark.asyncio
     async def test_briefing_weather_only(self):
         """Briefing with only weather data."""
         mock_weather = MagicMock()
         mock_weather.is_initialized.return_value = True
-        mock_weather.get_weather = AsyncMock(return_value={
-            "temperature": 15, "description": "cloudy", "rain_chance": 10,
-        })
+        mock_weather.get_weather = AsyncMock(
+            return_value={
+                "temperature": 15,
+                "description": "cloudy",
+                "rain_chance": 10,
+            }
+        )
 
         def fake_svc(name):
             if name == "weather":
                 return mock_weather
             return None
 
-        with patch("services.business.leaving_home_check_service.get_service", fake_svc):
+        with patch(
+            "services.business.leaving_home_check_service.get_service", fake_svc
+        ):
             result = await generate_departure_briefing("u1", "Marcos", "Dublin")
         assert result is not None
         assert "Marcos" in result
@@ -257,12 +261,20 @@ class TestEdgeCases:
     async def test_weather_slight_rain(self):
         mock_weather = MagicMock()
         mock_weather.is_initialized.return_value = True
-        mock_weather.get_weather = AsyncMock(return_value={
-            "temperature": 16, "description": "partly cloudy",
-            "feels_like": 14, "rain_chance": 35, "wind_speed": 8,
-        })
+        mock_weather.get_weather = AsyncMock(
+            return_value={
+                "temperature": 16,
+                "description": "partly cloudy",
+                "feels_like": 14,
+                "rain_chance": 35,
+                "wind_speed": 8,
+            }
+        )
 
-        with patch("services.business.leaving_home_check_service.get_service", return_value=mock_weather):
+        with patch(
+            "services.business.leaving_home_check_service.get_service",
+            return_value=mock_weather,
+        ):
             result = await _check_weather("Dublin")
         assert "slight" in result.lower() or "rain" in result.lower()
 
@@ -270,19 +282,24 @@ class TestEdgeCases:
     async def test_next_event_from_calendar(self):
         """Calendar returns an upcoming event."""
         from datetime import datetime, timezone, timedelta
+
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
         future = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            {"summary": "Team Standup", "start": future, "location": "Office"},
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {"summary": "Team Standup", "start": future, "location": "Office"},
+            ]
+        )
 
         def fake_svc(name):
             if name == "calendar":
                 return mock_cal
             return None
 
-        with patch("services.business.leaving_home_check_service.get_service", fake_svc):
+        with patch(
+            "services.business.leaving_home_check_service.get_service", fake_svc
+        ):
             result = await _check_next_event("u1", "")
         assert result is not None
         assert "Team Standup" in result
@@ -298,30 +315,37 @@ class TestEdgeCases:
                 return mock_cal
             return None
 
-        with patch("services.business.leaving_home_check_service.get_service", fake_svc):
+        with patch(
+            "services.business.leaving_home_check_service.get_service", fake_svc
+        ):
             result = await _check_next_event("u1", "")
         assert result is None
 
+    # test_next_event_with_leaving_service: PAUSED — leaving_now service removed (Grupo 2 — Q3 2026)
+    # @pytest.mark.asyncio
+    # async def test_next_event_with_leaving_service(self):
+    #     ...
+
     @pytest.mark.asyncio
-    async def test_next_event_with_leaving_service(self):
-        """Uses LeavingNowService when available."""
-        mock_leaving = MagicMock()
-        mock_leaving.is_initialized.return_value = True
-        mock_leaving.calculate_for_next_event = AsyncMock(return_value=MagicMock(
-            event_name="Team Meeting",
-            event_time="15:00",
-            travel_minutes=25,
-            leave_by="14:30",
-            weather_warning="",
-        ))
+    async def _placeholder_test_leaving_paused(self):
+        """Placeholder — leaving_now paused."""
+        pass
+
+    @pytest.mark.asyncio
+    async def test_next_event_calendar_fallback(self):
+        """Without leaving_now, falls back to calendar — no events returns enjoy message."""
+        mock_cal = MagicMock()
+        mock_cal.is_initialized.return_value = True
+        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[])
 
         def fake_svc(name):
-            if name == "leaving_now":
-                return mock_leaving
+            if name == "calendar":
+                return mock_cal
             return None
 
-        with patch("services.business.leaving_home_check_service.get_service", fake_svc):
+        with patch(
+            "services.business.leaving_home_check_service.get_service", fake_svc
+        ):
             result = await _check_next_event("u1", "Dublin")
         assert result is not None
-        assert "Team Meeting" in result
-        assert "14:30" in result
+        assert "No events" in result or "enjoy" in result

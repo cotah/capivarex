@@ -16,7 +16,12 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from services.core import BaseService, ServiceUnavailableError, register_service
+from services.core import (
+    BaseService,
+    ServiceUnavailableError,
+    get_service,
+    register_service,
+)
 
 NOTES_TABLE = "notes"
 MAX_CONTENT_LENGTH = 2000
@@ -224,6 +229,29 @@ class NotesService(BaseService):
 
         note = response.data[0]
         self.logger.info("Note created: %s for user %s", note["id"], user_id)
+
+        # Dual-save: sync to Notion if connected (async, non-blocking)
+        note["notion_synced"] = False
+        try:
+            from services.auth.notion_oauth_service import get_notion_oauth
+
+            if await get_notion_oauth().is_connected(user_id):
+                notion_svc = get_service("notion")
+                if notion_svc:
+                    if not notion_svc.is_initialized():
+                        await notion_svc.initialize()
+                    notion_url = await notion_svc.create_page(
+                        user_id,
+                        note.get("title", ""),
+                        content,
+                    )
+                    if notion_url:
+                        note["notion_synced"] = True
+                        note["notion_url"] = notion_url
+                        self.logger.info("Note also synced to Notion: %s", notion_url)
+        except Exception as e:
+            self.logger.warning("Notion sync failed (non-blocking): %s", e)
+
         return note
 
     async def list_notes(

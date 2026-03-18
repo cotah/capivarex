@@ -53,7 +53,9 @@ class ElevenLabsService(BaseService):
     - Metrics tracking
     """
 
-    def __init__(self, name: str = "elevenlabs", config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, name: str = "elevenlabs", config: Optional[Dict[str, Any]] = None
+    ):
         """Initialise the ElevenLabs TTS service."""
         super().__init__(name, config)
         self.api_key: Optional[str] = None
@@ -228,5 +230,6 @@ def get_elevenlabs_service() -> ElevenLabsService:
     global _elevenlabs_service
     if _elevenlabs_service is None:
         from services.core import get_service
+
         _elevenlabs_service = get_service("elevenlabs")
     return _elevenlabs_service

@@ -2,6 +2,7 @@
 Tests for CarAgent — electric vehicle control via Smartcar.
 Agente sem cobertura de testes. Adicionado na Fase C do QA.
 """
+
 from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from agents.core import AgentStatus
@@ -10,6 +11,7 @@ from agents.core import AgentStatus
 @pytest.fixture
 def car_agent():
     from agents.specialized.car_agent import CarAgent
+
     return CarAgent()
 
 
@@ -17,17 +19,21 @@ def _make_car_svc():
     svc = AsyncMock()
     svc.initialize = AsyncMock()
     svc.is_initialized = Mock(return_value=True)
-    svc.get_battery_level = AsyncMock(return_value={
-        "percentRemaining": 0.78,
-        "range": 280.5,
-        "isPluggedIn": False,
-        "state": "NOT_CHARGING",
-    })
-    svc.get_location = AsyncMock(return_value={
-        "latitude": 53.3498,
-        "longitude": -6.2603,
-        "address": "Dublin, Ireland",
-    })
+    svc.get_battery_level = AsyncMock(
+        return_value={
+            "percentRemaining": 0.78,
+            "range": 280.5,
+            "isPluggedIn": False,
+            "state": "NOT_CHARGING",
+        }
+    )
+    svc.get_location = AsyncMock(
+        return_value={
+            "latitude": 53.3498,
+            "longitude": -6.2603,
+            "address": "Dublin, Ireland",
+        }
+    )
     svc.lock = AsyncMock(return_value={"status": "success"})
     svc.unlock = AsyncMock(return_value={"status": "success"})
     svc.start_charge = AsyncMock(return_value={"status": "success"})
@@ -39,16 +45,19 @@ def _make_vehicle_db():
     svc = AsyncMock()
     svc.is_initialized = Mock(return_value=True)
     svc.initialize = AsyncMock()
-    svc.get_primary_vehicle = AsyncMock(return_value={
-        "vehicle_id": "vehicle_abc123",
-        "access_token": "token_xyz",
-        "make": "Tesla",
-        "model": "Model 3",
-    })
+    svc.get_primary_vehicle = AsyncMock(
+        return_value={
+            "vehicle_id": "vehicle_abc123",
+            "access_token": "token_xyz",
+            "make": "Tesla",
+            "model": "Model 3",
+        }
+    )
     return svc
 
 
 # ── Happy path ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_car_battery_query(car_agent):
@@ -65,8 +74,7 @@ async def test_car_battery_query(car_agent):
 
     with patch("agents.specialized.car_agent.get_service", side_effect=_get_service):
         result = await car_agent.execute(
-            "qual o nível de bateria do meu carro?",
-            {"user_id": "user_test"}
+            "qual o nível de bateria do meu carro?", {"user_id": "user_test"}
         )
     assert result.status == AgentStatus.SUCCESS
     assert result.response
@@ -109,13 +117,14 @@ async def test_car_no_vehicle_connected(car_agent):
 
 # ── Falhas e edge cases ───────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_car_service_unavailable(car_agent):
     """CarAgent handles when car service is missing — returns ERROR when vehicle_id is set."""
     with patch("agents.specialized.car_agent.get_service", return_value=None):
         result = await car_agent.execute(
             "status do veículo",
-            {"user_id": "user_test", "vehicle_id": "v1", "access_token": "tok"}
+            {"user_id": "user_test", "vehicle_id": "v1", "access_token": "tok"},
         )
     assert result.status == AgentStatus.ERROR
 

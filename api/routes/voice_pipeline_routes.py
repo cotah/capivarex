@@ -29,29 +29,53 @@ router_pipeline = APIRouter(tags=["voice-pipeline"])
 _AUDIO_TEMP_DIR = Path(tempfile.gettempdir()) / "superbot_audio"
 _AUDIO_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".ogg"}
+ALLOWED_AUDIO_EXTENSIONS = {
+    ".mp3",
+    ".mp4",
+    ".mpeg",
+    ".mpga",
+    ".m4a",
+    ".wav",
+    ".webm",
+    ".ogg",
+}
 MAX_AUDIO_SIZE_MB = 25
 
 
 # ─── Schemas ────────────────────────────────────────────────────────────────────
 
+
 class PipelineResponse(BaseModel):
     """Resposta do pipeline completo STT→LLM→TTS."""
 
-    transcript: Optional[str] = Field(None, description="Texto transcrito do áudio de entrada")
+    transcript: Optional[str] = Field(
+        None, description="Texto transcrito do áudio de entrada"
+    )
     response_text: Optional[str] = Field(None, description="Resposta gerada pelo LLM")
-    audio_filename: Optional[str] = Field(None, description="Nome do arquivo de áudio de resposta")
-    audio_url: Optional[str] = Field(None, description="URL para baixar o áudio de resposta")
+    audio_filename: Optional[str] = Field(
+        None, description="Nome do arquivo de áudio de resposta"
+    )
+    audio_url: Optional[str] = Field(
+        None, description="URL para baixar o áudio de resposta"
+    )
     language: str = Field("pt", description="Idioma detectado/usado")
-    metrics: Dict = Field(default_factory=dict, description="Métricas de latência por etapa")
-    warning: Optional[str] = Field(None, description="Aviso não-fatal (ex: TTS falhou, retornando texto)")
+    metrics: Dict = Field(
+        default_factory=dict, description="Métricas de latência por etapa"
+    )
+    warning: Optional[str] = Field(
+        None, description="Aviso não-fatal (ex: TTS falhou, retornando texto)"
+    )
 
 
 class StreamTTSRequest(BaseModel):
     """Request para streaming TTS."""
 
-    text: str = Field(..., min_length=1, max_length=4800, description="Texto a converter em áudio")
-    voice: Optional[str] = Field(None, description="Nome da voz (rachel, adam, bella, ...)")
+    text: str = Field(
+        ..., min_length=1, max_length=4800, description="Texto a converter em áudio"
+    )
+    voice: Optional[str] = Field(
+        None, description="Nome da voz (rachel, adam, bella, ...)"
+    )
     language: str = Field("pt", description="Código do idioma (pt, en, es, ...)")
 
     @field_validator("text")
@@ -63,6 +87,7 @@ class StreamTTSRequest(BaseModel):
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _get_pipeline_service():
     svc = get_service("voice_pipeline")
@@ -83,12 +108,14 @@ def _validate_audio_file(file: UploadFile) -> None:
 
 def _voice_name_to_id(voice_name: Optional[str], language: str) -> Optional[str]:
     from services.ai.elevenlabs_service import PORTUGUESE_VOICES
+
     if voice_name:
         return PORTUGUESE_VOICES.get(voice_name.lower())
     return None
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
+
 
 @router_pipeline.post(
     "/pipeline",
@@ -98,7 +125,9 @@ def _voice_name_to_id(voice_name: Optional[str], language: str) -> Optional[str]
 @limiter.limit("10/minute")
 async def pipeline_endpoint(
     request: Request,
-    audio: UploadFile = File(..., description="Arquivo de áudio (mp3, wav, ogg, m4a, webm)"),
+    audio: UploadFile = File(
+        ..., description="Arquivo de áudio (mp3, wav, ogg, m4a, webm)"
+    ),
     language: str = Form("pt"),
     voice: Optional[str] = Form(None),
     return_audio: bool = Form(True),
@@ -155,7 +184,9 @@ async def pipeline_endpoint(
         raise
     except Exception as e:
         logger.exception("Pipeline error: %s", e)
-        raise HTTPException(status_code=500, detail=f"Erro no pipeline de voz: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erro no pipeline de voz: {str(e)}"
+        )
     finally:
         if tmp_path.exists():
             try:
@@ -212,6 +243,7 @@ async def pipeline_health(
 ) -> Dict:
     """Retorna status de cada componente do pipeline."""
     from services.core import get_service as _gs
+
     whisper_svc = _gs("whisper")
     elevenlabs_svc = _gs("elevenlabs")
     orchestrator = get_agent("orchestrator")
@@ -232,6 +264,8 @@ async def pipeline_health(
             "initialized": elevenlabs_svc.is_initialized() if elevenlabs_svc else False,
         },
         "pipeline": {
-            "status": "operational" if all([whisper_svc, orchestrator, elevenlabs_svc]) else "degraded",
+            "status": "operational"
+            if all([whisper_svc, orchestrator, elevenlabs_svc])
+            else "degraded",
         },
     }

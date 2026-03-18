@@ -41,23 +41,14 @@ class SpotifyService(BaseService):
         self._http: Optional[httpx.AsyncClient] = None
 
     async def _initialize(self) -> None:
-        self._client_id = os.getenv(
-            "SPOTIFY_CLIENT_ID", ""
-        )
-        self._client_secret = os.getenv(
-            "SPOTIFY_CLIENT_SECRET", ""
-        )
+        self._client_id = os.getenv("SPOTIFY_CLIENT_ID", "")
+        self._client_secret = os.getenv("SPOTIFY_CLIENT_SECRET", "")
         if not self._client_id or not self._client_secret:
-            self.logger.warning(
-                "SPOTIFY_CLIENT_ID or "
-                "SPOTIFY_CLIENT_SECRET not set"
-            )
+            self.logger.warning("SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET not set")
             return
         self._http = httpx.AsyncClient(timeout=15.0)
         await self._refresh_token()
-        self.logger.info(
-            "Spotify service initialized successfully"
-        )
+        self.logger.info("Spotify service initialized successfully")
 
     async def _health_check(self) -> bool:
         return bool(self._access_token)
@@ -74,37 +65,24 @@ class SpotifyService(BaseService):
                     "client_id": self._client_id,
                     "client_secret": self._client_secret,
                 },
-                headers={
-                    "Content-Type": (
-                        "application/x-www-form-urlencoded"
-                    )
-                },
+                headers={"Content-Type": ("application/x-www-form-urlencoded")},
             )
             response.raise_for_status()
             data = response.json()
             self._access_token = data["access_token"]
             # Refresh 60s before expiry
-            self._token_expires_at = (
-                time.time()
-                + data.get("expires_in", 3600)
-                - 60
-            )
+            self._token_expires_at = time.time() + data.get("expires_in", 3600) - 60
             self.logger.info(
                 "Spotify token refreshed (expires_in=%s)",
                 data.get("expires_in"),
             )
         except Exception as e:
-            self.logger.error(
-                "Failed to refresh Spotify token: %s", e
-            )
+            self.logger.error("Failed to refresh Spotify token: %s", e)
             raise
 
     async def _ensure_token(self) -> None:
         """Ensure we have a valid token."""
-        if (
-            not self._access_token
-            or time.time() >= self._token_expires_at
-        ):
+        if not self._access_token or time.time() >= self._token_expires_at:
             await self._refresh_token()
 
     async def _api_get(
@@ -118,11 +96,7 @@ class SpotifyService(BaseService):
         response = await self._http.get(
             url,
             params=params,
-            headers={
-                "Authorization": (
-                    f"Bearer {self._access_token}"
-                )
-            },
+            headers={"Authorization": (f"Bearer {self._access_token}")},
         )
         response.raise_for_status()
         return response.json()
@@ -166,31 +140,21 @@ class SpotifyService(BaseService):
             if search_type == "track":
                 results.append(self._format_track(item))
             elif search_type == "artist":
-                results.append(
-                    self._format_artist(item)
-                )
+                results.append(self._format_artist(item))
             elif search_type == "album":
                 results.append(self._format_album(item))
             elif search_type == "playlist":
-                results.append(
-                    self._format_playlist(item)
-                )
+                results.append(self._format_playlist(item))
 
         return results
 
-    async def search_tracks(
-        self, query: str, limit: int = 5
-    ) -> List[Dict]:
+    async def search_tracks(self, query: str, limit: int = 5) -> List[Dict]:
         return await self.search(query, "track", limit)
 
-    async def search_artists(
-        self, query: str, limit: int = 5
-    ) -> List[Dict]:
+    async def search_artists(self, query: str, limit: int = 5) -> List[Dict]:
         return await self.search(query, "artist", limit)
 
-    async def search_albums(
-        self, query: str, limit: int = 5
-    ) -> List[Dict]:
+    async def search_albums(self, query: str, limit: int = 5) -> List[Dict]:
         return await self.search(query, "album", limit)
 
     # ── Get by ID ─────────────────────────────────────
@@ -200,20 +164,16 @@ class SpotifyService(BaseService):
         return self._format_track(data)
 
     async def get_artist(self, artist_id: str) -> Dict:
-        data = await self._api_get(
-            f"artists/{artist_id}"
-        )
+        data = await self._api_get(f"artists/{artist_id}")
         self.logger.debug(
-            "RAW artist API: name=%s followers=%s "
-            "popularity=%s",
+            "RAW artist API: name=%s followers=%s popularity=%s",
             data.get("name"),
             data.get("followers"),
             data.get("popularity"),
         )
         result = self._format_artist(data)
         self.logger.debug(
-            "FORMATTED artist: name=%s followers=%s "
-            "popularity=%s",
+            "FORMATTED artist: name=%s followers=%s popularity=%s",
             result.get("name"),
             result.get("followers"),
             result.get("popularity"),
@@ -288,9 +248,7 @@ class SpotifyService(BaseService):
 
     @staticmethod
     def _format_track(track: dict) -> Dict:
-        artists = ", ".join(
-            a["name"] for a in track.get("artists", [])
-        )
+        artists = ", ".join(a["name"] for a in track.get("artists", []))
         album = track.get("album", {})
         duration_ms = track.get("duration_ms", 0)
         minutes = duration_ms // 60000
@@ -303,9 +261,7 @@ class SpotifyService(BaseService):
             "artists": artists,
             "album": album.get("name", ""),
             "album_image": (
-                album.get("images", [{}])[0].get(
-                    "url", ""
-                )
+                album.get("images", [{}])[0].get("url", "")
                 if album.get("images")
                 else ""
             ),
@@ -313,9 +269,7 @@ class SpotifyService(BaseService):
             "duration_ms": duration_ms,
             "popularity": track.get("popularity", 0),
             "preview_url": track.get("preview_url"),
-            "spotify_url": track.get(
-                "external_urls", {}
-            ).get("spotify", ""),
+            "spotify_url": track.get("external_urls", {}).get("spotify", ""),
             "uri": track.get("uri", ""),
         }
 
@@ -334,53 +288,34 @@ class SpotifyService(BaseService):
             "type": "artist",
             "id": artist.get("id", ""),
             "name": artist.get("name", ""),
-            "genres": ", ".join(
-                artist.get("genres", [])[:5]
-            ),
-            "popularity": artist.get(
-                "popularity", 0
-            )
-            or 0,
+            "genres": ", ".join(artist.get("genres", [])[:5]),
+            "popularity": artist.get("popularity", 0) or 0,
             "followers": followers,
             "image": (
-                artist.get("images", [{}])[0].get(
-                    "url", ""
-                )
+                artist.get("images", [{}])[0].get("url", "")
                 if artist.get("images")
                 else ""
             ),
-            "spotify_url": artist.get(
-                "external_urls", {}
-            ).get("spotify", ""),
+            "spotify_url": artist.get("external_urls", {}).get("spotify", ""),
             "uri": artist.get("uri", ""),
         }
 
     @staticmethod
     def _format_album(album: dict) -> Dict:
-        artists = ", ".join(
-            a["name"] for a in album.get("artists", [])
-        )
+        artists = ", ".join(a["name"] for a in album.get("artists", []))
         return {
             "type": "album",
             "id": album.get("id", ""),
             "name": album.get("name", ""),
             "artists": artists,
-            "release_date": album.get(
-                "release_date", ""
-            ),
-            "total_tracks": album.get(
-                "total_tracks", 0
-            ),
+            "release_date": album.get("release_date", ""),
+            "total_tracks": album.get("total_tracks", 0),
             "image": (
-                album.get("images", [{}])[0].get(
-                    "url", ""
-                )
+                album.get("images", [{}])[0].get("url", "")
                 if album.get("images")
                 else ""
             ),
-            "spotify_url": album.get(
-                "external_urls", {}
-            ).get("spotify", ""),
+            "spotify_url": album.get("external_urls", {}).get("spotify", ""),
             "uri": album.get("uri", ""),
         }
 
@@ -391,21 +326,13 @@ class SpotifyService(BaseService):
             "type": "playlist",
             "id": playlist.get("id", ""),
             "name": playlist.get("name", ""),
-            "description": playlist.get(
-                "description", ""
-            ),
+            "description": playlist.get("description", ""),
             "owner": owner.get("display_name", ""),
-            "total_tracks": playlist.get(
-                "tracks", {}
-            ).get("total", 0),
+            "total_tracks": playlist.get("tracks", {}).get("total", 0),
             "image": (
-                playlist.get("images", [{}])[0].get(
-                    "url", ""
-                )
+                playlist.get("images", [{}])[0].get("url", "")
                 if playlist.get("images")
                 else ""
             ),
-            "spotify_url": playlist.get(
-                "external_urls", {}
-            ).get("spotify", ""),
+            "spotify_url": playlist.get("external_urls", {}).get("spotify", ""),
         }

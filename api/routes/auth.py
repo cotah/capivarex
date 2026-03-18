@@ -8,6 +8,7 @@ Endpoints:
     POST /login    - Login with email/password, returns JWT token
     POST /register - Register a new user account
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,6 +37,7 @@ logger = logging.getLogger("capivarex.api.routes.auth")
 # ---------------------------------------------------------------------------
 # Environment helpers
 # ---------------------------------------------------------------------------
+
 
 def _require_env(name: str) -> str:
     """Return an environment variable or raise RuntimeError if missing."""
@@ -67,6 +69,7 @@ router = APIRouter()
 # Database helper
 # ---------------------------------------------------------------------------
 
+
 def _get_db_client():
     """
     Get the Supabase client from the database service in the registry.
@@ -89,6 +92,7 @@ def _get_db_client():
 # ---------------------------------------------------------------------------
 # Password hashing / verification
 # ---------------------------------------------------------------------------
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
@@ -133,6 +137,7 @@ def get_password_hash(password: str) -> str:
 # Token creation
 # ---------------------------------------------------------------------------
 
+
 def create_access_token(
     data: Dict[str, Any],
     expires_delta: Optional[timedelta] = None,
@@ -157,6 +162,7 @@ def create_access_token(
 # ---------------------------------------------------------------------------
 # Current user dependency (for route protection)
 # ---------------------------------------------------------------------------
+
 
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
@@ -204,6 +210,7 @@ async def get_current_user(
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.post("/login", response_model=Token)
 @limiter.limit("5/minute")
 async def login_for_access_token(
@@ -237,7 +244,9 @@ async def login_for_access_token(
         db = _get_db_client()
 
         # Look up user by email
-        response = db.table("users").select("*").eq("email", form_data.username).execute()
+        response = (
+            db.table("users").select("*").eq("email", form_data.username).execute()
+        )
         user = response.data[0] if response.data else None
 
         if not user:
@@ -256,14 +265,19 @@ async def login_for_access_token(
 
         # Verify password
         hashed_password = user.get("hashed_password", "")
-        if not hashed_password or not verify_password(form_data.password, hashed_password):
+        if not hashed_password or not verify_password(
+            form_data.password, hashed_password
+        ):
             await record_security_event(
                 "auth_failure",
                 "medium",
                 user_id=str(user.get("id", "")),
                 ip_address=request.client.host if request.client else None,
                 endpoint="/api/auth/login",
-                details={"reason": "invalid_password", "email": form_data.username[:64]},
+                details={
+                    "reason": "invalid_password",
+                    "email": form_data.username[:64],
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -333,8 +347,8 @@ async def register_user(request: Request, user: UserCreate) -> Dict[str, Any]:
         "full_name": user.full_name,
         "hashed_password": hashed_password,
         "phone": user.phone or "",
-        "plan": "basic",
-        "messages_limit": 100,
+        "plan": "professional",
+        "messages_limit": 300,
         "messages_used": 0,
         "use_own_apis": False,
     }
@@ -370,7 +384,7 @@ async def register_user(request: Request, user: UserCreate) -> Dict[str, Any]:
                     phone=user.phone,
                     name=user.full_name or "",
                     channel=user.preferred_channel or "telegram",
-                    plan=new_user_data.get("plan", "basic"),
+                    plan=new_user_data.get("plan", "professional"),
                 ),
                 name="welcome_msg",
             )

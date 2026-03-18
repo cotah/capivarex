@@ -15,10 +15,10 @@ class RuntimeMonitorScanner(BaseScanner):
     schedule = "fast"
 
     # Thresholds for anomaly detection
-    BRUTE_FORCE_THRESHOLD = 10       # auth_failures from same IP in window
-    BRUTE_FORCE_WINDOW_MIN = 5       # minutes
+    BRUTE_FORCE_THRESHOLD = 10  # auth_failures from same IP in window
+    BRUTE_FORCE_WINDOW_MIN = 5  # minutes
     RATE_LIMIT_SPIKE_THRESHOLD = 50  # rate_limit_exceeded events in window
-    SUSPICIOUS_THRESHOLD = 3         # suspicious_request events in window
+    SUSPICIOUS_THRESHOLD = 3  # suspicious_request events in window
 
     async def scan(self) -> list[SecurityFinding]:
         findings: list[SecurityFinding] = []
@@ -35,20 +35,27 @@ class RuntimeMonitorScanner(BaseScanner):
 
         try:
             from services import get_service
+
             db = get_service("database")
             if not db or not db.client:
                 return findings
         except Exception:
-            self.logger.debug("Database service not available — skipping security events check")
+            self.logger.debug(
+                "Database service not available — skipping security events check"
+            )
             return findings
 
         now = datetime.now(timezone.utc)
-        window_start = (now - timedelta(minutes=self.BRUTE_FORCE_WINDOW_MIN)).isoformat()
+        window_start = (
+            now - timedelta(minutes=self.BRUTE_FORCE_WINDOW_MIN)
+        ).isoformat()
 
         try:
             result = (
                 db.client.table("security_events")
-                .select("event_type, severity, ip_address, user_id, endpoint, created_at")
+                .select(
+                    "event_type, severity, ip_address, user_id, endpoint, created_at"
+                )
                 .gte("created_at", window_start)
                 .order("created_at", desc=True)
                 .limit(500)
@@ -82,51 +89,57 @@ class RuntimeMonitorScanner(BaseScanner):
         for ip, failures in auth_failures_by_ip.items():
             if len(failures) >= self.BRUTE_FORCE_THRESHOLD:
                 endpoints = {f.get("endpoint", "") for f in failures}
-                findings.append(SecurityFinding(
-                    scanner=self.name,
-                    finding_type="brute_force_detected",
-                    severity="critical",
-                    confidence=0.9,
-                    title=f"Brute force detectado: {len(failures)} falhas de auth do IP {ip}",
-                    description=(
-                        f"{len(failures)} tentativas de auth falhadas do IP {ip} "
-                        f"nos ultimos {self.BRUTE_FORCE_WINDOW_MIN} minutos. "
-                        f"Endpoints alvos: {', '.join(endpoints)}"
-                    ),
-                    evidence={
-                        "ip_address": ip,
-                        "failure_count": len(failures),
-                        "window_minutes": self.BRUTE_FORCE_WINDOW_MIN,
-                        "endpoints": list(endpoints),
-                    },
-                    suggested_fix=f"Bloquear IP {ip} temporariamente e investigar",
-                    owasp_category="A07:2021-Identification and Authentication Failures",
-                ))
+                findings.append(
+                    SecurityFinding(
+                        scanner=self.name,
+                        finding_type="brute_force_detected",
+                        severity="critical",
+                        confidence=0.9,
+                        title=f"Brute force detectado: {len(failures)} falhas de auth do IP {ip}",
+                        description=(
+                            f"{len(failures)} tentativas de auth falhadas do IP {ip} "
+                            f"nos ultimos {self.BRUTE_FORCE_WINDOW_MIN} minutos. "
+                            f"Endpoints alvos: {', '.join(endpoints)}"
+                        ),
+                        evidence={
+                            "ip_address": ip,
+                            "failure_count": len(failures),
+                            "window_minutes": self.BRUTE_FORCE_WINDOW_MIN,
+                            "endpoints": list(endpoints),
+                        },
+                        suggested_fix=f"Bloquear IP {ip} temporariamente e investigar",
+                        owasp_category="A07:2021-Identification and Authentication Failures",
+                    )
+                )
 
         # Check rate limit spike
         if rate_limit_count >= self.RATE_LIMIT_SPIKE_THRESHOLD:
-            findings.append(SecurityFinding(
-                scanner=self.name,
-                finding_type="rate_limit_spike",
-                severity="high",
-                confidence=0.8,
-                title=f"Spike de rate limiting: {rate_limit_count} eventos em {self.BRUTE_FORCE_WINDOW_MIN} min",
-                description="Volume anormal de rate limit — possivel DDoS ou abuso de API",
-                evidence={"count": rate_limit_count},
-                owasp_category="A05:2021-Security Misconfiguration",
-            ))
+            findings.append(
+                SecurityFinding(
+                    scanner=self.name,
+                    finding_type="rate_limit_spike",
+                    severity="high",
+                    confidence=0.8,
+                    title=f"Spike de rate limiting: {rate_limit_count} eventos em {self.BRUTE_FORCE_WINDOW_MIN} min",
+                    description="Volume anormal de rate limit — possivel DDoS ou abuso de API",
+                    evidence={"count": rate_limit_count},
+                    owasp_category="A05:2021-Security Misconfiguration",
+                )
+            )
 
         # Check suspicious requests
         if suspicious_count >= self.SUSPICIOUS_THRESHOLD:
-            findings.append(SecurityFinding(
-                scanner=self.name,
-                finding_type="suspicious_activity_spike",
-                severity="high",
-                confidence=0.75,
-                title=f"Atividade suspeita: {suspicious_count} eventos nos ultimos {self.BRUTE_FORCE_WINDOW_MIN} min",
-                evidence={"count": suspicious_count},
-                owasp_category="A09:2021-Security Logging and Monitoring Failures",
-            ))
+            findings.append(
+                SecurityFinding(
+                    scanner=self.name,
+                    finding_type="suspicious_activity_spike",
+                    severity="high",
+                    confidence=0.75,
+                    title=f"Atividade suspeita: {suspicious_count} eventos nos ultimos {self.BRUTE_FORCE_WINDOW_MIN} min",
+                    evidence={"count": suspicious_count},
+                    owasp_category="A09:2021-Security Logging and Monitoring Failures",
+                )
+            )
 
         return findings
 
@@ -145,6 +158,7 @@ class RuntimeMonitorScanner(BaseScanner):
 
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(
                     f"https://sentry.io/api/0/projects/{org}/{project}/issues/",
@@ -166,7 +180,12 @@ class RuntimeMonitorScanner(BaseScanner):
             level = issue.get("level", "error")
 
             # Map Sentry levels to severity
-            sev_map = {"fatal": "critical", "error": "high", "warning": "medium", "info": "low"}
+            sev_map = {
+                "fatal": "critical",
+                "error": "high",
+                "warning": "medium",
+                "info": "low",
+            }
             severity = sev_map.get(level, "medium")
 
             # Only report issues with significant occurrence
@@ -178,21 +197,23 @@ class RuntimeMonitorScanner(BaseScanner):
             if event_count < 3:
                 continue
 
-            findings.append(SecurityFinding(
-                scanner=self.name,
-                finding_type="sentry_unresolved_issue",
-                severity=severity,
-                confidence=0.6,
-                title=f"Sentry issue nao resolvida: {title}",
-                description=f"Issue com {event_count} ocorrencias. Level: {level}",
-                evidence={
-                    "sentry_id": issue.get("id"),
-                    "event_count": event_count,
-                    "level": level,
-                    "first_seen": issue.get("firstSeen"),
-                    "last_seen": issue.get("lastSeen"),
-                },
-                owasp_category="A09:2021-Security Logging and Monitoring Failures",
-            ))
+            findings.append(
+                SecurityFinding(
+                    scanner=self.name,
+                    finding_type="sentry_unresolved_issue",
+                    severity=severity,
+                    confidence=0.6,
+                    title=f"Sentry issue nao resolvida: {title}",
+                    description=f"Issue com {event_count} ocorrencias. Level: {level}",
+                    evidence={
+                        "sentry_id": issue.get("id"),
+                        "event_count": event_count,
+                        "level": level,
+                        "first_seen": issue.get("firstSeen"),
+                        "last_seen": issue.get("lastSeen"),
+                    },
+                    owasp_category="A09:2021-Security Logging and Monitoring Failures",
+                )
+            )
 
         return findings

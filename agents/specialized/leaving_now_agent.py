@@ -230,7 +230,12 @@ class LeavingNowAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     async def _handle_next_event(
-        self, svc: Any, location: str, user_id: str, transport_mode: str, prep_minutes: float
+        self,
+        svc: Any,
+        location: str,
+        user_id: str,
+        transport_mode: str,
+        prep_minutes: float,
     ) -> AgentResponse:
         """Calcula hora de saída para o próximo evento."""
         result = await svc.calculate_for_next_event(
@@ -287,7 +292,12 @@ class LeavingNowAgent(BaseAgent):
         )
 
     async def _handle_all_today(
-        self, svc: Any, location: str, user_id: str, transport_mode: str, prep_minutes: float
+        self,
+        svc: Any,
+        location: str,
+        user_id: str,
+        transport_mode: str,
+        prep_minutes: float,
     ) -> AgentResponse:
         """Lista hora de saída para todos os eventos de hoje."""
         results = await svc.get_all_events_today(
@@ -338,7 +348,12 @@ class LeavingNowAgent(BaseAgent):
         )
 
     async def _handle_proactive(
-        self, svc: Any, location: str, user_id: str, transport_mode: str, prep_minutes: float
+        self,
+        svc: Any,
+        location: str,
+        user_id: str,
+        transport_mode: str,
+        prep_minutes: float,
     ) -> AgentResponse:
         """
         Chamado pelo ProactivityService.

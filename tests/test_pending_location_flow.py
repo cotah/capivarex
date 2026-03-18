@@ -1,5 +1,6 @@
 # tests/test_pending_location_flow.py
 """Tests for the pending location save conversation flow."""
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -46,13 +47,15 @@ class TestPendingLocationFlow:
     async def test_pending_intercepted_on_next_message(self):
         """When pending exists in Redis, next message is intercepted."""
         redis_mock = AsyncMock()
-        redis_mock.get = AsyncMock(return_value={
-            "key": "home",
-            "direction": "origin",
-            "original_query": "rota de casa ao trabalho",
-            "user_id": "uuid-123",
-            "lang": "pt",
-        })
+        redis_mock.get = AsyncMock(
+            return_value={
+                "key": "home",
+                "direction": "origin",
+                "original_query": "rota de casa ao trabalho",
+                "user_id": "uuid-123",
+                "lang": "pt",
+            }
+        )
         redis_mock.delete = AsyncMock(return_value=True)
 
         pending = await redis_mock.get("pending:location:12345", parse_json=True)

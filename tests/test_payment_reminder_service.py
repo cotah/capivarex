@@ -1,4 +1,5 @@
 """Tests for payment reminder service — A4: bill detection + due date alerts."""
+
 import pytest
 import json
 from datetime import datetime, timezone, timedelta
@@ -77,7 +78,10 @@ class TestGPTExtraction:
             '"due_day": 20, "due_date": "", "recurring": true, "frequency": "monthly"}'
         )
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.payment_reminder_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await extract_payment_info("conta da luz 50 euros vence dia 20")
         assert result is not None
         assert result["name"] == "Electricity bill"
@@ -89,7 +93,10 @@ class TestGPTExtraction:
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = '{"is_payment": false}'
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.payment_reminder_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await extract_payment_info("bom dia")
         assert result is None
 
@@ -99,14 +106,19 @@ class TestGPTExtraction:
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.side_effect = Exception("API error")
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.payment_reminder_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await extract_payment_info("conta vence dia 15")
         assert result is not None
         assert result["due_day"] == 15
 
     @pytest.mark.asyncio
     async def test_no_openai_fallback(self):
-        with patch("services.business.payment_reminder_service.get_service", return_value=None):
+        with patch(
+            "services.business.payment_reminder_service.get_service", return_value=None
+        ):
             result = await extract_payment_info("bill due day 10")
         assert result is not None
         assert result["due_day"] == 10
@@ -117,19 +129,25 @@ class TestStorage:
 
     @pytest.mark.asyncio
     async def test_save_no_db(self):
-        with patch("services.business.payment_reminder_service.get_service", return_value=None):
+        with patch(
+            "services.business.payment_reminder_service.get_service", return_value=None
+        ):
             result = await save_payment("u1", {"name": "Electricity", "due_day": 20})
         assert result is False
 
     @pytest.mark.asyncio
     async def test_list_no_db(self):
-        with patch("services.business.payment_reminder_service.get_service", return_value=None):
+        with patch(
+            "services.business.payment_reminder_service.get_service", return_value=None
+        ):
             result = await list_payments("u1")
         assert result == []
 
     @pytest.mark.asyncio
     async def test_remove_no_db(self):
-        with patch("services.business.payment_reminder_service.get_service", return_value=None):
+        with patch(
+            "services.business.payment_reminder_service.get_service", return_value=None
+        ):
             result = await remove_payment("u1", "Electricity")
         assert result is False
 
@@ -139,7 +157,9 @@ class TestCheckDue:
 
     @pytest.mark.asyncio
     async def test_no_payments(self):
-        with patch("services.business.payment_reminder_service.get_service", return_value=None):
+        with patch(
+            "services.business.payment_reminder_service.get_service", return_value=None
+        ):
             result = await check_payments_due("u1", "Marcos")
         assert result == []
 
@@ -150,10 +170,26 @@ class TestCheckDue:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[{"value": json.dumps([{"name": "Electricity", "amount": "€50", "due_day": today, "recurring": True}])}]
+            data=[
+                {
+                    "value": json.dumps(
+                        [
+                            {
+                                "name": "Electricity",
+                                "amount": "€50",
+                                "due_day": today,
+                                "recurring": True,
+                            }
+                        ]
+                    )
+                }
+            ]
         )
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.payment_reminder_service.get_service",
+            return_value=mock_db,
+        ):
             result = await check_payments_due("u1", "Marcos")
 
         assert len(result) >= 1
@@ -167,10 +203,26 @@ class TestCheckDue:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[{"value": json.dumps([{"name": "Insurance", "amount": "€100", "due_day": 0, "due_date": future}])}]
+            data=[
+                {
+                    "value": json.dumps(
+                        [
+                            {
+                                "name": "Insurance",
+                                "amount": "€100",
+                                "due_day": 0,
+                                "due_date": future,
+                            }
+                        ]
+                    )
+                }
+            ]
         )
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.payment_reminder_service.get_service",
+            return_value=mock_db,
+        ):
             result = await check_payments_due("u1")
 
         assert len(result) == 1
@@ -188,11 +240,18 @@ class TestAlertGeneration:
     @pytest.mark.asyncio
     async def test_fallback_alert(self):
         alerts = [
-            {"name": "Electricity", "amount": "€50", "urgency": "today", "days_until": 0},
+            {
+                "name": "Electricity",
+                "amount": "€50",
+                "urgency": "today",
+                "days_until": 0,
+            },
             {"name": "Internet", "amount": "€30", "urgency": "soon", "days_until": 3},
         ]
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=None):
+        with patch(
+            "services.business.payment_reminder_service.get_service", return_value=None
+        ):
             result = await generate_payment_alert("Marcos", alerts)
 
         assert result is not None
@@ -202,9 +261,13 @@ class TestAlertGeneration:
 
     @pytest.mark.asyncio
     async def test_overdue_alert(self):
-        alerts = [{"name": "Rent", "amount": "€800", "urgency": "overdue", "days_until": -2}]
+        alerts = [
+            {"name": "Rent", "amount": "€800", "urgency": "overdue", "days_until": -2}
+        ]
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=None):
+        with patch(
+            "services.business.payment_reminder_service.get_service", return_value=None
+        ):
             result = await generate_payment_alert("Ana", alerts)
         assert "overdue" in result.lower()
         assert "🔴" in result
@@ -222,14 +285,18 @@ class TestHandlePaymentMention:
     async def test_payment_saved(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
         def fake_svc(name):
             return mock_db if name == "database" else None
 
         with patch("services.business.payment_reminder_service.get_service", fake_svc):
-            result = await handle_payment_mention("u1", "conta da luz vence dia 20", "Marcos")
+            result = await handle_payment_mention(
+                "u1", "conta da luz vence dia 20", "Marcos"
+            )
 
         assert result is not None
         assert "💰" in result
@@ -244,9 +311,19 @@ class TestHandlePaymentMention:
             "is due today. Don't forget to pay!"
         )
 
-        alerts = [{"name": "Electricity", "amount": "€50", "urgency": "today", "days_until": 0}]
+        alerts = [
+            {
+                "name": "Electricity",
+                "amount": "€50",
+                "urgency": "today",
+                "days_until": 0,
+            }
+        ]
 
-        with patch("services.business.payment_reminder_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.payment_reminder_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await generate_payment_alert("Marcos", alerts)
         assert "Marcos" in result
         assert "Electricity" in result.lower() or "electricity" in result.lower()

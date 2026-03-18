@@ -100,15 +100,17 @@ async def register_user(telegram_id: str, email: str, full_name: str) -> bool:
     try:
         user_id = str(uuid.uuid4())
 
-        db.client.table("users").insert({
-            "id": user_id,
-            "email": email,
-            "full_name": full_name,
-            "display_name": full_name,
-            "telegram_chat_id": telegram_id,
-            "plan": "free",
-            "hashed_password": "",
-        }).execute()
+        db.client.table("users").insert(
+            {
+                "id": user_id,
+                "email": email,
+                "full_name": full_name,
+                "display_name": full_name,
+                "telegram_chat_id": telegram_id,
+                "plan": "professional",
+                "hashed_password": "",
+            }
+        ).execute()
 
         # Create identity_map entry
         tenancy = TenancyManager(db)
@@ -116,7 +118,10 @@ async def register_user(telegram_id: str, email: str, full_name: str) -> bool:
 
         logger.info(
             "Registered Telegram user: telegram_id=%s uuid=%s email=%s name=%s",
-            telegram_id, user_id[:8], email, full_name,
+            telegram_id,
+            user_id[:8],
+            email,
+            full_name,
         )
         return True
     except Exception as e:
@@ -178,9 +183,11 @@ async def handle_registration_flow(
                         return True
 
                     # Email exists but no Telegram linked — link it
-                    db.client.table("users").update({
-                        "telegram_chat_id": telegram_id,
-                    }).eq("id", existing_user["id"]).execute()
+                    db.client.table("users").update(
+                        {
+                            "telegram_chat_id": telegram_id,
+                        }
+                    ).eq("id", existing_user["id"]).execute()
 
                     tenancy = TenancyManager(db)
                     await tenancy.register_telegram_user(
@@ -237,9 +244,7 @@ async def handle_registration_flow(
     return False
 
 
-async def start_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command.
 
     If user is already registered → welcome back.
@@ -259,10 +264,8 @@ async def start_command(
     # Check if already registered
     user = await is_user_registered(telegram_id)
     if user:
-        name = (
-            user.get("display_name") or user.get("full_name") or "there"
-        )
-        plan = (user.get("plan") or "free").capitalize()
+        name = user.get("display_name") or user.get("full_name") or "there"
+        plan = (user.get("plan") or "professional").capitalize()
         await update.message.reply_text(
             WELCOME_BACK_MESSAGE.format(name=name, plan=plan),
             parse_mode="Markdown",
@@ -271,9 +274,7 @@ async def start_command(
 
     # Start registration flow
     context.user_data[STATE_KEY] = STATE_AWAITING_EMAIL
-    await update.message.reply_text(
-        REGISTRATION_ASK_EMAIL, parse_mode="Markdown"
-    )
+    await update.message.reply_text(REGISTRATION_ASK_EMAIL, parse_mode="Markdown")
 
 
 # Legacy compatibility — kept for bot.py auto-register flow

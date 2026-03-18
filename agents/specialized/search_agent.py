@@ -223,27 +223,19 @@ class SearchAgent(BaseAgent):
 
             # ── Dispatch por tipo ──────────────────────────────────────────
             if search_type == "places":
-                return await self._handle_places(
-                    svc, query, country, lang, location
-                )
+                return await self._handle_places(svc, query, country, lang, location)
 
             if search_type == "shopping":
-                return await self._handle_shopping(
-                    svc, query, country, lang, location
-                )
+                return await self._handle_shopping(svc, query, country, lang, location)
 
             if search_type == "news":
-                return await self._handle_news(
-                    svc, query, num_results, country, lang
-                )
+                return await self._handle_news(svc, query, num_results, country, lang)
 
             if search_type == "images":
                 return await self._handle_images(svc, query, country, lang)
 
             # general
-            return await self._handle_general(
-                svc, query, num_results, country, lang
-            )
+            return await self._handle_general(svc, query, num_results, country, lang)
 
         except RuntimeError as e:
             msg = str(e)
@@ -290,12 +282,8 @@ class SearchAgent(BaseAgent):
 
         # Fallback: retry sem restrição de país
         if not places and country not in ("us", "gb"):
-            self.logger.info(
-                "No places for gl=%s, retrying with gl=us", country
-            )
-            data = await svc.search_places(
-                query, country="us", location=location
-            )
+            self.logger.info("No places for gl=%s, retrying with gl=us", country)
+            data = await svc.search_places(query, country="us", location=location)
             places = data.get("places", [])
 
         if not places:
@@ -320,9 +308,7 @@ class SearchAgent(BaseAgent):
         lang: str,
         location: Optional[str] = None,
     ) -> AgentResponse:
-        data = await svc.search_shopping(
-            query, country=country, location=location
-        )
+        data = await svc.search_shopping(query, country=country, location=location)
         products = data.get("products", [])
 
         # Fallback: retry sem restrição de país
@@ -330,9 +316,7 @@ class SearchAgent(BaseAgent):
             self.logger.info(
                 "No shopping results for gl=%s, retrying with gl=us", country
             )
-            data = await svc.search_shopping(
-                query, country="us", location=location
-            )
+            data = await svc.search_shopping(query, country="us", location=location)
             products = data.get("products", [])
 
         if not products:
@@ -354,19 +338,13 @@ class SearchAgent(BaseAgent):
     async def _handle_news(
         self, svc: Any, query: str, num_results: int, country: str, lang: str
     ) -> AgentResponse:
-        data = await svc.search_news(
-            query, num_results=num_results, country=country
-        )
+        data = await svc.search_news(query, num_results=num_results, country=country)
         news = data.get("news", [])
 
         # Fallback: retry sem restrição de país
         if not news and country not in ("us", "gb"):
-            self.logger.info(
-                "No news for gl=%s, retrying with gl=us", country
-            )
-            data = await svc.search_news(
-                query, num_results=num_results, country="us"
-            )
+            self.logger.info("No news for gl=%s, retrying with gl=us", country)
+            data = await svc.search_news(query, num_results=num_results, country="us")
             news = data.get("news", [])
 
         if not news:
@@ -392,12 +370,8 @@ class SearchAgent(BaseAgent):
 
         # Fallback: retry sem restrição de país
         if not results and not answer_box and country not in ("us", "gb"):
-            self.logger.info(
-                "No results for gl=%s, retrying with gl=us", country
-            )
-            data = await svc.search(
-                query, num_results=num_results, country="us"
-            )
+            self.logger.info("No results for gl=%s, retrying with gl=us", country)
+            data = await svc.search(query, num_results=num_results, country="us")
             results = data.get("results", [])
             answer_box = data.get("answer_box", {})
 
@@ -438,9 +412,7 @@ class SearchAgent(BaseAgent):
     # ──────────────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _format_places(
-        query: str, places: List[Dict], lang: str = "en"
-    ) -> str:
+    def _format_places(query: str, places: List[Dict], lang: str = "en") -> str:
         lines = [t("search_places_header", lang=lang, query=query) + "\n"]
         for i, p in enumerate(places[:5], 1):
             name = p.get("title", "")
@@ -481,9 +453,7 @@ class SearchAgent(BaseAgent):
         return "\n".join(lines).strip()
 
     @staticmethod
-    def _format_shopping(
-        query: str, products: List[Dict], lang: str = "en"
-    ) -> str:
+    def _format_shopping(query: str, products: List[Dict], lang: str = "en") -> str:
         lines = [t("search_shopping_header", lang=lang, query=query) + "\n"]
         for i, p in enumerate(products[:5], 1):
             title = p.get("title", "")
@@ -507,9 +477,7 @@ class SearchAgent(BaseAgent):
         return "\n".join(lines).strip()
 
     @staticmethod
-    def _format_news(
-        query: str, news: List[Dict], lang: str = "en"
-    ) -> str:
+    def _format_news(query: str, news: List[Dict], lang: str = "en") -> str:
         lines = [t("search_news_header", lang=lang, query=query) + "\n"]
         for i, n in enumerate(news[:5], 1):
             title = n.get("title", "")
@@ -533,9 +501,7 @@ class SearchAgent(BaseAgent):
         return "\n".join(lines).strip()
 
     @staticmethod
-    def _format_general(
-        query: str, data: Dict, lang: str = "en"
-    ) -> str:
+    def _format_general(query: str, data: Dict, lang: str = "en") -> str:
         lines: List[str] = []
 
         # Answer box primeiro (resposta direta do Google)
@@ -550,18 +516,14 @@ class SearchAgent(BaseAgent):
         # Knowledge graph
         kg = data.get("knowledge_graph", {})
         if kg.get("description"):
-            lines.append(
-                f"📚 **{kg.get('title', '')}** — {kg['description']}"
-            )
+            lines.append(f"📚 **{kg.get('title', '')}** — {kg['description']}")
             lines.append("")
 
         # Resultados orgânicos
         results = data.get("results", [])
         if results:
             if not lines:  # sem answer box
-                lines.append(
-                    t("search_general_header", lang=lang, query=query) + "\n"
-                )
+                lines.append(t("search_general_header", lang=lang, query=query) + "\n")
             for i, r in enumerate(results[:5], 1):
                 title = r.get("title", "")
                 link = r.get("link", "")
@@ -576,9 +538,7 @@ class SearchAgent(BaseAgent):
         return "\n".join(lines).strip()
 
     @staticmethod
-    def _format_images(
-        query: str, images: List[Dict], lang: str = "en"
-    ) -> str:
+    def _format_images(query: str, images: List[Dict], lang: str = "en") -> str:
         lines = [t("search_images_header", lang=lang, query=query) + "\n"]
         for i, img in enumerate(images[:5], 1):
             title = img.get("title", "")

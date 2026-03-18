@@ -6,6 +6,7 @@ This covers agents that don't have dedicated route files:
 email, restaurant, crypto, youtube, timer, reminder, meeting,
 search, tracking, translate, mercado, leaving_now, time.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,9 +22,21 @@ logger = logging.getLogger(__name__)
 
 # Agents that already have dedicated routes — block them here to avoid conflicts
 _DEDICATED_ROUTE_AGENTS = {
-    "orchestrator", "chat", "dev", "research", "image", "video",
-    "voice", "calendar", "weather", "traffic", "car", "finance",
-    "smarthome", "github", "notes",
+    "orchestrator",
+    "chat",
+    "dev",
+    "research",
+    "image",
+    "video",
+    "voice",
+    "calendar",
+    "weather",
+    "traffic",
+    "car",
+    "finance",
+    "smarthome",
+    "github",
+    "notes",
 }
 
 
@@ -60,7 +73,9 @@ async def process_agent_request(
         response = await agent.process(message, context)
         return {
             "agent": agent_name,
-            "status": response.status.value if hasattr(response.status, "value") else str(response.status),
+            "status": response.status.value
+            if hasattr(response.status, "value")
+            else str(response.status),
             "response": response.response,
             "data": response.data,
         }

@@ -1,6 +1,7 @@
 """
 Monitoring configuration using Sentry.
 """
+
 from __future__ import annotations
 
 import os
@@ -77,11 +78,15 @@ def set_context(name: str, data: Dict[str, Any]) -> None:
     sentry_sdk.set_context(name, data)
 
 
-def add_breadcrumb(message: str, category: str = "default", level: str = "info", **data: Any) -> None:
+def add_breadcrumb(
+    message: str, category: str = "default", level: str = "info", **data: Any
+) -> None:
     """
     Add breadcrumb for error context.
     """
-    sentry_sdk.add_breadcrumb(message=message, category=category, level=level, data=data)
+    sentry_sdk.add_breadcrumb(
+        message=message, category=category, level=level, data=data
+    )
 
 
 def capture_exception(exception: Exception, **kwargs: Any) -> None:

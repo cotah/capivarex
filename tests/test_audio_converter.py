@@ -73,7 +73,10 @@ class TestMp3ToMulaw:
         sample_rate = 8000  # 8kHz is sufficient for mulaw tests
         n_frames = int(sample_rate * duration_s)
         # Generate 440Hz sine wave (not silence — silence can be optimized away by encoders)
-        samples = [int(16000 * math.sin(2 * math.pi * 440 * t / sample_rate)) for t in range(n_frames)]
+        samples = [
+            int(16000 * math.sin(2 * math.pi * 440 * t / sample_rate))
+            for t in range(n_frames)
+        ]
         with wave.open(buf, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
@@ -97,6 +100,7 @@ class TestMp3ToMulaw:
 
         with patch("pydub.AudioSegment.from_mp3", return_value=mock_audio):
             from utils.audio_converter import mp3_to_mulaw_chunks
+
             chunks = mp3_to_mulaw_chunks(b"\xff\xfb\x90\x00" * 50)
 
         assert isinstance(chunks, list)
@@ -133,6 +137,7 @@ class TestMp3ToMulaw:
 
         with patch("pydub.AudioSegment.from_mp3", return_value=mock_audio):
             from utils.audio_converter import mp3_to_mulaw_raw
+
             mulaw = mp3_to_mulaw_raw(b"\xff\xfb\x90\x00" * 50)
 
         assert isinstance(mulaw, bytes)

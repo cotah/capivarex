@@ -26,7 +26,7 @@ class ServiceRegistry:
     - Type-safe service registration
     """
 
-    _instance: Optional['ServiceRegistry'] = None
+    _instance: Optional["ServiceRegistry"] = None
 
     def __new__(cls):
         """Ensure only one ServiceRegistry instance exists (singleton)."""
@@ -45,12 +45,7 @@ class ServiceRegistry:
         self._initialized = True
         logger.info("ServiceRegistry initialized")
 
-    def register(
-        self,
-        name: str,
-        service_class: Type[BaseService],
-        lazy: bool = True
-    ):
+    def register(self, name: str, service_class: Type[BaseService], lazy: bool = True):
         """
         Register a service class.
 
@@ -116,10 +111,7 @@ class ServiceRegistry:
         Returns:
             Dictionary mapping service names to their metrics
         """
-        return {
-            name: service.get_metrics()
-            for name, service in self._services.items()
-        }
+        return {name: service.get_metrics() for name, service in self._services.items()}
 
     async def health_check_all(self) -> Dict[str, ServiceStatus]:
         """
@@ -163,10 +155,12 @@ def register_service(name: str, lazy: bool = True):
         name: Service name
         lazy: If True, instantiate only when first accessed
     """
+
     def decorator(service_class: Type[BaseService]):
         """Register *service_class* in the global registry and return it unchanged."""
         registry.register(name, service_class, lazy=lazy)
         return service_class
+
     return decorator
 
 

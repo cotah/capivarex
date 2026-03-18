@@ -57,9 +57,7 @@ class TestChatCompletion:
         )
 
         with pytest.raises(RuntimeError, match="API Error"):
-            await svc.chat_completion(
-                messages=[{"role": "user", "content": "test"}]
-            )
+            await svc.chat_completion(messages=[{"role": "user", "content": "test"}])
 
     @pytest.mark.asyncio
     async def test_initializes_when_no_client(self):

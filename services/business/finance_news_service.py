@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # User Interest Extraction
 # ---------------------------------------------------------------------------
 
+
 async def _get_user_interests(user_id: str) -> Dict[str, Any]:
     """Extract user interests from watchlist + RAG + user_context.
 
@@ -39,12 +40,17 @@ async def _get_user_interests(user_id: str) -> Dict[str, Any]:
         }
     """
     interests: Dict[str, Any] = {
-        "stocks": [], "crypto": [], "topics": [], "profession": "", "name": "",
+        "stocks": [],
+        "crypto": [],
+        "topics": [],
+        "profession": "",
+        "name": "",
     }
 
     # 1. Get watchlist (stocks + crypto the user follows)
     try:
         from services.business.weekly_recap_service import get_user_watchlist
+
         watchlist = await get_user_watchlist(user_id)
         interests["stocks"] = watchlist.get("stocks", [])
         interests["crypto"] = watchlist.get("crypto", [])
@@ -56,9 +62,13 @@ async def _get_user_interests(user_id: str) -> Dict[str, Any]:
     if db and db.is_initialized():
         try:
             client = db.get_client()
-            user = client.table("users").select(
-                "full_name, location_preference"
-            ).eq("id", user_id).limit(1).execute()
+            user = (
+                client.table("users")
+                .select("full_name, location_preference")
+                .eq("id", user_id)
+                .limit(1)
+                .execute()
+            )
             if user.data:
                 interests["name"] = user.data[0].get("full_name", "")
         except Exception:
@@ -88,7 +98,9 @@ async def _get_user_interests(user_id: str) -> Dict[str, Any]:
     rag = get_service("rag")
     if rag and rag.is_initialized() and not interests["topics"]:
         try:
-            results = await rag.search(user_id, "my interests hobbies profession work", limit=3)
+            results = await rag.search(
+                user_id, "my interests hobbies profession work", limit=3
+            )
             if results and isinstance(results, list):
                 # Extract keywords from RAG results
                 for r in results:
@@ -144,6 +156,7 @@ def _build_personalized_query(interests: Dict[str, Any]) -> str:
 # News Fetching + Humanization
 # ---------------------------------------------------------------------------
 
+
 async def fetch_and_store_news(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch PERSONALIZED news per user via Perplexity, humanize via GPT.
 
@@ -191,6 +204,7 @@ async def fetch_and_store_news(user_id: Optional[str] = None) -> List[Dict[str, 
         except Exception:
             try:
                 from datetime import timedelta
+
                 cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
                 result = (
                     client.table("webapp_messages")
@@ -239,20 +253,24 @@ async def fetch_and_store_news(user_id: Optional[str] = None) -> List[Dict[str, 
             # 6. Store in proactivity_feed
             for article in humanized:
                 try:
-                    client.table("proactivity_feed").insert({
-                        "user_id": uid,
-                        "type": "news",
-                        "title": article["title"],
-                        "message": article["summary"],
-                        "metadata": json.dumps({
-                            "source": article.get("source", ""),
-                            "sources": article.get("sources", []),
-                            "category": "finance",
-                            "personalized": True,
-                        }),
-                        "is_read": False,
-                        "created_at": now,
-                    }).execute()
+                    client.table("proactivity_feed").insert(
+                        {
+                            "user_id": uid,
+                            "type": "news",
+                            "title": article["title"],
+                            "message": article["summary"],
+                            "metadata": json.dumps(
+                                {
+                                    "source": article.get("source", ""),
+                                    "sources": article.get("sources", []),
+                                    "category": "finance",
+                                    "personalized": True,
+                                }
+                            ),
+                            "is_read": False,
+                            "created_at": now,
+                        }
+                    ).execute()
                 except Exception as e:
                     logger.warning("News: store failed user=%s: %s", uid[:8], e)
 
@@ -283,7 +301,7 @@ async def _humanize_news(
 
     # Build all articles into one prompt for efficiency
     raw_articles = "\n".join(
-        f"{i+1}. TITLE: {a['title']}\n   BODY: {a['summary']}"
+        f"{i + 1}. TITLE: {a['title']}\n   BODY: {a['summary']}"
         for i, a in enumerate(articles[:5])
     )
 
@@ -292,7 +310,7 @@ async def _humanize_news(
 RULES:
 - Rewrite each title to be engaging and conversational (not clickbait)
 - Rewrite each summary in 2-3 sentences, warm and relatable
-- If the news affects {name}'s stocks ({', '.join(interests.get('stocks', [])[:3])}) or crypto ({', '.join(interests.get('crypto', [])[:2])}), mention it personally: "This could affect your TSLA position"
+- If the news affects {name}'s stocks ({", ".join(interests.get("stocks", [])[:3])}) or crypto ({", ".join(interests.get("crypto", [])[:2])}), mention it personally: "This could affect your TSLA position"
 - Use emojis naturally (1-2 per article max)
 - Sound like a smart friend telling you the news over coffee
 - Keep the factual accuracy — don't invent information
@@ -308,6 +326,7 @@ No markdown, no backticks, no extra text. Just the JSON array."""
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -326,14 +345,16 @@ No markdown, no backticks, no extra text. Just the JSON array."""
         if isinstance(parsed, list):
             # Merge humanized text with original metadata
             humanized = []
-            for i, item in enumerate(parsed[:len(articles)]):
+            for i, item in enumerate(parsed[: len(articles)]):
                 original = articles[i] if i < len(articles) else {}
-                humanized.append({
-                    "title": item.get("title", original.get("title", "")),
-                    "summary": item.get("summary", original.get("summary", "")),
-                    "source": original.get("source", "Perplexity"),
-                    "sources": original.get("sources", []),
-                })
+                humanized.append(
+                    {
+                        "title": item.get("title", original.get("title", "")),
+                        "summary": item.get("summary", original.get("summary", "")),
+                        "source": original.get("source", "Perplexity"),
+                        "sources": original.get("sources", []),
+                    }
+                )
             return humanized
 
     except Exception as e:
@@ -351,29 +372,30 @@ def _light_humanize(articles: List[Dict[str, Any]], name: str) -> List[Dict[str,
         icon = icons[i % len(icons)]
         title = article.get("title", "")
         summary = article.get("summary", "")
-        result.append({
-            "title": f"{icon} {title}",
-            "summary": summary,
-            "source": article.get("source", "Perplexity"),
-            "sources": article.get("sources", []),
-        })
+        result.append(
+            {
+                "title": f"{icon} {title}",
+                "summary": summary,
+                "source": article.get("source", "Perplexity"),
+                "sources": article.get("sources", []),
+            }
+        )
     return result
 
 
-def _parse_news_response(
-    answer: str, sources: List[str]
-) -> List[Dict[str, Any]]:
+def _parse_news_response(answer: str, sources: List[str]) -> List[Dict[str, Any]]:
     """Parse Perplexity response into individual news articles."""
     import re
+
     articles = []
 
     # Split on numbered items OR bold headers at start of line/paragraph
     # Handles: "**1. Title** body", "1. Title. Body", "**Title**\nBody"
-    parts = re.split(r'\n(?=\s*\*{0,2}\s*\d+[\.\)]\s)', answer)
+    parts = re.split(r"\n(?=\s*\*{0,2}\s*\d+[\.\)]\s)", answer)
 
     # If only 1 part, try splitting on double-newline + bold header
     if len(parts) <= 1:
-        parts = re.split(r'\n\n(?=\*\*)', answer)
+        parts = re.split(r"\n\n(?=\*\*)", answer)
 
     for part in parts:
         part = part.strip()
@@ -381,61 +403,67 @@ def _parse_news_response(
             continue
 
         # Remove leading number: "1. " or "**1. " or "**1) "
-        cleaned = re.sub(r'^\s*\*{0,2}\s*\d+[\.\)]\s*', '', part)
+        cleaned = re.sub(r"^\s*\*{0,2}\s*\d+[\.\)]\s*", "", part)
         if not cleaned:
             continue
 
         # Extract title and body
         # Handle "**Title** body" or "**Title.**\nbody"
-        bold_match = re.match(r'\*\*(.+?)\*\*\.?\s*(.*)', cleaned, re.DOTALL)
+        bold_match = re.match(r"\*\*(.+?)\*\*\.?\s*(.*)", cleaned, re.DOTALL)
         if bold_match:
-            title = bold_match.group(1).strip().rstrip('.')
+            title = bold_match.group(1).strip().rstrip(".")
             body = bold_match.group(2).strip()
         else:
             # No bold — first sentence is title
-            sentences = re.split(r'(?<=[.!?])\s+', cleaned, maxsplit=1)
-            title = sentences[0].strip().rstrip('.').strip('* ')
-            body = sentences[1].strip('* ') if len(sentences) > 1 else ''
+            sentences = re.split(r"(?<=[.!?])\s+", cleaned, maxsplit=1)
+            title = sentences[0].strip().rstrip(".").strip("* ")
+            body = sentences[1].strip("* ") if len(sentences) > 1 else ""
 
         # Clean markdown
-        title = re.sub(r'\*{1,2}', '', title).strip()
-        body = re.sub(r'\*{1,2}', '', body).strip()
-        body = re.sub(r'\[?\d+\]?', '', body).strip()  # Remove citation numbers [1]
+        title = re.sub(r"\*{1,2}", "", title).strip()
+        body = re.sub(r"\*{1,2}", "", body).strip()
+        body = re.sub(r"\[?\d+\]?", "", body).strip()  # Remove citation numbers [1]
 
         if title and len(title) > 5:
-            articles.append({
-                "title": title[:120],
-                "summary": body[:500] if body else title[:500],
-                "source": "Perplexity",
-                "sources": sources[:3],
-            })
+            articles.append(
+                {
+                    "title": title[:120],
+                    "summary": body[:500] if body else title[:500],
+                    "source": "Perplexity",
+                    "sources": sources[:3],
+                }
+            )
 
     # Fallback: paragraph split
     if not articles and answer.strip():
-        paragraphs = [p.strip() for p in answer.split('\n\n') if p.strip()]
+        paragraphs = [p.strip() for p in answer.split("\n\n") if p.strip()]
         for para in paragraphs[:5]:
-            clean = re.sub(r'\*{1,2}', '', para).strip()
-            clean = re.sub(r'^\d+[\.\)]\s*', '', clean)
+            clean = re.sub(r"\*{1,2}", "", para).strip()
+            clean = re.sub(r"^\d+[\.\)]\s*", "", clean)
             if len(clean) > 10:
-                first_sentence = re.split(r'(?<=[.!?])\s', clean, maxsplit=1)
-                articles.append({
-                    "title": first_sentence[0][:120].rstrip('.'),
-                    "summary": clean[:500],
-                    "source": "Perplexity",
-                    "sources": sources[:3],
-                })
+                first_sentence = re.split(r"(?<=[.!?])\s", clean, maxsplit=1)
+                articles.append(
+                    {
+                        "title": first_sentence[0][:120].rstrip("."),
+                        "summary": clean[:500],
+                        "source": "Perplexity",
+                        "sources": sources[:3],
+                    }
+                )
 
     return articles
 
     # If parsing didn't produce good results, use the whole answer as one article
     if not articles and answer:
         first_line = answer.split("\n")[0][:120]
-        articles.append({
-            "title": first_line.rstrip("."),
-            "summary": answer[:500],
-            "source": "Perplexity",
-            "sources": sources[:3],
-        })
+        articles.append(
+            {
+                "title": first_line.rstrip("."),
+                "summary": answer[:500],
+                "source": "Perplexity",
+                "sources": sources[:3],
+            }
+        )
 
     return articles
 
@@ -473,14 +501,16 @@ async def get_cached_news(user_id: str, limit: int = 15) -> List[Dict[str, Any]]
             created = row.get("created_at", "")
             time_ago = _time_ago(created) if created else ""
 
-            articles.append({
-                "id": row.get("id", ""),
-                "title": row.get("title", ""),
-                "summary": row.get("message", ""),
-                "source": metadata.get("source", "Perplexity"),
-                "time_ago": time_ago,
-                "is_read": row.get("is_read", False),
-            })
+            articles.append(
+                {
+                    "id": row.get("id", ""),
+                    "title": row.get("title", ""),
+                    "summary": row.get("message", ""),
+                    "source": metadata.get("source", "Perplexity"),
+                    "time_ago": time_ago,
+                    "is_read": row.get("is_read", False),
+                }
+            )
 
         return articles
 

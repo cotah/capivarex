@@ -1,6 +1,7 @@
 """
 Embedding Service — OpenAI text-embedding-3-small for RAG Memory.
 """
+
 from __future__ import annotations
 
 import logging

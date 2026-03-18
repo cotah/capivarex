@@ -147,9 +147,7 @@ class MapsAgent(BaseAgent):
             ),
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         """Route user request to appropriate maps action."""
         lang = get_user_lang(context)
 
@@ -174,21 +172,13 @@ class MapsAgent(BaseAgent):
                 lang = detected_lang
 
             if action == "directions":
-                return await self._handle_directions(
-                    maps_svc, intent, context, lang
-                )
+                return await self._handle_directions(maps_svc, intent, context, lang)
             elif action == "nearby":
-                return await self._handle_nearby(
-                    maps_svc, intent, context, lang
-                )
+                return await self._handle_nearby(maps_svc, intent, context, lang)
             elif action == "place_details":
-                return await self._handle_place_details(
-                    maps_svc, intent, lang
-                )
+                return await self._handle_place_details(maps_svc, intent, lang)
             else:  # search_place or fallback
-                return await self._handle_search(
-                    maps_svc, intent, context, lang
-                )
+                return await self._handle_search(maps_svc, intent, context, lang)
 
         except Exception as e:
             self.logger.error("MapsAgent error: %s", e, exc_info=True)
@@ -467,9 +457,7 @@ class MapsAgent(BaseAgent):
             if len(steps) > 15:
                 remaining = len(steps) - 15
                 lines.append(
-                    f"  _...+{remaining} "
-                    + t("maps_more_steps", lang=lang)
-                    + "_"
+                    f"  _...+{remaining} " + t("maps_more_steps", lang=lang) + "_"
                 )
 
         text = "\n".join(lines)
@@ -583,9 +571,7 @@ class MapsAgent(BaseAgent):
         title = query or place_type or "Nearby"
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=self._format_places_response(
-                result["places"], title, lang
-            ),
+            response=self._format_places_response(result["places"], title, lang),
             data=result,
         )
 
@@ -633,9 +619,7 @@ class MapsAgent(BaseAgent):
     # ── Response Formatters ───────────────────────────────────────────
 
     @staticmethod
-    def _format_places_response(
-        places: List[Dict], title: str, lang: str
-    ) -> str:
+    def _format_places_response(places: List[Dict], title: str, lang: str) -> str:
         """Format a list of places for Telegram."""
         header = t("maps_results_header", lang=lang, query=title)
         lines = [header, ""]
@@ -729,8 +713,7 @@ class MapsAgent(BaseAgent):
             lines.append(f"\n🌐 [Website]({place['website']})")
         if place.get("google_maps_url"):
             lines.append(
-                f"🗺️ [{t('maps_view_on_maps', lang=lang)}]"
-                f"({place['google_maps_url']})"
+                f"🗺️ [{t('maps_view_on_maps', lang=lang)}]({place['google_maps_url']})"
             )
 
         return "\n".join(lines)
@@ -751,9 +734,7 @@ class MapsAgent(BaseAgent):
         )
 
         svc = get_saved_locations_service()
-        location_data = await svc.save_location(
-            str(user_id), key, address
-        )
+        location_data = await svc.save_location(str(user_id), key, address)
         label = get_label(key, lang)
 
         if location_data.get("latitude"):

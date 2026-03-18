@@ -49,7 +49,7 @@ class VideoAgent(BaseAgent):
         lang = get_user_lang(context)
         video_prompt = str(context.get("prompt") or prompt).strip()
         image_path = context.get("image_path")
-        user_plan = str(context.get("user_plan") or "basic")
+        user_plan = str(context.get("user_plan") or "professional")
         ratio = str(context.get("ratio") or "16:9")
 
         try:
@@ -89,9 +89,7 @@ class VideoAgent(BaseAgent):
             if isinstance(result, dict) and not result.get("success"):
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response=result.get(
-                        "error", t("video_grok_error", lang=lang)
-                    ),
+                    response=result.get("error", t("video_grok_error", lang=lang)),
                     error=result.get("error"),
                     data=result,
                 )

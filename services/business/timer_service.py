@@ -54,7 +54,7 @@ class Timer:
         user_id: str,
         chat_id: str,
         label: str,
-        fire_at: float,       # Unix timestamp
+        fire_at: float,  # Unix timestamp
         timer_type: str = "timer",
         created_at: float = 0.0,
     ):
@@ -138,11 +138,13 @@ class TimerService(BaseService):
         """Lazy-init asyncio.Lock (must be created in async context)."""
         if self._lock is None:
             import asyncio
+
             self._lock = asyncio.Lock()
         return self._lock
 
     async def _initialize(self) -> None:
         from services.core import get_service
+
         self._redis = get_service("redis")
         if not self._redis:
             raise ServiceUnavailableError("RedisService indisponível para TimerService")
@@ -205,7 +207,9 @@ class TimerService(BaseService):
 
         self.logger.info(
             "Timer created: %s for user %s, fires in %.0fs",
-            timer.timer_id, user_id, duration_seconds,
+            timer.timer_id,
+            user_id,
+            duration_seconds,
         )
         return timer
 
@@ -229,7 +233,8 @@ class TimerService(BaseService):
             original_count = len(timers)
 
             timers = [
-                t for t in timers
+                t
+                for t in timers
                 if not (t.timer_id == timer_id and t.user_id == str(user_id))
             ]
 
@@ -275,10 +280,7 @@ class TimerService(BaseService):
             await self.initialize()
 
         timers = await self._load_timers()
-        user_timers = [
-            t for t in timers
-            if t.user_id == str(user_id) and not t.is_due
-        ]
+        user_timers = [t for t in timers if t.user_id == str(user_id) and not t.is_due]
         return sorted(user_timers, key=lambda t: t.fire_at)
 
     async def check_and_fire_due(

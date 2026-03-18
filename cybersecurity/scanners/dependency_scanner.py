@@ -49,15 +49,22 @@ class DependencyScanner(BaseScanner):
             result = subprocess.run(
                 [
                     "pip-audit",
-                    "--requirement", str(req_file),
-                    "--format", "json",
-                    "--progress-spinner", "off",
+                    "--requirement",
+                    str(req_file),
+                    "--format",
+                    "json",
+                    "--progress-spinner",
+                    "off",
                 ],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
                 cwd=str(BACKEND_ROOT),
             )
         except FileNotFoundError:
-            self.logger.warning("pip-audit not installed — skipping Python dependency scan")
+            self.logger.warning(
+                "pip-audit not installed — skipping Python dependency scan"
+            )
             return findings
         except subprocess.TimeoutExpired:
             self.logger.warning("pip-audit timed out after 120s")
@@ -89,27 +96,33 @@ class DependencyScanner(BaseScanner):
                     if alias.startswith("CVE-"):
                         pass  # Could enrich via NVD API in the future
 
-                fix_str = ", ".join(fix_versions) if fix_versions else "Sem fix disponivel"
+                fix_str = (
+                    ", ".join(fix_versions) if fix_versions else "Sem fix disponivel"
+                )
 
-                findings.append(SecurityFinding(
-                    scanner=self.name,
-                    finding_type="vulnerable_dependency",
-                    severity=severity,
-                    confidence=0.9,
-                    title=f"CVE em {dep['name']}=={dep.get('version', '?')}: {vuln_id}",
-                    description=description[:500] if description else f"Vulnerabilidade {vuln_id}",
-                    file_path="capivarex-backend/requirements.txt",
-                    cve_id=vuln_id,
-                    suggested_fix=f"Atualizar {dep['name']} para versao: {fix_str}",
-                    owasp_category="A06:2021-Vulnerable and Outdated Components",
-                    evidence={
-                        "package": dep["name"],
-                        "installed_version": dep.get("version"),
-                        "vuln_id": vuln_id,
-                        "fix_versions": fix_versions,
-                        "aliases": aliases,
-                    },
-                ))
+                findings.append(
+                    SecurityFinding(
+                        scanner=self.name,
+                        finding_type="vulnerable_dependency",
+                        severity=severity,
+                        confidence=0.9,
+                        title=f"CVE em {dep['name']}=={dep.get('version', '?')}: {vuln_id}",
+                        description=description[:500]
+                        if description
+                        else f"Vulnerabilidade {vuln_id}",
+                        file_path="capivarex-backend/requirements.txt",
+                        cve_id=vuln_id,
+                        suggested_fix=f"Atualizar {dep['name']} para versao: {fix_str}",
+                        owasp_category="A06:2021-Vulnerable and Outdated Components",
+                        evidence={
+                            "package": dep["name"],
+                            "installed_version": dep.get("version"),
+                            "vuln_id": vuln_id,
+                            "fix_versions": fix_versions,
+                            "aliases": aliases,
+                        },
+                    )
+                )
 
         return findings
 
@@ -126,7 +139,9 @@ class DependencyScanner(BaseScanner):
         try:
             result = subprocess.run(
                 ["npm", "audit", "--json"],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
                 cwd=str(FRONTEND_ROOT),
             )
         except FileNotFoundError:
@@ -169,23 +184,25 @@ class DependencyScanner(BaseScanner):
             fix_available = info.get("fixAvailable", False)
             fix_str = "npm audit fix" if fix_available else "Sem fix automatico"
 
-            findings.append(SecurityFinding(
-                scanner=self.name,
-                finding_type="vulnerable_npm_dependency",
-                severity=severity,
-                confidence=0.9,
-                title=f"Vulnerabilidade em {pkg_name}: {description or cve_id or 'sem descricao'}",
-                description=f"Pacote npm {pkg_name} com vulnerabilidade {npm_severity}",
-                file_path="capivarex-frontend/package.json",
-                cve_id=cve_id,
-                suggested_fix=fix_str,
-                owasp_category="A06:2021-Vulnerable and Outdated Components",
-                evidence={
-                    "package": pkg_name,
-                    "severity": npm_severity,
-                    "fix_available": fix_available,
-                    "range": info.get("range", ""),
-                },
-            ))
+            findings.append(
+                SecurityFinding(
+                    scanner=self.name,
+                    finding_type="vulnerable_npm_dependency",
+                    severity=severity,
+                    confidence=0.9,
+                    title=f"Vulnerabilidade em {pkg_name}: {description or cve_id or 'sem descricao'}",
+                    description=f"Pacote npm {pkg_name} com vulnerabilidade {npm_severity}",
+                    file_path="capivarex-frontend/package.json",
+                    cve_id=cve_id,
+                    suggested_fix=fix_str,
+                    owasp_category="A06:2021-Vulnerable and Outdated Components",
+                    evidence={
+                        "package": pkg_name,
+                        "severity": npm_severity,
+                        "fix_available": fix_available,
+                        "range": info.get("range", ""),
+                    },
+                )
+            )
 
         return findings

@@ -4,6 +4,7 @@ Finance Routes - Refactored to use services.
 Endpoints for fetching stock quotes, prices, and historical data via
 the registered ``finance`` service from the refactored service registry.
 """
+
 import logging
 from typing import Any, Dict
 
@@ -31,7 +32,9 @@ async def _get_finance_service():
 
 
 @router.get("/quote/{symbol}")
-async def get_stock_quote(symbol: str, current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_stock_quote(
+    symbol: str, current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
     Busca a cotação completa de uma ação.
 
@@ -59,7 +62,9 @@ async def get_stock_quote(symbol: str, current_user: Dict[str, Any] = Depends(ge
 
 
 @router.get("/price/{symbol}")
-async def get_stock_price(symbol: str, current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_stock_price(
+    symbol: str, current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
     Busca apenas o preço atual de uma ação (endpoint mais leve).
 

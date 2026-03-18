@@ -40,13 +40,17 @@ class BaseScanner(ABC):
             self._total_findings += len(findings)
             self.logger.info(
                 "Scanner [%s] completed in %d ms — %d findings",
-                self.name, elapsed, len(findings),
+                self.name,
+                elapsed,
+                len(findings),
             )
             return findings
         except Exception:
             elapsed = int((time.monotonic() - t0) * 1000)
             self.logger.exception(
-                "Scanner [%s] failed after %d ms", self.name, elapsed,
+                "Scanner [%s] failed after %d ms",
+                self.name,
+                elapsed,
             )
             return []
 

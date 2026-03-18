@@ -125,9 +125,7 @@ async def test_save_tokens_calls_supabase_upsert(oauth_configured):
 @pytest.mark.asyncio
 async def test_get_valid_access_token_returns_token(oauth_configured):
     """Returns access_token when token is still valid."""
-    future = (
-        datetime.now(timezone.utc) + timedelta(hours=1)
-    ).isoformat()
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
 
     token_row = {
         "access_token": "valid_token",
@@ -137,7 +135,9 @@ async def test_get_valid_access_token_returns_token(oauth_configured):
     }
 
     with patch.object(
-        oauth_configured, "_get_token_row", new_callable=AsyncMock,
+        oauth_configured,
+        "_get_token_row",
+        new_callable=AsyncMock,
         return_value=token_row,
     ):
         result = await oauth_configured.get_valid_access_token("u1")
@@ -152,7 +152,9 @@ async def test_get_valid_access_token_returns_none_if_not_connected(
 ):
     """Returns None when user has no token row."""
     with patch.object(
-        oauth_configured, "_get_token_row", new_callable=AsyncMock,
+        oauth_configured,
+        "_get_token_row",
+        new_callable=AsyncMock,
         return_value=None,
     ):
         result = await oauth_configured.get_valid_access_token("u1")
@@ -168,7 +170,9 @@ async def test_get_valid_access_token_returns_none_if_not_connected(
 async def test_is_connected_true(oauth_configured):
     """is_connected returns True when token row exists."""
     with patch.object(
-        oauth_configured, "_get_token_row", new_callable=AsyncMock,
+        oauth_configured,
+        "_get_token_row",
+        new_callable=AsyncMock,
         return_value={"access_token": "x"},
     ):
         assert await oauth_configured.is_connected("u1") is True
@@ -179,7 +183,9 @@ async def test_is_connected_true(oauth_configured):
 async def test_is_connected_false(oauth_configured):
     """is_connected returns False when no token row."""
     with patch.object(
-        oauth_configured, "_get_token_row", new_callable=AsyncMock,
+        oauth_configured,
+        "_get_token_row",
+        new_callable=AsyncMock,
         return_value=None,
     ):
         assert await oauth_configured.is_connected("u1") is False
@@ -243,8 +249,13 @@ async def test_handle_callback_success(oauth_configured):
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
     with (
-        patch("services.auth.google_oauth_service.httpx.AsyncClient", return_value=mock_client),
-        patch.object(oauth_configured, "save_tokens", new_callable=AsyncMock) as mock_save,
+        patch(
+            "services.auth.google_oauth_service.httpx.AsyncClient",
+            return_value=mock_client,
+        ),
+        patch.object(
+            oauth_configured, "save_tokens", new_callable=AsyncMock
+        ) as mock_save,
     ):
         result = await oauth_configured.handle_callback(
             code="auth_code_123", state_b64=state_b64
@@ -322,8 +333,13 @@ async def test_refresh_token_success(oauth_configured):
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
     with (
-        patch("services.auth.google_oauth_service.httpx.AsyncClient", return_value=mock_client),
-        patch.object(oauth_configured, "save_tokens", new_callable=AsyncMock) as mock_save,
+        patch(
+            "services.auth.google_oauth_service.httpx.AsyncClient",
+            return_value=mock_client,
+        ),
+        patch.object(
+            oauth_configured, "save_tokens", new_callable=AsyncMock
+        ) as mock_save,
     ):
         result = await oauth_configured._refresh_token(
             user_id="u1", email="test@gmail.com", refresh_token="old_rt"
@@ -353,7 +369,10 @@ async def test_refresh_token_failure(oauth_configured):
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
     with (
-        patch("services.auth.google_oauth_service.httpx.AsyncClient", return_value=mock_client),
+        patch(
+            "services.auth.google_oauth_service.httpx.AsyncClient",
+            return_value=mock_client,
+        ),
         pytest.raises(RuntimeError, match="Token refresh failed"),
     ):
         await oauth_configured._refresh_token(
@@ -368,9 +387,7 @@ async def test_refresh_token_failure(oauth_configured):
 @pytest.mark.asyncio
 async def test_get_valid_access_token_refreshes_expired_token(oauth_configured):
     """get_valid_access_token calls _refresh_token when token is expired."""
-    expired = (
-        datetime.now(timezone.utc) - timedelta(minutes=10)
-    ).isoformat()
+    expired = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
 
     token_row = {
         "access_token": "expired_token",
@@ -381,11 +398,15 @@ async def test_get_valid_access_token_refreshes_expired_token(oauth_configured):
 
     with (
         patch.object(
-            oauth_configured, "_get_token_row", new_callable=AsyncMock,
+            oauth_configured,
+            "_get_token_row",
+            new_callable=AsyncMock,
             return_value=token_row,
         ),
         patch.object(
-            oauth_configured, "_refresh_token", new_callable=AsyncMock,
+            oauth_configured,
+            "_refresh_token",
+            new_callable=AsyncMock,
             return_value="new_fresh_token",
         ) as mock_refresh,
     ):
@@ -399,9 +420,7 @@ async def test_get_valid_access_token_refreshes_expired_token(oauth_configured):
 @pytest.mark.asyncio
 async def test_get_valid_access_token_expired_no_refresh_token(oauth_configured):
     """get_valid_access_token returns None when expired and no refresh_token."""
-    expired = (
-        datetime.now(timezone.utc) - timedelta(minutes=10)
-    ).isoformat()
+    expired = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
 
     token_row = {
         "access_token": "expired_token",
@@ -411,7 +430,9 @@ async def test_get_valid_access_token_expired_no_refresh_token(oauth_configured)
     }
 
     with patch.object(
-        oauth_configured, "_get_token_row", new_callable=AsyncMock,
+        oauth_configured,
+        "_get_token_row",
+        new_callable=AsyncMock,
         return_value=token_row,
     ):
         result = await oauth_configured.get_valid_access_token("u1")
@@ -427,7 +448,9 @@ async def test_get_valid_access_token_expired_no_refresh_token(oauth_configured)
 async def test_get_user_email_returns_email(oauth_configured):
     """get_user_email returns email from token row."""
     with patch.object(
-        oauth_configured, "_get_token_row", new_callable=AsyncMock,
+        oauth_configured,
+        "_get_token_row",
+        new_callable=AsyncMock,
         return_value={"email": "test@gmail.com", "access_token": "x"},
     ):
         result = await oauth_configured.get_user_email("u1")
@@ -440,7 +463,9 @@ async def test_get_user_email_returns_email(oauth_configured):
 async def test_get_user_email_returns_none_if_not_connected(oauth_configured):
     """get_user_email returns None when no token row."""
     with patch.object(
-        oauth_configured, "_get_token_row", new_callable=AsyncMock,
+        oauth_configured,
+        "_get_token_row",
+        new_callable=AsyncMock,
         return_value=None,
     ):
         result = await oauth_configured.get_user_email("u1")

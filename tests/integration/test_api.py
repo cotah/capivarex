@@ -97,5 +97,9 @@ class TestMetrics:
         src_path = main_mod.__file__
         with open(src_path, encoding="utf-8") as f:
             source = f.read()
-        assert "Instrumentator" in source, "Prometheus Instrumentator not found in api/main.py"
-        assert ".expose(app)" in source, "Instrumentator.expose(app) not found in api/main.py"
+        assert "Instrumentator" in source, (
+            "Prometheus Instrumentator not found in api/main.py"
+        )
+        assert ".expose(app)" in source, (
+            "Instrumentator.expose(app) not found in api/main.py"
+        )

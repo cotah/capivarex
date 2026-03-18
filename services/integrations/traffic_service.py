@@ -55,9 +55,7 @@ class TrafficService(BaseService):
         self.routes_url: str = (
             "https://routes.googleapis.com/directions/v2:computeRoutes"
         )
-        self.geocode_url: str = (
-            "https://maps.googleapis.com/maps/api/geocode/json"
-        )
+        self.geocode_url: str = "https://maps.googleapis.com/maps/api/geocode/json"
         self._client: Optional[httpx.AsyncClient] = None
 
     # ------------------------------------------------------------------
@@ -124,7 +122,8 @@ class TrafficService(BaseService):
             }
             client = await self._get_client()
             response = await client.get(
-                self.geocode_url, params=params,
+                self.geocode_url,
+                params=params,
             )
             response.raise_for_status()
 
@@ -183,9 +182,7 @@ class TrafficService(BaseService):
             dest_coords = await self._geocode_address(destination)
 
             if not origin_coords or not dest_coords:
-                raise RuntimeError(
-                    "Could not geocode the provided addresses"
-                )
+                raise RuntimeError("Could not geocode the provided addresses")
 
             headers = {
                 "Content-Type": "application/json",
@@ -237,9 +234,7 @@ class TrafficService(BaseService):
             route = data["routes"][0]
 
             # Parse duration (comes as e.g. "1234s")
-            duration_seconds = int(
-                route.get("duration", "0s").replace("s", "")
-            )
+            duration_seconds = int(route.get("duration", "0s").replace("s", ""))
             distance_meters = route.get("distanceMeters", 0)
 
             travel_advisory = route.get("travelAdvisory", {})
@@ -281,9 +276,7 @@ class TrafficService(BaseService):
             latency = time.time() - start_time
             self._track_call(latency, error=True)
             self.logger.error("Route response parsing failed: %s", exc)
-            raise RuntimeError(
-                f"Error processing API response: {exc}"
-            ) from exc
+            raise RuntimeError(f"Error processing API response: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Human-readable summary
@@ -367,14 +360,10 @@ class TrafficService(BaseService):
         """
         try:
             # Desired arrival = event time minus preparation buffer
-            desired_arrival = event_time - timedelta(
-                minutes=preparation_minutes
-            )
+            desired_arrival = event_time - timedelta(minutes=preparation_minutes)
 
             # Get traffic-aware route
-            result = await self.get_route_with_traffic(
-                user_location, event_location
-            )
+            result = await self.get_route_with_traffic(user_location, event_location)
 
             if not result.get("success"):
                 return {
@@ -392,9 +381,7 @@ class TrafficService(BaseService):
 
             now = datetime.now()
             time_until_departure = suggested_departure - now
-            minutes_until_departure = int(
-                time_until_departure.total_seconds() / 60
-            )
+            minutes_until_departure = int(time_until_departure.total_seconds() / 60)
 
             # Determine urgency
             if minutes_until_departure < 0:
@@ -411,15 +398,10 @@ class TrafficService(BaseService):
                 )
             elif minutes_until_departure < 30:
                 urgency = "SOON"
-                message = (
-                    f"Get ready! Leave in {minutes_until_departure} minutes."
-                )
+                message = f"Get ready! Leave in {minutes_until_departure} minutes."
             else:
                 urgency = "RELAXED"
-                message = (
-                    f"You have time. Leave in "
-                    f"{minutes_until_departure} minutes."
-                )
+                message = f"You have time. Leave in {minutes_until_departure} minutes."
 
             return {
                 "success": True,

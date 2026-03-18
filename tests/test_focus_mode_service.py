@@ -1,4 +1,5 @@
 """Tests for Focus Mode service."""
+
 import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -117,13 +118,17 @@ class TestActivateFocus:
 
     @pytest.mark.asyncio
     async def test_activate_pomodoro(self):
-        with patch("services.business.focus_mode_service.get_service", return_value=None):
+        with patch(
+            "services.business.focus_mode_service.get_service", return_value=None
+        ):
             result = await activate_focus("user-123", 120, True)
         assert result["pomodoro"] is True
 
     @pytest.mark.asyncio
     async def test_activate_max_duration(self):
-        with patch("services.business.focus_mode_service.get_service", return_value=None):
+        with patch(
+            "services.business.focus_mode_service.get_service", return_value=None
+        ):
             result = await activate_focus("user-123", 1000)
         # Max 8 hours = 480 minutes
         assert result["ends_at"] - result["started_at"] <= 8 * 3600 + 1
@@ -132,7 +137,11 @@ class TestActivateFocus:
 class TestDeactivateFocus:
     @pytest.mark.asyncio
     async def test_deactivate_not_active(self):
-        with patch("services.business.focus_mode_service.get_focus_state", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "services.business.focus_mode_service.get_focus_state",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             result = await deactivate_focus("user-123")
         assert result["was_active"] is False
 
@@ -145,9 +154,18 @@ class TestDeactivateFocus:
             "missed_notifications": [{"text": "Email novo", "time": time.time()}],
         }
         with (
-            patch("services.business.focus_mode_service.get_focus_state", new_callable=AsyncMock, return_value=session),
-            patch("services.business.focus_mode_service._save_focus_state", new_callable=AsyncMock),
-            patch("services.business.focus_mode_service.get_service", return_value=None),
+            patch(
+                "services.business.focus_mode_service.get_focus_state",
+                new_callable=AsyncMock,
+                return_value=session,
+            ),
+            patch(
+                "services.business.focus_mode_service._save_focus_state",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "services.business.focus_mode_service.get_service", return_value=None
+            ),
         ):
             result = await deactivate_focus("user-123")
         assert result["was_active"] is True
@@ -160,25 +178,39 @@ class TestIsFocusActive:
     async def test_active_via_redis(self):
         mock_redis = MagicMock()
         mock_redis.is_initialized.return_value = True
-        mock_redis.get_key = AsyncMock(return_value={"active": True, "ends_at": time.time() + 3600})
+        mock_redis.get_key = AsyncMock(
+            return_value={"active": True, "ends_at": time.time() + 3600}
+        )
 
-        with patch("services.business.focus_mode_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.business.focus_mode_service.get_service", return_value=mock_redis
+        ):
             assert await is_focus_active("user-123") is True
 
     @pytest.mark.asyncio
     async def test_expired_via_redis(self):
         mock_redis = MagicMock()
         mock_redis.is_initialized.return_value = True
-        mock_redis.get_key = AsyncMock(return_value={"active": True, "ends_at": time.time() - 100})
+        mock_redis.get_key = AsyncMock(
+            return_value={"active": True, "ends_at": time.time() - 100}
+        )
         mock_redis.delete_key = AsyncMock()
 
-        with patch("services.business.focus_mode_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.business.focus_mode_service.get_service", return_value=mock_redis
+        ):
             assert await is_focus_active("user-123") is False
 
     @pytest.mark.asyncio
     async def test_not_active(self):
-        with patch("services.business.focus_mode_service.get_service", return_value=None):
-            with patch("services.business.focus_mode_service.get_focus_state", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "services.business.focus_mode_service.get_service", return_value=None
+        ):
+            with patch(
+                "services.business.focus_mode_service.get_focus_state",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
                 assert await is_focus_active("user-123") is False
 
     @pytest.mark.asyncio
@@ -188,8 +220,15 @@ class TestIsFocusActive:
         mock_redis.is_initialized.return_value = False
 
         with (
-            patch("services.business.focus_mode_service.get_service", return_value=mock_redis),
-            patch("services.business.focus_mode_service.get_focus_state", new_callable=AsyncMock, return_value=session),
+            patch(
+                "services.business.focus_mode_service.get_service",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.business.focus_mode_service.get_focus_state",
+                new_callable=AsyncMock,
+                return_value=session,
+            ),
         ):
             assert await is_focus_active("user-123") is True
 
@@ -197,10 +236,21 @@ class TestIsFocusActive:
 class TestAddMissed:
     @pytest.mark.asyncio
     async def test_add_missed(self):
-        session = {"active": True, "ends_at": time.time() + 3600, "missed_notifications": []}
+        session = {
+            "active": True,
+            "ends_at": time.time() + 3600,
+            "missed_notifications": [],
+        }
         with (
-            patch("services.business.focus_mode_service.get_focus_state", new_callable=AsyncMock, return_value=session),
-            patch("services.business.focus_mode_service._save_focus_state", new_callable=AsyncMock) as mock_save,
+            patch(
+                "services.business.focus_mode_service.get_focus_state",
+                new_callable=AsyncMock,
+                return_value=session,
+            ),
+            patch(
+                "services.business.focus_mode_service._save_focus_state",
+                new_callable=AsyncMock,
+            ) as mock_save,
         ):
             await add_missed_notification("user-123", "Novo email de João")
         mock_save.assert_called_once()
@@ -209,7 +259,11 @@ class TestAddMissed:
 
     @pytest.mark.asyncio
     async def test_add_missed_not_active(self):
-        with patch("services.business.focus_mode_service.get_focus_state", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "services.business.focus_mode_service.get_focus_state",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             await add_missed_notification("user-123", "test")  # Should not raise
 
 

@@ -1,4 +1,5 @@
 """Tests for implicit action detection service — S7: Voice/Text → Notes + Reminders."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -21,16 +22,23 @@ class TestKeywordDetection:
         assert detect_implicit_action("take note that the meeting is at 3") == "note"
 
     def test_detect_reminder_pt(self):
-        assert detect_implicit_action("lembra-me amanhã de ligar ao banco") == "reminder"
+        assert (
+            detect_implicit_action("lembra-me amanhã de ligar ao banco") == "reminder"
+        )
 
     def test_detect_reminder_en(self):
-        assert detect_implicit_action("remind me to call the bank tomorrow") == "reminder"
+        assert (
+            detect_implicit_action("remind me to call the bank tomorrow") == "reminder"
+        )
 
     def test_detect_calendar_pt(self):
         assert detect_implicit_action("agenda reunião com a Ana sexta") == "calendar"
 
     def test_detect_calendar_en(self):
-        assert detect_implicit_action("schedule a meeting with John on Friday") == "calendar"
+        assert (
+            detect_implicit_action("schedule a meeting with John on Friday")
+            == "calendar"
+        )
 
     def test_detect_shopping(self):
         assert detect_implicit_action("tenho que comprar leite e pão") == "shopping"
@@ -49,10 +57,14 @@ class TestKeywordDetection:
         assert detect_implicit_action("lembra-me de anotar o orçamento") == "reminder"
 
     def test_dont_forget(self):
-        assert detect_implicit_action("não esquecer de enviar o relatório") == "reminder"
+        assert (
+            detect_implicit_action("não esquecer de enviar o relatório") == "reminder"
+        )
 
     def test_anota(self):
-        assert detect_implicit_action("anota: o cliente quer entrega até sexta") == "note"
+        assert (
+            detect_implicit_action("anota: o cliente quer entrega até sexta") == "note"
+        )
 
     def test_marca_reuniao(self):
         assert detect_implicit_action("marca reunião com o João amanhã") == "calendar"
@@ -67,7 +79,9 @@ class TestGPTDetection:
     @pytest.mark.asyncio
     async def test_gpt_fallback_to_keywords(self):
         """When GPT unavailable, falls back to keyword detection."""
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
             result = await detect_implicit_action_gpt("nota que o budget é 50k")
         assert result is not None
         assert result["action"] == "note"
@@ -75,7 +89,9 @@ class TestGPTDetection:
     @pytest.mark.asyncio
     async def test_gpt_no_action(self):
         """Returns None for regular messages when GPT unavailable."""
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
             result = await detect_implicit_action_gpt("que horas são?")
         assert result is None
 
@@ -90,12 +106,20 @@ class TestExecuteAction:
         mock_agent.execute = AsyncMock(return_value=MagicMock(response="Note saved"))
 
         with (
-            patch("services.business.implicit_action_service.get_service", return_value=None),
+            patch(
+                "services.business.implicit_action_service.get_service",
+                return_value=None,
+            ),
             patch("agents.core.get_agent", return_value=mock_agent),
         ):
             result = await execute_implicit_action(
                 user_id="u1",
-                action_data={"action": "note", "content": "Budget is 50k", "time": "", "title": "Budget"},
+                action_data={
+                    "action": "note",
+                    "content": "Budget is 50k",
+                    "time": "",
+                    "title": "Budget",
+                },
                 user_name="Marcos",
             )
 
@@ -109,12 +133,20 @@ class TestExecuteAction:
         mock_agent.execute = AsyncMock(return_value=MagicMock(response="Reminder set"))
 
         with (
-            patch("services.business.implicit_action_service.get_service", return_value=None),
+            patch(
+                "services.business.implicit_action_service.get_service",
+                return_value=None,
+            ),
             patch("agents.core.get_agent", return_value=mock_agent),
         ):
             result = await execute_implicit_action(
                 user_id="u1",
-                action_data={"action": "reminder", "content": "Call bank", "time": "tomorrow 10:00", "title": ""},
+                action_data={
+                    "action": "reminder",
+                    "content": "Call bank",
+                    "time": "tomorrow 10:00",
+                    "title": "",
+                },
                 user_name="Ana",
             )
 
@@ -128,12 +160,20 @@ class TestExecuteAction:
         mock_agent.execute = AsyncMock(return_value=MagicMock(response="Event created"))
 
         with (
-            patch("services.business.implicit_action_service.get_service", return_value=None),
+            patch(
+                "services.business.implicit_action_service.get_service",
+                return_value=None,
+            ),
             patch("agents.core.get_agent", return_value=mock_agent),
         ):
             result = await execute_implicit_action(
                 user_id="u1",
-                action_data={"action": "calendar", "content": "Meeting with Ana", "time": "Friday 15:00", "title": "Meeting Ana"},
+                action_data={
+                    "action": "calendar",
+                    "content": "Meeting with Ana",
+                    "time": "Friday 15:00",
+                    "title": "Meeting Ana",
+                },
                 user_name="Marcos",
             )
 
@@ -147,12 +187,20 @@ class TestExecuteAction:
         mock_agent.execute = AsyncMock(return_value=MagicMock(response="List saved"))
 
         with (
-            patch("services.business.implicit_action_service.get_service", return_value=None),
+            patch(
+                "services.business.implicit_action_service.get_service",
+                return_value=None,
+            ),
             patch("agents.core.get_agent", return_value=mock_agent),
         ):
             result = await execute_implicit_action(
                 user_id="u1",
-                action_data={"action": "shopping", "content": "milk, bread, eggs", "time": "", "title": ""},
+                action_data={
+                    "action": "shopping",
+                    "content": "milk, bread, eggs",
+                    "time": "",
+                    "title": "",
+                },
                 user_name="Test",
             )
 
@@ -162,12 +210,20 @@ class TestExecuteAction:
     async def test_execute_no_agent(self):
         """Returns None when agent not available."""
         with (
-            patch("services.business.implicit_action_service.get_service", return_value=None),
+            patch(
+                "services.business.implicit_action_service.get_service",
+                return_value=None,
+            ),
             patch("agents.core.get_agent", return_value=None),
         ):
             result = await execute_implicit_action(
                 user_id="u1",
-                action_data={"action": "note", "content": "test", "time": "", "title": ""},
+                action_data={
+                    "action": "note",
+                    "content": "test",
+                    "time": "",
+                    "title": "",
+                },
                 user_name="Test",
             )
 
@@ -184,7 +240,10 @@ class TestMainEntryPoint:
         mock_agent.execute = AsyncMock(return_value=MagicMock(response="Done"))
 
         with (
-            patch("services.business.implicit_action_service.get_service", return_value=None),
+            patch(
+                "services.business.implicit_action_service.get_service",
+                return_value=None,
+            ),
             patch("agents.core.get_agent", return_value=mock_agent),
         ):
             result = await check_and_execute_implicit_action(
@@ -199,7 +258,9 @@ class TestMainEntryPoint:
     @pytest.mark.asyncio
     async def test_no_match_returns_none(self):
         """Regular message returns None."""
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
             result = await check_and_execute_implicit_action(
                 user_id="u1",
                 message="que horas são?",
@@ -215,33 +276,47 @@ class TestHumanizedConfirmation:
 
     @pytest.mark.asyncio
     async def test_note_fallback(self):
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
             result = await _humanize_confirmation("Marcos", "note", "Budget is 50k")
         assert "📝" in result
         assert "Marcos" in result
 
     @pytest.mark.asyncio
     async def test_reminder_fallback(self):
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
-            result = await _humanize_confirmation("Ana", "reminder", "Call bank", "tomorrow 10:00")
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
+            result = await _humanize_confirmation(
+                "Ana", "reminder", "Call bank", "tomorrow 10:00"
+            )
         assert "⏰" in result
         assert "Ana" in result
 
     @pytest.mark.asyncio
     async def test_calendar_fallback(self):
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
-            result = await _humanize_confirmation("Test", "calendar", "Meeting", "Friday 15:00")
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
+            result = await _humanize_confirmation(
+                "Test", "calendar", "Meeting", "Friday 15:00"
+            )
         assert "📅" in result
 
     @pytest.mark.asyncio
     async def test_shopping_fallback(self):
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
             result = await _humanize_confirmation("Test", "shopping", "milk and bread")
         assert "🛒" in result
 
     @pytest.mark.asyncio
     async def test_unknown_type_fallback(self):
-        with patch("services.business.implicit_action_service.get_service", return_value=None):
+        with patch(
+            "services.business.implicit_action_service.get_service", return_value=None
+        ):
             result = await _humanize_confirmation("Test", "unknown", "stuff")
         assert "✅" in result
 
@@ -256,8 +331,13 @@ class TestEdgeCases:
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = '{"action": "note", "content": "Budget is 50k", "time": "", "title": "Budget"}'
 
-        with patch("services.business.implicit_action_service.get_service", return_value=mock_openai):
-            result = await detect_implicit_action_gpt("the budget is 50k according to Pedro")
+        with patch(
+            "services.business.implicit_action_service.get_service",
+            return_value=mock_openai,
+        ):
+            result = await detect_implicit_action_gpt(
+                "the budget is 50k according to Pedro"
+            )
 
         assert result is not None
         assert result["action"] == "note"
@@ -267,9 +347,14 @@ class TestEdgeCases:
         """GPT returns none action for regular messages."""
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
-        mock_openai.chat_completion.return_value = '{"action": "none", "content": "", "time": "", "title": ""}'
+        mock_openai.chat_completion.return_value = (
+            '{"action": "none", "content": "", "time": "", "title": ""}'
+        )
 
-        with patch("services.business.implicit_action_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.implicit_action_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await detect_implicit_action_gpt("hello, how are you?")
 
         assert result is None
@@ -281,7 +366,10 @@ class TestEdgeCases:
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.side_effect = Exception("API error")
 
-        with patch("services.business.implicit_action_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.implicit_action_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await detect_implicit_action_gpt("nota que o budget é 50k")
 
         assert result is not None
@@ -292,9 +380,14 @@ class TestEdgeCases:
         """Main entry uses GPT when keywords don't match."""
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
-        mock_openai.chat_completion.return_value = '{"action": "none", "content": "", "time": "", "title": ""}'
+        mock_openai.chat_completion.return_value = (
+            '{"action": "none", "content": "", "time": "", "title": ""}'
+        )
 
-        with patch("services.business.implicit_action_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.implicit_action_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await check_and_execute_implicit_action(
                 user_id="u1",
                 message="hello world",

@@ -81,7 +81,10 @@ def extract_pdf(path: str, max_pages: int = 50) -> Dict[str, Any]:
 
             logger.info(
                 "PDF extracted: %d chars, %d pages, %d tables from %s",
-                len(full_text), pages_to_process, len(all_tables), path,
+                len(full_text),
+                pages_to_process,
+                len(all_tables),
+                path,
             )
 
             return {
@@ -127,6 +130,6 @@ def _tables_to_markdown(tables: List[List[List[str]]]) -> str:
         for row in table[1:]:
             # Pad row to match header length
             padded = row + [""] * (len(header) - len(row))
-            lines.append("| " + " | ".join(padded[:len(header)]) + " |")
+            lines.append("| " + " | ".join(padded[: len(header)]) + " |")
         parts.append("\n".join(lines))
     return "\n\n".join(parts)

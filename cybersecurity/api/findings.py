@@ -24,6 +24,7 @@ async def list_findings(
     """Paginated list of security findings with filters."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             raise HTTPException(status_code=503, detail="Database not available")
@@ -31,10 +32,14 @@ async def list_findings(
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
-        query = db.client.table("cyber_findings").select(
-            "id, scanner, finding_type, severity, confidence, status, title, "
-            "file_path, line_number, owasp_category, first_seen, last_seen, cve_id"
-        ).order("created_at", desc=True)
+        query = (
+            db.client.table("cyber_findings")
+            .select(
+                "id, scanner, finding_type, severity, confidence, status, title, "
+                "file_path, line_number, owasp_category, first_seen, last_seen, cve_id"
+            )
+            .order("created_at", desc=True)
+        )
 
         if severity:
             query = query.eq("severity", severity)
@@ -63,6 +68,7 @@ async def get_finding(finding_id: str):
     """Get full detail of a single finding including evidence."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             raise HTTPException(status_code=503, detail="Database not available")
@@ -70,9 +76,13 @@ async def get_finding(finding_id: str):
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
-        result = db.client.table("cyber_findings").select("*").eq(
-            "id", finding_id
-        ).limit(1).execute()
+        result = (
+            db.client.table("cyber_findings")
+            .select("*")
+            .eq("id", finding_id)
+            .limit(1)
+            .execute()
+        )
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Finding not found")
@@ -89,30 +99,45 @@ async def update_finding(finding_id: str, body: FindingUpdate):
     """Update finding status (acknowledge, mark false positive, etc.)."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             raise HTTPException(status_code=503, detail="Database not available")
     except Exception:
         raise HTTPException(status_code=503, detail="Database not available")
 
-    valid_statuses = {"open", "acknowledged", "in_progress", "fixed", "false_positive", "wont_fix"}
+    valid_statuses = {
+        "open",
+        "acknowledged",
+        "in_progress",
+        "fixed",
+        "false_positive",
+        "wont_fix",
+    }
 
     update_data: dict = {}
     if body.status:
         if body.status not in valid_statuses:
-            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {valid_statuses}",
+            )
         update_data["status"] = body.status
         if body.status in {"fixed", "false_positive", "wont_fix"}:
             from datetime import datetime, timezone
+
             update_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
 
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
 
     try:
-        result = db.client.table("cyber_findings").update(
-            update_data
-        ).eq("id", finding_id).execute()
+        result = (
+            db.client.table("cyber_findings")
+            .update(update_data)
+            .eq("id", finding_id)
+            .execute()
+        )
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Finding not found")

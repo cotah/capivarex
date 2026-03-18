@@ -14,6 +14,7 @@ from schemas.orchestrator import OrchestratorDecision
 # Device
 # -------------------------------------------------------------------
 
+
 class TestDevice:
     def test_create_device(self):
         d = Device(type="mobile", id="phone-1")
@@ -29,6 +30,7 @@ class TestDevice:
 # -------------------------------------------------------------------
 # UserContext
 # -------------------------------------------------------------------
+
 
 class TestUserContext:
     def test_minimal_creation(self):
@@ -87,6 +89,7 @@ class TestUserContext:
 # CalendarEventInput
 # -------------------------------------------------------------------
 
+
 class TestCalendarEventInput:
     def test_basic_creation(self):
         ev = CalendarEventInput(
@@ -141,15 +144,14 @@ class TestCalendarEventInput:
             CalendarEventInput(title="No Date")
 
     def test_none_end_datetime_passes_validator(self):
-        ev = CalendarEventInput(
-            title="T", start_datetime=datetime(2026, 1, 1, 9, 0)
-        )
+        ev = CalendarEventInput(title="T", start_datetime=datetime(2026, 1, 1, 9, 0))
         assert ev.end_datetime is None
 
 
 # -------------------------------------------------------------------
 # OrchestratorDecision
 # -------------------------------------------------------------------
+
 
 class TestOrchestratorDecision:
     def test_valid_decision(self):
@@ -159,11 +161,31 @@ class TestOrchestratorDecision:
 
     def test_all_valid_agents(self):
         valid_agents = [
-            "chat", "research", "dev", "weather", "finance",
-            "image", "video", "voice", "calendar", "traffic",
-            "car", "smarthome", "github", "time", "translate",
-            "crypto", "timer", "reminder", "youtube", "tracking",
-            "meeting", "search", "leaving_now", "mercado", "notes",
+            "chat",
+            "research",
+            "dev",
+            "weather",
+            "finance",
+            "image",
+            "video",
+            "voice",
+            "calendar",
+            "traffic",
+            "car",
+            "smarthome",
+            "github",
+            "time",
+            "translate",
+            "crypto",
+            "timer",
+            "reminder",
+            "youtube",
+            "tracking",
+            "meeting",
+            "search",
+            "leaving_now",
+            "mercado",
+            "notes",
             "restaurant",
             "email",
         ]

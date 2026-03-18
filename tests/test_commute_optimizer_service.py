@@ -1,4 +1,5 @@
 """Tests for Commute Optimizer service."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -58,7 +59,9 @@ class TestCommuteMessage:
 class TestEventFetching:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.commute_optimizer_service.get_service", return_value=None):
+        with patch(
+            "services.business.commute_optimizer_service.get_service", return_value=None
+        ):
             assert await _get_upcoming_events("u1") == []
 
     @pytest.mark.asyncio
@@ -66,14 +69,19 @@ class TestEventFetching:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.commute_optimizer_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.commute_optimizer_service.get_service",
+            return_value=mock_db,
+        ):
             assert await _get_upcoming_events("u1") == []
 
 
 class TestHomeLocation:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.commute_optimizer_service.get_service", return_value=None):
+        with patch(
+            "services.business.commute_optimizer_service.get_service", return_value=None
+        ):
             assert await _get_home_location("u1") == ""
 
     @pytest.mark.asyncio
@@ -83,7 +91,10 @@ class TestHomeLocation:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": "123 Main St, Dublin"}]
         )
-        with patch("services.business.commute_optimizer_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.commute_optimizer_service.get_service",
+            return_value=mock_db,
+        ):
             assert await _get_home_location("u1") == "123 Main St, Dublin"
 
 
@@ -95,7 +106,9 @@ class TestEstimateCommute:
 
     @pytest.mark.asyncio
     async def test_no_maps(self):
-        with patch("services.business.commute_optimizer_service.get_service", return_value=None):
+        with patch(
+            "services.business.commute_optimizer_service.get_service", return_value=None
+        ):
             result = await _estimate_commute("home", "work")
         assert result["duration_minutes"] == 30
 
@@ -103,25 +116,60 @@ class TestEstimateCommute:
 class TestGenerateCommuteAlert:
     @pytest.mark.asyncio
     async def test_no_events(self):
-        with patch("services.business.commute_optimizer_service._get_upcoming_events", new_callable=AsyncMock, return_value=[]):
+        with patch(
+            "services.business.commute_optimizer_service._get_upcoming_events",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
             result = await generate_commute_alert("u1")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_no_location_events(self):
-        events = [{"title": "Standup", "start_time": "2026-03-17T10:00:00Z", "location": ""}]
-        with patch("services.business.commute_optimizer_service._get_upcoming_events", new_callable=AsyncMock, return_value=events):
+        events = [
+            {"title": "Standup", "start_time": "2026-03-17T10:00:00Z", "location": ""}
+        ]
+        with patch(
+            "services.business.commute_optimizer_service._get_upcoming_events",
+            new_callable=AsyncMock,
+            return_value=events,
+        ):
             result = await generate_commute_alert("u1")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_with_commute(self):
-        events = [{"title": "Meeting", "start_time": "2026-03-17T10:00:00Z", "location": "123 Business Park, Dublin"}]
+        events = [
+            {
+                "title": "Meeting",
+                "start_time": "2026-03-17T10:00:00Z",
+                "location": "123 Business Park, Dublin",
+            }
+        ]
         with (
-            patch("services.business.commute_optimizer_service._get_upcoming_events", new_callable=AsyncMock, return_value=events),
-            patch("services.business.commute_optimizer_service._get_home_location", new_callable=AsyncMock, return_value="456 Home St"),
-            patch("services.business.commute_optimizer_service._estimate_commute", new_callable=AsyncMock, return_value={"duration_minutes": 25, "traffic": "light", "route_summary": "M50"}),
-            patch("services.business.commute_optimizer_service._store_commute", new_callable=AsyncMock),
+            patch(
+                "services.business.commute_optimizer_service._get_upcoming_events",
+                new_callable=AsyncMock,
+                return_value=events,
+            ),
+            patch(
+                "services.business.commute_optimizer_service._get_home_location",
+                new_callable=AsyncMock,
+                return_value="456 Home St",
+            ),
+            patch(
+                "services.business.commute_optimizer_service._estimate_commute",
+                new_callable=AsyncMock,
+                return_value={
+                    "duration_minutes": 25,
+                    "traffic": "light",
+                    "route_summary": "M50",
+                },
+            ),
+            patch(
+                "services.business.commute_optimizer_service._store_commute",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_commute_alert("u1", "João")
         assert result is not None
@@ -133,14 +181,21 @@ class TestStoreCommute:
     @pytest.mark.asyncio
     async def test_store_no_db(self):
         from services.business.commute_optimizer_service import _store_commute
-        with patch("services.business.commute_optimizer_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.commute_optimizer_service.get_service", return_value=None
+        ):
             await _store_commute("u1", "text", {})
 
     @pytest.mark.asyncio
     async def test_store_exception(self):
         from services.business.commute_optimizer_service import _store_commute
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.commute_optimizer_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.commute_optimizer_service.get_service",
+            return_value=mock_db,
+        ):
             await _store_commute("u1", "text", {})

@@ -84,22 +84,28 @@ class TuyaOAuth:
         content_hash = hashlib.sha256((body or "").encode("utf-8")).hexdigest()
 
         # String to sign
-        string_to_sign = "\n".join([
-            method.upper(),
-            content_hash,
-            "",  # headers to sign (empty for us)
-            path,
-        ])
+        string_to_sign = "\n".join(
+            [
+                method.upper(),
+                content_hash,
+                "",  # headers to sign (empty for us)
+                path,
+            ]
+        )
 
         # Sign string = client_id + access_token + timestamp + string_to_sign
         sign_str = self.client_id + access_token + timestamp + string_to_sign
 
         # HMAC-SHA256
-        sign = hmac.new(
-            self.client_secret.encode("utf-8"),
-            sign_str.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest().upper()
+        sign = (
+            hmac.new(
+                self.client_secret.encode("utf-8"),
+                sign_str.encode("utf-8"),
+                hashlib.sha256,
+            )
+            .hexdigest()
+            .upper()
+        )
 
         headers = {
             "client_id": self.client_id,
@@ -140,7 +146,9 @@ class TuyaOAuth:
         self._cloud_token = result["access_token"]
         self._cloud_token_expires = time.time() + result.get("expire_time", 7200) - 60
 
-        logger.info("Tuya cloud token obtained (expires in {}s)", result.get("expire_time"))
+        logger.info(
+            "Tuya cloud token obtained (expires in {}s)", result.get("expire_time")
+        )
         return self._cloud_token
 
     # ------------------------------------------------------------------
@@ -190,12 +198,14 @@ class TuyaOAuth:
         password_hash = _hashlib.md5(password.encode("utf-8")).hexdigest()
 
         path = "/v1.0/iot-01/associated-users/actions/authorized-login"
-        body = json.dumps({
-            "username": username,
-            "password": password_hash,
-            "country_code": country_code,
-            "schema": schema,
-        })
+        body = json.dumps(
+            {
+                "username": username,
+                "password": password_hash,
+                "country_code": country_code,
+                "schema": schema,
+            }
+        )
         headers = self._sign_request("POST", path, access_token=cloud_token, body=body)
 
         async with httpx.AsyncClient() as client:
@@ -256,7 +266,9 @@ class TuyaOAuth:
 
         if not data.get("success"):
             error_msg = data.get("msg", "unknown error")
-            logger.error("Tuya token exchange failed: {} — {}", data.get("code"), error_msg)
+            logger.error(
+                "Tuya token exchange failed: {} — {}", data.get("code"), error_msg
+            )
             raise ValueError(f"Tuya token exchange failed: {error_msg}")
 
         result = data["result"]
@@ -309,24 +321,30 @@ class TuyaOAuth:
                 self._cloud_token = None
                 self._cloud_token_expires = 0
                 import asyncio
+
                 await asyncio.sleep(0.5)
 
             try:
                 cloud_token = await self._get_cloud_token()
             except RuntimeError as e:
-                logger.warning("Tuya refresh: cloud token failed attempt {}: {}", attempt, e)
+                logger.warning(
+                    "Tuya refresh: cloud token failed attempt {}: {}", attempt, e
+                )
                 continue
 
             # CRITICAL: fresh timestamp for EACH attempt
             timestamp = str(int(time.time() * 1000))
 
             path = f"/v1.0/token/{refresh_token}"
-            headers = self._sign_request("GET", path, access_token=cloud_token, timestamp=timestamp)
+            headers = self._sign_request(
+                "GET", path, access_token=cloud_token, timestamp=timestamp
+            )
 
             # Debug: log which tokens are being used (prefixes only for security)
             logger.info(
                 "Tuya refresh attempt {} for user={}: cloud_token={}... refresh_token={}... t={}",
-                attempt, user_id[:8],
+                attempt,
+                user_id[:8],
                 cloud_token[:12] if cloud_token else "NONE",
                 refresh_token[:12] if refresh_token else "NONE",
                 timestamp,
@@ -343,7 +361,10 @@ class TuyaOAuth:
             error_code = data.get("code", "")
             logger.warning(
                 "Tuya refresh attempt {} failed for user={}: {} (code={})",
-                attempt, user_id[:8], error_msg, error_code,
+                attempt,
+                user_id[:8],
+                error_msg,
+                error_code,
             )
 
         else:
@@ -372,7 +393,8 @@ class TuyaOAuth:
 
         logger.info(
             "Tuya token refreshed for user={}, new_token={}...",
-            user_id[:8], new_access[:12],
+            user_id[:8],
+            new_access[:12],
         )
         return new_access
 
@@ -397,7 +419,10 @@ class TuyaOAuth:
                 buffer = timedelta(minutes=10)
                 if exp > datetime.now(timezone.utc) + buffer:
                     return row.get("access_token")
-                logger.info("Tuya token expiring soon for user={}, refreshing proactively", user_id[:8])
+                logger.info(
+                    "Tuya token expiring soon for user={}, refreshing proactively",
+                    user_id[:8],
+                )
             except (ValueError, TypeError):
                 pass
 
@@ -434,7 +459,9 @@ class TuyaOAuth:
         logger.info("Tuya: found {} devices for user={}", len(devices), user_id[:8])
         return devices
 
-    async def get_device_status(self, user_id: str, device_id: str) -> List[Dict[str, Any]]:
+    async def get_device_status(
+        self, user_id: str, device_id: str
+    ) -> List[Dict[str, Any]]:
         """Get current status of a device."""
         token = await self.get_user_token(user_id)
         if not token:
@@ -542,13 +569,18 @@ class TuyaOAuth:
             error_code = str(data.get("code", ""))
             logger.warning(
                 "Tuya command failed: {} (code={}) device={} cmds={}",
-                msg, error_code, device_id[:8], commands,
+                msg,
+                error_code,
+                device_id[:8],
+                commands,
             )
             if "offline" in msg.lower():
                 return {"success": False, "error": "device_offline", "code": error_code}
             return {"success": False, "error": msg, "code": error_code}
 
-        logger.info("Tuya command sent: device={}, commands={}", device_id[:8], commands)
+        logger.info(
+            "Tuya command sent: device={}, commands={}", device_id[:8], commands
+        )
         return {"success": True, "error": None, "code": None}
 
     async def _send_command_v2(
@@ -599,9 +631,9 @@ class TuyaOAuth:
         if not sb:
             return False
         try:
-            sb.table("user_oauth_tokens").delete().eq(
-                "user_id", user_id
-            ).eq("provider", "tuya").execute()
+            sb.table("user_oauth_tokens").delete().eq("user_id", user_id).eq(
+                "provider", "tuya"
+            ).execute()
             logger.info("Tuya disconnected for user={}", user_id[:8])
             return True
         except Exception as e:
@@ -674,10 +706,13 @@ class TuyaOAuth:
         if not sb:
             return
         try:
-            sb.table("user_oauth_tokens").update(
-                {"active": False}
-            ).eq("user_id", user_id).eq("provider", "tuya").execute()
-            logger.info("Tuya token deactivated for user={} — reconnection required", user_id[:8])
+            sb.table("user_oauth_tokens").update({"active": False}).eq(
+                "user_id", user_id
+            ).eq("provider", "tuya").execute()
+            logger.info(
+                "Tuya token deactivated for user={} — reconnection required",
+                user_id[:8],
+            )
         except Exception as e:
             logger.error("Tuya deactivate token error: {}", e)
 

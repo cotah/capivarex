@@ -24,26 +24,71 @@ logger = logging.getLogger(__name__)
 # Subscription keywords (multi-language)
 SUBSCRIPTION_KEYWORDS = [
     # English
-    "subscription", "renewal", "renew", "auto-renew", "recurring",
-    "billing cycle", "next payment", "will be charged", "membership",
-    "plan expires", "trial ends", "trial ending",
+    "subscription",
+    "renewal",
+    "renew",
+    "auto-renew",
+    "recurring",
+    "billing cycle",
+    "next payment",
+    "will be charged",
+    "membership",
+    "plan expires",
+    "trial ends",
+    "trial ending",
     # Portuguese
-    "assinatura", "renovação", "renovar", "renovação automática",
-    "cobrança recorrente", "próximo pagamento", "plano expira",
-    "período de teste", "subscrição",
+    "assinatura",
+    "renovação",
+    "renovar",
+    "renovação automática",
+    "cobrança recorrente",
+    "próximo pagamento",
+    "plano expira",
+    "período de teste",
+    "subscrição",
     # Spanish
-    "suscripción", "renovación", "pago recurrente",
+    "suscripción",
+    "renovación",
+    "pago recurrente",
 ]
 
 # Common subscription services (for better detection)
 KNOWN_SERVICES = [
-    "netflix", "spotify", "youtube", "disney", "hbo", "amazon prime",
-    "apple music", "apple tv", "icloud", "google one", "dropbox",
-    "adobe", "microsoft 365", "office 365", "chatgpt", "openai",
-    "github", "notion", "figma", "canva", "grammarly", "slack",
-    "zoom", "linkedin", "twitter", "x premium", "twitch",
-    "nordvpn", "expressvpn", "1password", "lastpass", "bitwarden",
-    "gym", "ginásio", "academia",
+    "netflix",
+    "spotify",
+    "youtube",
+    "disney",
+    "hbo",
+    "amazon prime",
+    "apple music",
+    "apple tv",
+    "icloud",
+    "google one",
+    "dropbox",
+    "adobe",
+    "microsoft 365",
+    "office 365",
+    "chatgpt",
+    "openai",
+    "github",
+    "notion",
+    "figma",
+    "canva",
+    "grammarly",
+    "slack",
+    "zoom",
+    "linkedin",
+    "twitter",
+    "x premium",
+    "twitch",
+    "nordvpn",
+    "expressvpn",
+    "1password",
+    "lastpass",
+    "bitwarden",
+    "gym",
+    "ginásio",
+    "academia",
 ]
 
 STORAGE_KEY = "subscriptions"
@@ -75,6 +120,7 @@ JSON only:"""
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -135,6 +181,7 @@ def _fallback_extract(message: str) -> Optional[Dict[str, Any]]:
 # Storage
 # ---------------------------------------------------------------------------
 
+
 async def save_subscription(user_id: str, sub: Dict[str, Any]) -> bool:
     """Save a subscription to user_context."""
     db = get_service("database")
@@ -147,17 +194,21 @@ async def save_subscription(user_id: str, sub: Dict[str, Any]) -> bool:
 
         # Dedup by name
         name_lower = sub.get("name", "").lower().strip()
-        existing = [s for s in existing if s.get("name", "").lower().strip() != name_lower]
+        existing = [
+            s for s in existing if s.get("name", "").lower().strip() != name_lower
+        ]
 
         sub["created_at"] = datetime.now(timezone.utc).isoformat()
         existing.append(sub)
 
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": STORAGE_KEY,
-            "value": json.dumps(existing),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": STORAGE_KEY,
+                "value": json.dumps(existing),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
         return True
 
     except Exception as e:
@@ -196,17 +247,21 @@ async def remove_subscription(user_id: str, name: str) -> bool:
     try:
         existing = await _get_subscriptions(user_id)
         name_lower = name.lower().strip()
-        filtered = [s for s in existing if s.get("name", "").lower().strip() != name_lower]
+        filtered = [
+            s for s in existing if s.get("name", "").lower().strip() != name_lower
+        ]
         if len(filtered) == len(existing):
             return False
 
         client = db.get_client()
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": STORAGE_KEY,
-            "value": json.dumps(filtered),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": STORAGE_KEY,
+                "value": json.dumps(filtered),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
         return True
 
     except Exception as e:
@@ -223,6 +278,7 @@ async def list_subscriptions(user_id: str) -> List[Dict[str, Any]]:
 # Check & Alert
 # ---------------------------------------------------------------------------
 
+
 async def check_expiring_subscriptions(user_id: str) -> List[Dict[str, Any]]:
     """Check for subscriptions renewing within ALERT_DAYS_BEFORE days."""
     subs = await _get_subscriptions(user_id)
@@ -238,7 +294,9 @@ async def check_expiring_subscriptions(user_id: str) -> List[Dict[str, Any]]:
 
         if renewal_date_str:
             try:
-                renewal_dt = datetime.strptime(renewal_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                renewal_dt = datetime.strptime(renewal_date_str, "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
                 days_until = (renewal_dt - now).days
             except ValueError:
                 continue
@@ -259,14 +317,21 @@ async def check_expiring_subscriptions(user_id: str) -> List[Dict[str, Any]]:
             continue
 
         if 0 <= days_until <= ALERT_DAYS_BEFORE:
-            urgency = "today" if days_until == 0 else "tomorrow" if days_until == 1 else "soon"
+            urgency = (
+                "today"
+                if days_until == 0
+                else "tomorrow"
+                if days_until == 1
+                else "soon"
+            )
             alerts.append({**sub, "days_until": days_until, "urgency": urgency})
 
     return alerts
 
 
 async def generate_subscription_alert(
-    user_name: str, alerts: List[Dict[str, Any]],
+    user_name: str,
+    alerts: List[Dict[str, Any]],
 ) -> Optional[str]:
     """Generate humanized subscription alert."""
     if not alerts:
@@ -296,6 +361,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -303,7 +369,9 @@ Generate:"""
                 max_tokens=250,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
@@ -318,7 +386,9 @@ Generate:"""
         elif a["urgency"] == "tomorrow":
             lines.append(f"📅 **{a.get('name', '?')}**{amount} — renews tomorrow")
         else:
-            lines.append(f"📅 **{a.get('name', '?')}**{amount} — renews in {a['days_until']} days")
+            lines.append(
+                f"📅 **{a.get('name', '?')}**{amount} — renews in {a['days_until']} days"
+            )
     lines.append("\n💬 Want to keep, cancel, or look for alternatives?")
     return "\n".join(lines)
 
@@ -327,8 +397,11 @@ Generate:"""
 # Entry point for chat flow
 # ---------------------------------------------------------------------------
 
+
 async def handle_subscription_mention(
-    user_id: str, message: str, user_name: str = "",
+    user_id: str,
+    message: str,
+    user_name: str = "",
 ) -> Optional[str]:
     """Detect and save subscription from user message."""
     if not detect_subscription_mention(message):

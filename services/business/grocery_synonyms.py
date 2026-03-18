@@ -121,7 +121,8 @@ def are_synonyms(item1: str, item2: str) -> bool:
 
 
 def find_synonym_in_list(
-    item: str, existing_items: List[str],
+    item: str,
+    existing_items: List[str],
 ) -> Optional[str]:
     """
     Check if a synonym of `item` already exists in `existing_items`.

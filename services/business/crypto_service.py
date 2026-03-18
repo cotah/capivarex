@@ -35,43 +35,62 @@ CACHE_TTL_SECONDS = 60  # preços são atualizados a cada 60s
 # Mapa de aliases comuns → CoinGecko coin ID
 COIN_ALIASES: Dict[str, str] = {
     # Bitcoin
-    "bitcoin": "bitcoin", "btc": "bitcoin",
+    "bitcoin": "bitcoin",
+    "btc": "bitcoin",
     # Ethereum
-    "ethereum": "ethereum", "eth": "ethereum", "ether": "ethereum",
+    "ethereum": "ethereum",
+    "eth": "ethereum",
+    "ether": "ethereum",
     # BNB
-    "bnb": "binancecoin", "binance coin": "binancecoin", "binance": "binancecoin",
+    "bnb": "binancecoin",
+    "binance coin": "binancecoin",
+    "binance": "binancecoin",
     # Solana
-    "solana": "solana", "sol": "solana",
+    "solana": "solana",
+    "sol": "solana",
     # XRP
-    "xrp": "ripple", "ripple": "ripple",
+    "xrp": "ripple",
+    "ripple": "ripple",
     # USDT
-    "usdt": "tether", "tether": "tether",
+    "usdt": "tether",
+    "tether": "tether",
     # USDC
     "usdc": "usd-coin",
     # Cardano
-    "cardano": "cardano", "ada": "cardano",
+    "cardano": "cardano",
+    "ada": "cardano",
     # Dogecoin
-    "dogecoin": "dogecoin", "doge": "dogecoin",
+    "dogecoin": "dogecoin",
+    "doge": "dogecoin",
     # Polkadot
-    "polkadot": "polkadot", "dot": "polkadot",
+    "polkadot": "polkadot",
+    "dot": "polkadot",
     # Avalanche
-    "avalanche": "avalanche-2", "avax": "avalanche-2",
+    "avalanche": "avalanche-2",
+    "avax": "avalanche-2",
     # Polygon
-    "polygon": "matic-network", "matic": "matic-network",
+    "polygon": "matic-network",
+    "matic": "matic-network",
     # Chainlink
-    "chainlink": "chainlink", "link": "chainlink",
+    "chainlink": "chainlink",
+    "link": "chainlink",
     # Litecoin
-    "litecoin": "litecoin", "ltc": "litecoin",
+    "litecoin": "litecoin",
+    "ltc": "litecoin",
     # Shiba Inu
-    "shiba": "shiba-inu", "shib": "shiba-inu", "shiba inu": "shiba-inu",
+    "shiba": "shiba-inu",
+    "shib": "shiba-inu",
+    "shiba inu": "shiba-inu",
     # Pepe
     "pepe": "pepe",
     # Toncoin
-    "ton": "the-open-network", "toncoin": "the-open-network",
+    "ton": "the-open-network",
+    "toncoin": "the-open-network",
     # Sui
     "sui": "sui",
     # Aptos
-    "aptos": "aptos", "apt": "aptos",
+    "aptos": "aptos",
+    "apt": "aptos",
 }
 
 # Moedas de cotação suportadas
@@ -144,7 +163,9 @@ class CryptoService(BaseService):
 
         coin_id = self._resolve_coin_id(coin)
         if not coin_id:
-            raise ValueError(f"Criptomoeda '{coin}' não encontrada. Tente o ticker (BTC, ETH, SOL...)")
+            raise ValueError(
+                f"Criptomoeda '{coin}' não encontrada. Tente o ticker (BTC, ETH, SOL...)"
+            )
 
         vs = ",".join(vs_currencies or DEFAULT_VS_CURRENCIES)
         cache_key = f"price:{coin_id}:{vs}"
@@ -167,7 +188,9 @@ class CryptoService(BaseService):
             raw = response.json()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
-                raise RuntimeError("Rate limit da API CoinGecko atingido. Tente novamente em 1 minuto.")
+                raise RuntimeError(
+                    "Rate limit da API CoinGecko atingido. Tente novamente em 1 minuto."
+                )
             raise RuntimeError(f"Erro na API CoinGecko: {e.response.status_code}")
         except httpx.RequestError as e:
             raise RuntimeError(f"Falha na conexão com CoinGecko: {str(e)}")
@@ -187,7 +210,7 @@ class CryptoService(BaseService):
             "latency_s": round(latency, 3),
         }
 
-        for currency in (vs_currencies or DEFAULT_VS_CURRENCIES):
+        for currency in vs_currencies or DEFAULT_VS_CURRENCIES:
             c = currency.lower()
             result["prices"][c] = coin_data.get(c)
             if include_24h_change:

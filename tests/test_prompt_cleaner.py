@@ -5,6 +5,7 @@ The refactored PromptCleanerService is a BaseService subclass that creates its
 own ``_openai_client`` during ``_initialize()``.  Tests create an instance
 and inject the mock client directly.
 """
+
 import pytest
 
 from services.business.prompt_cleaner import PromptCleanerService
@@ -76,7 +77,9 @@ async def test_clean_calendar_error_handling_openai_exception():
             raise RuntimeError("boom")
 
     client = type(
-        "Client", (), {"chat": type("Chat", (), {"completions": _FailingCompletions()})()}
+        "Client",
+        (),
+        {"chat": type("Chat", (), {"completions": _FailingCompletions()})()},
     )()
 
     cleaner = _build_cleaner(openai_client=client)

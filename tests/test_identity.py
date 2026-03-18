@@ -53,9 +53,7 @@ class TestResolveUserUuid:
             return_value={"id": expected_uuid, "telegram_chat_id": "6316076982"}
         )
 
-        with patch(
-            "services.core.get_service", return_value=mock_db
-        ):
+        with patch("services.core.get_service", return_value=mock_db):
             result = await resolve_user_uuid("6316076982", context="test")
 
         assert result == expected_uuid
@@ -68,9 +66,7 @@ class TestResolveUserUuid:
         mock_db.is_initialized.return_value = True
         mock_db.get_user_by_telegram_id = AsyncMock(return_value=None)
 
-        with patch(
-            "services.core.get_service", return_value=mock_db
-        ):
+        with patch("services.core.get_service", return_value=mock_db):
             result = await resolve_user_uuid("9999999999", context="test")
 
         assert result == "9999999999"
@@ -80,13 +76,9 @@ class TestResolveUserUuid:
         """DB error during resolution returns original ID (fail-open)."""
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            side_effect=RuntimeError("DB down")
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(side_effect=RuntimeError("DB down"))
 
-        with patch(
-            "services.core.get_service", return_value=mock_db
-        ):
+        with patch("services.core.get_service", return_value=mock_db):
             result = await resolve_user_uuid("6316076982", context="test")
 
         assert result == "6316076982"
@@ -113,9 +105,7 @@ class TestResolveUserUuid:
     @pytest.mark.asyncio
     async def test_db_service_unavailable_returns_original(self):
         """When database service is None, returns original."""
-        with patch(
-            "services.core.get_service", return_value=None
-        ):
+        with patch("services.core.get_service", return_value=None):
             result = await resolve_user_uuid("6316076982", context="test")
 
         assert result == "6316076982"

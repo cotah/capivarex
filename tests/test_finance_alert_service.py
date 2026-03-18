@@ -28,7 +28,9 @@ class TestDefaultConfig:
 class TestGetAlertConfig:
     @pytest.mark.asyncio
     async def test_returns_default_when_no_db(self):
-        with patch("services.business.finance_alert_service.get_service", return_value=None):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=None
+        ):
             config = await get_alert_config("user-123")
         assert config["enabled"] is True
         assert config["threshold_pct"] == 5.0
@@ -42,10 +44,14 @@ class TestGetAlertConfig:
         mock_db.get_client.return_value = mock_client
 
         mock_result = MagicMock()
-        mock_result.data = [{"data": json.dumps({"threshold_pct": 3.0, "enabled": True})}]
+        mock_result.data = [
+            {"data": json.dumps({"threshold_pct": 3.0, "enabled": True})}
+        ]
         mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = mock_result
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             config = await get_alert_config("user-123")
 
         assert config["threshold_pct"] == 3.0
@@ -57,7 +63,9 @@ class TestGetAlertConfig:
         mock_db.get_client.return_value = MagicMock()
         mock_db.get_client.return_value.table.side_effect = Exception("DB error")
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             config = await get_alert_config("user-123")
 
         assert config["threshold_pct"] == 5.0
@@ -68,7 +76,9 @@ class TestGetAlertConfig:
         mock_db.initialize = AsyncMock()
         mock_db.get_client.return_value = None
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             config = await get_alert_config("user-123")
 
         assert config == _default_config()
@@ -85,7 +95,9 @@ class TestGetAlertConfig:
         mock_result.data = [{"data": '{"threshold_pct": 7.5}'}]
         mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = mock_result
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             config = await get_alert_config("user-123")
 
         assert config["threshold_pct"] == 7.5
@@ -94,7 +106,9 @@ class TestGetAlertConfig:
 class TestSetAlertConfig:
     @pytest.mark.asyncio
     async def test_returns_false_when_no_db(self):
-        with patch("services.business.finance_alert_service.get_service", return_value=None):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=None
+        ):
             result = await set_alert_config("user-123", {"threshold_pct": 3.0})
         assert result is False
 
@@ -109,9 +123,13 @@ class TestSetAlertConfig:
         mock_result_empty = MagicMock()
         mock_result_empty.data = []
         mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = mock_result_empty
-        mock_client.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+        mock_client.table.return_value.upsert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             result = await set_alert_config("user-123", {"threshold_pct": 3.0})
 
         assert result is True
@@ -122,7 +140,9 @@ class TestSetAlertConfig:
         mock_db.initialize = AsyncMock()
         mock_db.get_client.return_value = None
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             result = await set_alert_config("user-123", {"threshold_pct": 3.0})
 
         assert result is False
@@ -135,7 +155,9 @@ class TestSetAlertConfig:
         mock_db.get_client.return_value = mock_client
         mock_client.table.side_effect = Exception("DB crash")
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             result = await set_alert_config("user-123", {"threshold_pct": 3.0})
 
         assert result is False
@@ -147,11 +169,16 @@ class TestGetCryptoPrices:
         mock_crypto = MagicMock()
         mock_crypto.initialize = AsyncMock()
         mock_crypto.is_initialized.return_value = True
-        mock_crypto.get_top_coins = AsyncMock(return_value=[
-            {"symbol": "BTC", "name": "Bitcoin", "price": 70000, "change_24h": 2.5},
-        ])
+        mock_crypto.get_top_coins = AsyncMock(
+            return_value=[
+                {"symbol": "BTC", "name": "Bitcoin", "price": 70000, "change_24h": 2.5},
+            ]
+        )
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_crypto):
+        with patch(
+            "services.business.finance_alert_service.get_service",
+            return_value=mock_crypto,
+        ):
             prices = await _get_crypto_prices()
 
         assert len(prices) == 1
@@ -159,7 +186,9 @@ class TestGetCryptoPrices:
 
     @pytest.mark.asyncio
     async def test_returns_empty_on_error(self):
-        with patch("services.business.finance_alert_service.get_service", return_value=None):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=None
+        ):
             prices = await _get_crypto_prices()
         assert prices == []
 
@@ -169,11 +198,19 @@ class TestGetStockPrices:
     async def test_returns_prices(self):
         mock_finance = MagicMock()
         mock_finance.initialize = AsyncMock()
-        mock_finance.get_quote = AsyncMock(return_value={
-            "symbol": "AAPL", "name": "Apple", "price": 250, "percent_change": -2.1,
-        })
+        mock_finance.get_quote = AsyncMock(
+            return_value={
+                "symbol": "AAPL",
+                "name": "Apple",
+                "price": 250,
+                "percent_change": -2.1,
+            }
+        )
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_finance):
+        with patch(
+            "services.business.finance_alert_service.get_service",
+            return_value=mock_finance,
+        ):
             prices = await _get_stock_prices()
 
         assert len(prices) >= 1
@@ -181,7 +218,9 @@ class TestGetStockPrices:
 
     @pytest.mark.asyncio
     async def test_returns_empty_on_error(self):
-        with patch("services.business.finance_alert_service.get_service", return_value=None):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=None
+        ):
             prices = await _get_stock_prices()
         assert prices == []
 
@@ -189,7 +228,9 @@ class TestGetStockPrices:
 class TestCheckPriceAlerts:
     @pytest.mark.asyncio
     async def test_returns_zero_when_no_db(self):
-        with patch("services.business.finance_alert_service.get_service", return_value=None):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=None
+        ):
             count = await check_price_alerts()
         assert count == 0
 
@@ -204,7 +245,9 @@ class TestCheckPriceAlerts:
         mock_result.data = []
         mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             count = await check_price_alerts()
 
         assert count == 0
@@ -223,7 +266,9 @@ class TestCheckPriceAlerts:
 
         # Alert config
         mock_config = MagicMock()
-        mock_config.data = [{"data": json.dumps({"enabled": True, "threshold_pct": 3.0})}]
+        mock_config.data = [
+            {"data": json.dumps({"enabled": True, "threshold_pct": 3.0})}
+        ]
 
         # No existing alerts today
         mock_no_existing = MagicMock()
@@ -239,14 +284,31 @@ class TestCheckPriceAlerts:
                 t.select.return_value.eq.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = mock_no_existing
                 t.insert.return_value.execute.return_value = MagicMock()
             return t
+
         mock_client.table = table_side
 
         with (
-            patch("services.business.finance_alert_service.get_service", return_value=mock_db),
-            patch("services.business.finance_alert_service._get_crypto_prices", new_callable=AsyncMock, return_value=[
-                {"symbol": "BTC", "name": "Bitcoin", "price": 70000, "change_24h": 8.5},
-            ]),
-            patch("services.business.finance_alert_service._get_stock_prices", new_callable=AsyncMock, return_value=[]),
+            patch(
+                "services.business.finance_alert_service.get_service",
+                return_value=mock_db,
+            ),
+            patch(
+                "services.business.finance_alert_service._get_crypto_prices",
+                new_callable=AsyncMock,
+                return_value=[
+                    {
+                        "symbol": "BTC",
+                        "name": "Bitcoin",
+                        "price": 70000,
+                        "change_24h": 8.5,
+                    },
+                ],
+            ),
+            patch(
+                "services.business.finance_alert_service._get_stock_prices",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             count = await check_price_alerts()
 
@@ -267,7 +329,9 @@ class TestCheckPriceAlertsAdditional:
         mock_users.data = [{"user_id": "user-disabled"}]
 
         mock_config = MagicMock()
-        mock_config.data = [{"data": json.dumps({"enabled": False, "threshold_pct": 5.0})}]
+        mock_config.data = [
+            {"data": json.dumps({"enabled": False, "threshold_pct": 5.0})}
+        ]
 
         def table_side(name):
             t = MagicMock()
@@ -276,14 +340,31 @@ class TestCheckPriceAlertsAdditional:
             elif name == "user_context":
                 t.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = mock_config
             return t
+
         mock_client.table = table_side
 
         with (
-            patch("services.business.finance_alert_service.get_service", return_value=mock_db),
-            patch("services.business.finance_alert_service._get_crypto_prices", new_callable=AsyncMock, return_value=[
-                {"symbol": "BTC", "name": "Bitcoin", "price": 70000, "change_24h": 8.5},
-            ]),
-            patch("services.business.finance_alert_service._get_stock_prices", new_callable=AsyncMock, return_value=[]),
+            patch(
+                "services.business.finance_alert_service.get_service",
+                return_value=mock_db,
+            ),
+            patch(
+                "services.business.finance_alert_service._get_crypto_prices",
+                new_callable=AsyncMock,
+                return_value=[
+                    {
+                        "symbol": "BTC",
+                        "name": "Bitcoin",
+                        "price": 70000,
+                        "change_24h": 8.5,
+                    },
+                ],
+            ),
+            patch(
+                "services.business.finance_alert_service._get_stock_prices",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             count = await check_price_alerts()
         assert count == 0
@@ -301,7 +382,9 @@ class TestCheckPriceAlertsAdditional:
         mock_users.data = [{"user_id": "user-1"}]
 
         mock_config = MagicMock()
-        mock_config.data = [{"data": json.dumps({"enabled": True, "threshold_pct": 3.0})}]
+        mock_config.data = [
+            {"data": json.dumps({"enabled": True, "threshold_pct": 3.0})}
+        ]
 
         mock_no_existing = MagicMock()
         mock_no_existing.data = []
@@ -316,14 +399,31 @@ class TestCheckPriceAlertsAdditional:
                 t.select.return_value.eq.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = mock_no_existing
                 t.insert.return_value.execute.return_value = MagicMock()
             return t
+
         mock_client.table = table_side
 
         with (
-            patch("services.business.finance_alert_service.get_service", return_value=mock_db),
-            patch("services.business.finance_alert_service._get_crypto_prices", new_callable=AsyncMock, return_value=[]),
-            patch("services.business.finance_alert_service._get_stock_prices", new_callable=AsyncMock, return_value=[
-                {"symbol": "TSLA", "name": "Tesla", "price": 391, "percent_change": -6.2},
-            ]),
+            patch(
+                "services.business.finance_alert_service.get_service",
+                return_value=mock_db,
+            ),
+            patch(
+                "services.business.finance_alert_service._get_crypto_prices",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "services.business.finance_alert_service._get_stock_prices",
+                new_callable=AsyncMock,
+                return_value=[
+                    {
+                        "symbol": "TSLA",
+                        "name": "Tesla",
+                        "price": 391,
+                        "percent_change": -6.2,
+                    },
+                ],
+            ),
         ):
             count = await check_price_alerts()
         assert count >= 1
@@ -334,6 +434,8 @@ class TestCheckPriceAlertsAdditional:
         mock_db.initialize = AsyncMock()
         mock_db.get_client.return_value = None
 
-        with patch("services.business.finance_alert_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_alert_service.get_service", return_value=mock_db
+        ):
             count = await check_price_alerts()
         assert count == 0

@@ -55,6 +55,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # ── Registration gate — unregistered users must complete signup first ──
     try:
         from telegram_bot.commands.start import handle_registration_flow
+
         consumed = await handle_registration_flow(update, context)
         if consumed:
             return  # Message was part of registration flow
@@ -64,7 +65,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     bot = context.application.bot_data.get("capivarax_bot")
     if not bot:
         logger.warning("Message received but bot not initialized yet")
-        await update.message.reply_text("Bot não inicializado.")
+        await update.message.reply_text("Bot not initialized.")
         return
 
     text: str = update.message.text
@@ -92,9 +93,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             pending = await redis.get(pending_key, parse_json=True)
             if pending and isinstance(pending, dict):
                 await redis.delete(pending_key)
-                await _handle_pending_location_save(
-                    update, context, pending, text
-                )
+                await _handle_pending_location_save(update, context, pending, text)
                 return
     except Exception as e:
         logger.warning("Pending location check failed: %s", e)
@@ -146,23 +145,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
                 # Saved location context (from Telegram location share)
                 if user_uuid and not user_context.get("latitude"):
-                    saved_loc = await db_svc.get_user_context(
-                        user_uuid, "location"
-                    )
+                    saved_loc = await db_svc.get_user_context(user_uuid, "location")
                     if saved_loc and isinstance(saved_loc, dict):
-                        user_context.setdefault(
-                            "latitude", saved_loc.get("latitude")
-                        )
-                        user_context.setdefault(
-                            "longitude", saved_loc.get("longitude")
-                        )
-                        if (
-                            not user_context.get("user_location")
-                            and saved_loc.get("address")
+                        user_context.setdefault("latitude", saved_loc.get("latitude"))
+                        user_context.setdefault("longitude", saved_loc.get("longitude"))
+                        if not user_context.get("user_location") and saved_loc.get(
+                            "address"
                         ):
-                            user_context["user_location"] = saved_loc[
-                                "address"
-                            ]
+                            user_context["user_location"] = saved_loc["address"]
     except Exception as e:
         logger.warning("Could not enrich context with GPS: %s", e)
 
@@ -174,17 +164,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user_context["lang"] = detected_lang
 
         # If detected a non-EN lang different from saved pref, persist it
-        if (
-            detected_lang != "en"
-            and db_svc
-            and db_svc.is_initialized()
-            and user_row
-        ):
+        if detected_lang != "en" and db_svc and db_svc.is_initialized() and user_row:
             user_uuid_lang = user_row.get("id") or user_row.get("user_id")
             current_pref = user_row.get("preferred_language")
-            if (
-                user_uuid_lang
-                and (not current_pref or current_pref[:2].lower() != detected_lang)
+            if user_uuid_lang and (
+                not current_pref or current_pref[:2].lower() != detected_lang
             ):
                 await db_svc.update_user_preferences(
                     user_uuid_lang, {"preferred_language": detected_lang}
@@ -226,9 +210,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             text[:80],
         )
         await update.message.reply_text(
-            "⚠️ O processamento demorou demais e foi interrompido.\n"
-            "Tente novamente — se persistir, pode ser lentidão nos "
-            "serviços de IA externos."
+            "⚠️ Processing took too long and was interrupted.\n"
+            "Please try again — if it persists, it may be slowness in "
+            "external AI services."
         )
         return
     except Exception as e:
@@ -240,7 +224,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             exc_info=True,
         )
         sentry_sdk.capture_exception(e)
-        await update.message.reply_text(f"⚠️ Erro inesperado ao processar mensagem: {e}")
+        await update.message.reply_text(f"⚠️ Unexpected error processing message: {e}")
         return
 
     elapsed = time.monotonic() - start_time
@@ -263,34 +247,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             try:
                 redis_svc = get_service("redis")
                 if redis_svc:
-                    pending_key = (
-                        f"pending:location:{update.effective_chat.id}"
-                    )
+                    pending_key = f"pending:location:{update.effective_chat.id}"
                     await redis_svc.set(
                         pending_key,
                         {
                             "key": result.data["ask_location"],
-                            "direction": result.data.get(
-                                "direction", "origin"
-                            ),
+                            "direction": result.data.get("direction", "origin"),
                             "original_query": text,
                             "user_id": (
-                                str(
-                                    user_row.get("id")
-                                    or user_row.get("user_id")
-                                )
+                                str(user_row.get("id") or user_row.get("user_id"))
                                 if user_row
-                                else str(
-                                    user_context.get("user_id", "")
-                                )
+                                else str(user_context.get("user_id", ""))
                             ),
                             "lang": user_context.get("lang", "en"),
                         },
                         expire_seconds=300,  # 5 minutes TTL
                     )
                     logger.info(
-                        "Saved pending location '%s' for chat %s"
-                        " (original: %s)",
+                        "Saved pending location '%s' for chat %s (original: %s)",
                         result.data["ask_location"],
                         update.effective_chat.id,
                         text[:40],
@@ -381,9 +355,7 @@ async def _handle_pending_location_save(
 
     # ── 1. Save the location ─────────────────────────────────────────
     loc_svc = get_saved_locations_service()
-    location_data = await loc_svc.save_location(
-        user_id, key, address_text
-    )
+    location_data = await loc_svc.save_location(user_id, key, address_text)
     label = get_label(key, lang)
 
     # ── 2. Confirm to user ───────────────────────────────────────────
@@ -427,10 +399,7 @@ async def _handle_pending_location_save(
         "user_id": update.effective_user.id,
         "chat_id": update.effective_chat.id,
         "username": update.effective_user.username,
-        "language_code": getattr(
-            update.effective_user, "language_code", None
-        )
-        or "en",
+        "language_code": getattr(update.effective_user, "language_code", None) or "en",
         "message_text": original_query,
         "lang": lang,
     }
@@ -452,33 +421,21 @@ async def _handle_pending_location_save(
                 if loc_pref:
                     user_context["user_location"] = loc_pref
 
-                user_uuid = (
-                    user_row.get("id") or user_row.get("user_id")
-                )
+                user_uuid = user_row.get("id") or user_row.get("user_id")
                 if user_uuid:
                     # Fetch saved GPS location
-                    saved_loc = await db_svc.get_user_context(
-                        user_uuid, "location"
-                    )
+                    saved_loc = await db_svc.get_user_context(user_uuid, "location")
                     if saved_loc and isinstance(saved_loc, dict):
-                        user_context.setdefault(
-                            "latitude", saved_loc.get("latitude")
-                        )
-                        user_context.setdefault(
-                            "longitude", saved_loc.get("longitude")
-                        )
+                        user_context.setdefault("latitude", saved_loc.get("latitude"))
+                        user_context.setdefault("longitude", saved_loc.get("longitude"))
     except Exception as e:
         logger.debug("Could not enrich re-run context: %s", e)
 
     # Re-process the original query
     try:
-        result = await bot.process_message(
-            original_query, user_context
-        )
+        result = await bot.process_message(original_query, user_context)
     except Exception as e:
-        logger.error(
-            "Error re-running query after location save: %s", e
-        )
+        logger.error("Error re-running query after location save: %s", e)
         return
 
     if not result:
@@ -486,24 +443,16 @@ async def _handle_pending_location_save(
 
     # ── 4. Check if the NEW result also asks for a location ──────────
     # e.g., "casa" is now saved but "trabalho" still unknown
-    if (
-        hasattr(result, "data")
-        and result.data
-        and result.data.get("ask_location")
-    ):
+    if hasattr(result, "data") and result.data and result.data.get("ask_location"):
         try:
             redis_svc = get_service("redis")
             if redis_svc:
-                new_pending_key = (
-                    f"pending:location:{update.effective_chat.id}"
-                )
+                new_pending_key = f"pending:location:{update.effective_chat.id}"
                 await redis_svc.set(
                     new_pending_key,
                     {
                         "key": result.data["ask_location"],
-                        "direction": result.data.get(
-                            "direction", "origin"
-                        ),
+                        "direction": result.data.get("direction", "origin"),
                         "original_query": original_query,
                         "user_id": user_id,
                         "lang": lang,

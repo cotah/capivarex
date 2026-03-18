@@ -29,28 +29,61 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 NOTE_KEYWORDS = [
-    "nota que", "anota", "note that", "take note", "anote",
-    "guarda que", "lembra que", "save that", "write down",
-    "aponta que", "regista que", "record that",
+    "nota que",
+    "anota",
+    "note that",
+    "take note",
+    "anote",
+    "guarda que",
+    "lembra que",
+    "save that",
+    "write down",
+    "aponta que",
+    "regista que",
+    "record that",
 ]
 
 REMINDER_KEYWORDS = [
-    "lembra-me", "lembra me", "remind me", "reminder",
-    "não esquecer", "nao esquecer", "don't forget", "dont forget",
-    "me avisa", "avisa-me", "alert me", "lembrete",
-    "me lembra", "me recorda",
+    "lembra-me",
+    "lembra me",
+    "remind me",
+    "reminder",
+    "não esquecer",
+    "nao esquecer",
+    "don't forget",
+    "dont forget",
+    "me avisa",
+    "avisa-me",
+    "alert me",
+    "lembrete",
+    "me lembra",
+    "me recorda",
 ]
 
 CALENDAR_KEYWORDS = [
-    "agenda", "agendar", "schedule", "marca reunião", "marca reuniao",
-    "book meeting", "create event", "criar evento", "marcar",
-    "calendar", "calendário",
+    "agenda",
+    "agendar",
+    "schedule",
+    "marca reunião",
+    "marca reuniao",
+    "book meeting",
+    "create event",
+    "criar evento",
+    "marcar",
+    "calendar",
+    "calendário",
 ]
 
 SHOPPING_KEYWORDS = [
-    "comprar", "buy", "shopping list", "lista de compras",
-    "preciso de", "need to buy", "tenho que comprar",
-    "ir ao supermercado", "grocery",
+    "comprar",
+    "buy",
+    "shopping list",
+    "lista de compras",
+    "preciso de",
+    "need to buy",
+    "tenho que comprar",
+    "ir ao supermercado",
+    "grocery",
 ]
 
 
@@ -84,6 +117,7 @@ def detect_implicit_action(message: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # GPT-based detection for ambiguous cases
 # ---------------------------------------------------------------------------
+
 
 async def detect_implicit_action_gpt(message: str) -> Optional[Dict[str, Any]]:
     """
@@ -159,6 +193,7 @@ JSON:"""
 # Action Execution
 # ---------------------------------------------------------------------------
 
+
 async def execute_implicit_action(
     user_id: str,
     action_data: Dict[str, Any],
@@ -189,7 +224,9 @@ async def execute_implicit_action(
 
     try:
         if action == "note" or action == "shopping":
-            return await _execute_note(ctx, content, title, name, is_shopping=(action == "shopping"))
+            return await _execute_note(
+                ctx, content, title, name, is_shopping=(action == "shopping")
+            )
 
         elif action == "reminder":
             return await _execute_reminder(ctx, content, time_str, name)
@@ -204,7 +241,11 @@ async def execute_implicit_action(
 
 
 async def _execute_note(
-    ctx: Dict, content: str, title: str, name: str, is_shopping: bool = False,
+    ctx: Dict,
+    content: str,
+    title: str,
+    name: str,
+    is_shopping: bool = False,
 ) -> Optional[str]:
     """Create a note via notes agent."""
     from agents.core import get_agent
@@ -217,7 +258,11 @@ async def _execute_note(
     if is_shopping:
         prompt = f"create shopping list: {content}"
     else:
-        prompt = f"create note titled '{title}': {content}" if title else f"create note: {content}"
+        prompt = (
+            f"create note titled '{title}': {content}"
+            if title
+            else f"create note: {content}"
+        )
 
     result = await notes_agent.execute(prompt, ctx)
 
@@ -227,7 +272,10 @@ async def _execute_note(
 
 
 async def _execute_reminder(
-    ctx: Dict, content: str, time_str: str, name: str,
+    ctx: Dict,
+    content: str,
+    time_str: str,
+    name: str,
 ) -> Optional[str]:
     """Create a reminder via reminder agent."""
     from agents.core import get_agent
@@ -245,7 +293,11 @@ async def _execute_reminder(
 
 
 async def _execute_calendar(
-    ctx: Dict, content: str, time_str: str, title: str, name: str,
+    ctx: Dict,
+    content: str,
+    time_str: str,
+    title: str,
+    name: str,
 ) -> Optional[str]:
     """Create a calendar event via calendar agent."""
     from agents.core import get_agent
@@ -254,11 +306,17 @@ async def _execute_calendar(
     if not calendar_agent:
         return None
 
-    prompt = f"create event: {title or content} at {time_str}" if time_str else f"create event: {content}"
+    prompt = (
+        f"create event: {title or content} at {time_str}"
+        if time_str
+        else f"create event: {content}"
+    )
     result = await calendar_agent.execute(prompt, ctx)
 
     if result and result.response:
-        return await _humanize_confirmation(name, "calendar", title or content, time_str)
+        return await _humanize_confirmation(
+            name, "calendar", title or content, time_str
+        )
     return None
 
 
@@ -266,8 +324,12 @@ async def _execute_calendar(
 # Humanized Confirmations
 # ---------------------------------------------------------------------------
 
+
 async def _humanize_confirmation(
-    name: str, action_type: str, content: str, extra: str = "",
+    name: str,
+    action_type: str,
+    content: str,
+    extra: str = "",
 ) -> str:
     """Generate warm, human confirmation for the action taken."""
     openai_svc = get_service("openai")
@@ -283,7 +345,7 @@ async def _humanize_confirmation(
         prompt = f"""You are CAPIVAREX, a warm personal assistant. Generate a SHORT confirmation (1-2 sentences max) that you {action_desc} for {name}.
 
 Content: {content}
-Extra info: {extra or 'none'}
+Extra info: {extra or "none"}
 
 RULES:
 - Be warm and brief — max 2 sentences
@@ -296,6 +358,7 @@ Generate the confirmation:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -303,7 +366,9 @@ Generate the confirmation:"""
                 max_tokens=100,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 5:
                 return text
         except Exception:
@@ -311,21 +376,22 @@ Generate the confirmation:"""
 
     # Fallback confirmations
     if action_type == "note":
-        return f"📝 Got it, {name}! Saved: \"{content[:60]}\"."
+        return f'📝 Got it, {name}! Saved: "{content[:60]}".'
     elif action_type == "reminder":
         time_part = f" for {extra}" if extra else ""
-        return f"⏰ Done, {name}! I'll remind you{time_part}: \"{content[:60]}\"."
+        return f'⏰ Done, {name}! I\'ll remind you{time_part}: "{content[:60]}".'
     elif action_type == "calendar":
         time_part = f" at {extra}" if extra else ""
-        return f"📅 All set, {name}! Event created{time_part}: \"{content[:60]}\"."
+        return f'📅 All set, {name}! Event created{time_part}: "{content[:60]}".'
     elif action_type == "shopping":
-        return f"🛒 Shopping list saved, {name}! \"{content[:60]}\"."
+        return f'🛒 Shopping list saved, {name}! "{content[:60]}".'
     return f"✅ Done, {name}!"
 
 
 # ---------------------------------------------------------------------------
 # Main Entry Point — call this from chat flow
 # ---------------------------------------------------------------------------
+
 
 async def check_and_execute_implicit_action(
     user_id: str,
@@ -354,7 +420,12 @@ async def check_and_execute_implicit_action(
     fast_action = detect_implicit_action(message)
 
     if fast_action:
-        action_data = {"action": fast_action, "content": message, "time": "", "title": ""}
+        action_data = {
+            "action": fast_action,
+            "content": message,
+            "time": "",
+            "title": "",
+        }
 
         # If GPT available, refine the detection (extract content, time, title)
         if use_gpt:

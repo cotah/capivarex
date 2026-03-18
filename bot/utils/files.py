@@ -154,10 +154,14 @@ def list_workspace_files(workspace: Path, limit: int = 50) -> List[str]:
     try:
         for root, dirs, filenames in os.walk(workspace):
             # Skip hidden and forbidden directories
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['venv', '__pycache__']]
+            dirs[:] = [
+                d
+                for d in dirs
+                if not d.startswith(".") and d not in ["venv", "__pycache__"]
+            ]
 
             for filename in filenames:
-                if filename.startswith('.'):
+                if filename.startswith("."):
                     continue
 
                 full_path = Path(root) / filename

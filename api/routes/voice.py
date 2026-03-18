@@ -5,6 +5,7 @@ Rotas para funcionalidades de voz (Text-to-Speech e Speech-to-Text).
 Uses agents (get_agent) and services (get_service)
 instead of direct imports from agents/ and services/.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,14 +31,17 @@ logger = logging.getLogger(__name__)
 # Pydantic schemas
 # ---------------------------------------------------------------------------
 
+
 class TextToSpeechRequest(BaseModel):
     """Request para conversao de texto em audio."""
+
     text: str
     voice: Optional[str] = "rachel"
 
 
 class TextToSpeechResponse(BaseModel):
     """Response com informacoes do audio gerado."""
+
     audio_url: str
     text_length: int
     voice_used: str
@@ -45,6 +49,7 @@ class TextToSpeechResponse(BaseModel):
 
 class SpeechToTextResponse(BaseModel):
     """Response com texto transcrito."""
+
     text: str
     language: str
     audio_duration: Optional[float] = None
@@ -52,17 +57,20 @@ class SpeechToTextResponse(BaseModel):
 
 class VoicesResponse(BaseModel):
     """Response com vozes disponiveis."""
+
     voices: dict
 
 
 class LanguagesResponse(BaseModel):
     """Response com idiomas suportados."""
+
     languages: dict
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_voice_agent():
     """Get the voice agent from the registry."""
@@ -78,6 +86,7 @@ def _get_elevenlabs_voices() -> Dict[str, str]:
     if elevenlabs_svc is not None:
         # The service module exposes PORTUGUESE_VOICES as a module-level constant
         from services.ai.elevenlabs_service import PORTUGUESE_VOICES
+
         return PORTUGUESE_VOICES
     # Fallback
     return {
@@ -97,6 +106,7 @@ def _get_supported_languages() -> Dict[str, str]:
     whisper_svc = get_service("whisper")
     if whisper_svc is not None:
         from services.media.whisper_service import SUPPORTED_LANGUAGES
+
         return SUPPORTED_LANGUAGES
     # Fallback
     return {
@@ -119,9 +129,14 @@ def _get_supported_languages() -> Dict[str, str]:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.post("/text-to-speech", response_model=TextToSpeechResponse)
 @limiter.limit("5/minute")
-async def text_to_speech(request: Request, body: TextToSpeechRequest, current_user: Dict = Depends(get_current_user)) -> TextToSpeechResponse:
+async def text_to_speech(
+    request: Request,
+    body: TextToSpeechRequest,
+    current_user: Dict = Depends(get_current_user),
+) -> TextToSpeechResponse:
     """
     Converte texto em audio.
 
@@ -228,7 +243,9 @@ async def speech_to_text(
 
 
 @router.get("/audio/{filename}")
-async def get_audio(filename: str, current_user: Dict = Depends(get_current_user)) -> FileResponse:
+async def get_audio(
+    filename: str, current_user: Dict = Depends(get_current_user)
+) -> FileResponse:
     """
     Serve arquivo de audio gerado.
 
@@ -243,7 +260,9 @@ async def get_audio(filename: str, current_user: Dict = Depends(get_current_user
         audio_path = temp_dir / filename
 
         if not audio_path.exists():
-            raise HTTPException(status_code=404, detail="Arquivo de audio nao encontrado")
+            raise HTTPException(
+                status_code=404, detail="Arquivo de audio nao encontrado"
+            )
 
         return FileResponse(
             path=str(audio_path),
@@ -273,7 +292,9 @@ async def get_voices(current_user: Dict = Depends(get_current_user)) -> VoicesRe
 
 
 @router.get("/languages", response_model=LanguagesResponse)
-async def get_languages(current_user: Dict = Depends(get_current_user)) -> LanguagesResponse:
+async def get_languages(
+    current_user: Dict = Depends(get_current_user),
+) -> LanguagesResponse:
     """
     Retorna lista de idiomas suportados.
 

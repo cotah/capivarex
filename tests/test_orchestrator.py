@@ -5,6 +5,7 @@ The refactored OrchestratorAgent uses ``get_service("openai")`` to obtain the
 OpenAI client.  Tests mock ``services.get_service`` so that the agent receives
 a controlled client.
 """
+
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -43,7 +44,9 @@ async def test_execute_returns_allowed_decision():
     response = Mock()
     response.choices = [Mock()]
     response.choices[0].message = Mock()
-    response.choices[0].message.content = '{"agent": "weather", "reason": "weather query"}'
+    response.choices[
+        0
+    ].message.content = '{"agent": "weather", "reason": "weather query"}'
 
     client = Mock()
     client.chat.completions.create = AsyncMock(return_value=response)
@@ -142,7 +145,9 @@ async def test_execute_unknown_agent_fallback():
     """Covers lines 153-156: agent not in ALLOWED_AGENTS."""
     response = Mock()
     response.choices = [Mock()]
-    response.choices[0].message.content = '{"agent": "nonexistent_agent", "reason": "test"}'
+    response.choices[
+        0
+    ].message.content = '{"agent": "nonexistent_agent", "reason": "test"}'
     client = Mock()
     client.chat.completions.create = AsyncMock(return_value=response)
     svc = _mock_openai_service(client)
@@ -158,7 +163,9 @@ async def test_execute_voice_transcription_override():
     """Covers lines 160-172: voice->chat override for transcription keywords."""
     response = Mock()
     response.choices = [Mock()]
-    response.choices[0].message.content = '{"agent": "voice", "reason": "voice request"}'
+    response.choices[
+        0
+    ].message.content = '{"agent": "voice", "reason": "voice request"}'
     client = Mock()
     client.chat.completions.create = AsyncMock(return_value=response)
     svc = _mock_openai_service(client)

@@ -46,11 +46,11 @@ _BASE = "https://api.17track.net/track/v2"
 
 # Status principal 17TRACK → (emoji, label PT-BR)
 _STATUS_MAP: Dict[int, tuple] = {
-    0:  ("❓", "Não encontrado"),
+    0: ("❓", "Não encontrado"),
     10: ("📋", "Informação recebida"),
     20: ("🚚", "Em trânsito"),
     30: ("📦", "Disponível para retirada"),
-    35: ("⚠️",  "Tentativa de entrega falhou"),
+    35: ("⚠️", "Tentativa de entrega falhou"),
     40: ("✅", "Entregue"),
     50: ("🕰️", "Prazo expirado"),
     60: ("❌", "Exceção / Problema"),
@@ -79,35 +79,35 @@ _SUBSTATUS_MAP: Dict[str, str] = {
 # Lista completa: https://res.17track.net/asset/carrier/info/apicarrier.all.json
 CARRIER_CODES: Dict[str, int] = {
     # Irlanda
-    "an post":          100011,
-    "anpost":           100011,
-    "dpd ireland":      100065,
-    "dpd":              100065,
-    "fastway ireland":  100070,
-    "evri ireland":     100073,
+    "an post": 100011,
+    "anpost": 100011,
+    "dpd ireland": 100065,
+    "dpd": 100065,
+    "fastway ireland": 100070,
+    "evri ireland": 100073,
     # Reino Unido
-    "royal mail":       190004,
-    "parcelforce":      190005,
-    "evri":             190010,
-    "hermes":           190010,
+    "royal mail": 190004,
+    "parcelforce": 190005,
+    "evri": 190010,
+    "hermes": 190010,
     # Europa / Global
-    "dhl":              300004,
-    "fedex":            300002,
-    "ups":              300003,
-    "tnt":              300006,
-    "gls":              300012,
-    "dpd europe":       300020,
-    "postnl":           301002,
+    "dhl": 300004,
+    "fedex": 300002,
+    "ups": 300003,
+    "tnt": 300006,
+    "gls": 300012,
+    "dpd europe": 300020,
+    "postnl": 301002,
     # EUA
-    "usps":             100003,
+    "usps": 100003,
     # Brasil
-    "correios":         3011,
-    "jadlog":           3042,
+    "correios": 3011,
+    "jadlog": 3042,
     # China / E-commerce
-    "cainiao":          190200,
-    "yunexpress":       190193,
-    "amazon":           190120,
-    "aliexpress":       190193,
+    "cainiao": 190200,
+    "yunexpress": 190193,
+    "amazon": 190120,
+    "aliexpress": 190193,
 }
 
 
@@ -135,9 +135,9 @@ def _parse_event(ev: Dict) -> Dict[str, str]:
       z = mensagem formatada
     """
     return {
-        "date":     _fmt_date(ev.get("a")),
+        "date": _fmt_date(ev.get("a")),
         "location": ev.get("c") or ev.get("d") or "",
-        "message":  ev.get("z") or ev.get("b") or "",
+        "message": ev.get("z") or ev.get("b") or "",
     }
 
 
@@ -269,8 +269,8 @@ class TrackingService(BaseService):
         q = data.get("data", {})
         return {
             "quota_remaining": q.get("quota_remain", q.get("quotaleft", 0)),
-            "quota_total":     q.get("quota_total", q.get("quotatotal", 0)),
-            "quota_used":      q.get("quota_used", q.get("quotaused", 0)),
+            "quota_total": q.get("quota_total", q.get("quotatotal", 0)),
+            "quota_used": q.get("quota_used", q.get("quotaused", 0)),
         }
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -319,7 +319,9 @@ class TrackingService(BaseService):
                     )
 
             if data.get("code") != 0 and not rejected:
-                self.logger.warning("17TRACK register unexpected code: %s", data.get("code"))
+                self.logger.warning(
+                    "17TRACK register unexpected code: %s", data.get("code")
+                )
 
         except (ValueError, RuntimeError):
             raise
@@ -328,6 +330,7 @@ class TrackingService(BaseService):
 
         # Step 2: Try to get tracking info (may have data if already registered before)
         import asyncio
+
         await asyncio.sleep(1)  # Brief pause to let 17TRACK process
 
         cached = await self._get_track_info(number, carrier_code)
@@ -336,23 +339,23 @@ class TrackingService(BaseService):
 
         # No data yet — return "registered, waiting" status
         return {
-            "tracking_number":    number,
-            "carrier":            "Auto-detect",
-            "carrier_code":       carrier_code,
-            "status_code":        0,
-            "status_emoji":       "📋",
-            "status_label":       "Registrado — aguardando dados",
-            "sub_status":         "Encomenda registrada no sistema. Dados de rastreio chegam em breve.",
-            "last_location":      "",
-            "last_message":       "Acabei de registrar este código. O 17TRACK vai buscar os dados em alguns minutos.",
-            "last_update":        "",
+            "tracking_number": number,
+            "carrier": "Auto-detect",
+            "carrier_code": carrier_code,
+            "status_code": 0,
+            "status_emoji": "📋",
+            "status_label": "Registrado — aguardando dados",
+            "sub_status": "Encomenda registrada no sistema. Dados de rastreio chegam em breve.",
+            "last_location": "",
+            "last_message": "Acabei de registrar este código. O 17TRACK vai buscar os dados em alguns minutos.",
+            "last_update": "",
             "estimated_delivery": "",
-            "origin_country":     "",
+            "origin_country": "",
             "destination_country": "",
-            "events":             [],
-            "total_events":       0,
-            "delivered":          False,
-            "just_registered":    True,
+            "events": [],
+            "total_events": 0,
+            "delivered": False,
+            "just_registered": True,
         }
 
     async def _get_track_info(
@@ -416,9 +419,7 @@ class TrackingService(BaseService):
             )
 
         if not accepted:
-            raise ValueError(
-                f"Nenhuma informação encontrada para '{number}'."
-            )
+            raise ValueError(f"Nenhuma informação encontrada para '{number}'.")
 
         return self._normalize(number, accepted[0])
 
@@ -461,22 +462,22 @@ class TrackingService(BaseService):
         last_event = _parse_event(last_event_raw) if last_event_raw else {}
 
         return {
-            "tracking_number":    number,
-            "carrier":            carrier_name or "Auto-detect",
-            "carrier_code":       item.get("carrier"),
-            "status_code":        status_code,
-            "status_emoji":       emoji,
-            "status_label":       label,
-            "sub_status":         sub_label,
-            "last_location":      last_event.get("location", ""),
-            "last_message":       last_event.get("message", ""),
-            "last_update":        last_event.get("date", ""),
+            "tracking_number": number,
+            "carrier": carrier_name or "Auto-detect",
+            "carrier_code": item.get("carrier"),
+            "status_code": status_code,
+            "status_emoji": emoji,
+            "status_label": label,
+            "sub_status": sub_label,
+            "last_location": last_event.get("location", ""),
+            "last_message": last_event.get("message", ""),
+            "last_update": last_event.get("date", ""),
             "estimated_delivery": _fmt_date(track.get("na")),
-            "origin_country":     track.get("e") or "",
+            "origin_country": track.get("e") or "",
             "destination_country": track.get("d") or "",
-            "events":             events,
-            "total_events":       len(events),
-            "delivered":          status_code == 40,
+            "events": events,
+            "total_events": len(events),
+            "delivered": status_code == 40,
         }
 
     # ──────────────────────────────────────────────────────────────────────────

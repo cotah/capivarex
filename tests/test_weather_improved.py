@@ -10,6 +10,7 @@ Cobre:
   - Edge cases: sem dados, API 500, location não encontrada
   - Segurança: injeção via location string, tamanho máximo de dias
 """
+
 from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -17,6 +18,7 @@ import pytest
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 def _make_api_response(
     city: str = "Dublin",
@@ -31,53 +33,66 @@ def _make_api_response(
         rain = 80 if i == 2 else (20 if i == 4 else 40)
         wind = 60 if i == 3 else 20
         uv = 8 if i == 5 else 3
-        forecast_days.append({
-            "date": f"2026-02-{21 + i:02d}",
-            "day": {
-                "maxtemp_c": 12.0 + i,
-                "mintemp_c": 5.0 + i,
-                "maxtemp_f": 53.6 + i * 1.8,
-                "mintemp_f": 41.0 + i * 1.8,
-                "avgtemp_c": 8.5 + i,
-                "condition": {"text": "Partly cloudy", "icon": "//icon.png"},
-                "daily_chance_of_rain": rain,
-                "daily_chance_of_snow": 0,
-                "totalprecip_mm": 3.2 if rain > 50 else 0,
-                "avghumidity": 75,
-                "maxwind_kph": wind,
-                "uv": uv,
-            },
-            "astro": {"sunrise": "07:30 AM", "sunset": "06:00 PM"},
-        })
+        forecast_days.append(
+            {
+                "date": f"2026-02-{21 + i:02d}",
+                "day": {
+                    "maxtemp_c": 12.0 + i,
+                    "mintemp_c": 5.0 + i,
+                    "maxtemp_f": 53.6 + i * 1.8,
+                    "mintemp_f": 41.0 + i * 1.8,
+                    "avgtemp_c": 8.5 + i,
+                    "condition": {"text": "Partly cloudy", "icon": "//icon.png"},
+                    "daily_chance_of_rain": rain,
+                    "daily_chance_of_snow": 0,
+                    "totalprecip_mm": 3.2 if rain > 50 else 0,
+                    "avghumidity": 75,
+                    "maxwind_kph": wind,
+                    "uv": uv,
+                },
+                "astro": {"sunrise": "07:30 AM", "sunset": "06:00 PM"},
+            }
+        )
 
     alerts = []
     if with_alerts:
-        alerts = [{
-            "headline": "Wind Warning in effect",
-            "severity": "Moderate",
-            "urgency": "Expected",
-            "areas": "Leinster",
-            "event": "Wind Warning",
-            "effective": "2026-02-21T10:00:00",
-            "expires": "2026-02-22T10:00:00",
-            "desc": "Strong winds expected with gusts up to 90 km/h.",
-        }]
+        alerts = [
+            {
+                "headline": "Wind Warning in effect",
+                "severity": "Moderate",
+                "urgency": "Expected",
+                "areas": "Leinster",
+                "event": "Wind Warning",
+                "effective": "2026-02-21T10:00:00",
+                "expires": "2026-02-22T10:00:00",
+                "desc": "Strong winds expected with gusts up to 90 km/h.",
+            }
+        ]
 
     return {
         "location": {
-            "name": city, "region": region, "country": country,
-            "lat": 53.33, "lon": -6.25,
+            "name": city,
+            "region": region,
+            "country": country,
+            "lat": 53.33,
+            "lon": -6.25,
             "localtime": "2026-02-21 10:30",
             "tz_id": "Europe/Dublin",
         },
         "current": {
-            "temp_c": 10.0, "temp_f": 50.0,
-            "feelslike_c": 7.0, "feelslike_f": 44.6,
+            "temp_c": 10.0,
+            "temp_f": 50.0,
+            "feelslike_c": 7.0,
+            "feelslike_f": 44.6,
             "condition": {"text": "Partly cloudy", "icon": "//icon.png"},
             "humidity": 80,
-            "wind_kph": 25.0, "wind_mph": 15.5, "wind_dir": "SW",
-            "uv": 3.0, "vis_km": 10.0,
-            "cloud": 50, "is_day": 1,
+            "wind_kph": 25.0,
+            "wind_mph": 15.5,
+            "wind_dir": "SW",
+            "uv": 3.0,
+            "vis_km": 10.0,
+            "cloud": 50,
+            "is_day": 1,
         },
         "forecast": {"forecastday": forecast_days},
         "alerts": {"alert": alerts},
@@ -93,6 +108,7 @@ def mock_svc_response():
 def weather_service():
     """WeatherService com aiohttp mockado."""
     from services.integrations.weather_service import WeatherService
+
     svc = WeatherService()
     svc.api_key = "test_key_placeholder"
     svc._initialized = True
@@ -109,16 +125,19 @@ def _mock_aiohttp(response_data: Dict):
     mock_session = AsyncMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=None)
-    mock_session.get = MagicMock(return_value=AsyncMock(
-        __aenter__=AsyncMock(return_value=mock_response),
-        __aexit__=AsyncMock(return_value=None),
-    ))
+    mock_session.get = MagicMock(
+        return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=None),
+        )
+    )
     return mock_session
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. BACKWARD COMPAT — métodos originais inalterados
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestWeatherServiceBackwardCompat:
     """Garante que os métodos originais continuam funcionando."""
@@ -168,8 +187,8 @@ class TestWeatherServiceBackwardCompat:
 # 2. NOVOS MÉTODOS — get_detailed_forecast
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestGetDetailedForecast:
 
+class TestGetDetailedForecast:
     @pytest.mark.asyncio
     async def test_returns_enriched_fields(self, weather_service):
         """Deve retornar UV, vento, humidade, nascer/pôr do sol por dia."""
@@ -259,6 +278,7 @@ class TestGetDetailedForecast:
     async def test_api_error_raises_runtime(self, weather_service):
         """Erro da API deve lançar RuntimeError."""
         import aiohttp
+
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -268,10 +288,12 @@ class TestGetDetailedForecast:
                 request_info=Mock(), history=(), status=500
             )
         )
-        mock_session.get = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=None),
-        ))
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
         with patch("aiohttp.ClientSession", return_value=mock_session):
             with pytest.raises(RuntimeError):
                 await weather_service.get_detailed_forecast("Dublin")
@@ -281,8 +303,8 @@ class TestGetDetailedForecast:
 # 3. get_week_summary
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestGetWeekSummary:
 
+class TestGetWeekSummary:
     @pytest.mark.asyncio
     async def test_returns_summary_fields(self, weather_service):
         """Deve retornar best_day, worst_day, rainy_days_count, avg temps."""
@@ -345,11 +367,12 @@ class TestGetWeekSummary:
 # 4. WEATHER AGENT — intents e formatação
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestWeatherAgentIntents:
 
+class TestWeatherAgentIntents:
     @pytest.fixture
     def agent(self):
         from agents.specialized.weather_agent import WeatherAgent
+
         return WeatherAgent()
 
     @pytest.fixture
@@ -358,24 +381,66 @@ class TestWeatherAgentIntents:
         svc.is_initialized.return_value = True
 
         detail_data = {
-            "location": {"name": "Dublin", "region": "Leinster", "country": "Ireland",
-                         "lat": 53.3, "lon": -6.2, "localtime": "2026-02-21 10:30", "tz_id": "Europe/Dublin"},
-            "current": {"temp_c": 10.0, "feels_like_c": 7.0, "condition": "Partly cloudy",
-                        "humidity": 80, "wind_kph": 25.0, "wind_dir": "SW", "uv": 3.0,
-                        "vis_km": 10.0, "cloud": 50, "is_day": 1},
+            "location": {
+                "name": "Dublin",
+                "region": "Leinster",
+                "country": "Ireland",
+                "lat": 53.3,
+                "lon": -6.2,
+                "localtime": "2026-02-21 10:30",
+                "tz_id": "Europe/Dublin",
+            },
+            "current": {
+                "temp_c": 10.0,
+                "feels_like_c": 7.0,
+                "condition": "Partly cloudy",
+                "humidity": 80,
+                "wind_kph": 25.0,
+                "wind_dir": "SW",
+                "uv": 3.0,
+                "vis_km": 10.0,
+                "cloud": 50,
+                "is_day": 1,
+            },
             "forecast": [
-                {"date": "2026-02-21", "max_temp_c": 12.0, "min_temp_c": 6.0,
-                 "avg_temp_c": 9.0, "condition": "Partly cloudy", "icon": "//i.png",
-                 "chance_of_rain": 30, "chance_of_snow": 0, "total_precip_mm": 0,
-                 "avg_humidity": 75, "max_wind_kph": 25, "uv": 3,
-                 "sunrise": "07:30 AM", "sunset": "06:00 PM",
-                 "rain_alert": False, "wind_alert": False, "uv_alert": False},
-                {"date": "2026-02-22", "max_temp_c": 11.0, "min_temp_c": 5.0,
-                 "avg_temp_c": 8.0, "condition": "Rain", "icon": "//i.png",
-                 "chance_of_rain": 80, "chance_of_snow": 0, "total_precip_mm": 5.2,
-                 "avg_humidity": 90, "max_wind_kph": 40, "uv": 2,
-                 "sunrise": "07:32 AM", "sunset": "06:02 PM",
-                 "rain_alert": True, "wind_alert": False, "uv_alert": False},
+                {
+                    "date": "2026-02-21",
+                    "max_temp_c": 12.0,
+                    "min_temp_c": 6.0,
+                    "avg_temp_c": 9.0,
+                    "condition": "Partly cloudy",
+                    "icon": "//i.png",
+                    "chance_of_rain": 30,
+                    "chance_of_snow": 0,
+                    "total_precip_mm": 0,
+                    "avg_humidity": 75,
+                    "max_wind_kph": 25,
+                    "uv": 3,
+                    "sunrise": "07:30 AM",
+                    "sunset": "06:00 PM",
+                    "rain_alert": False,
+                    "wind_alert": False,
+                    "uv_alert": False,
+                },
+                {
+                    "date": "2026-02-22",
+                    "max_temp_c": 11.0,
+                    "min_temp_c": 5.0,
+                    "avg_temp_c": 8.0,
+                    "condition": "Rain",
+                    "icon": "//i.png",
+                    "chance_of_rain": 80,
+                    "chance_of_snow": 0,
+                    "total_precip_mm": 5.2,
+                    "avg_humidity": 90,
+                    "max_wind_kph": 40,
+                    "uv": 2,
+                    "sunrise": "07:32 AM",
+                    "sunset": "06:02 PM",
+                    "rain_alert": True,
+                    "wind_alert": False,
+                    "uv_alert": False,
+                },
             ],
             "alerts": [],
         }
@@ -404,7 +469,9 @@ class TestWeatherAgentIntents:
     @pytest.mark.asyncio
     async def test_today_intent(self, agent, mock_svc):
         """Query de hoje deve retornar clima atual com UV e vento."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Como está o clima em Dublin?", {})
         assert r.is_success()
         assert "Dublin" in r.response
@@ -414,7 +481,9 @@ class TestWeatherAgentIntents:
     @pytest.mark.asyncio
     async def test_tomorrow_intent(self, agent, mock_svc):
         """'amanhã' deve retornar previsão do segundo dia."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Vai chover amanhã em Dublin?", {})
         assert r.is_success()
         assert "Amanhã" in r.response
@@ -423,42 +492,64 @@ class TestWeatherAgentIntents:
     @pytest.mark.asyncio
     async def test_week_intent(self, agent, mock_svc):
         """'semana' deve retornar previsão 7 dias com resumo."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Previsão para essa semana em Dublin", {})
         assert r.is_success()
-        assert "7 dias" in r.response or "semana" in r.response.lower() or "Melhor dia" in r.response
+        assert (
+            "7 dias" in r.response
+            or "semana" in r.response.lower()
+            or "Melhor dia" in r.response
+        )
         mock_svc.get_week_summary.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_alert_intent(self, agent, mock_svc):
         """'alerta' deve chamar _handle_alerts."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("Tem algum alerta meteorológico em Dublin?", {})
         assert r.is_success()
-        assert "Alerta" in r.response or "alerta" in r.response.lower() or "✅" in r.response
+        assert (
+            "Alerta" in r.response
+            or "alerta" in r.response.lower()
+            or "✅" in r.response
+        )
 
     @pytest.mark.asyncio
     async def test_previsao_keyword_triggers_week(self, agent, mock_svc):
         """'previsão' deve acionar modo semana."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             await agent.execute("previsão para Dublin", {})
         mock_svc.get_week_summary.assert_called()
 
     @pytest.mark.asyncio
     async def test_location_from_context(self, agent, mock_svc):
         """Contexto com 'location' deve ser usado sem precisar extrair do prompt."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("como está?", {"location": "Dublin"})
         assert r.is_success()
 
     @pytest.mark.asyncio
     async def test_no_location_returns_error(self, agent, mock_svc):
         """Sem localização no prompt nem contexto deve retornar ERROR."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("", {})
         assert not r.is_success()
         # Deve ter sugestões de uso
-        assert "Dublin" in r.response or "São Paulo" in r.response or "Lisboa" in r.response
+        assert (
+            "Dublin" in r.response
+            or "São Paulo" in r.response
+            or "Lisboa" in r.response
+        )
 
     @pytest.mark.asyncio
     async def test_service_unavailable(self, agent):
@@ -470,7 +561,9 @@ class TestWeatherAgentIntents:
     @pytest.mark.asyncio
     async def test_rain_alert_in_today_response(self, agent, mock_svc):
         """Se chance de chuva > 0 hoje, deve aparecer na resposta."""
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("clima hoje em Dublin", {})
         assert r.is_success()
         # Hoje tem 30% de chuva no mock
@@ -479,19 +572,23 @@ class TestWeatherAgentIntents:
     @pytest.mark.asyncio
     async def test_official_alerts_shown_in_week(self, agent, mock_svc):
         """Alertas oficiais devem aparecer na resposta semanal."""
-        mock_svc.get_week_summary.return_value["alerts"] = [{
-            "headline": "Wind Warning in effect",
-            "severity": "Moderate",
-            "urgency": "Expected",
-            "areas": "Leinster",
-            "event": "Wind Warning",
-            "effective": "2026-02-21T10:00:00",
-            "expires": "2026-02-22T10:00:00",
-            "description": "Gusts up to 90 km/h.",
-        }]
+        mock_svc.get_week_summary.return_value["alerts"] = [
+            {
+                "headline": "Wind Warning in effect",
+                "severity": "Moderate",
+                "urgency": "Expected",
+                "areas": "Leinster",
+                "event": "Wind Warning",
+                "effective": "2026-02-21T10:00:00",
+                "expires": "2026-02-22T10:00:00",
+                "description": "Gusts up to 90 km/h.",
+            }
+        ]
         mock_svc.get_week_summary.return_value["summary"]["has_alerts"] = True
 
-        with patch("agents.specialized.weather_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.weather_agent.get_service", return_value=mock_svc
+        ):
             r = await agent.execute("semana em Dublin", {})
         assert r.is_success()
         assert "Wind Warning" in r.response or "⚠️" in r.response
@@ -509,39 +606,47 @@ class TestWeatherAgentIntents:
 # 5. HELPERS — condição emoji, UV label, dia da semana
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestWeatherAgentHelpers:
 
+class TestWeatherAgentHelpers:
     def test_condition_emoji_rain(self):
         from agents.specialized.weather_agent import _condition_emoji
+
         assert _condition_emoji("Heavy rain") == "🌧️"
 
     def test_condition_emoji_sun(self):
         from agents.specialized.weather_agent import _condition_emoji
+
         assert _condition_emoji("Sunny") == "☀️"
 
     def test_condition_emoji_unknown(self):
         from agents.specialized.weather_agent import _condition_emoji
+
         assert _condition_emoji("XYZ Unknown") == "🌡️"
 
     def test_uv_label_low(self):
         from agents.specialized.weather_agent import _uv_label
+
         assert _uv_label(1) == "baixo"
 
     def test_uv_label_high(self):
         from agents.specialized.weather_agent import _uv_label
+
         assert _uv_label(7) == "alto"
 
     def test_uv_label_extreme(self):
         from agents.specialized.weather_agent import _uv_label
+
         assert _uv_label(11) == "extremo"
 
     def test_date_to_weekday(self):
         from agents.specialized.weather_agent import _date_to_weekday
+
         # 2026-02-21 é sábado (weekday=5)
         assert _date_to_weekday("2026-02-21") == "Sáb"
 
     def test_date_to_weekday_invalid(self):
         from agents.specialized.weather_agent import _date_to_weekday
+
         # Data inválida não deve crashar
         result = _date_to_weekday("not-a-date")
         assert isinstance(result, str)

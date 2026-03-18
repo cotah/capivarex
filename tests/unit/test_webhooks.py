@@ -45,7 +45,12 @@ class TestEmailWebhook:
         with patch("api.routes.webhooks.get_agent", return_value=agent):
             resp = client.post(
                 "/email",
-                json={"from": "a@b.com", "subject": "Hi", "body": "Body", "user_id": "u1"},
+                json={
+                    "from": "a@b.com",
+                    "subject": "Hi",
+                    "body": "Body",
+                    "user_id": "u1",
+                },
             )
         assert resp.status_code == 500
 

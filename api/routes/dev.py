@@ -4,6 +4,7 @@ Endpoints for Dev Agent (code generation, sandbox execution, and file management
 
 Uses services (get_service) instead of direct imports from services/.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Service helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_code_executor():
     """Get the code executor service from the registry."""
@@ -64,6 +66,7 @@ def _extract_code(content: str) -> str:
 # ============================================
 # SCHEMAS
 # ============================================
+
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -104,6 +107,7 @@ class FileUpdateRequest(BaseModel):
 # ============================================
 # CLAUDE CODE GENERATION
 # ============================================
+
 
 @router.post("/generate")
 async def generate_code(
@@ -148,6 +152,7 @@ async def generate_code(
 # ============================================
 # SANDBOX EXECUTION
 # ============================================
+
 
 @router.post("/execute")
 @limiter.limit("10/minute")
@@ -206,7 +211,9 @@ async def generate_and_execute(
                 code_lines.append(line)
         code = "\n".join(code_lines).strip()
         gen_result["code"] = code
-        logger.debug("generate_and_execute: stripped markdown fences after generate_code")
+        logger.debug(
+            "generate_and_execute: stripped markdown fences after generate_code"
+        )
 
     # Execute
     executor = _get_code_executor()
@@ -257,6 +264,7 @@ async def test_code(
 # FILE MANAGEMENT
 # ============================================
 
+
 @router.get("/files/list")
 async def list_files(
     dir: str = Query("", description="Relative directory inside user projects"),
@@ -276,7 +284,9 @@ async def create_file(
     """Create a file in the user's project directory."""
     fm = _get_file_manager()
     user_id = str(current_user["id"])
-    return fm.create_file(user_id=user_id, path=request.path, content=request.content or "")
+    return fm.create_file(
+        user_id=user_id, path=request.path, content=request.content or ""
+    )
 
 
 @router.get("/files/read")

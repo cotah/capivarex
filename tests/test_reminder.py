@@ -443,9 +443,7 @@ class TestFetchDueRetry:
         mock_query.limit.return_value = mock_query
         mock_query.execute.return_value = mock_response
 
-        svc._db.get_client.return_value.table.return_value = (
-            mock_query
-        )
+        svc._db.get_client.return_value.table.return_value = mock_query
 
         result = await svc.check_and_fire_due()
         assert result == []
@@ -467,9 +465,7 @@ class TestFetchDueRetry:
             mock_response,
         ]
 
-        svc._db.get_client.return_value.table.return_value = (
-            mock_query
-        )
+        svc._db.get_client.return_value.table.return_value = mock_query
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             result = await svc.check_and_fire_due()
@@ -487,9 +483,7 @@ class TestFetchDueRetry:
         mock_query.limit.return_value = mock_query
         mock_query.execute.side_effect = Exception("503")
 
-        svc._db.get_client.return_value.table.return_value = (
-            mock_query
-        )
+        svc._db.get_client.return_value.table.return_value = mock_query
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             result = await svc.check_and_fire_due()
@@ -510,21 +504,15 @@ class TestFetchDueRetry:
         mock_query.limit.return_value = mock_query
         mock_query.execute.side_effect = Exception("503")
 
-        svc._db.get_client.return_value.table.return_value = (
-            mock_query
-        )
+        svc._db.get_client.return_value.table.return_value = mock_query
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             await svc.check_and_fire_due()
 
         svc.logger.warning.assert_called_once()
-        assert "retrying" in str(
-            svc.logger.warning.call_args
-        ).lower()
+        assert "retrying" in str(svc.logger.warning.call_args).lower()
         svc.logger.error.assert_called_once()
-        assert "retry failed" in str(
-            svc.logger.error.call_args
-        ).lower()
+        assert "retry failed" in str(svc.logger.error.call_args).lower()
 
 
 class TestReminderAgentCapabilities:

@@ -58,6 +58,8 @@ from api.routes import push_notifications
 from api.routes import tuya_auth
 from api.routes import whatsapp_webhook
 from api.routes import github_auth
+from api.routes import microsoft_auth
+from api.routes import notion_auth
 from api.routes import devgit
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 from api.routes.voice_ws import router_voice_ws
@@ -66,6 +68,7 @@ from api.routes.twilio_stream import router as twilio_stream_router
 # CyberSecurity bot — lives at project root level (../cybersecurity)
 import sys as _sys
 from pathlib import Path as _Path
+
 _PROJECT_ROOT = str(_Path(__file__).resolve().parent.parent.parent)
 if _PROJECT_ROOT not in _sys.path:
     _sys.path.insert(0, _PROJECT_ROOT)
@@ -143,7 +146,8 @@ async def _timer_loop() -> None:
             backoff = min(10 * (2 ** (consecutive_failures - 5)), MAX_BACKOFF)
             _bg_logger.warning(
                 "Timer loop: %d consecutive failures — backing off %ds",
-                consecutive_failures, backoff,
+                consecutive_failures,
+                backoff,
             )
             await asyncio.sleep(backoff)
 
@@ -210,7 +214,9 @@ async def _timer_loop() -> None:
             consecutive_failures += 1
             _bg_logger.error(
                 "Timer loop error (failure #%d): %s",
-                consecutive_failures, e, exc_info=(consecutive_failures <= 3),
+                consecutive_failures,
+                e,
+                exc_info=(consecutive_failures <= 3),
             )
 
         # --- Monthly Mercado Excel Report (day 1 of month, 9 AM) ---
@@ -240,9 +246,7 @@ async def _timer_loop() -> None:
                     # Get all users
                     db = mercado_svc._get_client()
                     users_result = (
-                        db.table("users")
-                        .select("id,telegram_chat_id,email")
-                        .execute()
+                        db.table("users").select("id,telegram_chat_id,email").execute()
                     )
 
                     for user in users_result.data or []:
@@ -370,9 +374,9 @@ async def _timer_loop() -> None:
 
                     # Get all users
                     db = mercado_svc._get_client()
-                    users_result = db.table("users").select(
-                        "id,telegram_chat_id"
-                    ).execute()
+                    users_result = (
+                        db.table("users").select("id,telegram_chat_id").execute()
+                    )
 
                     for user in users_result.data or []:
                         chat_id = user.get("telegram_chat_id")
@@ -418,10 +422,7 @@ async def _timer_loop() -> None:
             now_dt = datetime.now()
             day_key = f"{now_dt.year}-{now_dt.month:02d}-{now_dt.day:02d}"
 
-            if (
-                now_dt.hour == 18
-                and day_key not in _daily_shopping_reminder_sent
-            ):
+            if now_dt.hour == 18 and day_key not in _daily_shopping_reminder_sent:
                 _daily_shopping_reminder_sent.add(day_key)
                 _bg_logger.info("Daily shopping reminder check triggered...")
 
@@ -433,11 +434,11 @@ async def _timer_loop() -> None:
                         await mercado_svc.initialize()
 
                     db = mercado_svc._get_client()
-                    users_result = db.table("users").select(
-                        "id,telegram_chat_id"
-                    ).execute()
+                    users_result = (
+                        db.table("users").select("id,telegram_chat_id").execute()
+                    )
 
-                    for user in (users_result.data or []):
+                    for user in users_result.data or []:
                         chat_id = user.get("telegram_chat_id")
                         u_id = user.get("id")
                         lang = await _get_user_lang(db, u_id) if u_id else "en"
@@ -509,6 +510,7 @@ async def lifespan(app: FastAPI):
 
     # Validate critical environment variables
     import os as _os
+
     _env = _os.environ.get("ENVIRONMENT", "production").lower()
     if _env not in ("test", "testing", "development", "dev", "ci"):
         _missing = []
@@ -520,12 +522,16 @@ async def lifespan(app: FastAPI):
                 "MISSING REQUIRED ENV VARS: %s — server cannot start safely",
                 ", ".join(_missing),
             )
-            raise RuntimeError(f"Missing required environment variables: {', '.join(_missing)}")
+            raise RuntimeError(
+                f"Missing required environment variables: {', '.join(_missing)}"
+            )
 
         _optional_warnings = ["OPENAI_API_KEY", "ENCRYPTION_KEY", "SENTRY_DSN"]
         for _var in _optional_warnings:
             if not _os.environ.get(_var):
-                _startup_logger.warning("ENV WARNING: %s not set (some features will be limited)", _var)
+                _startup_logger.warning(
+                    "ENV WARNING: %s not set (some features will be limited)", _var
+                )
 
     from services import get_service
 
@@ -577,8 +583,11 @@ async def lifespan(app: FastAPI):
 
     # CyberSecurity 24/7 guardian loop
     from cybersecurity.main import start_cybersecurity_loop
+
     cyber_task = asyncio.create_task(start_cybersecurity_loop())
-    _startup_logger.info("CAPIVAREX Bot API started successfully (CyberSecurity guardian active)")
+    _startup_logger.info(
+        "CAPIVAREX Bot API started successfully (CyberSecurity guardian active)"
+    )
 
     yield
 
@@ -695,6 +704,7 @@ async def health_check():
     # Check Supabase
     try:
         from services.core import get_service
+
         db = get_service("database")
         if db and db.is_initialized():
             client = db.get_client()
@@ -713,6 +723,7 @@ async def health_check():
     # Check Redis
     try:
         from services.core import get_service
+
         redis = get_service("redis")
         if redis and redis.is_initialized():
             await redis.set("health_check", "ok", ex=10)
@@ -726,6 +737,7 @@ async def health_check():
 
     # Resilience status
     from services.infrastructure.resilience_service import get_resilience_status
+
     resilience = get_resilience_status()
 
     # Degraded = Supabase down but Redis working (app still functional)
@@ -834,6 +846,8 @@ app.include_router(google_auth.router, tags=["Google Auth"])
 app.include_router(spotify_auth.router, tags=["Spotify Auth"])
 app.include_router(tuya_auth.router, tags=["Tuya Auth"])
 app.include_router(github_auth.router, prefix=f"{API_V1}/auth", tags=["GitHub Auth"])
+app.include_router(microsoft_auth.router, tags=["Microsoft Auth"])
+app.include_router(notion_auth.router, tags=["Notion Auth"])
 app.include_router(chat.router, prefix=f"{API_V1}/chat", tags=["Chat"])
 app.include_router(notes.router, prefix=f"{API_V1}/notes", tags=["Notes"])
 app.include_router(workspace.router, prefix=f"{API_V1}/workspace", tags=["Workspace"])
@@ -858,12 +872,16 @@ app.include_router(
 )
 app.include_router(webapp.router, prefix="/api/webapp", tags=["WebApp"])
 app.include_router(upload.router, prefix="/api/webapp", tags=["WebApp"])
-app.include_router(push_notifications.router, prefix="/api/webapp", tags=["Notifications"])
+app.include_router(
+    push_notifications.router, prefix="/api/webapp", tags=["Notifications"]
+)
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
 app.include_router(images_serve.router, tags=["Images"])
 app.include_router(webhooks.router, prefix=f"{API_V1}/webhooks", tags=["Webhooks"])
-app.include_router(whatsapp_webhook.router, prefix=f"{API_V1}/webhooks", tags=["WhatsApp"])
+app.include_router(
+    whatsapp_webhook.router, prefix=f"{API_V1}/webhooks", tags=["WhatsApp"]
+)
 app.include_router(twilio_stream_router, tags=["Twilio Stream"])
 app.include_router(health.router, tags=["Monitoring"])
 app.include_router(cybersecurity_router, tags=["CyberSecurity"])

@@ -4,6 +4,7 @@ Image Routes - Refactored to use services.
 Endpoints for image generation and editing via the registered ``image``
 service from the refactored service registry.
 """
+
 import logging
 from typing import Any, Dict, Optional
 
@@ -44,7 +45,7 @@ def _validate_image_access(
         return {
             "allowed": False,
             "error": f"Invalid aspect ratio '{aspect_ratio}'. "
-                     f"Allowed: {', '.join(sorted(VALID_ASPECT_RATIOS))}",
+            f"Allowed: {', '.join(sorted(VALID_ASPECT_RATIOS))}",
         }
     return {"allowed": True}
 
@@ -64,7 +65,9 @@ async def generate_image(
 
     validation = _validate_image_access(user_plan=user_plan, aspect_ratio=aspect_ratio)
     if not validation.get("allowed"):
-        raise HTTPException(status_code=403, detail=validation.get("error", "Access denied"))
+        raise HTTPException(
+            status_code=403, detail=validation.get("error", "Access denied")
+        )
 
     service = await _get_image_service()
     result = await service.generate_image(
@@ -76,7 +79,9 @@ async def generate_image(
     )
 
     if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "Image generation failed"))
+        raise HTTPException(
+            status_code=500, detail=result.get("error", "Image generation failed")
+        )
 
     payload: Dict[str, Any] = {
         "success": True,
@@ -105,9 +110,13 @@ async def edit_image(
     async with temp_upload(reference_image, prefix="ref") as temp_image_path:
         user_plan: str = current_user.get("plan", "enterprise")
 
-        validation = _validate_image_access(user_plan=user_plan, aspect_ratio=aspect_ratio)
+        validation = _validate_image_access(
+            user_plan=user_plan, aspect_ratio=aspect_ratio
+        )
         if not validation.get("allowed"):
-            raise HTTPException(status_code=403, detail=validation.get("error", "Access denied"))
+            raise HTTPException(
+                status_code=403, detail=validation.get("error", "Access denied")
+            )
 
         service = await _get_image_service()
         result = await service.edit_image(
@@ -120,7 +129,9 @@ async def edit_image(
         )
 
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "Image edit failed"))
+            raise HTTPException(
+                status_code=500, detail=result.get("error", "Image edit failed")
+            )
 
         payload: Dict[str, Any] = {
             "success": True,

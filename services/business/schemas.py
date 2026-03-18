@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, HttpUrl
 
 # Schemas para validação de dados de serviços externos
 
+
 class WeatherData(BaseModel):
     temp: float
     description: str

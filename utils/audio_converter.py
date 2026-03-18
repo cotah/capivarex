@@ -82,9 +82,7 @@ def resample_pcm(pcm_bytes: bytes, from_rate: int, to_rate: int) -> bytes:
     return resampled
 
 
-def pcm_to_wav_bytes(
-    pcm_bytes: bytes, sample_rate: int = WHISPER_SAMPLE_RATE
-) -> bytes:
+def pcm_to_wav_bytes(pcm_bytes: bytes, sample_rate: int = WHISPER_SAMPLE_RATE) -> bytes:
     """
     Wrap PCM data in a WAV container.
 
@@ -143,9 +141,7 @@ def mulaw_chunks_to_wav(mulaw_bytes: bytes) -> bytes:
 # ── ElevenLabs → Twilio ──────────────────────────────────────────────────
 
 
-def mp3_to_mulaw_chunks(
-    mp3_bytes: bytes, chunk_duration_ms: int = 20
-) -> List[str]:
+def mp3_to_mulaw_chunks(mp3_bytes: bytes, chunk_duration_ms: int = 20) -> List[str]:
     """
     Convert MP3 audio (from ElevenLabs) to µ-law base64 chunks (for Twilio).
 
@@ -230,9 +226,7 @@ def mp3_to_mulaw_raw(mp3_bytes: bytes) -> bytes:
 # ── Voice Activity Detection (simple) ────────────────────────────────────
 
 
-def calculate_rms(
-    audio_bytes: bytes, sample_width: int = MULAW_SAMPLE_WIDTH
-) -> float:
+def calculate_rms(audio_bytes: bytes, sample_width: int = MULAW_SAMPLE_WIDTH) -> float:
     """
     Calculate Root Mean Square (volume level) of audio.
 

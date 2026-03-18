@@ -180,9 +180,7 @@ class TwilioAgent(BaseAgent):
                 return self._handle_help()
 
             # Route: intelligent (Media Streams) or static (TwiML <Say>)
-            return await self._execute_call(
-                twilio_svc, phone_number, prompt, context
-            )
+            return await self._execute_call(twilio_svc, phone_number, prompt, context)
 
         except Exception as e:
             error_msg = str(e)
@@ -232,9 +230,7 @@ class TwilioAgent(BaseAgent):
                     twilio_svc, phone_number, prompt, context
                 )
             except Exception as e:
-                logger.warning(
-                    "Intelligent call failed, falling back to static: %s", e
-                )
+                logger.warning("Intelligent call failed, falling back to static: %s", e)
 
         return await self._execute_static_call(
             twilio_svc, phone_number, prompt, context
@@ -273,22 +269,15 @@ class TwilioAgent(BaseAgent):
             try:
                 db_svc = get_service("database")
                 if db_svc:
-                    tg_chat_id = (
-                        context.get("chat_id")
-                        or context.get("telegram_chat_id")
+                    tg_chat_id = context.get("chat_id") or context.get(
+                        "telegram_chat_id"
                     )
                     if tg_chat_id:
-                        user_data = (
-                            await db_svc.get_user_by_telegram_id(
-                                str(tg_chat_id)
-                            )
+                        user_data = await db_svc.get_user_by_telegram_id(
+                            str(tg_chat_id)
                         )
-                        if user_data and user_data.get(
-                            "full_name"
-                        ):
-                            user_name = user_data[
-                                "full_name"
-                            ]
+                        if user_data and user_data.get("full_name"):
+                            user_name = user_data["full_name"]
             except Exception as e:
                 logger.warning(
                     "Could not fetch user name from DB: %s",
@@ -324,9 +313,7 @@ class TwilioAgent(BaseAgent):
         )
 
         # 3. Generate TwiML with Media Stream
-        ws_url = BACKEND_URL.replace("https://", "wss://").replace(
-            "http://", "ws://"
-        )
+        ws_url = BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://")
         stream_url = f"{ws_url}/ws/twilio-stream"
 
         twiml = twilio_svc.twiml_media_stream(

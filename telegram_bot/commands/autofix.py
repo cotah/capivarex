@@ -14,6 +14,7 @@ Inline callbacks (from notify_patch_ready buttons):
 
 Only the admin (TELEGRAM_ADMIN_CHAT_ID) can use these commands.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,6 +35,7 @@ def _is_admin(chat_id: int | str) -> bool:
 # ---------------------------------------------------------------------------
 # /autofix command
 # ---------------------------------------------------------------------------
+
 
 async def autofix_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /autofix command — shows pending patches."""
@@ -130,13 +132,22 @@ async def _send_patch_detail(update: Update, index: int) -> None:
     )
 
     if status == "proposed":
-        keyboard = InlineKeyboardMarkup([
+        keyboard = InlineKeyboardMarkup(
             [
-                InlineKeyboardButton("✅ Aprovar e abrir PR", callback_data=f"autofix_approve:{index}"),
-                InlineKeyboardButton("❌ Rejeitar", callback_data=f"autofix_reject:{index}"),
+                [
+                    InlineKeyboardButton(
+                        "✅ Aprovar e abrir PR",
+                        callback_data=f"autofix_approve:{index}",
+                    ),
+                    InlineKeyboardButton(
+                        "❌ Rejeitar", callback_data=f"autofix_reject:{index}"
+                    ),
+                ]
             ]
-        ])
-        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=keyboard)
+        )
+        await update.message.reply_text(
+            text, parse_mode="Markdown", reply_markup=keyboard
+        )
     else:
         await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -144,6 +155,7 @@ async def _send_patch_detail(update: Update, index: int) -> None:
 # ---------------------------------------------------------------------------
 # Inline button callbacks
 # ---------------------------------------------------------------------------
+
 
 async def autofix_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle ✅ Aprovar / ❌ Rejeitar button taps."""
@@ -176,7 +188,9 @@ async def _handle_approve(query, index: int) -> None:
         parse_mode="Markdown",
     )
 
-    patch = approve_patch(index, by=str(query.from_user.id), reason="Approved via Telegram")
+    patch = approve_patch(
+        index, by=str(query.from_user.id), reason="Approved via Telegram"
+    )
     if not patch:
         await query.edit_message_text(
             f"❌ Patch #{index} não encontrado ou já processado."
@@ -214,9 +228,13 @@ async def _handle_approve(query, index: int) -> None:
 async def _handle_reject(query, index: int) -> None:
     from autofix import reject_patch
 
-    patch = reject_patch(index, by=str(query.from_user.id), reason="Rejected via Telegram")
+    patch = reject_patch(
+        index, by=str(query.from_user.id), reason="Rejected via Telegram"
+    )
     if not patch:
-        await query.edit_message_text(f"❌ Patch #{index} não encontrado ou já processado.")
+        await query.edit_message_text(
+            f"❌ Patch #{index} não encontrado ou já processado."
+        )
         return
 
     ticket_id = patch.get("ticket_id", "?")
@@ -234,6 +252,7 @@ async def _handle_reject(query, index: int) -> None:
 # ---------------------------------------------------------------------------
 # Handler registration
 # ---------------------------------------------------------------------------
+
 
 def register_autofix_handlers(application) -> None:
     """Register /autofix command and callback handlers with the bot application."""

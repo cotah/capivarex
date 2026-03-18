@@ -26,6 +26,7 @@ async def get_compliance_score():
     """Current compliance score with category breakdown."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             raise HTTPException(status_code=503, detail="Database not available")
@@ -34,9 +35,12 @@ async def get_compliance_score():
 
     try:
         # Get open findings
-        result = db.client.table("cyber_findings").select(
-            "severity"
-        ).eq("status", "open").execute()
+        result = (
+            db.client.table("cyber_findings")
+            .select("severity")
+            .eq("status", "open")
+            .execute()
+        )
 
         findings = result.data or []
         counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
@@ -69,6 +73,7 @@ async def get_score_history(days: int = 30):
     """Daily compliance scores for trend charts."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             return {"history": []}
@@ -78,9 +83,15 @@ async def get_score_history(days: int = 30):
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
     try:
-        result = db.client.table("cyber_compliance_scores").select(
-            "score_date, overall_score, critical_count, high_count, medium_count, low_count"
-        ).gte("score_date", since).order("score_date").execute()
+        result = (
+            db.client.table("cyber_compliance_scores")
+            .select(
+                "score_date, overall_score, critical_count, high_count, medium_count, low_count"
+            )
+            .gte("score_date", since)
+            .order("score_date")
+            .execute()
+        )
 
         return {"history": result.data or []}
     except Exception:

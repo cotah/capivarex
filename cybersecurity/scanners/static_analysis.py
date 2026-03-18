@@ -23,30 +23,59 @@ from cybersecurity.scanners.base_scanner import BaseScanner
 
 # Python AST-level rules (function names / patterns to flag)
 _DANGEROUS_CALLS = {
-    "eval":   ("Uso de eval() — execucao de codigo arbitrario", "critical", "A03:2021-Injection"),
-    "exec":   ("Uso de exec() — execucao de codigo arbitrario", "critical", "A03:2021-Injection"),
-    "compile": ("Uso de compile() — possivel execucao de codigo", "medium", "A03:2021-Injection"),
+    "eval": (
+        "Uso de eval() — execucao de codigo arbitrario",
+        "critical",
+        "A03:2021-Injection",
+    ),
+    "exec": (
+        "Uso de exec() — execucao de codigo arbitrario",
+        "critical",
+        "A03:2021-Injection",
+    ),
+    "compile": (
+        "Uso de compile() — possivel execucao de codigo",
+        "medium",
+        "A03:2021-Injection",
+    ),
     "__import__": ("Uso de __import__() dinamico", "medium", "A03:2021-Injection"),
 }
 
 _DANGEROUS_MODULES = {
-    "pickle":  ("Uso de pickle — desserializacao insegura", "high", "A08:2021-Insecure Deserialization"),
-    "marshal": ("Uso de marshal — desserializacao insegura", "high", "A08:2021-Insecure Deserialization"),
-    "shelve":  ("Uso de shelve — desserializacao insegura", "medium", "A08:2021-Insecure Deserialization"),
+    "pickle": (
+        "Uso de pickle — desserializacao insegura",
+        "high",
+        "A08:2021-Insecure Deserialization",
+    ),
+    "marshal": (
+        "Uso de marshal — desserializacao insegura",
+        "high",
+        "A08:2021-Insecure Deserialization",
+    ),
+    "shelve": (
+        "Uso de shelve — desserializacao insegura",
+        "medium",
+        "A08:2021-Insecure Deserialization",
+    ),
 }
 
 # Regex-based rules (work on both Python and TypeScript)
 _REGEX_RULES: list[tuple[re.Pattern, str, str, str, str]] = [
     # pattern, finding_type, title, severity, owasp
     (
-        re.compile(r"""(?:password|passwd|secret|api_key|apikey|token|auth)\s*=\s*['"][^'"]{4,}['"]""", re.I),
+        re.compile(
+            r"""(?:password|passwd|secret|api_key|apikey|token|auth)\s*=\s*['"][^'"]{4,}['"]""",
+            re.I,
+        ),
         "hardcoded_secret",
         "Possivel secret hardcoded no codigo",
         "high",
         "A07:2021-Security Misconfiguration",
     ),
     (
-        re.compile(r"""subprocess\.(?:call|run|Popen)\s*\([^)]*shell\s*=\s*True""", re.I),
+        re.compile(
+            r"""subprocess\.(?:call|run|Popen)\s*\([^)]*shell\s*=\s*True""", re.I
+        ),
         "command_injection",
         "subprocess com shell=True — risco de command injection",
         "high",
@@ -161,7 +190,9 @@ class StaticAnalysisScanner(BaseScanner):
                 continue
 
             lines = content.splitlines()
-            rel = str(fpath.relative_to(fpath.parents[2]) if len(fpath.parents) > 2 else fpath)
+            rel = str(
+                fpath.relative_to(fpath.parents[2]) if len(fpath.parents) > 2 else fpath
+            )
 
             # --- Python AST checks ---
             if fpath.suffix in PYTHON_EXTENSIONS:
@@ -170,28 +201,33 @@ class StaticAnalysisScanner(BaseScanner):
             # --- Regex checks (Python + TypeScript) ---
             for pattern, ftype, title, sev, owasp in _REGEX_RULES:
                 for m in pattern.finditer(content):
-                    lineno = content[:m.start()].count("\n") + 1
+                    lineno = content[: m.start()].count("\n") + 1
                     snippet = lines[lineno - 1].strip() if lineno <= len(lines) else ""
                     # Skip test files and examples for some rules
                     if ftype == "hardcoded_secret" and _is_test_or_example(rel):
                         continue
-                    findings.append(SecurityFinding(
-                        scanner=self.name,
-                        finding_type=ftype,
-                        severity=sev,
-                        confidence=0.7,
-                        title=title,
-                        description=f"Encontrado em {rel}:{lineno}",
-                        file_path=rel,
-                        line_number=lineno,
-                        code_snippet=snippet[:200],
-                        owasp_category=owasp,
-                    ))
+                    findings.append(
+                        SecurityFinding(
+                            scanner=self.name,
+                            finding_type=ftype,
+                            severity=sev,
+                            confidence=0.7,
+                            title=title,
+                            description=f"Encontrado em {rel}:{lineno}",
+                            file_path=rel,
+                            line_number=lineno,
+                            code_snippet=snippet[:200],
+                            owasp_category=owasp,
+                        )
+                    )
 
         return findings
 
     def _check_python_ast(
-        self, source: str, rel_path: str, fpath: Path,
+        self,
+        source: str,
+        rel_path: str,
+        fpath: Path,
     ) -> list[SecurityFinding]:
         findings: list[SecurityFinding] = []
         try:
@@ -208,16 +244,18 @@ class StaticAnalysisScanner(BaseScanner):
                     # Skip if inside test file
                     if _is_test_or_example(rel_path):
                         continue
-                    findings.append(SecurityFinding(
-                        scanner=self.name,
-                        finding_type=f"dangerous_call_{func_name}",
-                        severity=sev,
-                        confidence=0.85,
-                        title=title,
-                        file_path=rel_path,
-                        line_number=getattr(node, "lineno", 0),
-                        owasp_category=owasp,
-                    ))
+                    findings.append(
+                        SecurityFinding(
+                            scanner=self.name,
+                            finding_type=f"dangerous_call_{func_name}",
+                            severity=sev,
+                            confidence=0.85,
+                            title=title,
+                            file_path=rel_path,
+                            line_number=getattr(node, "lineno", 0),
+                            owasp_category=owasp,
+                        )
+                    )
 
             # Check dangerous imports
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -228,16 +266,18 @@ class StaticAnalysisScanner(BaseScanner):
                     module = node.names[0].name
                 for mod_name, (title, sev, owasp) in _DANGEROUS_MODULES.items():
                     if mod_name in module:
-                        findings.append(SecurityFinding(
-                            scanner=self.name,
-                            finding_type=f"dangerous_import_{mod_name}",
-                            severity=sev,
-                            confidence=0.6,
-                            title=title,
-                            file_path=rel_path,
-                            line_number=getattr(node, "lineno", 0),
-                            owasp_category=owasp,
-                        ))
+                        findings.append(
+                            SecurityFinding(
+                                scanner=self.name,
+                                finding_type=f"dangerous_import_{mod_name}",
+                                severity=sev,
+                                confidence=0.6,
+                                title=title,
+                                file_path=rel_path,
+                                line_number=getattr(node, "lineno", 0),
+                                owasp_category=owasp,
+                            )
+                        )
         return findings
 
 

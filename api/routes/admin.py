@@ -52,7 +52,7 @@ def verify_admin_token(request: Request) -> None:
 
 
 class PlanUpdateRequest(BaseModel):
-    plan: str  # "free" | "me" | "everywhere"
+    plan: str  # "professional" | "executive"
 
 
 class QuotaOverrideRequest(BaseModel):
@@ -77,11 +77,7 @@ async def list_tenants(
         offset = (page - 1) * per_page
 
         # Count total
-        count_result = (
-            db.table("users")
-            .select("id", count="exact")
-            .execute()
-        )
+        count_result = db.table("users").select("id", count="exact").execute()
         total = count_result.count if count_result.count is not None else 0
 
         # Fetch page
@@ -131,13 +127,7 @@ async def get_tenant(
     db = _get_db()
 
     try:
-        result = (
-            db.table("users")
-            .select("*")
-            .eq("id", uid)
-            .limit(1)
-            .execute()
-        )
+        result = db.table("users").select("*").eq("id", uid).limit(1).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Tenant not found")
@@ -181,9 +171,11 @@ async def override_quota(
 
         old_limit = check.data[0].get("messages_limit", 0)
 
-        db.table("users").update({
-            "messages_limit": body.messages_limit,
-        }).eq("id", uid).execute()
+        db.table("users").update(
+            {
+                "messages_limit": body.messages_limit,
+            }
+        ).eq("id", uid).execute()
 
         logger.info(
             "Admin override_quota: tenant={} {} → {}",
@@ -233,9 +225,11 @@ async def reset_usage(
 
         old_used = check.data[0].get("messages_used", 0)
 
-        db.table("users").update({
-            "messages_used": 0,
-        }).eq("id", uid).execute()
+        db.table("users").update(
+            {
+                "messages_used": 0,
+            }
+        ).eq("id", uid).execute()
 
         logger.info(
             "Admin reset_usage: tenant={} was={}",
@@ -261,7 +255,7 @@ async def reset_usage(
 # PATCH /api/admin/tenants/{uid}/plan
 # ---------------------------------------------------------------------------
 
-_VALID_PLANS = {"free", "me", "everywhere"}
+_VALID_PLANS = {"professional", "executive"}
 
 
 @router.patch("/tenants/{uid}/plan")
@@ -278,17 +272,11 @@ async def update_tenant_plan(
         )
     db = _get_db()
     try:
-        check = (
-            db.table("users")
-            .select("id, plan")
-            .eq("id", uid)
-            .limit(1)
-            .execute()
-        )
+        check = db.table("users").select("id, plan").eq("id", uid).limit(1).execute()
         if not check.data:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        old_plan = check.data[0].get("plan", "free")
+        old_plan = check.data[0].get("plan", "professional")
 
         db.table("users").update({"plan": body.plan}).eq("id", uid).execute()
 
@@ -352,9 +340,7 @@ async def list_security_events(
 
     except Exception as e:
         logger.opt(exception=True).error("Admin security_events error: {}", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to list security events"
-        )
+        raise HTTPException(status_code=500, detail="Failed to list security events")
 
 
 # ---------------------------------------------------------------------------
@@ -379,9 +365,7 @@ async def list_autofix_tickets(
 
     except Exception as e:
         logger.opt(exception=True).error("Admin autofix_tickets error: {}", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to list autofix tickets"
-        )
+        raise HTTPException(status_code=500, detail="Failed to list autofix tickets")
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +425,4 @@ async def admin_health(
 
     except Exception as e:
         logger.opt(exception=True).error("Admin health error: {}", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to check health"
-        )
+        raise HTTPException(status_code=500, detail="Failed to check health")

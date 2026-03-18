@@ -9,6 +9,7 @@ Generates a proactive briefing 2 hours before calendar meetings:
 
 Triggered by proactivity loop checking calendar events.
 """
+
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -18,7 +19,9 @@ from loguru import logger
 from services.core import get_service
 
 
-async def check_upcoming_meetings(user_id: str, chat_id: Optional[str] = None) -> List[Dict[str, Any]]:
+async def check_upcoming_meetings(
+    user_id: str, chat_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """
     Check if user has meetings in the next 2 hours and generate briefings.
 
@@ -74,7 +77,9 @@ async def check_upcoming_meetings(user_id: str, chat_id: Optional[str] = None) -
                         if notif:
                             if not notif.is_initialized():
                                 await notif.initialize()
-                            await notif.send_message("telegram", chat_id, briefing["message"])
+                            await notif.send_message(
+                                "telegram", chat_id, briefing["message"]
+                            )
                     except Exception as e:
                         logger.warning("Meeting briefing: Telegram failed: {}", e)
 
@@ -101,12 +106,16 @@ async def _generate_meeting_briefing(
     except Exception:
         time_str = str(start)
 
-    hours_text = f"{hours_until:.0f}h" if hours_until >= 1 else f"{hours_until * 60:.0f}min"
+    hours_text = (
+        f"{hours_until:.0f}h" if hours_until >= 1 else f"{hours_until * 60:.0f}min"
+    )
 
     # Format attendees
     attendee_names = []
     if attendees and isinstance(attendees, list):
-        attendee_names = [a.get("email", a) if isinstance(a, dict) else str(a) for a in attendees[:5]]
+        attendee_names = [
+            a.get("email", a) if isinstance(a, dict) else str(a) for a in attendees[:5]
+        ]
 
     # Get RAG context
     context = await _get_meeting_context(user_id, summary, attendees)
@@ -152,6 +161,7 @@ Generate the briefing:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -159,7 +169,9 @@ Generate the briefing:"""
                 max_tokens=300,
                 temperature=0.7,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception as e:
@@ -184,7 +196,10 @@ async def _get_meeting_context(
         # Search for context about the meeting topic
         query = f"meeting about {summary}"
         if attendees:
-            names = [a.get("email", a) if isinstance(a, dict) else str(a) for a in attendees[:3]]
+            names = [
+                a.get("email", a) if isinstance(a, dict) else str(a)
+                for a in attendees[:3]
+            ]
             query += f" with {', '.join(names)}"
 
         results = await rag_svc.search(user_id, query, limit=2)
@@ -206,7 +221,9 @@ async def _briefing_sent_for_event(user_id: str, event_id: str) -> bool:
 
     try:
         client = db.get_client()
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+        today_start = (
+            datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+        )
         result = (
             client.table("proactivity_feed")
             .select("id")
@@ -217,7 +234,7 @@ async def _briefing_sent_for_event(user_id: str, event_id: str) -> bool:
             .execute()
         )
         # Check if any briefing matches this event
-        for item in (result.data or []):
+        for item in result.data or []:
             metadata = item.get("metadata", "{}")
             if isinstance(metadata, str):
                 metadata = json.loads(metadata)
@@ -228,7 +245,9 @@ async def _briefing_sent_for_event(user_id: str, event_id: str) -> bool:
         return False
 
 
-async def _store_briefing(user_id: str, event_id: str, briefing: Dict[str, Any]) -> None:
+async def _store_briefing(
+    user_id: str, event_id: str, briefing: Dict[str, Any]
+) -> None:
     """Store briefing in proactivity_feed."""
     db = get_service("database")
     if not db or not db.is_initialized():
@@ -236,14 +255,18 @@ async def _store_briefing(user_id: str, event_id: str, briefing: Dict[str, Any])
 
     try:
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "meeting_briefing",
-            "title": briefing["title"],
-            "message": briefing["message"],
-            "metadata": json.dumps({"event_id": event_id, "event": briefing.get("event_summary", "")}),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "meeting_briefing",
+                "title": briefing["title"],
+                "message": briefing["message"],
+                "metadata": json.dumps(
+                    {"event_id": event_id, "event": briefing.get("event_summary", "")}
+                ),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Meeting briefing: failed to store: {}", e)

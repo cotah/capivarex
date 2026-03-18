@@ -27,7 +27,16 @@ RAIN_CHANCE_THRESHOLD = 70  # % chance of rain to alert
 WIND_SPEED_THRESHOLD = 50  # km/h
 TEMP_DROP_THRESHOLD = 10  # °C drop from morning
 EXTREME_HEAT_THRESHOLD = 35  # °C
-SNOW_KEYWORDS = {"snow", "sleet", "ice", "blizzard", "freezing", "neve", "gelo", "geada"}
+SNOW_KEYWORDS = {
+    "snow",
+    "sleet",
+    "ice",
+    "blizzard",
+    "freezing",
+    "neve",
+    "gelo",
+    "geada",
+}
 
 
 async def check_weather_alerts(
@@ -61,53 +70,63 @@ async def check_weather_alerts(
     # 1. Rain alert
     rain_chance = data.get("rain_chance", 0) or data.get("pop", 0)
     if isinstance(rain_chance, (int, float)) and rain_chance >= RAIN_CHANCE_THRESHOLD:
-        alerts.append({
-            "type": "rain",
-            "severity": "warning",
-            "message": f"Rain likely ({int(rain_chance)}% chance)",
-            "advice": "Bring an umbrella!",
-        })
+        alerts.append(
+            {
+                "type": "rain",
+                "severity": "warning",
+                "message": f"Rain likely ({int(rain_chance)}% chance)",
+                "advice": "Bring an umbrella!",
+            }
+        )
 
     # 2. Strong wind
     wind_speed = data.get("wind_speed", 0) or 0
     if isinstance(wind_speed, (int, float)) and wind_speed >= WIND_SPEED_THRESHOLD:
-        alerts.append({
-            "type": "wind",
-            "severity": "warning",
-            "message": f"Strong wind ({int(wind_speed)} km/h)",
-            "advice": "Secure outdoor items and be careful driving.",
-        })
+        alerts.append(
+            {
+                "type": "wind",
+                "severity": "warning",
+                "message": f"Strong wind ({int(wind_speed)} km/h)",
+                "advice": "Secure outdoor items and be careful driving.",
+            }
+        )
 
     # 3. Extreme heat
     temp = data.get("temperature", 0) or 0
     if isinstance(temp, (int, float)) and temp >= EXTREME_HEAT_THRESHOLD:
-        alerts.append({
-            "type": "heat",
-            "severity": "warning",
-            "message": f"Extreme heat ({temp}°C)",
-            "advice": "Stay hydrated and avoid sun exposure.",
-        })
+        alerts.append(
+            {
+                "type": "heat",
+                "severity": "warning",
+                "message": f"Extreme heat ({temp}°C)",
+                "advice": "Stay hydrated and avoid sun exposure.",
+            }
+        )
 
     # 4. Snow/Ice
     description = (data.get("description", "") or "").lower()
     if any(kw in description for kw in SNOW_KEYWORDS):
-        alerts.append({
-            "type": "snow",
-            "severity": "alert",
-            "message": f"Snow/ice conditions: {data.get('description', '')}",
-            "advice": "Drive carefully and dress warm.",
-        })
+        alerts.append(
+            {
+                "type": "snow",
+                "severity": "alert",
+                "message": f"Snow/ice conditions: {data.get('description', '')}",
+                "advice": "Drive carefully and dress warm.",
+            }
+        )
 
     # 5. Temperature drop (check feels_like vs temp)
     feels_like = data.get("feels_like", temp)
     if isinstance(temp, (int, float)) and isinstance(feels_like, (int, float)):
         if temp - feels_like >= TEMP_DROP_THRESHOLD:
-            alerts.append({
-                "type": "temp_drop",
-                "severity": "info",
-                "message": f"Feels much colder than expected ({temp}°C but feels like {feels_like}°C)",
-                "advice": "Wear extra layers.",
-            })
+            alerts.append(
+                {
+                    "type": "temp_drop",
+                    "severity": "info",
+                    "message": f"Feels much colder than expected ({temp}°C but feels like {feels_like}°C)",
+                    "advice": "Wear extra layers.",
+                }
+            )
 
     return alerts
 
@@ -137,6 +156,7 @@ async def _get_user_location(user_id: str) -> str:
 # ---------------------------------------------------------------------------
 # Alert Generation
 # ---------------------------------------------------------------------------
+
 
 async def generate_weather_alert(
     user_name: str,
@@ -172,6 +192,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -179,7 +200,9 @@ Generate:"""
                 max_tokens=200,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
@@ -199,6 +222,7 @@ Generate:"""
 # Proactivity Loop Runner
 # ---------------------------------------------------------------------------
 
+
 async def check_weather_for_all_users() -> int:
     """Run weather check for all proactivity-enabled users."""
     db = get_service("database")
@@ -211,7 +235,7 @@ async def check_weather_for_all_users() -> int:
         return 0
 
     alerts_sent = 0
-    for pref in (pref_users or []):
+    for pref in pref_users or []:
         user_id = pref["user_id"]
         try:
             user_data = await db.get_user_by_id(user_id)
@@ -232,7 +256,11 @@ async def check_weather_for_all_users() -> int:
                 alerts=new_alerts,
             )
             if msg:
-                chat_id = str(user_data.get("telegram_chat_id")) if user_data.get("telegram_chat_id") else None
+                chat_id = (
+                    str(user_data.get("telegram_chat_id"))
+                    if user_data.get("telegram_chat_id")
+                    else None
+                )
                 if chat_id:
                     try:
                         notif = get_service("notification")
@@ -254,7 +282,8 @@ async def check_weather_for_all_users() -> int:
 
 
 async def _filter_already_alerted(
-    user_id: str, alerts: List[Dict[str, Any]],
+    user_id: str,
+    alerts: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Filter out alerts already sent today."""
     import json
@@ -278,9 +307,13 @@ async def _filter_already_alerted(
         )
 
         alerted_types = set()
-        for item in (result.data or []):
+        for item in result.data or []:
             try:
-                meta = json.loads(item.get("metadata", "{}") if isinstance(item.get("metadata"), str) else "{}")
+                meta = json.loads(
+                    item.get("metadata", "{}")
+                    if isinstance(item.get("metadata"), str)
+                    else "{}"
+                )
                 for t in meta.get("alert_types", []):
                     alerted_types.add(t)
             except (json.JSONDecodeError, TypeError):
@@ -303,14 +336,16 @@ async def _store_weather_alert(user_id: str, alerts: List[Dict[str, Any]]) -> No
     try:
         client = db.get_client()
         alert_types = [a["type"] for a in alerts]
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "weather_alert",
-            "title": f"⚠️ Weather alert: {', '.join(alert_types)}",
-            "message": "; ".join(a["message"] for a in alerts),
-            "metadata": json.dumps({"alert_types": alert_types}),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "weather_alert",
+                "title": f"⚠️ Weather alert: {', '.join(alert_types)}",
+                "message": "; ".join(a["message"] for a in alerts),
+                "metadata": json.dumps({"alert_types": alert_types}),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Store weather alert failed: %s", e)

@@ -145,15 +145,17 @@ async def _get_focus_time_today(user_id: str) -> int:
     """Get total focus time used today (minutes)."""
     try:
         from services.business.focus_mode_service import get_focus_state
+
         state = await get_focus_state(user_id)
         if not state:
             return 0
 
         import time
+
         started = state.get("started_at", 0)
-        today_start = datetime.now(timezone.utc).replace(
-            hour=0, minute=0, second=0
-        ).timestamp()
+        today_start = (
+            datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).timestamp()
+        )
 
         if started >= today_start:
             duration = state.get("duration_minutes", 0)
@@ -197,12 +199,13 @@ async def _generate_ai_summary(name: str, data: Dict[str, Any]) -> Optional[str]
         f"- Pending tasks: {pending_count} ({pending_list.strip() or 'none'})\n"
         f"- Tomorrow events: {tomorrow_count}\n"
         f"- Focus time: {focus} minutes\n\n"
-        f"Format: Start with '📊 Resumo do dia' header. Use short bullet points. "
-        f"End with an encouraging note about tomorrow. Respond in Portuguese."
+        f"Format: Start with '📊 Daily Summary' header. Use short bullet points. "
+        f"End with an encouraging note about tomorrow. Respond in English."
     )
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -221,27 +224,27 @@ async def _generate_ai_summary(name: str, data: Dict[str, Any]) -> Optional[str]
 
 def _generate_fallback_summary(name: str, data: Dict[str, Any]) -> str:
     """Generate summary without AI (fallback)."""
-    greeting = f"Oi {name}!" if name else "Oi!"
+    greeting = f"Hi {name}!" if name else "Hi!"
     events = data.get("events_today", [])
     pending = data.get("pending_tasks", [])
     tomorrow = data.get("events_tomorrow", [])
     focus = data.get("focus_minutes", 0)
 
-    msg = f"📊 **Resumo do dia**\n\n{greeting} Aqui está como foi seu dia:\n\n"
+    msg = f"📊 **Daily Summary**\n\n{greeting} Here's how your day went:\n\n"
 
     # Events
     if events:
-        msg += f"📅 **{len(events)} evento{'s' if len(events) > 1 else ''}** hoje"
+        msg += f"📅 **{len(events)} event{'s' if len(events) > 1 else ''}** today"
         titles = [e.get("title", "") for e in events[:3] if e.get("title")]
         if titles:
             msg += ": " + ", ".join(titles)
         msg += "\n"
     else:
-        msg += "📅 Nenhum evento hoje\n"
+        msg += "📅 No events today\n"
 
     # Pending
     if pending:
-        msg += f"⚠️ **{len(pending)} tarefa{'s' if len(pending) > 1 else ''} pendente{'s' if len(pending) > 1 else ''}**"
+        msg += f"⚠️ **{len(pending)} task{'s' if len(pending) > 1 else ''} pending**"
         titles = [t.get("title", "") for t in pending[:3] if t.get("title")]
         if titles:
             msg += ": " + ", ".join(titles)
@@ -254,20 +257,22 @@ def _generate_fallback_summary(name: str, data: Dict[str, Any]) -> str:
         if hours:
             msg += f"🎯 Focus time: **{hours}h{mins}min**\n"
         else:
-            msg += f"🎯 Focus time: **{mins} minutos**\n"
+            msg += f"🎯 Focus time: **{mins} minutes**\n"
 
     # Tomorrow
     msg += "\n"
     if tomorrow:
-        msg += f"📆 **Amanhã:** {len(tomorrow)} evento{'s' if len(tomorrow) > 1 else ''}"
+        msg += (
+            f"📆 **Tomorrow:** {len(tomorrow)} event{'s' if len(tomorrow) > 1 else ''}"
+        )
         first = tomorrow[0].get("title", "")
         if first:
-            msg += f" — primeiro: {first}"
+            msg += f" — first: {first}"
         msg += "\n"
     else:
-        msg += "📆 Amanhã: agenda livre 🎉\n"
+        msg += "📆 Tomorrow: schedule free 🎉\n"
 
-    msg += "\nDescanse bem! Amanhã é um novo dia. 😊"
+    msg += "\nRest well! Tomorrow is a new day. 😊"
     return msg
 
 
@@ -279,15 +284,19 @@ async def _store_summary(user_id: str, text: str, data: Dict[str, Any]) -> None:
             return
 
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "daily_summary",
-            "content": text[:2000],
-            "metadata": json.dumps({
-                "events_count": len(data.get("events_today", [])),
-                "pending_count": len(data.get("pending_tasks", [])),
-                "focus_minutes": data.get("focus_minutes", 0),
-            }),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "daily_summary",
+                "content": text[:2000],
+                "metadata": json.dumps(
+                    {
+                        "events_count": len(data.get("events_today", [])),
+                        "pending_count": len(data.get("pending_tasks", [])),
+                        "focus_minutes": data.get("focus_minutes", 0),
+                    }
+                ),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Daily summary store failed: %s", e)

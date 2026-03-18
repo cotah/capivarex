@@ -78,7 +78,9 @@ async def dev_preview(preview_id: str):
     preview = get_preview(preview_id)
     if not preview:
         return HTMLResponse(
-            content=_error_page("Preview expired or not found. Generate the project again."),
+            content=_error_page(
+                "Preview expired or not found. Generate the project again."
+            ),
             status_code=404,
         )
 
@@ -111,7 +113,10 @@ async def dev_push(request: Request):
 
     result = await push_to_github(project_id, repo_name)
     if not result:
-        raise HTTPException(status_code=500, detail="Failed to push to GitHub. Check your GitHub connection.")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to push to GitHub. Check your GitHub connection.",
+        )
 
     return {
         **result,
@@ -141,6 +146,7 @@ async def dev_project_status(project_id: str):
 # Code Preview Page (HTML)
 # ---------------------------------------------------------------------------
 
+
 def _render_preview_page(files: list) -> str:
     """Render a beautiful code preview page."""
     file_tabs = ""
@@ -155,8 +161,7 @@ def _render_preview_page(files: list) -> str:
 
         # Escape HTML
         safe_content = (
-            content
-            .replace("&", "&amp;")
+            content.replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace('"', "&quot;")

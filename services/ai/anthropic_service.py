@@ -45,7 +45,9 @@ class AnthropicService(BaseService):
     - Metrics tracking
     """
 
-    def __init__(self, name: str = "anthropic", config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, name: str = "anthropic", config: Optional[Dict[str, Any]] = None
+    ):
         """Initialise the Anthropic service."""
         super().__init__(name, config)
         self.client: Optional[anthropic.AsyncAnthropic] = None
@@ -189,6 +191,7 @@ def get_anthropic_service() -> AnthropicService:
     global _anthropic_service
     if _anthropic_service is None:
         from services.core import get_service
+
         _anthropic_service = get_service("anthropic")
     return _anthropic_service
 
@@ -197,6 +200,7 @@ def get_anthropic_service() -> AnthropicService:
 async def generate_code_stream(prompt: str) -> AsyncGenerator[str, None]:
     """Generate code stream (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("anthropic")
     if service and isinstance(service, AnthropicService):
         if not service.is_initialized():

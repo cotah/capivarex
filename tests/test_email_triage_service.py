@@ -1,4 +1,5 @@
 """Tests for email triage service — S8: inbox categorization + action extraction."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,7 +13,9 @@ from services.business.email_triage_service import (
 )
 
 
-def _make_email(subject, from_name="John", from_email="john@test.com", snippet="", unread=True):
+def _make_email(
+    subject, from_name="John", from_email="john@test.com", snippet="", unread=True
+):
     """Helper: create a test email dict."""
     return {
         "id": f"msg_{subject[:10].replace(' ', '_')}",
@@ -33,7 +36,9 @@ class TestTriageInbox:
 
     @pytest.mark.asyncio
     async def test_no_gmail_service(self):
-        with patch("services.business.email_triage_service.get_service", return_value=None):
+        with patch(
+            "services.business.email_triage_service.get_service", return_value=None
+        ):
             result = await triage_inbox("user-123", "Marcos")
         assert result is None
 
@@ -43,23 +48,33 @@ class TestTriageInbox:
         mock_gmail.is_initialized.return_value = True
         mock_gmail.list_emails = AsyncMock(return_value=[])
 
-        with patch("services.business.email_triage_service.get_service", return_value=mock_gmail):
+        with patch(
+            "services.business.email_triage_service.get_service",
+            return_value=mock_gmail,
+        ):
             result = await triage_inbox("user-123", "Marcos")
 
         assert result is not None
-        assert "clean" in result["summary"].lower() or "no unread" in result["summary"].lower()
+        assert (
+            "clean" in result["summary"].lower()
+            or "no unread" in result["summary"].lower()
+        )
         assert result["stats"]["urgent"] == 0
 
     @pytest.mark.asyncio
     async def test_triage_with_emails(self):
         mock_gmail = MagicMock()
         mock_gmail.is_initialized.return_value = True
-        mock_gmail.list_emails = AsyncMock(return_value=[
-            _make_email("URGENT: Client deadline today", from_name="Boss"),
-            _make_email("Weekly newsletter", from_name="noreply@news.com"),
-            _make_email("Project update", from_name="Ana"),
-        ])
-        mock_gmail.get_email_body = AsyncMock(return_value="Please review the report by EOD.")
+        mock_gmail.list_emails = AsyncMock(
+            return_value=[
+                _make_email("URGENT: Client deadline today", from_name="Boss"),
+                _make_email("Weekly newsletter", from_name="noreply@news.com"),
+                _make_email("Project update", from_name="Ana"),
+            ]
+        )
+        mock_gmail.get_email_body = AsyncMock(
+            return_value="Please review the report by EOD."
+        )
 
         def fake_svc(name):
             if name == "gmail":
@@ -117,7 +132,10 @@ class TestClassification:
         emails = [_make_email("Client report needed", snippet="Need report ASAP")]
         emails[0]["body_preview"] = "Need the Q4 report by end of day."
 
-        with patch("services.business.email_triage_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.email_triage_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await _classify_emails(emails, "Marcos")
 
         assert result[0]["urgency"] == "urgent"
@@ -133,7 +151,10 @@ class TestClassification:
         emails = [_make_email("URGENT: Need approval", from_name="Manager")]
         emails[0]["body_preview"] = "Please approve the budget."
 
-        with patch("services.business.email_triage_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.email_triage_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await _classify_emails(emails, "Test")
 
         assert result[0]["urgency"] == "urgent"  # Fallback keyword detection
@@ -144,9 +165,16 @@ class TestActionExtraction:
 
     def test_extract_actions(self):
         emails = [
-            {**_make_email("Report"), "action": "Send Q4 report by Friday", "from_name": "Boss"},
+            {
+                **_make_email("Report"),
+                "action": "Send Q4 report by Friday",
+                "from_name": "Boss",
+            },
             {**_make_email("Meeting"), "action": ""},
-            {**_make_email("Review"), "action": "Review the proposal and send feedback"},
+            {
+                **_make_email("Review"),
+                "action": "Review the proposal and send feedback",
+            },
         ]
         actions = _extract_actions(emails)
         assert len(actions) == 2
@@ -194,7 +222,9 @@ class TestReplyDraft:
 
     @pytest.mark.asyncio
     async def test_no_gmail(self):
-        with patch("services.business.email_triage_service.get_service", return_value=None):
+        with patch(
+            "services.business.email_triage_service.get_service", return_value=None
+        ):
             result = await generate_reply_draft("u1", "msg-123", "Marcos")
         assert result is None
 
@@ -204,7 +234,10 @@ class TestReplyDraft:
         mock_gmail.get_email_body = AsyncMock(return_value="")
         mock_gmail.list_emails = AsyncMock(return_value=[])
 
-        with patch("services.business.email_triage_service.get_service", return_value=mock_gmail):
+        with patch(
+            "services.business.email_triage_service.get_service",
+            return_value=mock_gmail,
+        ):
             result = await generate_reply_draft("u1", "msg-123", "Marcos")
         assert result is None
 
@@ -227,7 +260,11 @@ class TestHumanizedSummary:
         stats = {"urgent": 1, "important": 1, "info": 1, "ignore": 0}
 
         from services.business.email_triage_service import _humanize_triage_summary
-        with patch("services.business.email_triage_service.get_service", return_value=mock_openai):
+
+        with patch(
+            "services.business.email_triage_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await _humanize_triage_summary(emails, stats, [], "Marcos")
 
         assert "Marcos" in result

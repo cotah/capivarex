@@ -52,7 +52,10 @@ class TestGetQuote:
         svc = _make_service()
         mock_session = _mock_aiohttp_session(_quote_response())
 
-        with patch("services.integrations.finance_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.finance_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             result = await svc.get_quote("AAPL")
 
         assert result["symbol"] == "AAPL"
@@ -73,7 +76,10 @@ class TestGetQuote:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.integrations.finance_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.finance_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             with pytest.raises(RuntimeError, match="Erro ao buscar cotação"):
                 await svc.get_quote("INVALID")
 
@@ -83,7 +89,10 @@ class TestGetQuote:
         error_data = {"code": 400, "message": "Invalid symbol"}
         mock_session = _mock_aiohttp_session(error_data)
 
-        with patch("services.integrations.finance_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.finance_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             with pytest.raises(RuntimeError):
                 await svc.get_quote("INVALID")
 
@@ -94,7 +103,10 @@ class TestGetPrice:
         svc = _make_service()
         mock_session = _mock_aiohttp_session({"price": "150.25"})
 
-        with patch("services.integrations.finance_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.finance_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             result = await svc.get_price("AAPL")
 
         assert result["symbol"] == "AAPL"
@@ -106,15 +118,37 @@ class TestGetTimeSeries:
     async def test_success(self):
         svc = _make_service()
         data = {
-            "meta": {"symbol": "AAPL", "interval": "1day", "currency": "USD", "exchange": "NASDAQ"},
+            "meta": {
+                "symbol": "AAPL",
+                "interval": "1day",
+                "currency": "USD",
+                "exchange": "NASDAQ",
+            },
             "values": [
-                {"datetime": "2026-02-19", "open": "148", "high": "151", "low": "147", "close": "150", "volume": "5000000"},
-                {"datetime": "2026-02-18", "open": "146", "high": "149", "low": "145", "close": "148", "volume": "4000000"},
+                {
+                    "datetime": "2026-02-19",
+                    "open": "148",
+                    "high": "151",
+                    "low": "147",
+                    "close": "150",
+                    "volume": "5000000",
+                },
+                {
+                    "datetime": "2026-02-18",
+                    "open": "146",
+                    "high": "149",
+                    "low": "145",
+                    "close": "148",
+                    "volume": "4000000",
+                },
             ],
         }
         mock_session = _mock_aiohttp_session(data)
 
-        with patch("services.integrations.finance_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.finance_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             result = await svc.get_time_series("AAPL", interval="1day", outputsize=2)
 
         assert result["symbol"] == "AAPL"
@@ -126,10 +160,22 @@ class TestGetWatchlistSummary:
     @pytest.mark.asyncio
     async def test_success(self):
         svc = _make_service()
-        svc.get_quote = AsyncMock(side_effect=[
-            {"symbol": "AAPL", "price": 150.0, "change": 2.5, "percent_change": 1.69},
-            {"symbol": "GOOGL", "price": 140.0, "change": -1.0, "percent_change": -0.71},
-        ])
+        svc.get_quote = AsyncMock(
+            side_effect=[
+                {
+                    "symbol": "AAPL",
+                    "price": 150.0,
+                    "change": 2.5,
+                    "percent_change": 1.69,
+                },
+                {
+                    "symbol": "GOOGL",
+                    "price": 140.0,
+                    "change": -1.0,
+                    "percent_change": -0.71,
+                },
+            ]
+        )
 
         result = await svc.get_watchlist_summary(["AAPL", "GOOGL"])
 
@@ -141,10 +187,17 @@ class TestGetWatchlistSummary:
     @pytest.mark.asyncio
     async def test_partial_failure(self):
         svc = _make_service()
-        svc.get_quote = AsyncMock(side_effect=[
-            {"symbol": "AAPL", "price": 150.0, "change": 2.5, "percent_change": 1.69},
-            RuntimeError("API error"),
-        ])
+        svc.get_quote = AsyncMock(
+            side_effect=[
+                {
+                    "symbol": "AAPL",
+                    "price": 150.0,
+                    "change": 2.5,
+                    "percent_change": 1.69,
+                },
+                RuntimeError("API error"),
+            ]
+        )
 
         result = await svc.get_watchlist_summary(["AAPL", "FAIL"])
 

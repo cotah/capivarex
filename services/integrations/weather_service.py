@@ -135,16 +135,18 @@ class WeatherService(BaseService):
 
             forecast_days = []
             for day in data["forecast"]["forecastday"]:
-                forecast_days.append({
-                    "date": day["date"],
-                    "max_temp_c": day["day"]["maxtemp_c"],
-                    "min_temp_c": day["day"]["mintemp_c"],
-                    "max_temp_f": day["day"]["maxtemp_f"],
-                    "min_temp_f": day["day"]["mintemp_f"],
-                    "condition": day["day"]["condition"]["text"],
-                    "icon": day["day"]["condition"]["icon"],
-                    "chance_of_rain": day["day"]["daily_chance_of_rain"],
-                })
+                forecast_days.append(
+                    {
+                        "date": day["date"],
+                        "max_temp_c": day["day"]["maxtemp_c"],
+                        "min_temp_c": day["day"]["mintemp_c"],
+                        "max_temp_f": day["day"]["maxtemp_f"],
+                        "min_temp_f": day["day"]["mintemp_f"],
+                        "condition": day["day"]["condition"]["text"],
+                        "icon": day["day"]["condition"]["icon"],
+                        "chance_of_rain": day["day"]["daily_chance_of_rain"],
+                    }
+                )
 
             return {
                 "location": {
@@ -239,26 +241,28 @@ class WeatherService(BaseService):
             forecast_days = []
             for day_data in data["forecast"]["forecastday"]:
                 d = day_data["day"]
-                forecast_days.append({
-                    "date": day_data["date"],
-                    "max_temp_c": d["maxtemp_c"],
-                    "min_temp_c": d["mintemp_c"],
-                    "avg_temp_c": d["avgtemp_c"],
-                    "condition": d["condition"]["text"],
-                    "icon": d["condition"]["icon"],
-                    "chance_of_rain": d["daily_chance_of_rain"],
-                    "chance_of_snow": d.get("daily_chance_of_snow", 0),
-                    "total_precip_mm": d.get("totalprecip_mm", 0),
-                    "avg_humidity": d.get("avghumidity", 0),
-                    "max_wind_kph": d.get("maxwind_kph", 0),
-                    "uv": d.get("uv", 0),
-                    "sunrise": day_data.get("astro", {}).get("sunrise", ""),
-                    "sunset": day_data.get("astro", {}).get("sunset", ""),
-                    # Flags de alerta
-                    "rain_alert": d["daily_chance_of_rain"] >= RAIN_ALERT_THRESHOLD,
-                    "wind_alert": d.get("maxwind_kph", 0) >= WIND_STRONG_THRESHOLD,
-                    "uv_alert": d.get("uv", 0) >= UV_HIGH_THRESHOLD,
-                })
+                forecast_days.append(
+                    {
+                        "date": day_data["date"],
+                        "max_temp_c": d["maxtemp_c"],
+                        "min_temp_c": d["mintemp_c"],
+                        "avg_temp_c": d["avgtemp_c"],
+                        "condition": d["condition"]["text"],
+                        "icon": d["condition"]["icon"],
+                        "chance_of_rain": d["daily_chance_of_rain"],
+                        "chance_of_snow": d.get("daily_chance_of_snow", 0),
+                        "total_precip_mm": d.get("totalprecip_mm", 0),
+                        "avg_humidity": d.get("avghumidity", 0),
+                        "max_wind_kph": d.get("maxwind_kph", 0),
+                        "uv": d.get("uv", 0),
+                        "sunrise": day_data.get("astro", {}).get("sunrise", ""),
+                        "sunset": day_data.get("astro", {}).get("sunset", ""),
+                        # Flags de alerta
+                        "rain_alert": d["daily_chance_of_rain"] >= RAIN_ALERT_THRESHOLD,
+                        "wind_alert": d.get("maxwind_kph", 0) >= WIND_STRONG_THRESHOLD,
+                        "uv_alert": d.get("uv", 0) >= UV_HIGH_THRESHOLD,
+                    }
+                )
 
             # ── Alertas meteorológicos oficiais ───────────────────────────────
             raw_alerts = data.get("alerts", {}).get("alert", [])
@@ -322,22 +326,17 @@ class WeatherService(BaseService):
             return {"error": "Sem dados de previsão disponíveis"}
 
         # Melhor dia: menor chance de chuva + maior temperatura máxima
-        best_day = min(
-            forecast,
-            key=lambda d: (d["chance_of_rain"], -d["max_temp_c"])
-        )
+        best_day = min(forecast, key=lambda d: (d["chance_of_rain"], -d["max_temp_c"]))
         # Pior dia: maior chance de chuva
         worst_day = max(forecast, key=lambda d: d["chance_of_rain"])
 
-        rainy_days = [d for d in forecast if d["chance_of_rain"] >= RAIN_ALERT_THRESHOLD]
+        rainy_days = [
+            d for d in forecast if d["chance_of_rain"] >= RAIN_ALERT_THRESHOLD
+        ]
         sunny_days = [d for d in forecast if d["chance_of_rain"] < 30]
 
-        avg_max = round(
-            sum(d["max_temp_c"] for d in forecast) / len(forecast), 1
-        )
-        avg_min = round(
-            sum(d["min_temp_c"] for d in forecast) / len(forecast), 1
-        )
+        avg_max = round(sum(d["max_temp_c"] for d in forecast) / len(forecast), 1)
+        avg_min = round(sum(d["min_temp_c"] for d in forecast) / len(forecast), 1)
 
         return {
             "location": data["location"],
@@ -365,5 +364,6 @@ def get_weather_service() -> WeatherService:
     global weather_service
     if weather_service is None:
         from services.core import get_service
+
         weather_service = get_service("weather")
     return weather_service

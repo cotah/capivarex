@@ -68,9 +68,7 @@ class CalendarService(BaseService):
                 "GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET "
                 "não configurados. Calendar OAuth2 não disponível."
             )
-        self.logger.info(
-            "CalendarService initialized (OAuth2 per-user only)"
-        )
+        self.logger.info("CalendarService initialized (OAuth2 per-user only)")
 
     async def _health_check(self) -> bool:
         return get_google_oauth().is_configured
@@ -118,9 +116,7 @@ class CalendarService(BaseService):
             ),
             "location": event.get("location", ""),
             "description": event.get("description", ""),
-            "attendees": [
-                att.get("email") for att in event.get("attendees", [])
-            ],
+            "attendees": [att.get("email") for att in event.get("attendees", [])],
             "html_link": event.get("htmlLink", ""),
             "status": event.get("status", ""),
         }
@@ -133,9 +129,7 @@ class CalendarService(BaseService):
 
         try:
             if "T" in str(start):
-                start_dt = datetime.fromisoformat(
-                    str(start).replace("Z", "+00:00")
-                )
+                start_dt = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
                 time_str = start_dt.strftime("%H:%M")
             else:
                 time_str = "All day"
@@ -182,10 +176,7 @@ class CalendarService(BaseService):
                 .execute()
             )
 
-            events = [
-                self._format_event_dict(e)
-                for e in result.get("items", [])
-            ]
+            events = [self._format_event_dict(e) for e in result.get("items", [])]
             self._track_call(_time.time() - start, error=False)
             return events
         except ServiceUnavailableError:
@@ -211,9 +202,7 @@ class CalendarService(BaseService):
                 now.replace(hour=0, minute=0, second=0, microsecond=0)
             )
             time_max = _utc_isoformat(
-                now.replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
+                now.replace(hour=23, minute=59, second=59, microsecond=999999)
             )
 
             result = (
@@ -228,19 +217,14 @@ class CalendarService(BaseService):
                 .execute()
             )
 
-            events = [
-                self._format_event_dict(e)
-                for e in result.get("items", [])
-            ]
+            events = [self._format_event_dict(e) for e in result.get("items", [])]
             self._track_call(_time.time() - start, error=False)
             return events
         except ServiceUnavailableError:
             raise
         except Exception as exc:
             self._track_call(_time.time() - start, error=True)
-            self.logger.error(
-                "async_get_today_events failed: %s", exc, exc_info=True
-            )
+            self.logger.error("async_get_today_events failed: %s", exc, exc_info=True)
             return []
 
     async def async_create_event(
@@ -273,14 +257,10 @@ class CalendarService(BaseService):
                 },
             }
             if attendees:
-                event_body["attendees"] = [
-                    {"email": e} for e in attendees
-                ]
+                event_body["attendees"] = [{"email": e} for e in attendees]
 
             created = (
-                svc.events()
-                .insert(calendarId=calendar_id, body=event_body)
-                .execute()
+                svc.events().insert(calendarId=calendar_id, body=event_body).execute()
             )
 
             self._track_call(_time.time() - call_start, error=False)
@@ -290,9 +270,7 @@ class CalendarService(BaseService):
             raise
         except Exception as exc:
             self._track_call(_time.time() - call_start, error=True)
-            self.logger.error(
-                "async_create_event failed: %s", exc, exc_info=True
-            )
+            self.logger.error("async_create_event failed: %s", exc, exc_info=True)
             return None
 
     async def async_create_meeting(
@@ -331,9 +309,7 @@ class CalendarService(BaseService):
                 },
             }
             if attendees:
-                event_body["attendees"] = [
-                    {"email": e} for e in attendees
-                ]
+                event_body["attendees"] = [{"email": e} for e in attendees]
 
             created = (
                 svc.events()
@@ -367,9 +343,7 @@ class CalendarService(BaseService):
             raise
         except Exception as exc:
             self._track_call(_time.time() - call_start, error=True)
-            self.logger.error(
-                "async_create_meeting failed: %s", exc, exc_info=True
-            )
+            self.logger.error("async_create_meeting failed: %s", exc, exc_info=True)
             return None
 
     async def async_get_next_meeting(

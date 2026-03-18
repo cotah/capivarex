@@ -78,13 +78,15 @@ def main_sync():
         ApplicationBuilder()
         .token(token)
         .request(request)
-        .get_updates_request(HTTPXRequest(
-            connect_timeout=5.0,
-            read_timeout=30.0,
-            write_timeout=5.0,
-            pool_timeout=1.0,
-            http_version="1.1",
-        ))
+        .get_updates_request(
+            HTTPXRequest(
+                connect_timeout=5.0,
+                read_timeout=30.0,
+                write_timeout=5.0,
+                pool_timeout=1.0,
+                http_version="1.1",
+            )
+        )
         .build()
     )
 
@@ -144,9 +146,7 @@ def main_sync():
             )
             return  # Don't re-raise — let the retry loop handle it
 
-        logger.error(
-            "Unhandled Telegram bot error: %s", error, exc_info=context.error
-        )
+        logger.error("Unhandled Telegram bot error: %s", error, exc_info=context.error)
 
     application.add_error_handler(_telegram_error_handler)
 

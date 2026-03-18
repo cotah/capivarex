@@ -13,8 +13,8 @@ class SecurityFinding:
 
     scanner: str
     finding_type: str
-    severity: str          # 'info', 'low', 'medium', 'high', 'critical'
-    confidence: float      # 0.0 – 1.0
+    severity: str  # 'info', 'low', 'medium', 'high', 'critical'
+    confidence: float  # 0.0 – 1.0
     title: str
     description: str = ""
     file_path: str | None = None

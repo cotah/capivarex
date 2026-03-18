@@ -46,6 +46,7 @@ class TravelAgent(BaseAgent):
                 get_planning_session,
                 start_planning_session,
             )
+
             session = await get_planning_session(user_id)
             if session:
                 user_name = context.get("user_name", context.get("full_name", ""))
@@ -58,19 +59,30 @@ class TravelAgent(BaseAgent):
                     return AgentResponse(
                         status=AgentStatus.SUCCESS,
                         response=response,
-                        data={"travel_planning": True, "state": session.get("state", "")},
+                        data={
+                            "travel_planning": True,
+                            "state": session.get("state", ""),
+                        },
                     )
 
             # Check if user is asking to plan a trip (start new session)
-            plan_keywords = ["plan my trip", "planeia", "organiza viagem",
-                             "monta roteiro", "build itinerary", "plan travel",
-                             "planear viagem", "roteiro para"]
+            plan_keywords = [
+                "plan my trip",
+                "planeia",
+                "organiza viagem",
+                "monta roteiro",
+                "build itinerary",
+                "plan travel",
+                "planear viagem",
+                "roteiro para",
+            ]
             prompt_lower = prompt.lower()
             if any(kw in prompt_lower for kw in plan_keywords):
                 # Try to extract destination from prompt
                 from services.business.travel_planner_service import (
                     _detect_destination,
                 )
+
                 destination = _detect_destination(prompt_lower, "", "")
                 if destination:
                     trip = {
@@ -85,9 +97,14 @@ class TravelAgent(BaseAgent):
                     if session:
                         # Immediately move to gathering
                         session["state"] = "detected"
-                        from services.business.travel_planner_service import save_planning_session
+                        from services.business.travel_planner_service import (
+                            save_planning_session,
+                        )
+
                         await save_planning_session(user_id, session)
-                        user_name = context.get("user_name", context.get("full_name", ""))
+                        user_name = context.get(
+                            "user_name", context.get("full_name", "")
+                        )
                         response = await handle_travel_planning_message(
                             user_id=user_id,
                             message="yes",  # Auto-confirm since they explicitly asked to plan

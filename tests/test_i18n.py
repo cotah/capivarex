@@ -320,7 +320,9 @@ def test_calendar_connect_keywords_es():
 
 def test_calendar_connect_keywords_no_match():
     assert not check_keywords("what's the weather?", CALENDAR_CONNECT_KEYWORDS)
-    assert not check_keywords("pesquise no google sobre gatos", CALENDAR_CONNECT_KEYWORDS)
+    assert not check_keywords(
+        "pesquise no google sobre gatos", CALENDAR_CONNECT_KEYWORDS
+    )
 
 
 def test_email_keywords_pt():
@@ -639,7 +641,11 @@ def test_models_schemas_import():
 def test_hotel_need_location_all_langs():
     for lang in SUPPORTED_LANGS:
         result = t("hotel_need_location", lang=lang)
-        assert "hotel" in result.lower() or "hotéis" in result.lower() or "hoteles" in result.lower()
+        assert (
+            "hotel" in result.lower()
+            or "hotéis" in result.lower()
+            or "hoteles" in result.lower()
+        )
 
 
 def test_hotel_need_dates_all_langs():

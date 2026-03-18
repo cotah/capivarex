@@ -1,4 +1,5 @@
 """Tests for resilience service — Supabase outage protection."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -48,13 +49,17 @@ class TestCacheOperations:
 
     @pytest.mark.asyncio
     async def test_cache_set_no_redis(self):
-        with patch("services.infrastructure.resilience_service.get_service", return_value=None):
+        with patch(
+            "services.infrastructure.resilience_service.get_service", return_value=None
+        ):
             result = await cache_set("test_key", {"data": "value"})
         assert result is False
 
     @pytest.mark.asyncio
     async def test_cache_get_no_redis(self):
-        with patch("services.infrastructure.resilience_service.get_service", return_value=None):
+        with patch(
+            "services.infrastructure.resilience_service.get_service", return_value=None
+        ):
             result = await cache_get("test_key")
         assert result is None
 
@@ -65,7 +70,10 @@ class TestCacheOperations:
         mock_redis.set = AsyncMock(return_value=True)
         mock_redis.get = AsyncMock(return_value={"data": "cached_value"})
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             ok = await cache_set("test_key", {"data": "cached_value"})
             assert ok is True
 
@@ -74,7 +82,9 @@ class TestCacheOperations:
 
     @pytest.mark.asyncio
     async def test_cache_delete_no_redis(self):
-        with patch("services.infrastructure.resilience_service.get_service", return_value=None):
+        with patch(
+            "services.infrastructure.resilience_service.get_service", return_value=None
+        ):
             result = await cache_delete("test_key")
         assert result is False
 
@@ -94,7 +104,10 @@ class TestResilientQuery:
         async def supabase_fn():
             return {"id": "user-1", "name": "Marcos"}
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             result = await resilient_query("user:1", supabase_fn)
 
         assert result == {"id": "user-1", "name": "Marcos"}
@@ -107,12 +120,17 @@ class TestResilientQuery:
 
         mock_redis = MagicMock()
         mock_redis.is_initialized.return_value = True
-        mock_redis.get = AsyncMock(return_value={"id": "user-1", "name": "Marcos (cached)"})
+        mock_redis.get = AsyncMock(
+            return_value={"id": "user-1", "name": "Marcos (cached)"}
+        )
 
         async def supabase_fn():
             raise ConnectionError("Supabase down")
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             result = await resilient_query("user:1", supabase_fn)
 
         assert result is not None
@@ -123,7 +141,10 @@ class TestResilientQuery:
         """When both Supabase and Redis fail, returns None."""
         _mark_supabase_up()
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=None):
+        with patch(
+            "services.infrastructure.resilience_service.get_service", return_value=None
+        ):
+
             async def supabase_fn():
                 raise ConnectionError("Supabase down")
 
@@ -143,7 +164,10 @@ class TestResilientQuery:
         async def supabase_fn():
             return None
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             result = await resilient_query("user:missing", supabase_fn)
 
         assert result is None
@@ -155,13 +179,17 @@ class TestResilientOperations:
 
     @pytest.mark.asyncio
     async def test_get_user_no_db(self):
-        with patch("services.infrastructure.resilience_service.get_service", return_value=None):
+        with patch(
+            "services.infrastructure.resilience_service.get_service", return_value=None
+        ):
             result = await get_user_resilient("user-123")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_get_proactivity_users_no_db(self):
-        with patch("services.infrastructure.resilience_service.get_service", return_value=None):
+        with patch(
+            "services.infrastructure.resilience_service.get_service", return_value=None
+        ):
             result = await get_proactivity_users_resilient()
         assert result == []
 
@@ -180,7 +208,10 @@ class TestResilientQueryEdgeCases:
         async def supabase_fn():
             return None
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             result = await resilient_query("key", supabase_fn, cache_empty=True)
         assert result is None
         mock_redis.set.assert_called_once()
@@ -230,6 +261,7 @@ class TestSafeTask:
         from utils.safe_task import safe_create_task
 
         result = []
+
         async def _work():
             result.append("done")
 
@@ -270,33 +302,45 @@ class TestCacheProactiveCaching:
     @pytest.mark.asyncio
     async def test_cache_user_on_login(self):
         from services.infrastructure.resilience_service import cache_user_on_login
+
         mock_redis = MagicMock()
         mock_redis.is_initialized.return_value = True
         mock_redis.set = AsyncMock()
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             await cache_user_on_login("u1", {"id": "u1", "name": "Marcos"})
         mock_redis.set.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cache_auth_token(self):
         from services.infrastructure.resilience_service import cache_auth_token
+
         mock_redis = MagicMock()
         mock_redis.is_initialized.return_value = True
         mock_redis.set = AsyncMock()
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             await cache_auth_token("u1", {"token": "abc"})
         mock_redis.set.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_auth_cached(self):
         from services.infrastructure.resilience_service import get_auth_cached
+
         mock_redis = MagicMock()
         mock_redis.is_initialized.return_value = True
         mock_redis.get = AsyncMock(return_value={"token": "abc"})
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             result = await get_auth_cached("u1")
         assert result == {"token": "abc"}
 
@@ -306,7 +350,10 @@ class TestCacheProactiveCaching:
         mock_redis.is_initialized.return_value = True
         mock_redis.delete = AsyncMock()
 
-        with patch("services.infrastructure.resilience_service.get_service", return_value=mock_redis):
+        with patch(
+            "services.infrastructure.resilience_service.get_service",
+            return_value=mock_redis,
+        ):
             result = await cache_delete("test_key")
         assert result is True
 
@@ -314,7 +361,9 @@ class TestCacheProactiveCaching:
     async def test_get_proactivity_users_with_db(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_all_users_with_proactivity_enabled = AsyncMock(return_value=[{"user_id": "u1"}])
+        mock_db.get_all_users_with_proactivity_enabled = AsyncMock(
+            return_value=[{"user_id": "u1"}]
+        )
 
         mock_redis = MagicMock()
         mock_redis.is_initialized.return_value = True

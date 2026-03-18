@@ -41,9 +41,7 @@ class TestGenerateCode:
     @pytest.mark.asyncio
     async def test_api_error_propagates(self):
         svc = _make_service()
-        svc.client.messages.create = AsyncMock(
-            side_effect=RuntimeError("API Error")
-        )
+        svc.client.messages.create = AsyncMock(side_effect=RuntimeError("API Error"))
 
         with pytest.raises(RuntimeError, match="API Error"):
             await svc.generate_code("test")

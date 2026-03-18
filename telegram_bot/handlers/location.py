@@ -60,6 +60,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         # Try auto-registering the user (they may not have done /start)
         try:
             from telegram_bot.commands.start import _ensure_user_registered
+
             if update.effective_user:
                 registered = await _ensure_user_registered(update.effective_user)
                 if registered:
@@ -68,10 +69,12 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             pass
 
     if not user_uuid:
-        logger.warning("Cannot save location: no UUID for telegram_id=%s (unregistered user)", telegram_id)
+        logger.warning(
+            "Cannot save location: no UUID for telegram_id=%s (unregistered user)",
+            telegram_id,
+        )
         await update.message.reply_text(
-            "❌ Não consegui guardar a localização.\n"
-            "Usa /start para te registares primeiro.",
+            "❌ Could not save location.\nUse /start to register first.",
             reply_markup=ReplyKeyboardRemove(),
         )
         return
@@ -98,32 +101,36 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         try:
             from datetime import datetime
 
-            await db.save_user_context(user_uuid, "location", {
-                "latitude": lat,
-                "longitude": lng,
-                "address": address or f"{lat},{lng}",
-                "updated_at": datetime.now().isoformat(),
-            })
+            await db.save_user_context(
+                user_uuid,
+                "location",
+                {
+                    "latitude": lat,
+                    "longitude": lng,
+                    "address": address or f"{lat},{lng}",
+                    "updated_at": datetime.now().isoformat(),
+                },
+            )
         except Exception as exc:
             logger.error("Error saving location context: %s", exc)
 
     if location_type == "home":
         addr_line = f"\n📍 {address}" if address else f"\n📍 `{lat:.5f}, {lng:.5f}`"
         msg = (
-            f"🏠 Localização de *casa* guardada!{addr_line}\n\n"
-            f"Agora posso calcular rotas a partir de casa automaticamente."
+            f"🏠 *Home* location saved!{addr_line}\n\n"
+            f"I can now calculate routes from home automatically."
         )
     elif location_type == "work":
         addr_line = f"\n📍 {address}" if address else f"\n📍 `{lat:.5f}, {lng:.5f}`"
         msg = (
-            f"🏢 Localização de *trabalho* guardada!{addr_line}\n\n"
-            f"Agora posso calcular rotas a partir do trabalho automaticamente."
+            f"🏢 *Work* location saved!{addr_line}\n\n"
+            f"I can now calculate routes from work automatically."
         )
     else:
         addr_line = address if address else f"{lat:.4f}, {lng:.4f}"
         msg = (
-            f"📍 Localização atualizada: *{addr_line}*\n\n"
-            f"Agora posso calcular rotas a partir daqui!"
+            f"📍 Location updated: *{addr_line}*\n\n"
+            f"I can now calculate routes from here!"
         )
 
     await update.message.reply_text(

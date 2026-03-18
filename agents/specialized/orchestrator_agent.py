@@ -64,7 +64,21 @@ ALLOWED_AGENTS = {
 }
 
 # Agents desativados — usados para retornar mensagem correta ao user
-_COMING_SOON_AGENTS = {"travel", "restaurant", "mercado", "crypto", "dev", "github", "twilio", "traffic", "leaving_now", "transport", "smarthome", "car", "music"}
+_COMING_SOON_AGENTS = {
+    "travel",
+    "restaurant",
+    "mercado",
+    "crypto",
+    "dev",
+    "github",
+    "twilio",
+    "traffic",
+    "leaving_now",
+    "transport",
+    "smarthome",
+    "car",
+    "music",
+}
 _DISABLED_AGENTS = {"image", "video", "youtube", "media_cast", "time"}
 
 
@@ -188,11 +202,18 @@ class OrchestratorAgent(BaseAgent):
             if decision == "voice":
                 _lower = prompt.lower()
                 _transcription_keywords = (
-                    "transcrever", "transcreve", "transcrição",
-                    "o que eu disse", "o que eu falei",
-                    "o que está escrito", "gravar áudio",
-                    "transcribe", "transcription", "what did i say",
-                    "speech to text", "audio to text",
+                    "transcrever",
+                    "transcreve",
+                    "transcrição",
+                    "o que eu disse",
+                    "o que eu falei",
+                    "o que está escrito",
+                    "gravar áudio",
+                    "transcribe",
+                    "transcription",
+                    "what did i say",
+                    "speech to text",
+                    "audio to text",
                 )
                 if any(kw in _lower for kw in _transcription_keywords):
                     self.logger.info(

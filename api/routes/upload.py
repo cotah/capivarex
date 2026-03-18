@@ -2,6 +2,7 @@
 Upload route — Sprint 6A
 POST /api/webapp/upload
 """
+
 from __future__ import annotations
 
 import base64
@@ -47,7 +48,14 @@ def _media_type(content_type: str, filename: str) -> MediaType:
     ext = Path(filename).suffix.lower()
     if ct.startswith("image/"):
         return "image"
-    if ct.startswith("audio/") or ext in (".mp3", ".wav", ".ogg", ".m4a", ".webm", ".flac"):
+    if ct.startswith("audio/") or ext in (
+        ".mp3",
+        ".wav",
+        ".ogg",
+        ".m4a",
+        ".webm",
+        ".flac",
+    ):
         return "audio"
     if ct.startswith("video/") or ext in (".mp4", ".mov", ".avi", ".mkv", ".webm"):
         return "video"
@@ -62,15 +70,36 @@ def _media_type(content_type: str, filename: str) -> MediaType:
 
 def _validate_file(content_type: str, filename: str, size: int) -> None:
     if size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large. Maximum size is 25 MB.")
+        raise HTTPException(
+            status_code=413, detail="File too large. Maximum size is 25 MB."
+        )
     ct = (content_type or "").lower()
     ext = Path(filename).suffix.lower()
-    allowed = any(ct.startswith(p) for p in ALLOWED_MIME_PREFIXES) or ct in ALLOWED_MIME_EXACT
+    allowed = (
+        any(ct.startswith(p) for p in ALLOWED_MIME_PREFIXES) or ct in ALLOWED_MIME_EXACT
+    )
     allowed_ext = ext in (
-        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic",
-        ".mp3", ".wav", ".ogg", ".m4a", ".webm", ".flac",
-        ".mp4", ".mov", ".avi", ".mkv",
-        ".pdf", ".docx", ".doc", ".txt", ".md",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".heic",
+        ".mp3",
+        ".wav",
+        ".ogg",
+        ".m4a",
+        ".webm",
+        ".flac",
+        ".mp4",
+        ".mov",
+        ".avi",
+        ".mkv",
+        ".pdf",
+        ".docx",
+        ".doc",
+        ".txt",
+        ".md",
     )
     if not (allowed or allowed_ext):
         raise HTTPException(
@@ -90,11 +119,17 @@ async def _process_image(path: str) -> tuple[str, str]:
         with open(path, "rb") as f:
             image_data = base64.b64encode(f.read()).decode()
         ext = Path(path).suffix.lower().lstrip(".")
-        mime = f"image/{ext}" if ext in ("jpg", "jpeg", "png", "gif", "webp") else "image/jpeg"
+        mime = (
+            f"image/{ext}"
+            if ext in ("jpg", "jpeg", "png", "gif", "webp")
+            else "image/jpeg"
+        )
         response = client.models.generate_content(
             model="gemini-2.0-flash",
             contents=[
-                genai_types.Part.from_bytes(data=base64.b64decode(image_data), mime_type=mime),
+                genai_types.Part.from_bytes(
+                    data=base64.b64decode(image_data), mime_type=mime
+                ),
                 "Describe this image in detail. Include: what you see, any text present, "
                 "colors, objects, people, context.",
             ],
@@ -171,8 +206,18 @@ async def _process_video(path: str) -> tuple[str, str]:
     try:
         result = subprocess.run(
             [
-                "ffmpeg", "-i", path, "-vn", "-acodec", "mp3",
-                "-ar", "16000", "-ac", "1", "-y", audio_path,
+                "ffmpeg",
+                "-i",
+                path,
+                "-vn",
+                "-acodec",
+                "mp3",
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-y",
+                audio_path,
             ],
             capture_output=True,
             timeout=120,
@@ -224,7 +269,11 @@ async def upload_file(
     content = await file.read()
     size = len(content)
     filename = file.filename or "upload"
-    content_type = file.content_type or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    content_type = (
+        file.content_type
+        or mimetypes.guess_type(filename)[0]
+        or "application/octet-stream"
+    )
 
     _validate_file(content_type, filename, size)
 
@@ -233,7 +282,11 @@ async def upload_file(
 
     logger.info(
         "Upload: user={} file='{}' type={} size={} media={}",
-        user_id[:8], filename, content_type, size, media,
+        user_id[:8],
+        filename,
+        content_type,
+        size,
+        media,
     )
 
     temp_dir = "temp_uploads"
@@ -276,7 +329,9 @@ async def upload_file(
 
     logger.info(
         "Upload: user={} file_id={} extracted={} chars",
-        user_id[:8], file_id[:8], len(extracted_text),
+        user_id[:8],
+        file_id[:8],
+        len(extracted_text),
     )
 
     return {

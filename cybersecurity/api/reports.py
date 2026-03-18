@@ -14,6 +14,7 @@ async def get_weekly_report():
     """Generate or retrieve weekly security digest."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             raise HTTPException(status_code=503, detail="Database not available")
@@ -25,9 +26,12 @@ async def get_weekly_report():
 
     try:
         # Open findings
-        open_result = db.client.table("cyber_findings").select(
-            "severity"
-        ).eq("status", "open").execute()
+        open_result = (
+            db.client.table("cyber_findings")
+            .select("severity")
+            .eq("status", "open")
+            .execute()
+        )
 
         open_findings = open_result.data or []
         counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
@@ -36,23 +40,33 @@ async def get_weekly_report():
             counts[sev] = counts.get(sev, 0) + 1
 
         # Fixed this week
-        fixed_result = db.client.table("cyber_findings").select("id").in_(
-            "status", ["fixed", "false_positive"]
-        ).gte("resolved_at", week_ago.isoformat()).execute()
+        fixed_result = (
+            db.client.table("cyber_findings")
+            .select("id")
+            .in_("status", ["fixed", "false_positive"])
+            .gte("resolved_at", week_ago.isoformat())
+            .execute()
+        )
 
         fixed_count = len(fixed_result.data or [])
 
         # New findings this week
-        new_result = db.client.table("cyber_findings").select(
-            "title, severity"
-        ).gte("first_seen", week_ago.isoformat()).order(
-            "severity"
-        ).limit(10).execute()
+        new_result = (
+            db.client.table("cyber_findings")
+            .select("title, severity")
+            .gte("first_seen", week_ago.isoformat())
+            .order("severity")
+            .limit(10)
+            .execute()
+        )
 
         # Scan runs this week
-        scans_result = db.client.table("cyber_scan_runs").select(
-            "scanner, status, findings_count"
-        ).gte("started_at", week_ago.isoformat()).execute()
+        scans_result = (
+            db.client.table("cyber_scan_runs")
+            .select("scanner, status, findings_count")
+            .gte("started_at", week_ago.isoformat())
+            .execute()
+        )
 
         total_scans = len(scans_result.data or [])
 
@@ -87,6 +101,7 @@ async def get_incident_report(finding_id: str):
     """Full incident report for a finding."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             raise HTTPException(status_code=503, detail="Database not available")
@@ -95,9 +110,13 @@ async def get_incident_report(finding_id: str):
 
     try:
         # Get finding detail
-        finding_result = db.client.table("cyber_findings").select("*").eq(
-            "id", finding_id
-        ).limit(1).execute()
+        finding_result = (
+            db.client.table("cyber_findings")
+            .select("*")
+            .eq("id", finding_id)
+            .limit(1)
+            .execute()
+        )
 
         if not finding_result.data:
             raise HTTPException(status_code=404, detail="Finding not found")
@@ -105,16 +124,24 @@ async def get_incident_report(finding_id: str):
         finding = finding_result.data[0]
 
         # Get related scan runs
-        scans_result = db.client.table("cyber_scan_runs").select("*").eq(
-            "scanner", finding["scanner"]
-        ).order("started_at", desc=True).limit(5).execute()
+        scans_result = (
+            db.client.table("cyber_scan_runs")
+            .select("*")
+            .eq("scanner", finding["scanner"])
+            .order("started_at", desc=True)
+            .limit(5)
+            .execute()
+        )
 
         # Get similar findings (same finding_type)
-        similar_result = db.client.table("cyber_findings").select(
-            "id, title, severity, status, file_path, first_seen"
-        ).eq("finding_type", finding["finding_type"]).neq(
-            "id", finding_id
-        ).limit(10).execute()
+        similar_result = (
+            db.client.table("cyber_findings")
+            .select("id, title, severity, status, file_path, first_seen")
+            .eq("finding_type", finding["finding_type"])
+            .neq("id", finding_id)
+            .limit(10)
+            .execute()
+        )
 
         return {
             "finding": finding,
@@ -129,4 +156,6 @@ async def get_incident_report(finding_id: str):
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Failed to generate incident report")
+        raise HTTPException(
+            status_code=500, detail="Failed to generate incident report"
+        )

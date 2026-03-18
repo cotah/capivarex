@@ -15,13 +15,25 @@ from typing import Any, Dict, List, Optional
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import StreamingResponse
 from jwt.exceptions import PyJWTError
 from pydantic import BaseModel
 
 from agents import get_agent
-from api.dependencies import get_current_user, get_authenticated_processor, RequestProcessor
+from api.dependencies import (
+    get_current_user,
+    get_authenticated_processor,
+    RequestProcessor,
+)
 from api.middleware.rate_limit import limiter
 from api.routes._helpers import _get_db
 from autofix import record_exception
@@ -43,6 +55,7 @@ logger = logging.getLogger(__name__)
 # Helpers: lazily resolve services and agents from their registries
 # ---------------------------------------------------------------------------
 
+
 def _get_redis():
     """Get the Redis service instance."""
     redis_svc = get_service("redis")
@@ -63,6 +76,7 @@ def _get_openai_service():
 # REST ENDPOINTS
 # ============================================
 
+
 @router.get("/conversations/", response_model=List[Conversation])
 async def list_conversations(
     current_user: Dict[str, Any] = Depends(get_current_user),
@@ -79,7 +93,9 @@ async def list_conversations(
     return response.data
 
 
-@router.post("/conversations/", response_model=Conversation, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/conversations/", response_model=Conversation, status_code=status.HTTP_201_CREATED
+)
 async def create_conversation(
     data: ConversationCreate,
     current_user: Dict[str, Any] = Depends(get_current_user),
@@ -177,12 +193,12 @@ class ChatStreamRequest(BaseModel):
 
 _AGENT_MAP: Dict[str, tuple] = {
     # Grupo 1 — Core Business (ativos)
-    "weather":   ("weather",   "execute"),
-    "finance":   ("finance",   "execute"),
-    "calendar":  ("calendar",  "process"),
-    "research":  ("research",  "execute"),
-    "chat":      ("chat",      "execute"),
-    "voice":     ("voice",     "execute"),
+    "weather": ("weather", "execute"),
+    "finance": ("finance", "execute"),
+    "calendar": ("calendar", "process"),
+    "research": ("research", "execute"),
+    "chat": ("chat", "execute"),
+    "voice": ("voice", "execute"),
     # "image":     ("image",     "execute"),  # DISABLED: Fora do escopo executivo atual (Grupo 3)
     # "video":     ("video",     "execute"),  # DISABLED: Fora do escopo executivo atual (Grupo 3)
     # "traffic":   ("traffic",   "execute"),  # TODO: Reativar no Q3 2026 — Coming Soon (Grupo 2)
@@ -195,17 +211,17 @@ _VALID_INTENTS = frozenset(_AGENT_MAP) | {"car"}
 
 def _build_request_context(request: ChatStreamRequest) -> Dict[str, Any]:
     return {
-        "history":      request.history or [],
-        "query":        request.query,
-        "prompt":       request.prompt,
-        "location":     request.location,
-        "symbol":       request.symbol,
+        "history": request.history or [],
+        "query": request.query,
+        "prompt": request.prompt,
+        "location": request.location,
+        "symbol": request.symbol,
         "aspect_ratio": request.aspect_ratio,
-        "image_path":   request.image_path,
-        "duration":     request.duration,
-        "ratio":        request.ratio,
-        "user_plan":    request.user_plan or "basic",
-        "user":         None,
+        "image_path": request.image_path,
+        "duration": request.duration,
+        "ratio": request.ratio,
+        "user_plan": request.user_plan or "professional",
+        "user": None,
     }
 
 
@@ -213,7 +229,9 @@ async def _detect_intent(message: str, context: Dict[str, Any]) -> str:
     orchestrator = get_agent("orchestrator")
     orch_response = await orchestrator.execute(message, context)
     intent = (
-        orch_response.response if hasattr(orch_response, "response") else str(orch_response)
+        orch_response.response
+        if hasattr(orch_response, "response")
+        else str(orch_response)
     )
     return intent if intent in _VALID_INTENTS else "chat"
 
@@ -223,7 +241,9 @@ async def _execute_car_agent(message: str, context: Dict[str, Any]) -> Any:
     vehicle_db_svc = get_service("vehicle_db")
     car_svc = get_service("car")
     user_id = (
-        str(context.get("user", {}).get("id", "guest")) if context.get("user") else "guest"
+        str(context.get("user", {}).get("id", "guest"))
+        if context.get("user")
+        else "guest"
     )
     vehicle = None
     vehicle_id = None
@@ -234,7 +254,9 @@ async def _execute_car_agent(message: str, context: Dict[str, Any]) -> Any:
         access_token = vehicle.get("access_token") if vehicle else None
         if vehicle and await vehicle_db_svc.is_token_expired(user_id, vehicle_id):
             if car_svc:
-                new_tokens = await car_svc.refresh_access_token(vehicle["refresh_token"])
+                new_tokens = await car_svc.refresh_access_token(
+                    vehicle["refresh_token"]
+                )
                 if "error" not in new_tokens:
                     await vehicle_db_svc.update_tokens(
                         user_id=user_id,
@@ -244,11 +266,14 @@ async def _execute_car_agent(message: str, context: Dict[str, Any]) -> Any:
                         expires_in=new_tokens.get("expires_in", 7200),
                     )
                     access_token = new_tokens["access_token"]
-    return await car_agent.process(message, {
-        "user_id":      user_id,
-        "vehicle_id":   vehicle_id,
-        "access_token": access_token,
-    })
+    return await car_agent.process(
+        message,
+        {
+            "user_id": user_id,
+            "vehicle_id": vehicle_id,
+            "access_token": access_token,
+        },
+    )
 
 
 def _normalize_result(intent: str, agent_result: Any) -> Dict[str, Any]:
@@ -260,12 +285,17 @@ def _normalize_result(intent: str, agent_result: Any) -> Dict[str, Any]:
 
 
 def _build_error_payload() -> Dict[str, Any]:
-    return {"intent": "chat", "type": "error", "text": "Nao foi possivel processar sua solicitacao."}
+    return {
+        "intent": "chat",
+        "type": "error",
+        "text": "Nao foi possivel processar sua solicitacao.",
+    }
 
 
 # ---------------------------------------------------------------------------
 # /stream endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.post("/stream")
 @limiter.limit("10/minute")
@@ -292,7 +322,11 @@ async def chat_stream(
                 agent_result = await handler(body.message, context)
             else:
                 chat_fallback = get_agent("chat")
-                agent_result = await chat_fallback.execute(body.message, context) if chat_fallback else None
+                agent_result = (
+                    await chat_fallback.execute(body.message, context)
+                    if chat_fallback
+                    else None
+                )
         payload = _normalize_result(intent, agent_result)
     except Exception as exc:
         logger.exception("HTTP chat stream failed: %s", exc)
@@ -307,6 +341,7 @@ async def chat_stream(
 # ============================================
 # WEBSOCKET ENDPOINT
 # ============================================
+
 
 @router.websocket("/ws/{conversation_id}")
 async def chat_websocket(
@@ -344,7 +379,7 @@ async def chat_websocket(
 
         user_id = user["id"]
         ws_user_id = str(user_id)
-        user_plan = user.get("plan", "basic")
+        user_plan = user.get("plan", "professional")
 
         conv_response = (
             db.table("conversations")
@@ -375,9 +410,13 @@ async def chat_websocket(
 
             conversation_context: List[Dict[str, Any]] = []
             try:
-                conversation_context = await redis_svc.get_conversation_context(
-                    user_id=user_id, last_n=10,
-                ) or []
+                conversation_context = (
+                    await redis_svc.get_conversation_context(
+                        user_id=user_id,
+                        last_n=10,
+                    )
+                    or []
+                )
             except Exception as e:
                 logger.warning("Redis context fetch failed for user %s: %s", user_id, e)
                 conversation_context = []
@@ -396,14 +435,17 @@ async def chat_websocket(
                         "role": msg.get("role"),
                         "content": msg.get("content"),
                         "timestamp": msg.get("created_at")
-                            or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     }
                     for msg in (history_response.data or [])
                 ]
                 try:
                     for msg in conversation_context:
                         await redis_svc.save_conversation_message(
-                            user_id=user_id, message=msg, max_messages=20, expire_seconds=3600,
+                            user_id=user_id,
+                            message=msg,
+                            max_messages=20,
+                            expire_seconds=3600,
                         )
                 except Exception as e:
                     logger.warning("Redis warm-up failed for user %s: %s", user_id, e)
@@ -422,11 +464,18 @@ async def chat_websocket(
             }
             try:
                 await redis_svc.save_conversation_message(
-                    user_id=user_id, message=user_msg, max_messages=20, expire_seconds=3600,
+                    user_id=user_id,
+                    message=user_msg,
+                    max_messages=20,
+                    expire_seconds=3600,
                 )
-                await redis_svc.refresh_conversation_ttl(user_id=user_id, expire_seconds=3600)
+                await redis_svc.refresh_conversation_ttl(
+                    user_id=user_id, expire_seconds=3600
+                )
             except Exception as e:
-                logger.warning("Redis user message save failed for user %s: %s", user_id, e)
+                logger.warning(
+                    "Redis user message save failed for user %s: %s", user_id, e
+                )
 
             history = [
                 {"role": msg["role"], "content": msg["content"]}
@@ -438,9 +487,12 @@ async def chat_websocket(
 
             orchestrator = get_agent("orchestrator")
             context_for_orchestrator: Dict[str, Any] = {
-                "history": history, "user_plan": user_plan,
+                "history": history,
+                "user_plan": user_plan,
             }
-            orchestrator_resp = await orchestrator.execute(user_message, context_for_orchestrator)
+            orchestrator_resp = await orchestrator.execute(
+                user_message, context_for_orchestrator
+            )
             action = (
                 orchestrator_resp.response
                 if hasattr(orchestrator_resp, "response")
@@ -448,8 +500,17 @@ async def chat_websocket(
             )
 
             valid_actions = {
-                "chat", "search", "dev", "image", "video", "finance",
-                "weather", "calendar", "traffic", "car", "voice",
+                "chat",
+                "search",
+                "dev",
+                "image",
+                "video",
+                "finance",
+                "weather",
+                "calendar",
+                "traffic",
+                "car",
+                "voice",
             }
             if action not in valid_actions:
                 action = "chat"
@@ -465,7 +526,9 @@ async def chat_websocket(
                 decision = {"action": action}
             decision.setdefault("action", action)
 
-            full_response = await chat_service.dispatch(action, user_message, decision, history)
+            full_response = await chat_service.dispatch(
+                action, user_message, decision, history
+            )
 
             if full_response:
                 assistant_msg_data = {
@@ -479,15 +542,26 @@ async def chat_websocket(
                 assistant_msg = {
                     "role": "assistant",
                     "content": full_response,
-                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": datetime.now(timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    ),
                 }
                 try:
                     await redis_svc.save_conversation_message(
-                        user_id=user_id, message=assistant_msg, max_messages=20, expire_seconds=3600,
+                        user_id=user_id,
+                        message=assistant_msg,
+                        max_messages=20,
+                        expire_seconds=3600,
                     )
-                    await redis_svc.refresh_conversation_ttl(user_id=user_id, expire_seconds=3600)
+                    await redis_svc.refresh_conversation_ttl(
+                        user_id=user_id, expire_seconds=3600
+                    )
                 except Exception as e:
-                    logger.warning("Redis assistant message save failed for user %s: %s", user_id, e)
+                    logger.warning(
+                        "Redis assistant message save failed for user %s: %s",
+                        user_id,
+                        e,
+                    )
 
                 db.table("conversations").update(
                     {"updated_at": datetime.now(timezone.utc).isoformat()}
@@ -495,10 +569,12 @@ async def chat_websocket(
 
                 await websocket.send_json({"type": "done", "message_id": message_id})
             else:
-                await websocket.send_json({
-                    "type": "error",
-                    "content": "Nao foi possivel gerar uma resposta.",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "content": "Nao foi possivel gerar uma resposta.",
+                    }
+                )
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected for conversation %s", conversation_id)

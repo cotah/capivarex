@@ -31,7 +31,11 @@ def is_rate_limited(user_id: int) -> bool:
     last_time = _user_last_message_time.get(user_id)
 
     if last_time is not None and (current_time - last_time) < RATE_LIMIT_SECONDS:
-        logger.debug("Rate limited user_id=%s (%.1fs since last message)", user_id, current_time - last_time)
+        logger.debug(
+            "Rate limited user_id=%s (%.1fs since last message)",
+            user_id,
+            current_time - last_time,
+        )
         return True
 
     _user_last_message_time[user_id] = current_time

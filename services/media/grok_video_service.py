@@ -55,9 +55,7 @@ class GrokVideoService(BaseService):
                 "xai-sdk not installed. Run: pip install xai-sdk"
             )
         except Exception as e:
-            raise ServiceUnavailableError(
-                f"Failed to init Grok client: {e}"
-            )
+            raise ServiceUnavailableError(f"Failed to init Grok client: {e}")
 
     async def _health_check(self) -> bool:
         return self.client is not None
@@ -129,14 +127,16 @@ class GrokVideoService(BaseService):
             b64 = base64.b64encode(image_data).decode("utf-8")
             data_uri = f"data:{mime_type};base64,{b64}"
 
-            effective_prompt = prompt.strip() if prompt else (
-                "Animate this image with gentle, natural motion"
-                " and cinematic feel"
+            effective_prompt = (
+                prompt.strip()
+                if prompt
+                else (
+                    "Animate this image with gentle, natural motion and cinematic feel"
+                )
             )
 
             self.logger.info(
-                "Grok image-to-video: prompt='%s...', duration=%ds,"
-                " res=%s",
+                "Grok image-to-video: prompt='%s...', duration=%ds, res=%s",
                 effective_prompt[:60],
                 duration,
                 resolution,
@@ -164,9 +164,7 @@ class GrokVideoService(BaseService):
                 }
 
             # Download video from temporary URL
-            video_path = await self._download_video(
-                response.url, prefix="grok_i2v"
-            )
+            video_path = await self._download_video(response.url, prefix="grok_i2v")
 
             latency = time.time() - start_time
             self._track_call(latency, error=False)
@@ -183,9 +181,7 @@ class GrokVideoService(BaseService):
         except Exception as e:
             latency = time.time() - start_time
             self._track_call(latency, error=True)
-            self.logger.error(
-                "Grok image-to-video failed: %s", e, exc_info=True
-            )
+            self.logger.error("Grok image-to-video failed: %s", e, exc_info=True)
             return {"success": False, "error": str(e)}
 
     async def text_to_video(
@@ -237,9 +233,7 @@ class GrokVideoService(BaseService):
                     "error": "Video filtered by content moderation",
                 }
 
-            video_path = await self._download_video(
-                response.url, prefix="grok_t2v"
-            )
+            video_path = await self._download_video(response.url, prefix="grok_t2v")
 
             latency = time.time() - start_time
             self._track_call(latency, error=False)
@@ -256,20 +250,14 @@ class GrokVideoService(BaseService):
         except Exception as e:
             latency = time.time() - start_time
             self._track_call(latency, error=True)
-            self.logger.error(
-                "Grok text-to-video failed: %s", e, exc_info=True
-            )
+            self.logger.error("Grok text-to-video failed: %s", e, exc_info=True)
             return {"success": False, "error": str(e)}
 
-    async def _download_video(
-        self, url: str, prefix: str = "vid"
-    ) -> str:
+    async def _download_video(self, url: str, prefix: str = "vid") -> str:
         """Download video from temporary xAI URL and save locally."""
         os.makedirs("generated_videos", exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = os.path.join(
-            "generated_videos", f"{prefix}_{timestamp}.mp4"
-        )
+        output_path = os.path.join("generated_videos", f"{prefix}_{timestamp}.mp4")
 
         async with httpx.AsyncClient(timeout=120) as http:
             resp = await http.get(url)
@@ -278,7 +266,5 @@ class GrokVideoService(BaseService):
                 f.write(resp.content)
 
         size_kb = os.path.getsize(output_path) / 1024
-        self.logger.info(
-            "Video saved: %s (%.1f KB)", output_path, size_kb
-        )
+        self.logger.info("Video saved: %s (%.1f KB)", output_path, size_kb)
         return output_path

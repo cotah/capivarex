@@ -7,6 +7,7 @@ Endpoints:
     GET /route       - Get route with traffic information
     GET /check-event - Check traffic for the next calendar event
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ logger = logging.getLogger("capivarex.api.routes.traffic")
 # ---------------------------------------------------------------------------
 # Agent helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_traffic_agent():
     """Retrieve the traffic agent from the registry."""
@@ -50,6 +52,7 @@ def _get_calendar_agent():
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/route", summary="Get route with traffic information")
 async def get_route(

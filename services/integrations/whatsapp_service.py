@@ -51,7 +51,9 @@ async def send_text_message(to: str, text: str) -> Optional[Dict[str, Any]]:
     Returns: API response dict or None on failure.
     """
     if not is_configured():
-        logger.warning("WhatsApp not configured — missing WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID")
+        logger.warning(
+            "WhatsApp not configured — missing WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID"
+        )
         return None
 
     # Clean phone number — remove +, spaces, dashes
@@ -86,7 +88,11 @@ async def send_text_message(to: str, text: str) -> Optional[Dict[str, Any]]:
                 logger.info("WhatsApp: sent to %s (id=%s)", clean_to[-4:], msg_id[:16])
                 last_response = data
             else:
-                logger.error("WhatsApp send failed: %s %s", resp.status_code, data.get("error", data))
+                logger.error(
+                    "WhatsApp send failed: %s %s",
+                    resp.status_code,
+                    data.get("error", data),
+                )
                 return None
 
         except Exception as e:
@@ -278,7 +284,11 @@ async def send_interactive_buttons(
             logger.info("WhatsApp: sent buttons to %s", clean_to[-4:])
             return data
         else:
-            logger.error("WhatsApp buttons failed: %s %s", resp.status_code, data.get("error", data))
+            logger.error(
+                "WhatsApp buttons failed: %s %s",
+                resp.status_code,
+                data.get("error", data),
+            )
             return None
 
     except Exception as e:
@@ -347,7 +357,11 @@ async def send_link_button(
             logger.info("WhatsApp: sent link button to %s", clean_to[-4:])
             return data
         else:
-            logger.error("WhatsApp link button failed: %s %s", resp.status_code, data.get("error", data))
+            logger.error(
+                "WhatsApp link button failed: %s %s",
+                resp.status_code,
+                data.get("error", data),
+            )
             return None
 
     except Exception as e:

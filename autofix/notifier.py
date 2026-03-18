@@ -17,6 +17,7 @@ Environment variables:
   TELEGRAM_BOT_TOKEN        — bot token
   TELEGRAM_ADMIN_CHAT_ID    — your personal Telegram chat ID
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +28,7 @@ logger = logging.getLogger("capivarex.autofix.notifier")
 # ---------------------------------------------------------------------------
 # Admin alert — new ticket detected
 # ---------------------------------------------------------------------------
+
 
 async def notify_new_ticket(ticket: dict, is_new: bool) -> None:
     """
@@ -59,6 +61,7 @@ async def notify_new_ticket(ticket: dict, is_new: bool) -> None:
     )
 
     from telegram_bot import send_proactive_message
+
     await send_proactive_message(chat_id=admin_chat_id, text=text)
 
 
@@ -91,22 +94,25 @@ async def notify_patch_ready(patch: dict, patch_index: int) -> None:
     # Inline keyboard: ✅ Aprovar | ❌ Rejeitar
     try:
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = InlineKeyboardMarkup([
+
+        keyboard = InlineKeyboardMarkup(
             [
-                InlineKeyboardButton(
-                    "✅ Aprovar e abrir PR",
-                    callback_data=f"autofix_approve:{patch_index}"
-                ),
-                InlineKeyboardButton(
-                    "❌ Rejeitar",
-                    callback_data=f"autofix_reject:{patch_index}"
-                ),
+                [
+                    InlineKeyboardButton(
+                        "✅ Aprovar e abrir PR",
+                        callback_data=f"autofix_approve:{patch_index}",
+                    ),
+                    InlineKeyboardButton(
+                        "❌ Rejeitar", callback_data=f"autofix_reject:{patch_index}"
+                    ),
+                ]
             ]
-        ])
+        )
     except ImportError:
         keyboard = None
 
     from telegram_bot import send_proactive_message
+
     await send_proactive_message(
         chat_id=admin_chat_id,
         text=text,
@@ -127,6 +133,7 @@ async def notify_pr_created(patch_index: int, pr_url: str, ticket_id: str) -> No
         f"Revise o diff e faça o merge quando estiver pronto."
     )
     from telegram_bot import send_proactive_message
+
     await send_proactive_message(chat_id=admin_chat_id, text=text)
 
 
@@ -143,4 +150,5 @@ async def notify_pr_failed(patch_index: int, ticket_id: str, error: str) -> None
         f"Verifique os logs do Railway para mais detalhes."
     )
     from telegram_bot import send_proactive_message
+
     await send_proactive_message(chat_id=admin_chat_id, text=text)

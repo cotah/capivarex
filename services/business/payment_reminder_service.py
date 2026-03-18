@@ -26,17 +26,40 @@ logger = logging.getLogger(__name__)
 
 # Payment keywords (multi-language)
 PAYMENT_KEYWORDS_PT = [
-    "conta", "fatura", "pagamento", "boleto", "prestação",
-    "mensalidade", "anuidade", "vencimento", "vence dia",
-    "pagar até", "débito", "cobrança", "parcela",
+    "conta",
+    "fatura",
+    "pagamento",
+    "boleto",
+    "prestação",
+    "mensalidade",
+    "anuidade",
+    "vencimento",
+    "vence dia",
+    "pagar até",
+    "débito",
+    "cobrança",
+    "parcela",
 ]
 PAYMENT_KEYWORDS_EN = [
-    "bill", "invoice", "payment", "due date", "pay by",
-    "subscription", "rent", "mortgage", "installment",
-    "utility bill", "electric bill", "water bill",
+    "bill",
+    "invoice",
+    "payment",
+    "due date",
+    "pay by",
+    "subscription",
+    "rent",
+    "mortgage",
+    "installment",
+    "utility bill",
+    "electric bill",
+    "water bill",
 ]
 PAYMENT_KEYWORDS_ES = [
-    "factura", "pago", "vencimiento", "cuota", "recibo",
+    "factura",
+    "pago",
+    "vencimiento",
+    "cuota",
+    "recibo",
 ]
 
 ALL_PAYMENT_KEYWORDS = PAYMENT_KEYWORDS_PT + PAYMENT_KEYWORDS_EN + PAYMENT_KEYWORDS_ES
@@ -48,6 +71,7 @@ PAYMENT_CONTEXT_KEY = "payment_reminders"
 # ---------------------------------------------------------------------------
 # Detection: extract payment info from messages
 # ---------------------------------------------------------------------------
+
 
 def detect_payment_mention(message: str) -> bool:
     """Quick check if message mentions a payment/bill."""
@@ -80,6 +104,7 @@ JSON only, no markdown:"""
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -132,6 +157,7 @@ def _fallback_extract(message: str) -> Optional[Dict[str, Any]]:
 # Storage: persist payments in user_context
 # ---------------------------------------------------------------------------
 
+
 async def save_payment(user_id: str, payment: Dict[str, Any]) -> bool:
     """Save a payment reminder to user_context."""
     db = get_service("database")
@@ -146,19 +172,23 @@ async def save_payment(user_id: str, payment: Dict[str, Any]) -> bool:
 
         # Dedup by name (case insensitive)
         name_lower = payment.get("name", "").lower().strip()
-        existing = [p for p in existing if p.get("name", "").lower().strip() != name_lower]
+        existing = [
+            p for p in existing if p.get("name", "").lower().strip() != name_lower
+        ]
 
         # Add new
         payment["created_at"] = datetime.now(timezone.utc).isoformat()
         existing.append(payment)
 
         # Save
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": PAYMENT_CONTEXT_KEY,
-            "value": json.dumps(existing),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": PAYMENT_CONTEXT_KEY,
+                "value": json.dumps(existing),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
 
         return True
 
@@ -198,18 +228,22 @@ async def remove_payment(user_id: str, payment_name: str) -> bool:
     try:
         existing = await _get_payments(user_id)
         name_lower = payment_name.lower().strip()
-        filtered = [p for p in existing if p.get("name", "").lower().strip() != name_lower]
+        filtered = [
+            p for p in existing if p.get("name", "").lower().strip() != name_lower
+        ]
 
         if len(filtered) == len(existing):
             return False  # Not found
 
         client = db.get_client()
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": PAYMENT_CONTEXT_KEY,
-            "value": json.dumps(filtered),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": PAYMENT_CONTEXT_KEY,
+                "value": json.dumps(filtered),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
         return True
 
     except Exception as e:
@@ -225,6 +259,7 @@ async def list_payments(user_id: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Check & Alert: proactivity loop runner
 # ---------------------------------------------------------------------------
+
 
 async def check_payments_due(user_id: str, user_name: str = "") -> List[Dict[str, Any]]:
     """
@@ -247,7 +282,9 @@ async def check_payments_due(user_id: str, user_name: str = "") -> List[Dict[str
         if due_date_str:
             # Specific date
             try:
-                due_dt = datetime.strptime(due_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                due_dt = datetime.strptime(due_date_str, "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
                 days_until = (due_dt - now).days
             except ValueError:
                 continue
@@ -279,11 +316,13 @@ async def check_payments_due(user_id: str, user_name: str = "") -> List[Dict[str
             urgency = "overdue"
 
         if urgency:
-            alerts.append({
-                **payment,
-                "days_until": days_until,
-                "urgency": urgency,
-            })
+            alerts.append(
+                {
+                    **payment,
+                    "days_until": days_until,
+                    "urgency": urgency,
+                }
+            )
 
     return alerts
 
@@ -325,6 +364,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -332,7 +372,9 @@ Generate:"""
                 max_tokens=250,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
@@ -341,16 +383,26 @@ Generate:"""
     # Fallback
     lines = [f"💰 Hey {name}! Quick payment heads-up:\n"]
     for a in alerts:
-        emoji = "🔴" if a["urgency"] == "overdue" else "🟡" if a["urgency"] == "today" else "📅"
+        emoji = (
+            "🔴"
+            if a["urgency"] == "overdue"
+            else "🟡"
+            if a["urgency"] == "today"
+            else "📅"
+        )
         amount = f" ({a['amount']})" if a.get("amount") else ""
         if a["urgency"] == "overdue":
-            lines.append(f"{emoji} **{a['name']}**{amount} — overdue by {abs(a['days_until'])} day(s)!")
+            lines.append(
+                f"{emoji} **{a['name']}**{amount} — overdue by {abs(a['days_until'])} day(s)!"
+            )
         elif a["urgency"] == "today":
             lines.append(f"{emoji} **{a['name']}**{amount} — due TODAY!")
         elif a["urgency"] == "tomorrow":
             lines.append(f"{emoji} **{a['name']}**{amount} — due tomorrow")
         else:
-            lines.append(f"{emoji} **{a['name']}**{amount} — due in {a['days_until']} days")
+            lines.append(
+                f"{emoji} **{a['name']}**{amount} — due in {a['days_until']} days"
+            )
 
     lines.append("\n💬 Want me to set a calendar reminder?")
     return "\n".join(lines)
@@ -359,6 +411,7 @@ Generate:"""
 # ---------------------------------------------------------------------------
 # Main entry point for implicit detection
 # ---------------------------------------------------------------------------
+
 
 async def handle_payment_mention(
     user_id: str,

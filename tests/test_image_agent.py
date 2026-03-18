@@ -1,6 +1,7 @@
 """
 Unit tests for ImageAgent — AI image generation.
 """
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from agents.core import AgentStatus
 @pytest.fixture
 def image_agent():
     from agents.specialized.image_agent import ImageAgent
+
     return ImageAgent()
 
 
@@ -18,10 +20,13 @@ def _make_image_svc(result=None):
     """Build a mock image service that exposes generate_image directly."""
     svc = AsyncMock()
     svc.initialize = AsyncMock()
-    svc.generate_image = AsyncMock(return_value=result or {
-        "success": True,
-        "url": "https://example.com/image.png",
-    })
+    svc.generate_image = AsyncMock(
+        return_value=result
+        or {
+            "success": True,
+            "url": "https://example.com/image.png",
+        }
+    )
     return svc
 
 

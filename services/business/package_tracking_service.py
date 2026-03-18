@@ -41,10 +41,25 @@ TRACKING_PATTERNS = [
 
 # Keywords that indicate a tracking number is nearby
 TRACKING_KEYWORDS = [
-    "tracking", "track", "rastreio", "rastrear", "shipped", "enviado",
-    "dispatch", "delivery", "entrega", "encomenda", "package", "parcel",
-    "courier", "carrier", "transportadora", "seguimiento",
-    "order shipped", "your order", "a sua encomenda",
+    "tracking",
+    "track",
+    "rastreio",
+    "rastrear",
+    "shipped",
+    "enviado",
+    "dispatch",
+    "delivery",
+    "entrega",
+    "encomenda",
+    "package",
+    "parcel",
+    "courier",
+    "carrier",
+    "transportadora",
+    "seguimiento",
+    "order shipped",
+    "your order",
+    "a sua encomenda",
 ]
 
 STORAGE_KEY = "tracked_packages"
@@ -75,10 +90,12 @@ def detect_tracking_numbers(text: str) -> List[Dict[str, str]]:
             if carrier is None and not has_keywords:
                 continue
             seen.add(num)
-            found.append({
-                "number": num,
-                "carrier": carrier or "auto",
-            })
+            found.append(
+                {
+                    "number": num,
+                    "carrier": carrier or "auto",
+                }
+            )
 
     return found[:5]  # Max 5 per message
 
@@ -86,6 +103,7 @@ def detect_tracking_numbers(text: str) -> List[Dict[str, str]]:
 # ---------------------------------------------------------------------------
 # Storage
 # ---------------------------------------------------------------------------
+
 
 async def save_package(user_id: str, package: Dict[str, Any]) -> bool:
     """Save a tracked package to user_context."""
@@ -106,12 +124,14 @@ async def save_package(user_id: str, package: Dict[str, Any]) -> bool:
         package["delivered"] = False
         existing.append(package)
 
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": STORAGE_KEY,
-            "value": json.dumps(existing),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": STORAGE_KEY,
+                "value": json.dumps(existing),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
         return True
 
     except Exception as e:
@@ -155,12 +175,14 @@ async def remove_package(user_id: str, tracking_number: str) -> bool:
             return False
 
         client = db.get_client()
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": STORAGE_KEY,
-            "value": json.dumps(filtered),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": STORAGE_KEY,
+                "value": json.dumps(filtered),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
         return True
 
     except Exception as e:
@@ -176,6 +198,7 @@ async def list_packages(user_id: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Status Checking
 # ---------------------------------------------------------------------------
+
 
 async def check_package_updates(user_id: str) -> List[Dict[str, Any]]:
     """
@@ -226,18 +249,22 @@ async def check_package_updates(user_id: str) -> List[Dict[str, Any]]:
                 if result.get("delivered"):
                     pkg["delivered"] = True
 
-                updates.append({
-                    **pkg,
-                    "previous_status": previous_status,
-                    "new_status": current_status,
-                    "status_emoji": result.get("status_emoji", "📦"),
-                    "last_location": result.get("last_location", ""),
-                    "estimated_delivery": result.get("estimated_delivery", ""),
-                    "events": result.get("events", [])[:3],
-                })
+                updates.append(
+                    {
+                        **pkg,
+                        "previous_status": previous_status,
+                        "new_status": current_status,
+                        "status_emoji": result.get("status_emoji", "📦"),
+                        "last_location": result.get("last_location", ""),
+                        "estimated_delivery": result.get("estimated_delivery", ""),
+                        "events": result.get("events", [])[:3],
+                    }
+                )
 
         except Exception as e:
-            logger.warning("Track check failed for %s: %s", pkg.get("number", "?")[:8], e)
+            logger.warning(
+                "Track check failed for %s: %s", pkg.get("number", "?")[:8], e
+            )
 
         updated_packages.append(pkg)
 
@@ -247,12 +274,14 @@ async def check_package_updates(user_id: str) -> List[Dict[str, Any]]:
         if db and db.is_initialized():
             try:
                 client = db.get_client()
-                client.table("user_context").upsert({
-                    "user_id": user_id,
-                    "key": STORAGE_KEY,
-                    "value": json.dumps(updated_packages),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }).execute()
+                client.table("user_context").upsert(
+                    {
+                        "user_id": user_id,
+                        "key": STORAGE_KEY,
+                        "value": json.dumps(updated_packages),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).execute()
             except Exception:
                 pass
 
@@ -263,8 +292,10 @@ async def check_package_updates(user_id: str) -> List[Dict[str, Any]]:
 # Alert Generation
 # ---------------------------------------------------------------------------
 
+
 async def generate_tracking_alert(
-    user_name: str, updates: List[Dict[str, Any]],
+    user_name: str,
+    updates: List[Dict[str, Any]],
 ) -> Optional[str]:
     """Generate humanized tracking update alert."""
     if not updates:
@@ -299,6 +330,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -306,7 +338,9 @@ Generate:"""
                 max_tokens=250,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
@@ -321,9 +355,13 @@ Generate:"""
         new_status = u.get("new_status", "unknown")
 
         if "delivered" in new_status.lower():
-            lines.append(f"🎉 **{num_short}...**{carrier_str} — Delivered! It's arrived!")
+            lines.append(
+                f"🎉 **{num_short}...**{carrier_str} — Delivered! It's arrived!"
+            )
         elif "transit" in new_status.lower():
-            lines.append(f"🚚 **{num_short}...**{carrier_str} — In transit: {new_status}")
+            lines.append(
+                f"🚚 **{num_short}...**{carrier_str} — In transit: {new_status}"
+            )
         else:
             lines.append(f"📦 **{num_short}...**{carrier_str} — {new_status}")
 
@@ -334,8 +372,12 @@ Generate:"""
 # Entry point: detect tracking from messages/emails
 # ---------------------------------------------------------------------------
 
+
 async def handle_tracking_mention(
-    user_id: str, message: str, user_name: str = "", source: str = "chat",
+    user_id: str,
+    message: str,
+    user_name: str = "",
+    source: str = "chat",
 ) -> Optional[str]:
     """Detect and save tracking numbers from user message or email."""
     numbers = detect_tracking_numbers(message)
@@ -365,6 +407,7 @@ async def handle_tracking_mention(
 # ---------------------------------------------------------------------------
 # PROACTIVE: Email scanning for tracking numbers
 # ---------------------------------------------------------------------------
+
 
 async def scan_emails_for_tracking(user_id: str) -> int:
     """
@@ -417,7 +460,8 @@ async def scan_emails_for_tracking(user_id: str) -> int:
                     existing_numbers.add(num)
                     logger.info(
                         "Auto-detected tracking %s from email for user=%s",
-                        num[:8], user_id[:8],
+                        num[:8],
+                        user_id[:8],
                     )
 
         return found_count
@@ -430,6 +474,7 @@ async def scan_emails_for_tracking(user_id: str) -> int:
 # ---------------------------------------------------------------------------
 # PROACTIVE: Main loop entry point
 # ---------------------------------------------------------------------------
+
 
 async def proactive_tracking_check(
     user_id: str,
@@ -448,7 +493,11 @@ async def proactive_tracking_check(
     try:
         new_from_email = await scan_emails_for_tracking(user_id)
         if new_from_email > 0:
-            logger.info("Found %d new tracking numbers from email for %s", new_from_email, user_id[:8])
+            logger.info(
+                "Found %d new tracking numbers from email for %s",
+                new_from_email,
+                user_id[:8],
+            )
     except Exception:
         pass
 
@@ -477,15 +526,19 @@ async def _store_tracking_alert(
             return
 
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "tracking_alert",
-            "content": text[:2000],
-            "metadata": json.dumps({
-                "packages_updated": len(updates),
-                "numbers": [u.get("number", "")[:12] for u in updates],
-            }),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "tracking_alert",
+                "content": text[:2000],
+                "metadata": json.dumps(
+                    {
+                        "packages_updated": len(updates),
+                        "numbers": [u.get("number", "")[:12] for u in updates],
+                    }
+                ),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Store tracking alert failed: %s", e)
 
@@ -493,6 +546,7 @@ async def _store_tracking_alert(
 # ---------------------------------------------------------------------------
 # WEBHOOK: Handle 17TRACK push notification
 # ---------------------------------------------------------------------------
+
 
 async def handle_webhook_update(
     tracking_number: str,
@@ -535,7 +589,11 @@ async def handle_webhook_update(
             user_id = row.get("user_id", "")
             packages_raw = row.get("value", "[]")
             try:
-                packages = json.loads(packages_raw) if isinstance(packages_raw, str) else packages_raw
+                packages = (
+                    json.loads(packages_raw)
+                    if isinstance(packages_raw, str)
+                    else packages_raw
+                )
             except Exception:
                 continue
 
@@ -543,7 +601,10 @@ async def handle_webhook_update(
                 if pkg.get("number", "").upper() == tracking_number.upper():
                     # Found the user! Generate notification
                     from services.integrations.tracking_service import _STATUS_MAP
-                    emoji, label = _STATUS_MAP.get(status_code, ("📦", f"Status {status_code}"))
+
+                    emoji, label = _STATUS_MAP.get(
+                        status_code, ("📦", f"Status {status_code}")
+                    )
 
                     # Update package status
                     pkg["last_status"] = label
@@ -554,18 +615,26 @@ async def handle_webhook_update(
 
                     # Save updated packages
                     try:
-                        client.table("user_context").upsert({
-                            "user_id": user_id,
-                            "key": STORAGE_KEY,
-                            "value": json.dumps(packages),
-                        }).execute()
+                        client.table("user_context").upsert(
+                            {
+                                "user_id": user_id,
+                                "key": STORAGE_KEY,
+                                "value": json.dumps(packages),
+                            }
+                        ).execute()
                     except Exception:
                         pass
 
                     # Get user name
                     user_name = ""
                     try:
-                        user_result = client.table("users").select("name").eq("id", user_id).limit(1).execute()
+                        user_result = (
+                            client.table("users")
+                            .select("name")
+                            .eq("id", user_id)
+                            .limit(1)
+                            .execute()
+                        )
                         if user_result.data:
                             user_name = user_result.data[0].get("name", "")
                     except Exception:
@@ -588,7 +657,9 @@ async def handle_webhook_update(
 
                     logger.info(
                         "Webhook: tracking %s → status %d for user=%s",
-                        tracking_number[:8], status_code, user_id[:8],
+                        tracking_number[:8],
+                        status_code,
+                        user_id[:8],
                     )
 
                     return {"user_id": user_id, "message": msg}

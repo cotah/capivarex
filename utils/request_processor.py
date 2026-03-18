@@ -76,9 +76,7 @@ class RequestProcessor:
             logger.warning("Database service not available for context fetching")
             return None
 
-        user_data = await db_service.get_user_by_telegram_id(
-            str(self.user_identifier)
-        )
+        user_data = await db_service.get_user_by_telegram_id(str(self.user_identifier))
         if not user_data:
             logger.debug("User with identifier %s not found.", self.user_identifier)
             return None
@@ -89,7 +87,8 @@ class RequestProcessor:
         except Exception as e:
             logger.error(
                 "Failed to validate user context for %s: %s",
-                self.user_identifier, e,
+                self.user_identifier,
+                e,
             )
             return None
 

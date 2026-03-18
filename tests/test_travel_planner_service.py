@@ -1,4 +1,5 @@
 """Tests for travel planner service — trip detection and proactive alerts."""
+
 import json
 import pytest
 from datetime import datetime, timezone, timedelta
@@ -106,15 +107,28 @@ class TestDetectUpcomingTrips:
         """Detects trip when location is a known destination."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Holiday", location="Bangkok, Thailand", start_days=20, duration_days=10),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event(
+                    "Holiday",
+                    location="Bangkok, Thailand",
+                    start_days=20,
+                    duration_days=10,
+                ),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 1
-        assert "Bangkok" in trips[0]["destination"] or "Thailand" in trips[0]["destination"]
+        assert (
+            "Bangkok" in trips[0]["destination"]
+            or "Thailand" in trips[0]["destination"]
+        )
         assert trips[0]["duration_days"] == 10
 
     @pytest.mark.asyncio
@@ -122,11 +136,16 @@ class TestDetectUpcomingTrips:
         """Detects trip when summary has travel keywords."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Viagem para a Tailândia", start_days=18, duration_days=14),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event("Viagem para a Tailândia", start_days=18, duration_days=14),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 1
@@ -137,11 +156,18 @@ class TestDetectUpcomingTrips:
         """Events shorter than 3 days are skipped."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Trip to Paris", location="Paris", start_days=20, duration_days=1),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event(
+                    "Trip to Paris", location="Paris", start_days=20, duration_days=1
+                ),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 0  # Too short
@@ -151,11 +177,18 @@ class TestDetectUpcomingTrips:
         """Events less than 14 days away are skipped."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Trip to Tokyo", location="Tokyo", start_days=5, duration_days=7),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event(
+                    "Trip to Tokyo", location="Tokyo", start_days=5, duration_days=7
+                ),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 0  # Too soon
@@ -165,11 +198,21 @@ class TestDetectUpcomingTrips:
         """Regular meetings are not detected as trips."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Q4 Planning Week", location="Office", start_days=20, duration_days=5),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event(
+                    "Q4 Planning Week",
+                    location="Office",
+                    start_days=20,
+                    duration_days=5,
+                ),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 0
@@ -177,7 +220,9 @@ class TestDetectUpcomingTrips:
     @pytest.mark.asyncio
     async def test_no_calendar_service(self):
         """Returns empty when calendar not available."""
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             trips = await detect_upcoming_trips("user-123")
         assert trips == []
 
@@ -186,13 +231,27 @@ class TestDetectUpcomingTrips:
         """Detects multiple trips."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Trip to Japan", location="Tokyo", start_days=18, duration_days=10),
-            _make_event("Holiday in Bali", location="Bali, Indonesia", start_days=25, duration_days=7),
-            _make_event("Team meeting", location="Office", start_days=20, duration_days=1),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event(
+                    "Trip to Japan", location="Tokyo", start_days=18, duration_days=10
+                ),
+                _make_event(
+                    "Holiday in Bali",
+                    location="Bali, Indonesia",
+                    start_days=25,
+                    duration_days=7,
+                ),
+                _make_event(
+                    "Team meeting", location="Office", start_days=20, duration_days=1
+                ),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 2  # Two trips, meeting excluded
@@ -219,7 +278,9 @@ class TestTripAlert:
 
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
         mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
         def fake_svc(name):
@@ -239,9 +300,18 @@ class TestTripAlert:
     @pytest.mark.asyncio
     async def test_deduplication(self):
         """Alert not sent twice for same event."""
-        trip = {"event_id": "evt-123", "destination": "Paris", "start": "", "end": "",
-                "duration_days": 5, "summary": "Paris", "location": "Paris",
-                "start_date": "Apr 1", "end_date": "Apr 6", "days_until": 20}
+        trip = {
+            "event_id": "evt-123",
+            "destination": "Paris",
+            "start": "",
+            "end": "",
+            "duration_days": 5,
+            "summary": "Paris",
+            "location": "Paris",
+            "start_date": "Apr 1",
+            "end_date": "Apr 6",
+            "days_until": 20,
+        }
 
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
@@ -249,7 +319,9 @@ class TestTripAlert:
             data=[{"id": "1", "metadata": '{"event_id": "evt-123"}'}]
         )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await generate_trip_alert("user-123", trip, "Marcos")
 
         assert result is None  # Already sent
@@ -257,11 +329,22 @@ class TestTripAlert:
     @pytest.mark.asyncio
     async def test_alert_no_db(self):
         """Alert works even without DB (no dedup, no store)."""
-        trip = {"event_id": "evt-456", "destination": "Lisbon", "start": "", "end": "",
-                "duration_days": 4, "summary": "Lisbon trip", "location": "Lisbon",
-                "start_date": "May 1", "end_date": "May 5", "days_until": 18}
+        trip = {
+            "event_id": "evt-456",
+            "destination": "Lisbon",
+            "start": "",
+            "end": "",
+            "duration_days": 4,
+            "summary": "Lisbon trip",
+            "location": "Lisbon",
+            "start_date": "May 1",
+            "end_date": "May 5",
+            "days_until": 18,
+        }
 
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await generate_trip_alert("user-123", trip, "Ana")
 
         assert result is not None
@@ -274,13 +357,19 @@ class TestHelpers:
     @pytest.mark.asyncio
     async def test_trip_alert_sent_no_db(self):
         from services.business.travel_planner_service import _trip_alert_sent
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             assert await _trip_alert_sent("u1", "evt-1") is False
 
     @pytest.mark.asyncio
     async def test_store_trip_alert_no_db(self):
         from services.business.travel_planner_service import _store_trip_alert
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             await _store_trip_alert("u1", "evt-1", "t", "m", {})  # Should not crash
 
 
@@ -290,18 +379,24 @@ class TestCheckTravelForAllUsers:
     @pytest.mark.asyncio
     async def test_no_db(self):
         from services.business.travel_planner_service import check_travel_for_all_users
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await check_travel_for_all_users()
         assert result == 0
 
     @pytest.mark.asyncio
     async def test_no_users(self):
         from services.business.travel_planner_service import check_travel_for_all_users
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_all_users_with_proactivity_enabled = AsyncMock(return_value=[])
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await check_travel_for_all_users()
         assert result == 0
 
@@ -309,7 +404,10 @@ class TestCheckTravelForAllUsers:
     async def test_humanize_trip_alert_no_gpt(self):
         """Fallback produces warm message without GPT."""
         from services.business.travel_planner_service import _humanize_trip_alert
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await _humanize_trip_alert(
                 "User: Test\nDestination: Bali", "Test", "Bali", 7
             )
@@ -322,11 +420,21 @@ class TestCheckTravelForAllUsers:
         """Detects trip when description has destination."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Férias", description="flying to lisbon portugal", start_days=20, duration_days=5),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event(
+                    "Férias",
+                    description="flying to lisbon portugal",
+                    start_days=20,
+                    duration_days=5,
+                ),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 1
@@ -336,11 +444,16 @@ class TestCheckTravelForAllUsers:
         """Detects trip with 'voo' keyword even without known destination."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Voo para Marrakech", start_days=20, duration_days=5),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event("Voo para Marrakech", start_days=20, duration_days=5),
+            ]
+        )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_cal,
+        ):
             trips = await detect_upcoming_trips("user-123")
 
         assert len(trips) == 1
@@ -353,22 +466,36 @@ class TestCheckTravelForAllUsers:
 
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_all_users_with_proactivity_enabled = AsyncMock(return_value=[
-            {"user_id": "user-abc"},
-        ])
-        mock_db.get_user_by_id = AsyncMock(return_value={
-            "full_name": "Ana Costa", "telegram_chat_id": None,
-        })
+        mock_db.get_all_users_with_proactivity_enabled = AsyncMock(
+            return_value=[
+                {"user_id": "user-abc"},
+            ]
+        )
+        mock_db.get_user_by_id = AsyncMock(
+            return_value={
+                "full_name": "Ana Costa",
+                "telegram_chat_id": None,
+            }
+        )
         # For dedup check: not sent yet
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
         # For store
         mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            _make_event("Férias em Lisboa", location="Lisbon, Portugal", start_days=20, duration_days=7),
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                _make_event(
+                    "Férias em Lisboa",
+                    location="Lisbon, Portugal",
+                    start_days=20,
+                    duration_days=7,
+                ),
+            ]
+        )
 
         def fake_svc(name):
             if name == "database":
@@ -386,12 +513,17 @@ class TestCheckTravelForAllUsers:
     async def test_store_trip_alert_with_db(self):
         """Store actually writes to proactivity_feed."""
         from services.business.travel_planner_service import _store_trip_alert
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
-            await _store_trip_alert("u1", "evt-1", "Trip!", "msg", {"destination": "Paris"})
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
+            await _store_trip_alert(
+                "u1", "evt-1", "Trip!", "msg", {"destination": "Paris"}
+            )
 
         mock_db.get_client.return_value.table.assert_called_with("proactivity_feed")
 
@@ -399,13 +531,16 @@ class TestCheckTravelForAllUsers:
     async def test_trip_alert_sent_found(self):
         """Dedup returns True when alert already sent."""
         from services.business.travel_planner_service import _trip_alert_sent
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"id": "1", "metadata": '{"event_id": "evt-match"}'}]
         )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await _trip_alert_sent("u1", "evt-match")
         assert result is True
 
@@ -413,13 +548,16 @@ class TestCheckTravelForAllUsers:
     async def test_trip_alert_sent_not_found(self):
         """Dedup returns False when different event_id."""
         from services.business.travel_planner_service import _trip_alert_sent
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"id": "1", "metadata": '{"event_id": "evt-other"}'}]
         )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await _trip_alert_sent("u1", "evt-new")
         assert result is False
 
@@ -428,13 +566,16 @@ class TestCheckTravelForAllUsers:
 # Phase 2 — Preference Gathering + Itinerary Building
 # ===========================================================================
 
+
 class TestGatherTravelProfile:
     """Tests for profile gathering from RAG + user_context."""
 
     @pytest.mark.asyncio
     async def test_profile_defaults_no_services(self):
         """Returns empty profile when no services available."""
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             profile = await gather_travel_profile("user-123")
 
         assert profile["travel_style"] == ""
@@ -447,10 +588,16 @@ class TestGatherTravelProfile:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"context_data": '{"travel_style": "adventurous", "budget_level": "mid-range"}'}]
+            data=[
+                {
+                    "context_data": '{"travel_style": "adventurous", "budget_level": "mid-range"}'
+                }
+            ]
         )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             profile = await gather_travel_profile("user-123")
 
         assert profile["travel_style"] == "adventurous"
@@ -461,9 +608,11 @@ class TestGatherTravelProfile:
         """RAG context is included when available."""
         mock_rag = MagicMock()
         mock_rag.is_initialized.return_value = True
-        mock_rag.search = AsyncMock(return_value=[
-            {"content": "User loves hiking and Japanese food"},
-        ])
+        mock_rag.search = AsyncMock(
+            return_value=[
+                {"content": "User loves hiking and Japanese food"},
+            ]
+        )
 
         def fake_svc(name):
             return mock_rag if name == "rag" else None
@@ -480,30 +629,54 @@ class TestPreferenceQuestions:
 
     def test_all_unknown(self):
         """Generates all questions when nothing is known."""
-        profile = {"travel_style": "", "budget_level": "", "travel_companion": "", "interests": []}
+        profile = {
+            "travel_style": "",
+            "budget_level": "",
+            "travel_companion": "",
+            "interests": [],
+        }
         questions = build_preference_questions(profile, "Thailand", 14)
         assert len(questions) >= 3
         assert len(questions) <= 4
 
     def test_companion_known(self):
         """Skips companion question when already known."""
-        profile = {"travel_style": "", "budget_level": "", "travel_companion": "couple", "interests": []}
+        profile = {
+            "travel_style": "",
+            "budget_level": "",
+            "travel_companion": "couple",
+            "interests": [],
+        }
         questions = build_preference_questions(profile, "Japan", 10)
         # Should NOT ask about companion
         assert not any("solo" in q.lower() and "couple" in q.lower() for q in questions)
 
     def test_style_known(self):
         """Skips style question when interests are known."""
-        profile = {"travel_style": "adventurous", "budget_level": "", "travel_companion": "", "interests": ["hiking"]}
+        profile = {
+            "travel_style": "adventurous",
+            "budget_level": "",
+            "travel_companion": "",
+            "interests": ["hiking"],
+        }
         questions = build_preference_questions(profile, "Peru", 7)
         # Should NOT ask about style since interests exist
-        assert not any("relaxed" in q.lower() and "adventurous" in q.lower() for q in questions)
+        assert not any(
+            "relaxed" in q.lower() and "adventurous" in q.lower() for q in questions
+        )
 
     def test_short_trip_no_city_question(self):
         """Short trips (<7 days) don't get the cities question."""
-        profile = {"travel_style": "", "budget_level": "", "travel_companion": "", "interests": []}
+        profile = {
+            "travel_style": "",
+            "budget_level": "",
+            "travel_companion": "",
+            "interests": [],
+        }
         questions = build_preference_questions(profile, "Lisbon", 4)
-        assert not any("cities" in q.lower() or "regions" in q.lower() for q in questions)
+        assert not any(
+            "cities" in q.lower() or "regions" in q.lower() for q in questions
+        )
 
 
 class TestBuildResearchQuery:
@@ -558,6 +731,7 @@ class TestBuildItinerary:
     @pytest.mark.asyncio
     async def test_itinerary_with_preferences(self):
         """Itinerary uses preferences in query."""
+
         def fake_svc(name):
             return None
 
@@ -578,13 +752,19 @@ class TestBuildItinerary:
     @pytest.mark.asyncio
     async def test_save_prefs_no_db(self):
         from services.business.travel_planner_service import _save_travel_preferences
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             await _save_travel_preferences("u1", {"companion": "solo"}, {})
 
     @pytest.mark.asyncio
     async def test_store_itinerary_no_db(self):
         from services.business.travel_planner_service import _store_itinerary
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             await _store_itinerary("u1", "Trip", "itinerary text", "Tokyo")
 
 
@@ -592,13 +772,16 @@ class TestBuildItinerary:
 # Phase 3 — Presentation + Approval + Final Document
 # ===========================================================================
 
+
 class TestGenerateTripSummary:
     """Tests for trip summary/teaser generation."""
 
     @pytest.mark.asyncio
     async def test_summary_no_gpt(self):
         """Fallback summary is still warm and useful."""
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await generate_trip_summary(
                 itinerary="Day 1: Bangkok...\nDay 2: Temples...",
                 destination="Thailand",
@@ -612,7 +795,9 @@ class TestGenerateTripSummary:
     @pytest.mark.asyncio
     async def test_summary_contains_cta(self):
         """Summary asks user to approve or adjust."""
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await generate_trip_summary(
                 itinerary="Week 1: Tokyo...",
                 destination="Japan",
@@ -628,6 +813,7 @@ class TestAdjustItinerary:
     @pytest.mark.asyncio
     async def test_adjust_no_gpt(self):
         """Fallback acknowledges feedback when GPT unavailable."""
+
         def fake_svc(name):
             return None
 
@@ -648,7 +834,9 @@ class TestAdjustItinerary:
         """GPT adjustment returns modified itinerary."""
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
-        mock_openai.chat_completion.return_value = "Great call swapping Chiang Mai for Pai! Here's the updated plan..."
+        mock_openai.chat_completion.return_value = (
+            "Great call swapping Chiang Mai for Pai! Here's the updated plan..."
+        )
 
         def fake_svc(name):
             return mock_openai if name == "openai" else None
@@ -672,6 +860,7 @@ class TestFinalizeItinerary:
     @pytest.mark.asyncio
     async def test_finalize_no_services(self):
         """Finalize works even without GPT/notes (uses current itinerary)."""
+
         def fake_svc(name):
             return None
 
@@ -713,7 +902,10 @@ class TestFinalizeItinerary:
     @pytest.mark.asyncio
     async def test_humanize_confirmation_no_gpt(self):
         from services.business.travel_planner_service import _humanize_confirmation
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             msg = await _humanize_confirmation("Marcos", "Thailand", 14)
         assert "Marcos" in msg
         assert "Thailand" in msg
@@ -722,13 +914,17 @@ class TestFinalizeItinerary:
     @pytest.mark.asyncio
     async def test_save_to_notes_no_service(self):
         from services.business.travel_planner_service import _save_to_notes
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             await _save_to_notes("u1", "Paris", 5, "content")  # Should not crash
 
     @pytest.mark.asyncio
     async def test_save_to_notes_with_db(self):
         """Saves itinerary to user_context even without notes service."""
         from services.business.travel_planner_service import _save_to_notes
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
@@ -746,7 +942,9 @@ class TestFinalizeItinerary:
         """Finalize uses GPT for polished document."""
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
-        mock_openai.chat_completion.return_value = "🗺️ Ana's Japan Adventure — 10 Days\n\nDay 1: Tokyo..."
+        mock_openai.chat_completion.return_value = (
+            "🗺️ Ana's Japan Adventure — 10 Days\n\nDay 1: Tokyo..."
+        )
 
         def fake_svc(name):
             return mock_openai if name == "openai" else None
@@ -769,7 +967,10 @@ class TestFinalizeItinerary:
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = "Hey Marcos! I planned 4 weeks across Thailand — Bangkok, Chiang Mai, islands, and more!"
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.travel_planner_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await generate_trip_summary(
                 itinerary="Week 1: Bangkok\nWeek 2: Chiang Mai",
                 destination="Thailand",
@@ -789,7 +990,9 @@ class TestPlanningSession:
 
     @pytest.mark.asyncio
     async def test_get_session_no_db(self):
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await get_planning_session("user-123")
         assert result is None
 
@@ -801,7 +1004,9 @@ class TestPlanningSession:
             data=[{"context_data": '{"state": "gathering", "destination": "Japan"}'}]
         )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await get_planning_session("user-123")
         assert result is not None
         assert result["state"] == "gathering"
@@ -815,13 +1020,17 @@ class TestPlanningSession:
             data=[{"context_data": '{"state": "completed", "destination": "Japan"}'}]
         )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await get_planning_session("user-123")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_save_session_no_db(self):
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             await save_planning_session("u1", {"state": "gathering"})
 
     @pytest.mark.asyncio
@@ -830,14 +1039,19 @@ class TestPlanningSession:
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
-            await start_planning_session("u1", {
-                "destination": "Bali",
-                "duration_days": 10,
-                "start_date": "Apr 1",
-                "end_date": "Apr 11",
-                "event_id": "evt-1",
-            })
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
+            await start_planning_session(
+                "u1",
+                {
+                    "destination": "Bali",
+                    "duration_days": 10,
+                    "start_date": "Apr 1",
+                    "end_date": "Apr 11",
+                    "event_id": "evt-1",
+                },
+            )
 
         # Verify upsert was called
         mock_db.get_client.return_value.table.assert_called_with("user_context")
@@ -848,7 +1062,9 @@ class TestHandleTravelPlanningMessage:
 
     @pytest.mark.asyncio
     async def test_no_session_returns_none(self):
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await handle_travel_planning_message("u1", "hello", "Marcos")
         assert result is None
 
@@ -857,11 +1073,17 @@ class TestHandleTravelPlanningMessage:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"context_data": '{"state": "detected", "destination": "Japan", "duration_days": 10}'}]
+            data=[
+                {
+                    "context_data": '{"state": "detected", "destination": "Japan", "duration_days": 10}'
+                }
+            ]
         )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await handle_travel_planning_message("u1", "não, depois", "Marcos")
 
         assert result is not None
@@ -873,7 +1095,11 @@ class TestHandleTravelPlanningMessage:
         mock_db.is_initialized.return_value = True
         # For get_planning_session
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"context_data": '{"state": "detected", "destination": "Thailand", "duration_days": 14}'}]
+            data=[
+                {
+                    "context_data": '{"state": "detected", "destination": "Thailand", "duration_days": 14}'
+                }
+            ]
         )
         # For save_planning_session
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
@@ -903,7 +1129,9 @@ class TestParseAnswers:
         assert result.get("companion") == "couple"
 
     def test_parse_style_adventure(self):
-        result = _parse_answers({"q0": "I love trekking and adventure sports"}, ["style?"])
+        result = _parse_answers(
+            {"q0": "I love trekking and adventure sports"}, ["style?"]
+        )
         assert result.get("style") == "adventurous"
 
     def test_parse_style_relaxed(self):
@@ -939,13 +1167,21 @@ class TestPhase3Extra:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"context_data": '{"state": "reviewing", "destination": "Japan", "duration_days": 10, "itinerary": "Day 1: Tokyo"}'}]
+            data=[
+                {
+                    "context_data": '{"state": "reviewing", "destination": "Japan", "duration_days": 10, "itinerary": "Day 1: Tokyo"}'
+                }
+            ]
         )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
         mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
-            result = await handle_travel_planning_message("u1", "perfect, love it!", "Ana")
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
+            result = await handle_travel_planning_message(
+                "u1", "perfect, love it!", "Ana"
+            )
 
         assert result is not None
 
@@ -954,33 +1190,53 @@ class TestPhase3Extra:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"context_data": '{"state": "reviewing", "destination": "Thailand", "duration_days": 14, "itinerary": "Day 1: Bangkok"}'}]
+            data=[
+                {
+                    "context_data": '{"state": "reviewing", "destination": "Thailand", "duration_days": 14, "itinerary": "Day 1: Bangkok"}'
+                }
+            ]
         )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
-            result = await handle_travel_planning_message("u1", "can you change the restaurants?", "Marcos")
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
+            result = await handle_travel_planning_message(
+                "u1", "can you change the restaurants?", "Marcos"
+            )
 
         assert result is not None
 
     @pytest.mark.asyncio
     async def test_humanize_question_fallback(self):
         from services.business.travel_planner_service import _humanize_question
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
-            result = await _humanize_question("Are you traveling solo?", "Marcos", "Japan")
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
+            result = await _humanize_question(
+                "Are you traveling solo?", "Marcos", "Japan"
+            )
         assert len(result) > 10
 
     @pytest.mark.asyncio
     async def test_generate_trip_summary_no_services(self):
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
-            result = await generate_trip_summary("Day 1: Tokyo sightseeing", "Japan", 10, "Marcos")
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
+            result = await generate_trip_summary(
+                "Day 1: Tokyo sightseeing", "Japan", 10, "Marcos"
+            )
         assert result is not None
         assert "Japan" in result
 
     @pytest.mark.asyncio
     async def test_humanize_confirmation_fallback(self):
         from services.business.travel_planner_service import _humanize_confirmation
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await _humanize_confirmation("Ana", "Bali", 7)
         assert "Ana" in result
         assert "Bali" in result
@@ -988,12 +1244,17 @@ class TestPhase3Extra:
     @pytest.mark.asyncio
     async def test_save_to_notes_no_db(self):
         from services.business.travel_planner_service import _save_to_notes
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             await _save_to_notes("u1", "Japan", 10, "itinerary text")
 
     @pytest.mark.asyncio
     async def test_adjust_itinerary_no_services(self):
-        with patch("services.business.travel_planner_service.get_service", return_value=None):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=None
+        ):
             result = await adjust_itinerary(
                 "u1", "current plan text", "more beaches please", "Japan", 10, "Marcos"
             )
@@ -1006,7 +1267,9 @@ class TestPhase3Extra:
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
         mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
             result = await finalize_itinerary("u1", "the plan", "Japan", 10, "Marcos")
         assert result is not None
 
@@ -1058,8 +1321,12 @@ class TestPhase3Extra:
         )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
-            result = await handle_travel_planning_message("u1", "show me the full plan", "Ana")
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
+            result = await handle_travel_planning_message(
+                "u1", "show me the full plan", "Ana"
+            )
 
         assert result is not None
         assert "Day 1" in result
@@ -1070,11 +1337,19 @@ class TestPhase3Extra:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-            data=[{"context_data": '{"state": "detected", "destination": "Japan", "duration_days": 10}'}]
+            data=[
+                {
+                    "context_data": '{"state": "detected", "destination": "Japan", "duration_days": 10}'
+                }
+            ]
         )
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
-            result = await handle_travel_planning_message("u1", "what time is it?", "Marcos")
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
+            result = await handle_travel_planning_message(
+                "u1", "what time is it?", "Marcos"
+            )
 
         assert result is None  # Not a yes/no, pass to other agents
 
@@ -1085,8 +1360,12 @@ class TestPhase3Extra:
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.travel_planner_service.get_service", return_value=mock_db):
-            await save_planning_session("u1", {"state": "gathering", "destination": "Peru"})
+        with patch(
+            "services.business.travel_planner_service.get_service", return_value=mock_db
+        ):
+            await save_planning_session(
+                "u1", {"state": "gathering", "destination": "Peru"}
+            )
 
         mock_db.get_client.return_value.table.assert_called_with("user_context")
 
@@ -1115,7 +1394,12 @@ class TestParseAnswersExtra:
         assert result.get("budget") == "budget"
 
     def test_interests_long_answer(self):
-        result = _parse_answers({"q0": "I really love trying local street food and visiting night markets, especially in Southeast Asia"}, ["q?"])
+        result = _parse_answers(
+            {
+                "q0": "I really love trying local street food and visiting night markets, especially in Southeast Asia"
+            },
+            ["q?"],
+        )
         assert result.get("interests") is not None
         assert len(result["interests"]) > 20
 
@@ -1144,12 +1428,21 @@ class TestBuildPreferenceQuestionsExtra:
     """Extra coverage for question generation."""
 
     def test_budget_known_skips_budget_question(self):
-        profile = {"travel_style": "", "budget_level": "luxury",
-                   "travel_companion": "", "interests": []}
+        profile = {
+            "travel_style": "",
+            "budget_level": "luxury",
+            "travel_companion": "",
+            "interests": [],
+        }
         questions = build_preference_questions(profile, "Bali", 10)
         assert not any("budget" in q.lower() for q in questions)
 
     def test_long_trip_asks_cities(self):
-        profile = {"travel_style": "", "budget_level": "", "travel_companion": "", "interests": []}
+        profile = {
+            "travel_style": "",
+            "budget_level": "",
+            "travel_companion": "",
+            "interests": [],
+        }
         questions = build_preference_questions(profile, "Japan", 21)
         assert any("cities" in q.lower() or "regions" in q.lower() for q in questions)

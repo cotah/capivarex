@@ -95,7 +95,9 @@ async def test_extract_no_trigger_keywords():
 
     # No OpenAI call should be made
     with patch(_SVC_PATH) as mock_svc:
-        await extract_and_save_personal_info("00000000-0000-0000-0000-000000000123", "what's the weather?")
+        await extract_and_save_personal_info(
+            "00000000-0000-0000-0000-000000000123", "what's the weather?"
+        )
     # get_service should not be called for openai since we skip early
     calls = [c for c in mock_svc.call_args_list if c[0][0] == "openai"]
     assert len(calls) == 0
@@ -108,9 +110,7 @@ async def test_extract_with_name_trigger():
 
     # Mock OpenAI
     mock_response = Mock()
-    mock_response.choices = [
-        Mock(message=Mock(content='{"name": "Maria"}'))
-    ]
+    mock_response.choices = [Mock(message=Mock(content='{"name": "Maria"}'))]
     mock_client = AsyncMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
@@ -128,7 +128,9 @@ async def test_extract_with_name_trigger():
         return None
 
     with patch(_SVC_PATH, side_effect=side_effect):
-        await extract_and_save_personal_info("00000000-0000-0000-0000-000000000123", "my name is Maria")
+        await extract_and_save_personal_info(
+            "00000000-0000-0000-0000-000000000123", "my name is Maria"
+        )
 
     db.save_user_context.assert_called_once()
     saved_data = db.save_user_context.call_args[0][2]
@@ -144,7 +146,9 @@ async def test_extract_no_openai():
 
     with patch(_SVC_PATH, return_value=None):
         # Should not raise
-        await extract_and_save_personal_info("00000000-0000-0000-0000-000000000123", "my name is Test")
+        await extract_and_save_personal_info(
+            "00000000-0000-0000-0000-000000000123", "my name is Test"
+        )
 
 
 @pytest.mark.asyncio
@@ -163,7 +167,9 @@ async def test_extract_gpt_returns_empty():
 
     with patch(_SVC_PATH, return_value=openai_svc):
         # Should not raise, just return without saving
-        await extract_and_save_personal_info("00000000-0000-0000-0000-000000000123", "meu nome é nada")
+        await extract_and_save_personal_info(
+            "00000000-0000-0000-0000-000000000123", "meu nome é nada"
+        )
 
 
 @pytest.mark.asyncio
@@ -172,9 +178,7 @@ async def test_extract_merges_with_existing():
     from services.business.user_profile_service import extract_and_save_personal_info
 
     mock_response = Mock()
-    mock_response.choices = [
-        Mock(message=Mock(content='{"city": "Dublin"}'))
-    ]
+    mock_response.choices = [Mock(message=Mock(content='{"city": "Dublin"}'))]
     mock_client = AsyncMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
@@ -192,7 +196,9 @@ async def test_extract_merges_with_existing():
         return None
 
     with patch(_SVC_PATH, side_effect=side_effect):
-        await extract_and_save_personal_info("00000000-0000-0000-0000-000000000123", "i live in Dublin")
+        await extract_and_save_personal_info(
+            "00000000-0000-0000-0000-000000000123", "i live in Dublin"
+        )
 
     db.save_user_context.assert_called_once()
     saved = db.save_user_context.call_args[0][2]

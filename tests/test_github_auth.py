@@ -1,4 +1,5 @@
 """Tests for GitHub OAuth routes."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
@@ -22,7 +23,11 @@ def client(app):
 class TestGitHubConnect:
     def test_connect_redirect(self, client):
         with patch.dict("os.environ", {"GITHUB_CLIENT_ID": "test_id_123"}):
-            resp = client.get("/github/connect", params={"user_id": "user-abc"}, follow_redirects=False)
+            resp = client.get(
+                "/github/connect",
+                params={"user_id": "user-abc"},
+                follow_redirects=False,
+            )
         assert resp.status_code == 307
         assert "github.com/login/oauth/authorize" in resp.headers["location"]
         assert "test_id_123" in resp.headers["location"]
@@ -46,8 +51,12 @@ class TestGitHubCallback:
         assert "Missing" in resp.text
 
     def test_callback_not_configured(self, client):
-        with patch.dict("os.environ", {"GITHUB_CLIENT_ID": "", "GITHUB_CLIENT_SECRET": ""}):
-            resp = client.get("/github/callback", params={"code": "abc", "state": "user-1"})
+        with patch.dict(
+            "os.environ", {"GITHUB_CLIENT_ID": "", "GITHUB_CLIENT_SECRET": ""}
+        ):
+            resp = client.get(
+                "/github/callback", params={"code": "abc", "state": "user-1"}
+            )
         assert resp.status_code == 200
         assert "not configured" in resp.text
 
@@ -63,7 +72,10 @@ class TestGitHubCallback:
         mock_db.save_github_connection = AsyncMock(return_value=True)
 
         with (
-            patch.dict("os.environ", {"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "secret"}),
+            patch.dict(
+                "os.environ",
+                {"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "secret"},
+            ),
             patch("api.routes.github_auth.httpx.AsyncClient") as mock_cls,
             patch("services.core.get_service", return_value=mock_db),
         ):
@@ -74,7 +86,10 @@ class TestGitHubCallback:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = mock_client
 
-            resp = client.get("/github/callback", params={"code": "auth_code_123", "state": "user-uuid"})
+            resp = client.get(
+                "/github/callback",
+                params={"code": "auth_code_123", "state": "user-uuid"},
+            )
 
         assert resp.status_code == 200
         assert "testuser" in resp.text
@@ -82,7 +97,10 @@ class TestGitHubCallback:
 
     def test_callback_token_exchange_fails(self, client):
         with (
-            patch.dict("os.environ", {"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "secret"}),
+            patch.dict(
+                "os.environ",
+                {"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "secret"},
+            ),
             patch("api.routes.github_auth.httpx.AsyncClient") as mock_cls,
         ):
             mock_client = AsyncMock()
@@ -91,17 +109,25 @@ class TestGitHubCallback:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = mock_client
 
-            resp = client.get("/github/callback", params={"code": "abc", "state": "user-1"})
+            resp = client.get(
+                "/github/callback", params={"code": "abc", "state": "user-1"}
+            )
 
         assert resp.status_code == 200
         assert "Failed" in resp.text
 
     def test_callback_no_token_returned(self, client):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {"error": "bad_verification_code", "error_description": "Code expired"}
+        mock_resp.json.return_value = {
+            "error": "bad_verification_code",
+            "error_description": "Code expired",
+        }
 
         with (
-            patch.dict("os.environ", {"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "secret"}),
+            patch.dict(
+                "os.environ",
+                {"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "secret"},
+            ),
             patch("api.routes.github_auth.httpx.AsyncClient") as mock_cls,
         ):
             mock_client = AsyncMock()
@@ -110,7 +136,9 @@ class TestGitHubCallback:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = mock_client
 
-            resp = client.get("/github/callback", params={"code": "expired", "state": "user-1"})
+            resp = client.get(
+                "/github/callback", params={"code": "expired", "state": "user-1"}
+            )
 
         assert resp.status_code == 200
         assert "expired" in resp.text.lower()

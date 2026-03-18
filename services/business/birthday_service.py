@@ -24,8 +24,15 @@ logger = logging.getLogger(__name__)
 
 # Birthday keywords (multi-language)
 BIRTHDAY_KEYWORDS = {
-    "birthday", "aniversário", "aniversario", "anos", "bday",
-    "cumpleaños", "geburtstag", "anniversaire", "niver",
+    "birthday",
+    "aniversário",
+    "aniversario",
+    "anos",
+    "bday",
+    "cumpleaños",
+    "geburtstag",
+    "anniversaire",
+    "niver",
 }
 
 
@@ -68,7 +75,9 @@ async def detect_upcoming_birthdays(user_id: str) -> List[Dict[str, Any]]:
             if "T" in str(start_str):
                 start_dt = datetime.fromisoformat(str(start_str).replace("Z", "+00:00"))
             else:
-                start_dt = datetime.strptime(str(start_str)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                start_dt = datetime.strptime(str(start_str)[:10], "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
         except (ValueError, TypeError):
             continue
 
@@ -79,13 +88,15 @@ async def detect_upcoming_birthdays(user_id: str) -> List[Dict[str, Any]]:
         # Extract the person's name from summary
         person_name = _extract_person_name(event.get("summary", ""))
 
-        birthdays.append({
-            "event_id": event.get("id", ""),
-            "person_name": person_name,
-            "date": start_dt.strftime("%B %d"),
-            "days_until": days_until,
-            "summary": event.get("summary", ""),
-        })
+        birthdays.append(
+            {
+                "event_id": event.get("id", ""),
+                "person_name": person_name,
+                "date": start_dt.strftime("%B %d"),
+                "days_until": days_until,
+                "summary": event.get("summary", ""),
+            }
+        )
 
     return birthdays
 
@@ -100,7 +111,16 @@ def _extract_person_name(summary: str) -> str:
     """Extract person's name from birthday event summary."""
     clean = summary
     # Remove common birthday words
-    for word in ["birthday", "aniversário", "aniversario", "bday", "'s", "do ", "da ", "de "]:
+    for word in [
+        "birthday",
+        "aniversário",
+        "aniversario",
+        "bday",
+        "'s",
+        "do ",
+        "da ",
+        "de ",
+    ]:
         clean = clean.lower().replace(word, "")
     clean = clean.strip(" -:–'").title()
     return clean if clean else "Someone"
@@ -150,7 +170,10 @@ async def generate_birthday_alert(
 
 
 async def _humanize_birthday_alert(
-    name: str, person: str, days: int, date: str,
+    name: str,
+    person: str,
+    days: int,
+    date: str,
 ) -> str:
     """Generate warm birthday reminder via GPT."""
     openai_svc = get_service("openai")
@@ -172,6 +195,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -179,7 +203,9 @@ Generate:"""
                 max_tokens=250,
                 temperature=0.85,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
@@ -201,6 +227,7 @@ Generate:"""
 # Storage & Dedup
 # ---------------------------------------------------------------------------
 
+
 async def _alert_already_sent(user_id: str, event_id: str) -> bool:
     """Check if birthday alert already sent for this event."""
     db = get_service("database")
@@ -217,9 +244,13 @@ async def _alert_already_sent(user_id: str, event_id: str) -> bool:
             .limit(20)
             .execute()
         )
-        for item in (result.data or []):
+        for item in result.data or []:
             try:
-                meta = json.loads(item.get("metadata", "{}") if isinstance(item.get("metadata"), str) else "{}")
+                meta = json.loads(
+                    item.get("metadata", "{}")
+                    if isinstance(item.get("metadata"), str)
+                    else "{}"
+                )
                 if meta.get("event_id") == event_id:
                     return True
             except (json.JSONDecodeError, TypeError):
@@ -237,15 +268,17 @@ async def _store_alert(user_id: str, event_id: str, title: str, message: str) ->
 
     try:
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "birthday_alert",
-            "title": title,
-            "message": message,
-            "metadata": json.dumps({"event_id": event_id}),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "birthday_alert",
+                "title": title,
+                "message": message,
+                "metadata": json.dumps({"event_id": event_id}),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Birthday alert: store failed: %s", e)
 
@@ -253,6 +286,7 @@ async def _store_alert(user_id: str, event_id: str, title: str, message: str) ->
 # ---------------------------------------------------------------------------
 # Proactivity Loop Runner
 # ---------------------------------------------------------------------------
+
 
 async def check_birthdays_for_all_users() -> int:
     """Run birthday detection for all proactivity-enabled users.
@@ -268,7 +302,7 @@ async def check_birthdays_for_all_users() -> int:
         return 0
 
     alerts_sent = 0
-    for pref in (pref_users or []):
+    for pref in pref_users or []:
         user_id = pref["user_id"]
         try:
             user_data = await db.get_user_by_id(user_id)
@@ -281,7 +315,9 @@ async def check_birthdays_for_all_users() -> int:
                     user_id=user_id,
                     birthday=bday,
                     user_name=user_data.get("full_name", ""),
-                    chat_id=str(user_data.get("telegram_chat_id")) if user_data.get("telegram_chat_id") else None,
+                    chat_id=str(user_data.get("telegram_chat_id"))
+                    if user_data.get("telegram_chat_id")
+                    else None,
                 )
                 if result:
                     alerts_sent += 1

@@ -1,4 +1,5 @@
 """Tests for POST /api/webapp/upload — Sprint 6A"""
+
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -278,7 +279,11 @@ async def test_process_audio_success(tmp_path):
 
     mock_whisper = MagicMock()
     mock_whisper.speech_to_text = AsyncMock(
-        return_value={"text": "Transcribed audio content", "language": "pt", "model": "whisper"}
+        return_value={
+            "text": "Transcribed audio content",
+            "language": "pt",
+            "model": "whisper",
+        }
     )
     with patch("api.routes.upload._get_service_or_503", return_value=mock_whisper):
         from api.routes.upload import _process_audio

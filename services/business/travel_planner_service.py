@@ -26,46 +26,188 @@ from services.core import get_service
 
 # Trip detection keywords (multi-language)
 TRIP_KEYWORDS = {
-    "viagem", "trip", "travel", "férias", "vacation", "holiday", "holidays",
-    "voo", "flight", "voos", "flights", "hotel", "resort", "airbnb",
-    "aeroporto", "airport", "passagem", "booking", "reserva", "cruzeiro",
-    "cruise", "mochilão", "backpack", "road trip", "roadtrip", "getaway",
-    "escapadinha", "excursão", "tour", "safari",
+    "viagem",
+    "trip",
+    "travel",
+    "férias",
+    "vacation",
+    "holiday",
+    "holidays",
+    "voo",
+    "flight",
+    "voos",
+    "flights",
+    "hotel",
+    "resort",
+    "airbnb",
+    "aeroporto",
+    "airport",
+    "passagem",
+    "booking",
+    "reserva",
+    "cruzeiro",
+    "cruise",
+    "mochilão",
+    "backpack",
+    "road trip",
+    "roadtrip",
+    "getaway",
+    "escapadinha",
+    "excursão",
+    "tour",
+    "safari",
 }
 
 # Countries and major cities to detect international travel
 MAJOR_DESTINATIONS = {
     # Countries
-    "thailand", "tailândia", "japan", "japão", "brazil", "brasil", "portugal",
-    "spain", "espanha", "france", "frança", "italy", "itália", "germany",
-    "alemanha", "uk", "england", "inglaterra", "usa", "estados unidos",
-    "mexico", "méxico", "colombia", "colômbia", "argentina", "australia",
-    "austrália", "india", "índia", "china", "south korea", "coreia",
-    "indonesia", "indonésia", "vietnam", "vietnã", "turkey", "turquia",
-    "egypt", "egito", "morocco", "marrocos", "south africa", "greece",
-    "grécia", "croatia", "croácia", "dubai", "maldives", "maldivas",
-    "iceland", "islândia", "norway", "noruega", "sweden", "suécia",
-    "switzerland", "suíça", "austria", "áustria", "netherlands", "holanda",
-    "belgium", "bélgica", "czech", "checa", "poland", "polônia",
-    "ireland", "irlanda", "scotland", "escócia", "canada", "canadá",
-    "new zealand", "nova zelândia", "peru", "chile", "cuba", "jamaica",
-    "costa rica", "bali", "phuket", "cancun", "cancún",
+    "thailand",
+    "tailândia",
+    "japan",
+    "japão",
+    "brazil",
+    "brasil",
+    "portugal",
+    "spain",
+    "espanha",
+    "france",
+    "frança",
+    "italy",
+    "itália",
+    "germany",
+    "alemanha",
+    "uk",
+    "england",
+    "inglaterra",
+    "usa",
+    "estados unidos",
+    "mexico",
+    "méxico",
+    "colombia",
+    "colômbia",
+    "argentina",
+    "australia",
+    "austrália",
+    "india",
+    "índia",
+    "china",
+    "south korea",
+    "coreia",
+    "indonesia",
+    "indonésia",
+    "vietnam",
+    "vietnã",
+    "turkey",
+    "turquia",
+    "egypt",
+    "egito",
+    "morocco",
+    "marrocos",
+    "south africa",
+    "greece",
+    "grécia",
+    "croatia",
+    "croácia",
+    "dubai",
+    "maldives",
+    "maldivas",
+    "iceland",
+    "islândia",
+    "norway",
+    "noruega",
+    "sweden",
+    "suécia",
+    "switzerland",
+    "suíça",
+    "austria",
+    "áustria",
+    "netherlands",
+    "holanda",
+    "belgium",
+    "bélgica",
+    "czech",
+    "checa",
+    "poland",
+    "polônia",
+    "ireland",
+    "irlanda",
+    "scotland",
+    "escócia",
+    "canada",
+    "canadá",
+    "new zealand",
+    "nova zelândia",
+    "peru",
+    "chile",
+    "cuba",
+    "jamaica",
+    "costa rica",
+    "bali",
+    "phuket",
+    "cancun",
+    "cancún",
     # Major cities
-    "bangkok", "tokyo", "paris", "london", "londres", "new york", "nova york",
-    "los angeles", "barcelona", "rome", "roma", "amsterdam", "berlin",
-    "berlim", "lisbon", "lisboa", "madrid", "milan", "milão", "dubai",
-    "singapore", "singapura", "hong kong", "sydney", "rio de janeiro",
-    "são paulo", "buenos aires", "istanbul", "istambul", "cairo",
-    "marrakech", "cape town", "seoul", "osaka", "kyoto", "chiang mai",
-    "bali", "ubud", "hanoi", "ho chi minh", "kuala lumpur", "prague",
-    "praga", "vienna", "viena", "budapest", "dubrovnik", "santorini",
-    "mykonos", "ibiza", "mallorca", "tenerife", "porto", "algarve",
+    "bangkok",
+    "tokyo",
+    "paris",
+    "london",
+    "londres",
+    "new york",
+    "nova york",
+    "los angeles",
+    "barcelona",
+    "rome",
+    "roma",
+    "amsterdam",
+    "berlin",
+    "berlim",
+    "lisbon",
+    "lisboa",
+    "madrid",
+    "milan",
+    "milão",
+    "dubai",
+    "singapore",
+    "singapura",
+    "hong kong",
+    "sydney",
+    "rio de janeiro",
+    "são paulo",
+    "buenos aires",
+    "istanbul",
+    "istambul",
+    "cairo",
+    "marrakech",
+    "cape town",
+    "seoul",
+    "osaka",
+    "kyoto",
+    "chiang mai",
+    "bali",
+    "ubud",
+    "hanoi",
+    "ho chi minh",
+    "kuala lumpur",
+    "prague",
+    "praga",
+    "vienna",
+    "viena",
+    "budapest",
+    "dubrovnik",
+    "santorini",
+    "mykonos",
+    "ibiza",
+    "mallorca",
+    "tenerife",
+    "porto",
+    "algarve",
 }
 
 
 # ---------------------------------------------------------------------------
 # Trip Detection
 # ---------------------------------------------------------------------------
+
 
 async def detect_upcoming_trips(user_id: str) -> List[Dict[str, Any]]:
     """
@@ -120,25 +262,32 @@ async def detect_upcoming_trips(user_id: str) -> List[Dict[str, Any]]:
 
         # Detect if it's a trip
         destination = _detect_destination(summary, location, description)
-        is_trip = destination is not None or _has_trip_keywords(summary, location, description)
+        is_trip = destination is not None or _has_trip_keywords(
+            summary, location, description
+        )
 
         if is_trip:
-            detected.append({
-                "event_id": event.get("id", ""),
-                "summary": event.get("summary", "Trip"),
-                "location": event.get("location", ""),
-                "start": start_str,
-                "end": end_str,
-                "start_date": start_dt.strftime("%b %d"),
-                "end_date": end_dt.strftime("%b %d"),
-                "duration_days": duration_days,
-                "days_until": days_until,
-                "destination": destination or _extract_destination_from_text(summary, location),
-            })
+            detected.append(
+                {
+                    "event_id": event.get("id", ""),
+                    "summary": event.get("summary", "Trip"),
+                    "location": event.get("location", ""),
+                    "start": start_str,
+                    "end": end_str,
+                    "start_date": start_dt.strftime("%b %d"),
+                    "end_date": end_dt.strftime("%b %d"),
+                    "duration_days": duration_days,
+                    "days_until": days_until,
+                    "destination": destination
+                    or _extract_destination_from_text(summary, location),
+                }
+            )
 
     logger.info(
         "Travel detect: user={} found {} trips in {} events",
-        user_id[:8], len(detected), len(events),
+        user_id[:8],
+        len(detected),
+        len(events),
     )
     return detected
 
@@ -165,9 +314,16 @@ def _extract_destination_from_text(summary: str, location: str) -> str:
         return location.title()
     # Otherwise use the summary, stripping common prefixes
     clean = summary
-    for prefix in ["viagem", "trip to", "férias em", "vacation in", "flight to", "voo para"]:
+    for prefix in [
+        "viagem",
+        "trip to",
+        "férias em",
+        "vacation in",
+        "flight to",
+        "voo para",
+    ]:
         if clean.startswith(prefix):
-            clean = clean[len(prefix):].strip(" -:–")
+            clean = clean[len(prefix) :].strip(" -:–")
     return clean.title() if clean else "Unknown destination"
 
 
@@ -189,6 +345,7 @@ def _parse_date(date_str: Any) -> Optional[datetime]:
 # Proactive Message Generation (humanized)
 # ---------------------------------------------------------------------------
 
+
 async def generate_trip_alert(
     user_id: str,
     trip: Dict[str, Any],
@@ -197,7 +354,7 @@ async def generate_trip_alert(
 ) -> Optional[Dict[str, Any]]:
     """
     Generate a humanized proactive message about a detected trip.
-    
+
     Deduplicates: only sends once per trip event_id.
     """
     event_id = trip.get("event_id", "")
@@ -242,7 +399,9 @@ async def generate_trip_alert(
 
     logger.info(
         "Travel alert: sent for user={} destination={} in {} days",
-        user_id[:8], destination, days_until,
+        user_id[:8],
+        destination,
+        days_until,
     )
 
     # Start a planning session so user can respond "yes" in chat
@@ -281,6 +440,7 @@ Generate the trip detection message:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -288,7 +448,9 @@ Generate the trip detection message:"""
                 max_tokens=300,
                 temperature=0.85,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception as e:
@@ -307,6 +469,7 @@ Generate the trip detection message:"""
 # Storage & Deduplication
 # ---------------------------------------------------------------------------
 
+
 async def _trip_alert_sent(user_id: str, event_id: str) -> bool:
     """Check if trip alert was already sent for this event."""
     db = get_service("database")
@@ -323,9 +486,13 @@ async def _trip_alert_sent(user_id: str, event_id: str) -> bool:
             .limit(20)
             .execute()
         )
-        for item in (result.data or []):
+        for item in result.data or []:
             try:
-                meta = json.loads(item.get("metadata", "{}") if isinstance(item.get("metadata"), str) else "{}")
+                meta = json.loads(
+                    item.get("metadata", "{}")
+                    if isinstance(item.get("metadata"), str)
+                    else "{}"
+                )
                 if meta.get("event_id") == event_id:
                     return True
             except (json.JSONDecodeError, TypeError):
@@ -345,21 +512,25 @@ async def _store_trip_alert(
 
     try:
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "travel_alert",
-            "title": title,
-            "message": message,
-            "metadata": json.dumps({
-                "event_id": event_id,
-                "destination": trip.get("destination", ""),
-                "start": trip.get("start", ""),
-                "end": trip.get("end", ""),
-                "duration_days": trip.get("duration_days", 0),
-            }),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "travel_alert",
+                "title": title,
+                "message": message,
+                "metadata": json.dumps(
+                    {
+                        "event_id": event_id,
+                        "destination": trip.get("destination", ""),
+                        "start": trip.get("start", ""),
+                        "end": trip.get("end", ""),
+                        "duration_days": trip.get("duration_days", 0),
+                    }
+                ),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Travel alert: store failed: {}", e)
 
@@ -367,6 +538,7 @@ async def _store_trip_alert(
 # ---------------------------------------------------------------------------
 # Proactivity Loop Runner
 # ---------------------------------------------------------------------------
+
 
 async def check_travel_for_all_users() -> int:
     """Run travel detection for all users with proactivity enabled.
@@ -400,7 +572,11 @@ async def check_travel_for_all_users() -> int:
                 continue
 
             user_name = user_data.get("full_name", "")
-            chat_id = str(user_data.get("telegram_chat_id")) if user_data.get("telegram_chat_id") else None
+            chat_id = (
+                str(user_data.get("telegram_chat_id"))
+                if user_data.get("telegram_chat_id")
+                else None
+            )
 
             for trip in trips:
                 result = await generate_trip_alert(
@@ -424,6 +600,7 @@ async def check_travel_for_all_users() -> int:
 # PHASE 2 — Preference Gathering + Itinerary Building
 # ===========================================================================
 
+
 async def gather_travel_profile(user_id: str) -> Dict[str, Any]:
     """
     Gather what we already know about the user from RAG + user_context.
@@ -432,14 +609,14 @@ async def gather_travel_profile(user_id: str) -> Dict[str, Any]:
     The bot only asks questions about what's MISSING.
     """
     profile: Dict[str, Any] = {
-        "travel_style": "",      # relaxed, adventurous, cultural, mixed
-        "budget_level": "",      # budget, mid-range, luxury
-        "accommodation": "",     # hotel, hostel, airbnb, resort
-        "food_prefs": [],        # vegetarian, seafood, local cuisine, etc.
-        "interests": [],         # trekking, beaches, nightlife, museums, shopping
-        "past_trips": [],        # countries/cities visited before
+        "travel_style": "",  # relaxed, adventurous, cultural, mixed
+        "budget_level": "",  # budget, mid-range, luxury
+        "accommodation": "",  # hotel, hostel, airbnb, resort
+        "food_prefs": [],  # vegetarian, seafood, local cuisine, etc.
+        "interests": [],  # trekking, beaches, nightlife, museums, shopping
+        "past_trips": [],  # countries/cities visited before
         "travel_companion": "",  # solo, couple, family, group
-        "pace": "",              # relaxed, moderate, packed
+        "pace": "",  # relaxed, moderate, packed
     }
 
     # 1. Check user_context for saved travel preferences
@@ -447,6 +624,7 @@ async def gather_travel_profile(user_id: str) -> Dict[str, Any]:
     if db and db.is_initialized():
         try:
             import json as _json
+
             client = db.get_client()
             ctx = (
                 client.table("user_context")
@@ -494,7 +672,9 @@ def build_preference_questions(
     questions = []
 
     if not profile.get("travel_companion"):
-        questions.append("Are you traveling solo, as a couple, with family, or in a group?")
+        questions.append(
+            "Are you traveling solo, as a couple, with family, or in a group?"
+        )
 
     if not profile.get("travel_style") and not profile.get("interests"):
         questions.append(
@@ -563,6 +743,7 @@ async def build_itinerary(
     if weather_svc and weather_svc.is_initialized():
         try:
             import asyncio
+
             w = await asyncio.to_thread(weather_svc.get_current_weather, destination)
             if w and not isinstance(w, Exception):
                 weather_info = f"Current weather in {destination}: {w.get('temperature', '?')}°C, {w.get('description', '')}"
@@ -605,8 +786,10 @@ async def build_itinerary(
 
 
 def _build_research_query(
-    destination: str, duration_days: int,
-    prefs: Dict[str, Any], profile: Dict[str, Any],
+    destination: str,
+    duration_days: int,
+    prefs: Dict[str, Any],
+    profile: Dict[str, Any],
 ) -> str:
     """Build a detailed Perplexity query for trip research."""
     style = prefs.get("style", profile.get("travel_style", "mixed"))
@@ -645,7 +828,10 @@ def _build_research_query(
 
 
 async def _humanize_itinerary(
-    raw_data: str, name: str, destination: str, duration_days: int,
+    raw_data: str,
+    name: str,
+    destination: str,
+    duration_days: int,
 ) -> str:
     """Pass raw itinerary through GPT for warm, friend-like writing."""
     openai_svc = get_service("openai")
@@ -676,6 +862,7 @@ Generate the personalized itinerary:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -683,7 +870,9 @@ Generate the personalized itinerary:"""
                 max_tokens=2000,
                 temperature=0.85,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 50:
                 return text
         except Exception as e:
@@ -699,7 +888,9 @@ Generate the personalized itinerary:"""
 
 
 async def _save_travel_preferences(
-    user_id: str, prefs: Dict[str, Any], profile: Dict[str, Any],
+    user_id: str,
+    prefs: Dict[str, Any],
+    profile: Dict[str, Any],
 ) -> None:
     """Save learned travel preferences for future trips."""
     db = get_service("database")
@@ -720,6 +911,7 @@ async def _save_travel_preferences(
 
     try:
         import json as _json
+
         client = db.get_client()
         client.table("user_context").upsert(
             {
@@ -735,7 +927,10 @@ async def _save_travel_preferences(
 
 
 async def _store_itinerary(
-    user_id: str, title: str, itinerary: str, destination: str,
+    user_id: str,
+    title: str,
+    itinerary: str,
+    destination: str,
 ) -> None:
     """Store itinerary in proactivity_feed."""
     db = get_service("database")
@@ -744,16 +939,19 @@ async def _store_itinerary(
 
     try:
         import json as _json
+
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "travel_itinerary",
-            "title": title,
-            "message": itinerary[:5000],  # Supabase text limit safety
-            "metadata": _json.dumps({"destination": destination}),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "travel_itinerary",
+                "title": title,
+                "message": itinerary[:5000],  # Supabase text limit safety
+                "metadata": _json.dumps({"destination": destination}),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Travel: store itinerary failed: {}", e)
 
@@ -761,6 +959,7 @@ async def _store_itinerary(
 # ===========================================================================
 # PHASE 3 — Presentation + Approval + Final Document
 # ===========================================================================
+
 
 async def generate_trip_summary(
     itinerary: str,
@@ -800,6 +999,7 @@ Generate the teaser summary:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -807,7 +1007,9 @@ Generate the teaser summary:"""
                 max_tokens=400,
                 temperature=0.85,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception as e:
@@ -865,6 +1067,7 @@ Generate the adjusted itinerary:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -872,7 +1075,9 @@ Generate the adjusted itinerary:"""
                 max_tokens=2000,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 50:
                 # Store the updated itinerary
                 title = f"Travel plan (updated): {destination}"
@@ -884,7 +1089,7 @@ Generate the adjusted itinerary:"""
     # Fallback
     return {
         "itinerary": (
-            f"I noted your feedback: \"{user_feedback}\"\n\n"
+            f'I noted your feedback: "{user_feedback}"\n\n'
             f"Let me research this adjustment and update your {destination} plan. "
             f"Give me a moment! 🔄"
         ),
@@ -931,6 +1136,7 @@ Generate the final travel document:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -938,7 +1144,9 @@ Generate the final travel document:"""
                 max_tokens=2500,
                 temperature=0.7,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 50:
                 final_doc = text
         except Exception as e:
@@ -962,7 +1170,10 @@ Generate the final travel document:"""
 
 
 async def _save_to_notes(
-    user_id: str, destination: str, duration_days: int, content: str,
+    user_id: str,
+    destination: str,
+    duration_days: int,
+    content: str,
 ) -> None:
     """Save the final itinerary to the user's notes."""
     notes_svc = get_service("notes")
@@ -974,7 +1185,9 @@ async def _save_to_notes(
                 content=content,
                 tags=["travel", destination.lower().replace(" ", "-")],
             )
-            logger.info("Travel: saved final itinerary to notes for user={}", user_id[:8])
+            logger.info(
+                "Travel: saved final itinerary to notes for user={}", user_id[:8]
+            )
         except Exception as e:
             logger.warning("Travel: save to notes failed: {}", e)
 
@@ -983,17 +1196,20 @@ async def _save_to_notes(
     if db and db.is_initialized():
         try:
             import json as _json
+
             client = db.get_client()
             client.table("user_context").upsert(
                 {
                     "user_id": user_id,
                     "context_type": "last_travel_itinerary",
-                    "context_data": _json.dumps({
-                        "destination": destination,
-                        "duration_days": duration_days,
-                        "content": content[:5000],
-                        "created_at": datetime.now(timezone.utc).isoformat(),
-                    }),
+                    "context_data": _json.dumps(
+                        {
+                            "destination": destination,
+                            "duration_days": duration_days,
+                            "content": content[:5000],
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    ),
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 },
                 on_conflict="user_id,context_type",
@@ -1002,7 +1218,9 @@ async def _save_to_notes(
             logger.warning("Travel: save to user_context failed: {}", e)
 
 
-async def _humanize_confirmation(name: str, destination: str, duration_days: int) -> str:
+async def _humanize_confirmation(
+    name: str, destination: str, duration_days: int
+) -> str:
     """Generate a warm confirmation message after user approves the plan."""
     openai_svc = get_service("openai")
 
@@ -1020,6 +1238,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -1027,7 +1246,9 @@ Generate:"""
                 max_tokens=200,
                 temperature=0.85,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 10:
                 return text
         except Exception as e:
@@ -1065,6 +1286,7 @@ async def get_planning_session(user_id: str) -> Optional[Dict[str, Any]]:
 
     try:
         import json as _json
+
         client = db.get_client()
         result = (
             client.table("user_context")
@@ -1079,7 +1301,13 @@ async def get_planning_session(user_id: str) -> Optional[Dict[str, Any]]:
             if isinstance(data, str):
                 data = _json.loads(data)
             # Check if session is still active (not finalized/expired)
-            if data.get("state") in ("detected", "gathering", "building", "reviewing", "adjusting"):
+            if data.get("state") in (
+                "detected",
+                "gathering",
+                "building",
+                "reviewing",
+                "adjusting",
+            ):
                 return data
     except Exception:
         pass
@@ -1094,6 +1322,7 @@ async def save_planning_session(user_id: str, session: Dict[str, Any]) -> None:
 
     try:
         import json as _json
+
         client = db.get_client()
         client.table("user_context").upsert(
             {
@@ -1133,8 +1362,21 @@ async def handle_travel_planning_message(
     if state == "detected":
         msg_lower = message.lower()
         # Check if user says YES
-        yes_words = ["sim", "yes", "yeah", "sure", "claro", "bora", "vamos",
-                     "plan", "planeia", "organiza", "quero", "lets go", "please"]
+        yes_words = [
+            "sim",
+            "yes",
+            "yeah",
+            "sure",
+            "claro",
+            "bora",
+            "vamos",
+            "plan",
+            "planeia",
+            "organiza",
+            "quero",
+            "lets go",
+            "please",
+        ]
         no_words = ["não", "no", "nao", "skip", "depois", "later", "not now"]
 
         if any(w in msg_lower for w in no_words):
@@ -1146,11 +1388,15 @@ async def handle_travel_planning_message(
             # Move to gathering state
             profile = await gather_travel_profile(user_id)
             questions = build_preference_questions(
-                profile, session.get("destination", ""), session.get("duration_days", 7),
+                profile,
+                session.get("destination", ""),
+                session.get("duration_days", 7),
             )
 
             session["state"] = "gathering"
-            session["profile"] = {k: v for k, v in profile.items() if not k.startswith("_")}
+            session["profile"] = {
+                k: v for k, v in profile.items() if not k.startswith("_")
+            }
             session["rag_context"] = profile.get("_rag_context", "")
             session["questions"] = questions
             session["answers"] = {}
@@ -1158,7 +1404,9 @@ async def handle_travel_planning_message(
             await save_planning_session(user_id, session)
 
             # Ask first question (humanized)
-            return await _humanize_question(questions[0], name, session.get("destination", ""))
+            return await _humanize_question(
+                questions[0], name, session.get("destination", "")
+            )
 
         return None  # Not a planning response
 
@@ -1175,7 +1423,9 @@ async def handle_travel_planning_message(
         # More questions?
         if current_q + 1 < len(questions):
             next_q = questions[current_q + 1]
-            return await _humanize_question(next_q, name, session.get("destination", ""))
+            return await _humanize_question(
+                next_q, name, session.get("destination", "")
+            )
 
         # All questions answered — build itinerary!
         session["state"] = "building"
@@ -1217,15 +1467,37 @@ async def handle_travel_planning_message(
         msg_lower = message.lower()
 
         # User wants full plan
-        full_words = ["full", "completo", "todo", "day by day", "dia a dia",
-                      "show me", "mostra", "ver tudo", "details", "detalhes"]
+        full_words = [
+            "full",
+            "completo",
+            "todo",
+            "day by day",
+            "dia a dia",
+            "show me",
+            "mostra",
+            "ver tudo",
+            "details",
+            "detalhes",
+        ]
         if any(w in msg_lower for w in full_words):
             return session.get("itinerary", "No itinerary available.")
 
         # User approves
-        approve_words = ["perfect", "perfeito", "love it", "adorei", "approve",
-                         "aprovo", "looks great", "save", "guarda", "finaliz",
-                         "ótimo", "excelente", "top"]
+        approve_words = [
+            "perfect",
+            "perfeito",
+            "love it",
+            "adorei",
+            "approve",
+            "aprovo",
+            "looks great",
+            "save",
+            "guarda",
+            "finaliz",
+            "ótimo",
+            "excelente",
+            "top",
+        ]
         if any(w in msg_lower for w in approve_words):
             result = await finalize_itinerary(
                 user_id=user_id,
@@ -1268,7 +1540,8 @@ async def handle_travel_planning_message(
 
 
 async def start_planning_session(
-    user_id: str, trip: Dict[str, Any],
+    user_id: str,
+    trip: Dict[str, Any],
 ) -> None:
     """Start a new travel planning session from a detected trip."""
     session = {
@@ -1286,6 +1559,7 @@ async def start_planning_session(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _humanize_question(question: str, name: str, destination: str) -> str:
     """Wrap a preference question in warm, conversational language."""
@@ -1307,6 +1581,7 @@ Rewrite:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -1314,7 +1589,9 @@ Rewrite:"""
                 max_tokens=100,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 10:
                 return text
         except Exception:
@@ -1324,7 +1601,8 @@ Rewrite:"""
 
 
 def _parse_answers(
-    answers: Dict[str, str], questions: List[str],
+    answers: Dict[str, str],
+    questions: List[str],
 ) -> Dict[str, str]:
     """Parse user's answers into structured preferences."""
     prefs: Dict[str, str] = {}
@@ -1335,29 +1613,69 @@ def _parse_answers(
         # Detect companion
         if "solo" in answer_lower or "sozinho" in answer_lower:
             prefs["companion"] = "solo"
-        elif "couple" in answer_lower or "casal" in answer_lower or "namorad" in answer_lower:
+        elif (
+            "couple" in answer_lower
+            or "casal" in answer_lower
+            or "namorad" in answer_lower
+        ):
             prefs["companion"] = "couple"
-        elif "famil" in answer_lower or "filh" in answer_lower or "kids" in answer_lower:
+        elif (
+            "famil" in answer_lower or "filh" in answer_lower or "kids" in answer_lower
+        ):
             prefs["companion"] = "family"
-        elif "group" in answer_lower or "grupo" in answer_lower or "amigos" in answer_lower:
+        elif (
+            "group" in answer_lower
+            or "grupo" in answer_lower
+            or "amigos" in answer_lower
+        ):
             prefs["companion"] = "group"
 
         # Detect style
-        if "relax" in answer_lower or "praia" in answer_lower or "beach" in answer_lower or "spa" in answer_lower:
+        if (
+            "relax" in answer_lower
+            or "praia" in answer_lower
+            or "beach" in answer_lower
+            or "spa" in answer_lower
+        ):
             prefs["style"] = "relaxed"
-        elif "adventure" in answer_lower or "aventur" in answer_lower or "trek" in answer_lower or "diving" in answer_lower:
+        elif (
+            "adventure" in answer_lower
+            or "aventur" in answer_lower
+            or "trek" in answer_lower
+            or "diving" in answer_lower
+        ):
             prefs["style"] = "adventurous"
-        elif "cultur" in answer_lower or "museum" in answer_lower or "museu" in answer_lower or "histor" in answer_lower:
+        elif (
+            "cultur" in answer_lower
+            or "museum" in answer_lower
+            or "museu" in answer_lower
+            or "histor" in answer_lower
+        ):
             prefs["style"] = "cultural"
         elif "mix" in answer_lower or "both" in answer_lower or "ambos" in answer_lower:
             prefs["style"] = "mixed"
 
         # Detect budget
-        if "budget" in answer_lower or "barato" in answer_lower or "backpack" in answer_lower or "mochil" in answer_lower:
+        if (
+            "budget" in answer_lower
+            or "barato" in answer_lower
+            or "backpack" in answer_lower
+            or "mochil" in answer_lower
+        ):
             prefs["budget"] = "budget"
-        elif "luxury" in answer_lower or "luxo" in answer_lower or "splurge" in answer_lower or "5 star" in answer_lower:
+        elif (
+            "luxury" in answer_lower
+            or "luxo" in answer_lower
+            or "splurge" in answer_lower
+            or "5 star" in answer_lower
+        ):
             prefs["budget"] = "luxury"
-        elif "mid" in answer_lower or "comfort" in answer_lower or "confort" in answer_lower or "médio" in answer_lower:
+        elif (
+            "mid" in answer_lower
+            or "comfort" in answer_lower
+            or "confort" in answer_lower
+            or "médio" in answer_lower
+        ):
             prefs["budget"] = "mid-range"
 
         # Detect specific cities (last question usually)
@@ -1369,4 +1687,3 @@ def _parse_answers(
             prefs["interests"] = answer
 
     return prefs
-

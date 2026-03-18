@@ -5,7 +5,7 @@ tests/test_quota_twilio.py
 Testes unitários para QuotaService e TwilioService.
 
 Cobertura QuotaService:
-- Planos Free/Me/Everywhere: todos os 18 recursos presentes e correctos
+- Planos Professional/Executive: todos os 18 recursos presentes e correctos
 - Recursos cumulativos vs stock correctamente classificados
 - check(): tem/não tem quota, limite zero
 - consume(): incrementa e loga
@@ -53,10 +53,8 @@ ALL_RESOURCES = [
     "notes",
 ]
 
-FREE_BLOCKED = ["twilio_mins", "elevenlabs_chars", "video_gen", "smartcar_reqs"]
 
-
-def _quota_svc(plan="me", used=0):
+def _quota_svc(plan="professional", used=0):
     from services.business.quota_service import QuotaService
 
     svc = QuotaService.__new__(QuotaService)
@@ -119,10 +117,10 @@ def _reset_phone_pool():
 
 
 class TestPlansStructure:
-    def test_three_plans_exist(self):
+    def test_two_plans_exist(self):
         from services.business.quota_service import PLANS
 
-        assert set(PLANS.keys()) == {"free", "me", "everywhere"}
+        assert set(PLANS.keys()) == {"professional", "executive"}
 
     def test_all_18_resources_in_every_plan(self):
         from services.business.quota_service import PLANS
@@ -133,41 +131,26 @@ class TestPlansStructure:
                     f"Plano '{plan_name}' não tem recurso '{res}'"
                 )
 
-    def test_everywhere_always_gte_me(self):
+    def test_executive_always_gte_professional(self):
         from services.business.quota_service import PLANS
 
         for res in ALL_RESOURCES:
-            assert PLANS["everywhere"]["quotas"][res] >= PLANS["me"]["quotas"][res], (
-                f"everywhere[{res}] < me[{res}]"
-            )
-
-    def test_me_always_gte_free(self):
-        from services.business.quota_service import PLANS
-
-        for res in ALL_RESOURCES:
-            assert PLANS["me"]["quotas"][res] >= PLANS["free"]["quotas"][res], (
-                f"me[{res}] < free[{res}]"
-            )
-
-    def test_free_blocked_resources_are_zero(self):
-        from services.business.quota_service import PLANS
-
-        for res in FREE_BLOCKED:
-            assert PLANS["free"]["quotas"][res] == 0, f"free[{res}] deveria ser 0"
+            assert (
+                PLANS["executive"]["quotas"][res]
+                >= PLANS["professional"]["quotas"][res]
+            ), f"executive[{res}] < professional[{res}]"
 
     def test_prices_correct(self):
         from services.business.quota_service import PLANS
 
-        assert PLANS["free"]["price_eur"] == 0.0
-        assert PLANS["me"]["price_eur"] == 9.99
-        assert PLANS["everywhere"]["price_eur"] == 29.99
+        assert PLANS["professional"]["price_eur"] == 9.99
+        assert PLANS["executive"]["price_eur"] == 29.99
 
     def test_display_names(self):
         from services.business.quota_service import PLANS
 
-        assert PLANS["free"]["display_name"] == "Free"
-        assert PLANS["me"]["display_name"] == "Me"
-        assert PLANS["everywhere"]["display_name"] == "Everywhere"
+        assert PLANS["professional"]["display_name"] == "Professional"
+        assert PLANS["executive"]["display_name"] == "Executive"
 
 
 # ─── CUMULATIVE vs STOCK ─────────────────────────────────────────────────────
@@ -226,7 +209,7 @@ class TestStaticHelpers:
     def test_usage_dict_normal(self):
         from services.business.quota_service import QuotaService
 
-        d = QuotaService._usage_dict("twilio_mins", 10, 60, "me")
+        d = QuotaService._usage_dict("twilio_mins", 10, 60, "professional")
         assert d["used"] == 10
         assert d["limit"] == 60
         assert d["remaining"] == 50
@@ -236,14 +219,14 @@ class TestStaticHelpers:
     def test_usage_dict_exhausted(self):
         from services.business.quota_service import QuotaService
 
-        d = QuotaService._usage_dict("twilio_mins", 60, 60, "me")
+        d = QuotaService._usage_dict("twilio_mins", 60, 60, "professional")
         assert d["remaining"] == 0
         assert d["exhausted"] is True
 
     def test_usage_dict_zero_limit(self):
         from services.business.quota_service import QuotaService
 
-        d = QuotaService._usage_dict("twilio_mins", 0, 0, "free")
+        d = QuotaService._usage_dict("twilio_mins", 0, 0, "professional")
         assert d["remaining"] == 0
         assert d["percent"] == 100.0
         assert d["exhausted"] is False  # 0 limite não conta como esgotado
@@ -300,25 +283,25 @@ class TestQuotaExceededError:
     def test_fields(self):
         from services.business.quota_service import QuotaExceededError
 
-        e = QuotaExceededError("twilio_mins", 15, 15, "me")
+        e = QuotaExceededError("twilio_mins", 15, 15, "professional")
         assert e.resource == "twilio_mins"
         assert e.used == 15
         assert e.limit == 15
-        assert e.plan == "me"
+        assert e.plan == "professional"
 
     def test_message_has_plan_and_resource_icon(self):
         from services.business.quota_service import QuotaExceededError
 
-        e = QuotaExceededError("twilio_mins", 15, 15, "me")
+        e = QuotaExceededError("twilio_mins", 15, 15, "professional")
         msg = str(e)
-        assert "me" in msg
+        assert "professional" in msg
         assert "Chamadas" in msg  # ícone do twilio_mins
         assert "upgrade" in msg.lower()
 
     def test_is_exception(self):
         from services.business.quota_service import QuotaExceededError
 
-        e = QuotaExceededError("notes", 100, 100, "me")
+        e = QuotaExceededError("notes", 100, 100, "professional")
         assert isinstance(e, Exception)
 
 
@@ -328,50 +311,46 @@ class TestQuotaExceededError:
 @pytest.mark.asyncio
 class TestQuotaServiceCheck:
     async def test_check_has_quota(self):
-        svc = _quota_svc(plan="me", used=5)
+        svc = _quota_svc(plan="professional", used=5)
         assert await svc.check("t1", "twilio_mins", 1) is True
-
-    async def test_check_no_quota_free_blocked(self):
-        svc = _quota_svc(plan="free", used=0)
-        assert await svc.check("t1", "twilio_mins", 1) is False
 
     async def test_check_no_quota_exceeded(self):
         from services.business.quota_service import PLANS
 
-        limit = PLANS["me"]["quotas"]["twilio_mins"]
-        svc = _quota_svc(plan="me", used=limit)
+        limit = PLANS["professional"]["quotas"]["twilio_mins"]
+        svc = _quota_svc(plan="professional", used=limit)
         assert await svc.check("t1", "twilio_mins", 1) is False
 
-    async def test_check_everywhere_weather(self):
-        svc = _quota_svc(plan="everywhere", used=0)
+    async def test_check_executive_weather(self):
+        svc = _quota_svc(plan="executive", used=0)
         assert await svc.check("t1", "weather_reqs", 1) is True
 
-    async def test_check_free_mercado(self):
-        svc = _quota_svc(plan="free", used=2)
-        assert await svc.check("t1", "mercado_scans", 1) is True  # free tem 3
+    async def test_check_professional_mercado(self):
+        svc = _quota_svc(plan="professional", used=19)
+        assert await svc.check("t1", "mercado_scans", 1) is True
 
-    async def test_check_free_mercado_exhausted(self):
-        svc = _quota_svc(plan="free", used=3)
+    async def test_check_professional_mercado_exhausted(self):
+        svc = _quota_svc(plan="professional", used=20)
         assert await svc.check("t1", "mercado_scans", 1) is False
 
 
 @pytest.mark.asyncio
 class TestQuotaServiceConsume:
     async def test_consume_calls_increment_and_log(self):
-        svc = _quota_svc(plan="me", used=5)
+        svc = _quota_svc(plan="professional", used=5)
         await svc.consume("t1", "google_places", 1)
         svc._increment_usage.assert_called_once_with("t1", "google_places", 1)
         svc._log_usage.assert_called_once()
 
     async def test_consume_returns_usage_dict(self):
-        svc = _quota_svc(plan="me", used=10)
+        svc = _quota_svc(plan="professional", used=10)
         result = await svc.consume("t1", "weather_reqs", 1)
         assert "used" in result
         assert "limit" in result
         assert "remaining" in result
 
     async def test_consume_multiple_amount(self):
-        svc = _quota_svc(plan="me", used=0)
+        svc = _quota_svc(plan="professional", used=0)
         await svc.consume("t1", "gpt_tokens", 500)
         svc._increment_usage.assert_called_once_with("t1", "gpt_tokens", 500)
 
@@ -379,55 +358,32 @@ class TestQuotaServiceConsume:
 @pytest.mark.asyncio
 class TestQuotaServiceCheckAndConsume:
     async def test_success(self):
-        svc = _quota_svc(plan="me", used=5)
+        svc = _quota_svc(plan="professional", used=5)
         result = await svc.check_and_consume("t1", "twilio_mins", 1)
         assert result is not None
         svc._increment_usage.assert_called_once()
 
-    async def test_raises_when_zero_limit(self):
-        from services.business.quota_service import QuotaExceededError
-
-        svc = _quota_svc(plan="free", used=0)
-        with pytest.raises(QuotaExceededError) as exc:
-            await svc.check_and_consume("t1", "twilio_mins", 1)
-        assert exc.value.resource == "twilio_mins"
-        assert exc.value.plan == "free"
-
     async def test_raises_when_exceeded(self):
         from services.business.quota_service import PLANS, QuotaExceededError
 
-        limit = PLANS["me"]["quotas"]["google_places"]
-        svc = _quota_svc(plan="me", used=limit)
+        limit = PLANS["professional"]["quotas"]["google_places"]
+        svc = _quota_svc(plan="professional", used=limit)
         with pytest.raises(QuotaExceededError):
             await svc.check_and_consume("t1", "google_places", 1)
 
     async def test_does_not_consume_when_exceeded(self):
         from services.business.quota_service import PLANS, QuotaExceededError
 
-        limit = PLANS["me"]["quotas"]["twilio_mins"]
-        svc = _quota_svc(plan="me", used=limit)
+        limit = PLANS["professional"]["quotas"]["twilio_mins"]
+        svc = _quota_svc(plan="professional", used=limit)
         with pytest.raises(QuotaExceededError):
             await svc.check_and_consume("t1", "twilio_mins", 1)
         svc._increment_usage.assert_not_called()
 
-    async def test_smartcar_free_blocked(self):
-        from services.business.quota_service import QuotaExceededError
-
-        svc = _quota_svc(plan="free", used=0)
-        with pytest.raises(QuotaExceededError):
-            await svc.check_and_consume("t1", "smartcar_reqs", 1)
-
-    async def test_video_gen_free_blocked(self):
-        from services.business.quota_service import QuotaExceededError
-
-        svc = _quota_svc(plan="free", used=0)
-        with pytest.raises(QuotaExceededError):
-            await svc.check_and_consume("t1", "video_gen", 1)
-
 
 @pytest.mark.asyncio
 class TestQuotaServiceSummary:
-    async def _make_summary_svc(self, plan="me"):
+    async def _make_summary_svc(self, plan="professional"):
         from services.business.quota_service import PLANS, QuotaService
 
         svc = _quota_svc(plan=plan, used=0)
@@ -450,7 +406,7 @@ class TestQuotaServiceSummary:
         return svc
 
     async def test_summary_has_required_fields(self):
-        svc = await self._make_summary_svc("me")
+        svc = await self._make_summary_svc("professional")
         summary = await svc.get_summary("t1")
         for field in [
             "plan",
@@ -464,24 +420,24 @@ class TestQuotaServiceSummary:
         ]:
             assert field in summary
 
-    async def test_summary_everywhere_no_upgrade(self):
-        svc = await self._make_summary_svc("everywhere")
+    async def test_summary_executive_no_upgrade(self):
+        svc = await self._make_summary_svc("executive")
         summary = await svc.get_summary("t1")
         assert summary["upgrade_available"] is False
 
-    async def test_summary_free_has_upgrade(self):
-        svc = await self._make_summary_svc("free")
+    async def test_summary_professional_has_upgrade(self):
+        svc = await self._make_summary_svc("professional")
         summary = await svc.get_summary("t1")
         assert summary["upgrade_available"] is True
 
     async def test_summary_all_resources_present(self):
-        svc = await self._make_summary_svc("me")
+        svc = await self._make_summary_svc("professional")
         summary = await svc.get_summary("t1")
         for res in ALL_RESOURCES:
             assert res in summary["resources"], f"'{res}' ausente do summary"
 
     async def test_format_telegram_has_categories(self):
-        svc = await self._make_summary_svc("me")
+        svc = await self._make_summary_svc("professional")
         text = await svc.format_summary_telegram("t1")
         assert "Inteligência Artificial" in text
         assert "Comunicação" in text
@@ -490,23 +446,18 @@ class TestQuotaServiceSummary:
         assert "Dados Pessoais" in text
 
     async def test_format_telegram_has_plan_price(self):
-        svc = await self._make_summary_svc("me")
+        svc = await self._make_summary_svc("professional")
         text = await svc.format_summary_telegram("t1")
-        assert "Me" in text
+        assert "Professional" in text
         assert "€9.99" in text
 
-    async def test_format_telegram_free_blocked_shown(self):
-        svc = await self._make_summary_svc("free")
+    async def test_format_telegram_upgrade_shown_for_professional(self):
+        svc = await self._make_summary_svc("professional")
         text = await svc.format_summary_telegram("t1")
-        assert "❌ Não incluído" in text
-
-    async def test_format_telegram_upgrade_shown_for_me(self):
-        svc = await self._make_summary_svc("me")
-        text = await svc.format_summary_telegram("t1")
-        assert "Everywhere" in text
+        assert "Executive" in text
 
     async def test_format_telegram_reset_date(self):
-        svc = await self._make_summary_svc("me")
+        svc = await self._make_summary_svc("professional")
         text = await svc.format_summary_telegram("t1")
         assert "Reset" in text or "reset" in text.lower()
 
@@ -543,7 +494,7 @@ class TestRequiresQuotaDecorator:
 
         quota_mock = AsyncMock()
         quota_mock.check_and_consume = AsyncMock(
-            side_effect=QuotaExceededError("twilio_mins", 15, 15, "me")
+            side_effect=QuotaExceededError("twilio_mins", 15, 15, "professional")
         )
 
         with patch("services.core.get_service", return_value=quota_mock):
@@ -689,7 +640,7 @@ class TestTwilioMakeCall:
 
         quota_mock = AsyncMock()
         quota_mock.check_and_consume = AsyncMock(
-            side_effect=QuotaExceededError("twilio_mins", 15, 15, "me")
+            side_effect=QuotaExceededError("twilio_mins", 15, 15, "professional")
         )
         svc = _twilio_svc(quota_svc=quota_mock)
         with pytest.raises(QuotaExceededError):
@@ -1101,11 +1052,11 @@ class TestQuotaInit:
 
     def test_get_plan_info(self):
         svc = _quota_svc()
-        info = svc.get_plan_info("me")
-        assert info["display_name"] == "Me"
+        info = svc.get_plan_info("professional")
+        assert info["display_name"] == "Professional"
         assert info["price_eur"] == 9.99
 
-    def test_get_plan_info_unknown_defaults_free(self):
+    def test_get_plan_info_unknown_defaults_professional(self):
         svc = _quota_svc()
         info = svc.get_plan_info("nonexistent")
-        assert info["display_name"] == "Free"
+        assert info["display_name"] == "Professional"

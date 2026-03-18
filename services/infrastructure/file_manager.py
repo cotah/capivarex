@@ -82,9 +82,7 @@ class FileManagerService(BaseService):
                 f"Cannot create workspace directory '{self.base_workspace}': {exc}"
             )
 
-        self.logger.info(
-            f"File manager initialised (workspace={self.base_workspace})"
-        )
+        self.logger.info(f"File manager initialised (workspace={self.base_workspace})")
 
     async def _health_check(self) -> bool:
         """Return True if the base workspace directory exists and is writable."""
@@ -169,9 +167,7 @@ class FileManagerService(BaseService):
     # Directory listing
     # ------------------------------------------------------------------
 
-    def list_files(
-        self, user_id: str, relative_dir: str = ""
-    ) -> Dict[str, Any]:
+    def list_files(self, user_id: str, relative_dir: str = "") -> Dict[str, Any]:
         """
         List the contents of a directory inside the user's project space.
 
@@ -220,9 +216,7 @@ class FileManagerService(BaseService):
     # File CRUD
     # ------------------------------------------------------------------
 
-    def create_file(
-        self, user_id: str, path: str, content: str = ""
-    ) -> Dict[str, Any]:
+    def create_file(self, user_id: str, path: str, content: str = "") -> Dict[str, Any]:
         """
         Create a new file inside the user's project space.
 
@@ -289,9 +283,7 @@ class FileManagerService(BaseService):
 
         return {"file": self._metadata(target), "content": content}
 
-    def update_file(
-        self, user_id: str, path: str, content: str
-    ) -> Dict[str, Any]:
+    def update_file(self, user_id: str, path: str, content: str) -> Dict[str, Any]:
         """
         Overwrite the content of an existing file.
 

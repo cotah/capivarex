@@ -65,9 +65,26 @@ _RE_EXPORT = re.compile(
 )
 # Words that are commands, not products — used as guard in fallback
 _NON_PRODUCT_WORDS = {
-    "check", "show", "see", "view", "list", "help", "status",
-    "report", "cancel", "stop", "undo", "ver", "mostra", "mostrar",
-    "minha", "lista", "compras", "ajuda", "cancelar", "parar",
+    "check",
+    "show",
+    "see",
+    "view",
+    "list",
+    "help",
+    "status",
+    "report",
+    "cancel",
+    "stop",
+    "undo",
+    "ver",
+    "mostra",
+    "mostrar",
+    "minha",
+    "lista",
+    "compras",
+    "ajuda",
+    "cancelar",
+    "parar",
 }
 
 _RE_VOICE_LIST = re.compile(

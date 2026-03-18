@@ -29,6 +29,7 @@ Rodar:
   pytest tests/test_autofix_core.py -v
   pytest tests/test_autofix_core.py -v --tb=short -x  # stop on first fail
 """
+
 import json
 import textwrap
 from datetime import datetime, timedelta, timezone
@@ -69,6 +70,7 @@ from autofix.core import (
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def tmp_autofix(tmp_path, monkeypatch):
@@ -135,6 +137,7 @@ _SAMPLE_TB = textwrap.dedent("""\
 # A. UTILITY FUNCTIONS
 # ===========================================================================
 
+
 class TestUtilityFunctions:
     def test_utc_now_returns_utc(self):
         now = _utc_now()
@@ -163,7 +166,9 @@ class TestUtilityFunctions:
         assert _parse_iso_ts(None) is None
 
     def test_minutes_since_recent(self):
-        ts = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(timespec="seconds")
+        ts = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(
+            timespec="seconds"
+        )
         mins = _minutes_since(ts)
         assert mins is not None
         assert 4.5 < mins < 5.5
@@ -191,12 +196,18 @@ class TestUtilityFunctions:
 # B. FRAME EXTRACTION
 # ===========================================================================
 
+
 class TestFrameExtraction:
     def test_is_repo_frame_telegram_bot(self):
-        assert _is_repo_frame("/home/user/clawdbot/telegram_bot.py", "telegram_bot") is True
+        assert (
+            _is_repo_frame("/home/user/clawdbot/telegram_bot.py", "telegram_bot")
+            is True
+        )
 
     def test_is_repo_frame_site_packages(self):
-        assert _is_repo_frame("/usr/lib/python3.11/site-packages/foo.py", "foo") is False
+        assert (
+            _is_repo_frame("/usr/lib/python3.11/site-packages/foo.py", "foo") is False
+        )
 
     def test_is_repo_frame_generic_user_module(self):
         # Generic module not in _REPO_PATH_PATTERNS nor in ("telegram_bot","bot") → False
@@ -259,6 +270,7 @@ class TestFrameExtraction:
 # C. TICKET MANAGEMENT
 # ===========================================================================
 
+
 class TestTicketManagement:
     def test_load_tickets_empty_dir(self, tmp_autofix):
         tickets = core.load_tickets()
@@ -291,13 +303,22 @@ class TestTicketManagement:
 
     def test_upsert_ticket_has_required_fields(self, tmp_autofix):
         ticket, _ = core.upsert_ticket("ValueError", _SAMPLE_TB, "123", "cmd", "err")
-        for field in ("id", "fingerprint", "error_type", "status",
-                      "count", "first_seen", "last_seen"):
+        for field in (
+            "id",
+            "fingerprint",
+            "error_type",
+            "status",
+            "count",
+            "first_seen",
+            "last_seen",
+        ):
             assert field in ticket, f"Missing field: {field}"
 
     def test_upsert_ticket_deduplicates(self, tmp_autofix):
         core.upsert_ticket("ValueError", _SAMPLE_TB, "123", "cmd", "err")
-        ticket, is_new = core.upsert_ticket("ValueError", _SAMPLE_TB, "123", "cmd", "err")
+        ticket, is_new = core.upsert_ticket(
+            "ValueError", _SAMPLE_TB, "123", "cmd", "err"
+        )
         assert is_new is False
         assert ticket["count"] == 2
 
@@ -372,6 +393,7 @@ class TestTicketManagement:
 # D. STATUS CALCULATION
 # ===========================================================================
 
+
 class TestStatusCalculation:
     def test_determine_state_red_with_new_tickets(self):
         state, reason = _determine_state(number_new=3, seconds_since_newest=10)
@@ -379,8 +401,7 @@ class TestStatusCalculation:
 
     def test_determine_state_yellow_within_stability_window(self):
         state, reason = _determine_state(
-            number_new=0,
-            seconds_since_newest=STABILITY_WINDOW_SECONDS - 10
+            number_new=0, seconds_since_newest=STABILITY_WINDOW_SECONDS - 10
         )
         assert state == "yellow"
 
@@ -390,8 +411,7 @@ class TestStatusCalculation:
 
     def test_determine_state_green_old_activity(self):
         state, reason = _determine_state(
-            number_new=0,
-            seconds_since_newest=STABILITY_WINDOW_SECONDS + 100
+            number_new=0, seconds_since_newest=STABILITY_WINDOW_SECONDS + 100
         )
         assert state == "green"
 
@@ -447,6 +467,7 @@ class TestStatusCalculation:
 # E. NOTIFICATION FLAGS
 # ===========================================================================
 
+
 class TestNotificationFlags:
     def test_should_notify_admin_never_notified(self, sample_ticket):
         assert should_notify_repeat(sample_ticket, "admin") is True
@@ -455,21 +476,27 @@ class TestNotificationFlags:
         assert should_notify_repeat(sample_ticket, "user") is True
 
     def test_should_not_notify_within_cooldown(self, sample_ticket):
-        recent = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(timespec="seconds")
+        recent = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(
+            timespec="seconds"
+        )
         sample_ticket["notified_admin_last_ts"] = recent
         assert should_notify_repeat(sample_ticket, "admin") is False
 
     def test_should_notify_after_cooldown(self, sample_ticket):
-        old_ts = (datetime.now(timezone.utc) - timedelta(minutes=COOLDOWN_MINUTES + 5)).isoformat(
-            timespec="seconds"
-        )
+        old_ts = (
+            datetime.now(timezone.utc) - timedelta(minutes=COOLDOWN_MINUTES + 5)
+        ).isoformat(timespec="seconds")
         sample_ticket["notified_admin_last_ts"] = old_ts
         assert should_notify_repeat(sample_ticket, "admin") is True
 
     def test_should_notify_after_status_change(self, sample_ticket):
         # Last notified 10 min ago, but status changed 2 min ago → should notify
-        recent_notif = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(timespec="seconds")
-        recent_change = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat(timespec="seconds")
+        recent_notif = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(
+            timespec="seconds"
+        )
+        recent_change = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat(
+            timespec="seconds"
+        )
         sample_ticket["notified_admin_last_ts"] = recent_notif
         sample_ticket["status_changed_ts"] = recent_change
         assert should_notify_repeat(sample_ticket, "admin") is True
@@ -478,6 +505,7 @@ class TestNotificationFlags:
 # ===========================================================================
 # F. SUGGESTION & HEURISTICS
 # ===========================================================================
+
 
 class TestSuggestionHeuristics:
     def test_get_cause_heuristic_known_error(self):
@@ -537,6 +565,7 @@ class TestSuggestionHeuristics:
 # G. PATCH DIFF PARSING
 # ===========================================================================
 
+
 class TestPatchDiffParsing:
     SIMPLE_DIFF = textwrap.dedent("""\
         --- a/bot.py
@@ -585,10 +614,16 @@ class TestPatchDiffParsing:
         assert isinstance(hunk, dict)
 
     def test_determine_hunk_status_all_applied(self):
-        assert _determine_hunk_status([{"status": "applied"}, {"status": "applied"}]) == "applied"
+        assert (
+            _determine_hunk_status([{"status": "applied"}, {"status": "applied"}])
+            == "applied"
+        )
 
     def test_determine_hunk_status_partial(self):
-        assert _determine_hunk_status([{"status": "applied"}, {"status": "not_found"}]) == "partial"
+        assert (
+            _determine_hunk_status([{"status": "applied"}, {"status": "not_found"}])
+            == "partial"
+        )
 
     def test_determine_hunk_status_all_not_found(self):
         assert _determine_hunk_status([{"status": "not_found"}]) == "failed"
@@ -622,6 +657,7 @@ class TestPatchDiffParsing:
 # H. SANDBOX APPLY
 # ===========================================================================
 
+
 class TestSandboxApply:
     @staticmethod
     def _make_patch(diff: str, target_files: list, ticket_id: str = "T-TEST") -> dict:
@@ -641,7 +677,8 @@ class TestSandboxApply:
         assert "results" in report
         assert report["mode"] == "dry_run"
         failures = [
-            r for r in report["results"]
+            r
+            for r in report["results"]
             if "not found" in r.get("details", "").lower()
             or r.get("status", "") in ("fail", "failed", "error")
         ]
@@ -649,6 +686,7 @@ class TestSandboxApply:
 
     def test_sandbox_creates_unique_run_dir(self, tmp_autofix):
         import time
+
         p = self._make_patch(diff="", target_files=[])
         _, run_dir1 = core.apply_patch_sandbox(p, 1, "dry_run")
         time.sleep(1.1)  # _new_run_dir uses second-precision timestamp
@@ -698,6 +736,7 @@ class TestSandboxApply:
 # ===========================================================================
 # I. PATCH GOVERNANCE
 # ===========================================================================
+
 
 class TestPatchGovernance:
     @staticmethod
@@ -767,6 +806,7 @@ class TestPatchGovernance:
 # J. RECORD EXCEPTION (integration)
 # ===========================================================================
 
+
 class TestRecordException:
     def test_record_exception_returns_ticket(self, tmp_autofix):
         try:
@@ -808,6 +848,7 @@ class TestRecordException:
 # ===========================================================================
 # K. CLEANUP
 # ===========================================================================
+
 
 class TestCleanup:
     def test_cleanup_test_data_removes_test_tickets(self, tmp_autofix):

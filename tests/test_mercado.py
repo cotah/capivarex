@@ -168,9 +168,7 @@ class TestIntencoes:
         """Texto curto sem padrão → fallback para adicionar."""
         agent, svc = mercado_agent
         result = await agent.execute("bananas", {})
-        svc.adicionar.assert_called_once_with(
-            "bananas", user_id="default", lang="en"
-        )
+        svc.adicionar.assert_called_once_with("bananas", user_id="default", lang="en")
         assert result.status == AgentStatus.SUCCESS
 
     @pytest.mark.asyncio
@@ -1224,7 +1222,9 @@ class TestVerificarAlertas:
         mock_supabase.is_initialized.return_value = True
         mock_supabase.client = mock_db
 
-        itens = [{"produto": "Leite Mimosa", "preco_unitario": 1.80}]  # 80% subida, €0.80 diff
+        itens = [
+            {"produto": "Leite Mimosa", "preco_unitario": 1.80}
+        ]  # 80% subida, €0.80 diff
 
         with patch("services.get_service", return_value=mock_supabase):
             alertas = await svc._verificar_alertas(itens, "chat1")
@@ -1762,9 +1762,7 @@ class TestExtrairGemini:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "candidates": [
-                {"content": {"parts": [{"text": "not json"}]}}
-            ]
+            "candidates": [{"content": {"parts": [{"text": "not json"}]}}]
         }
         svc._http.post = AsyncMock(return_value=mock_response)
 
@@ -1970,9 +1968,7 @@ class TestVerificarDuplicata:
             ],
         }
         svc._extrair_gemini = AsyncMock(return_value=nota)
-        svc._verificar_duplicata = AsyncMock(
-            return_value=True
-        )
+        svc._verificar_duplicata = AsyncMock(return_value=True)
         svc._guardar_compra = AsyncMock()
         svc._verificar_alertas = AsyncMock()
 

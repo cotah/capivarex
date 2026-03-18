@@ -2,7 +2,7 @@
 """
 Billing Routes — Stripe checkout, webhook, status, portal.
 
-Manages subscription plans (free / me / everywhere) with daily message
+Manages subscription plans (professional / executive) with daily message
 quotas stored in ``public.users`` columns (plan, messages_used,
 messages_limit, stripe_customer_id).
 
@@ -31,28 +31,27 @@ router = APIRouter(tags=["Billing"])
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_PRICE_ME = os.getenv("STRIPE_PRICE_ME")
-STRIPE_PRICE_EVERYWHERE = os.getenv("STRIPE_PRICE_EVERYWHERE")
+STRIPE_PRICE_PROFESSIONAL = os.getenv("STRIPE_PRICE_PROFESSIONAL")
+STRIPE_PRICE_EXECUTIVE = os.getenv("STRIPE_PRICE_EXECUTIVE")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://app.capivarex.com")
 
 if not STRIPE_SECRET_KEY:
     logger.warning("STRIPE_SECRET_KEY not set — billing endpoints will fail")
 if not STRIPE_WEBHOOK_SECRET:
     logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook verification will fail")
-if not STRIPE_PRICE_ME:
-    logger.warning("STRIPE_PRICE_ME not set")
-if not STRIPE_PRICE_EVERYWHERE:
-    logger.warning("STRIPE_PRICE_EVERYWHERE not set")
+if not STRIPE_PRICE_PROFESSIONAL:
+    logger.warning("STRIPE_PRICE_PROFESSIONAL not set")
+if not STRIPE_PRICE_EXECUTIVE:
+    logger.warning("STRIPE_PRICE_EXECUTIVE not set")
 
 PLAN_LIMITS: dict[str, int] = {
-    "free": 30,
-    "me": 300,
-    "everywhere": 999999,
+    "professional": 300,
+    "executive": 999999,
 }
 
 PLAN_PRICES: dict[str, str | None] = {
-    "me": STRIPE_PRICE_ME,
-    "everywhere": STRIPE_PRICE_EVERYWHERE,
+    "professional": STRIPE_PRICE_PROFESSIONAL,
+    "executive": STRIPE_PRICE_EXECUTIVE,
 }
 
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
@@ -62,10 +61,10 @@ def _plan_from_price(price_id: str | None) -> str | None:
     """Map a Stripe price ID back to a plan name."""
     if not price_id:
         return None
-    if price_id == STRIPE_PRICE_ME:
-        return "me"
-    if price_id == STRIPE_PRICE_EVERYWHERE:
-        return "everywhere"
+    if price_id == STRIPE_PRICE_PROFESSIONAL:
+        return "professional"
+    if price_id == STRIPE_PRICE_EXECUTIVE:
+        return "executive"
     return None
 
 
@@ -94,7 +93,7 @@ async def _notify_admin(message: str) -> None:
 
 
 class CreateCheckoutRequest(BaseModel):
-    plan: str = Field(..., pattern=r"^(me|everywhere)$")
+    plan: str = Field(..., pattern=r"^(professional|executive)$")
 
 
 # ---------------------------------------------------------------------------
@@ -126,30 +125,27 @@ async def create_checkout(
             # the JWT so the NOT NULL column is satisfied on upsert.
             import jwt as pyjwt
 
-            token = request.headers.get(
-                "authorization", ""
-            ).replace("Bearer ", "")
+            token = request.headers.get("authorization", "").replace("Bearer ", "")
             try:
-                payload = pyjwt.decode(
-                    token, options={"verify_signature": False}
-                )
+                payload = pyjwt.decode(token, options={"verify_signature": False})
                 user_email = payload.get("email") or ""
             except Exception:
                 user_email = ""
 
             logger.warning(
-                "Billing: user={} not in public.users,"
-                " upserting with email={}",
+                "Billing: user={} not in public.users, upserting with email={}",
                 user_id[:8],
                 bool(user_email),
             )
-            db.table("users").upsert({
-                "id": user_id,
-                "email": user_email,
-                "plan": "free",
-                "messages_used": 0,
-                "messages_limit": 30,
-            }).execute()
+            db.table("users").upsert(
+                {
+                    "id": user_id,
+                    "email": user_email,
+                    "plan": "professional",
+                    "messages_used": 0,
+                    "messages_limit": 300,
+                }
+            ).execute()
             user = {"email": user_email, "stripe_customer_id": None}
         else:
             user = user_row.data[0]
@@ -162,9 +158,9 @@ async def create_checkout(
                 metadata={"user_id": user_id},
             )
             customer_id = customer.id
-            db.table("users").update(
-                {"stripe_customer_id": customer_id}
-            ).eq("id", user_id).execute()
+            db.table("users").update({"stripe_customer_id": customer_id}).eq(
+                "id", user_id
+            ).execute()
             logger.info(
                 f"Billing: created Stripe customer {customer_id[:16]}"
                 f" for user={user_id[:8]}"
@@ -177,8 +173,7 @@ async def create_checkout(
             line_items=[{"price": price_id, "quantity": 1}],
             metadata={"user_id": user_id, "plan": body.plan},
             success_url=(
-                f"{FRONTEND_URL}/billing/success"
-                "?session_id={CHECKOUT_SESSION_ID}"
+                f"{FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"
             ),
             cancel_url=f"{FRONTEND_URL}/billing/cancel",
         )
@@ -197,9 +192,7 @@ async def create_checkout(
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to create checkout session"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
 
 # ---------------------------------------------------------------------------
@@ -241,14 +234,15 @@ async def stripe_webhook(request: Request):
 
         if uid and plan and plan in PLAN_LIMITS:
             limit = PLAN_LIMITS[plan]
-            db.table("users").update({
-                "plan": plan,
-                "messages_limit": limit,
-                "stripe_customer_id": customer_id,
-            }).eq("id", uid).execute()
+            db.table("users").update(
+                {
+                    "plan": plan,
+                    "messages_limit": limit,
+                    "stripe_customer_id": customer_id,
+                }
+            ).eq("id", uid).execute()
             logger.info(
-                f"Billing: user={uid[:8]} upgraded to"
-                f" plan={plan} limit={limit}"
+                f"Billing: user={uid[:8]} upgraded to plan={plan} limit={limit}"
             )
 
     elif event_type == "customer.subscription.deleted":
@@ -256,13 +250,15 @@ async def stripe_webhook(request: Request):
         customer_id = subscription.get("customer")
 
         if customer_id:
-            db.table("users").update({
-                "plan": "free",
-                "messages_limit": PLAN_LIMITS["free"],
-            }).eq("stripe_customer_id", customer_id).execute()
+            db.table("users").update(
+                {
+                    "plan": "professional",
+                    "messages_limit": PLAN_LIMITS["professional"],
+                }
+            ).eq("stripe_customer_id", customer_id).execute()
             logger.info(
                 f"Billing: customer={customer_id[:16]}"
-                f" subscription deleted, reset to free"
+                f" subscription deleted, reset to professional"
             )
 
     elif event_type == "customer.subscription.updated":
@@ -273,10 +269,12 @@ async def stripe_webhook(request: Request):
         plan = _plan_from_price(price_id)
         if customer_id and plan:
             limit = PLAN_LIMITS[plan]
-            db.table("users").update({
-                "plan": plan,
-                "messages_limit": limit,
-            }).eq("stripe_customer_id", customer_id).execute()
+            db.table("users").update(
+                {
+                    "plan": plan,
+                    "messages_limit": limit,
+                }
+            ).eq("stripe_customer_id", customer_id).execute()
             logger.info(
                 f"Billing: customer={customer_id[:16]}"
                 f" subscription updated → {plan} (limit={limit})"
@@ -289,9 +287,7 @@ async def stripe_webhook(request: Request):
         invoice = event["data"]["object"]
         customer_id = invoice.get("customer")
         amount = invoice.get("amount_paid", 0) / 100
-        logger.info(
-            f"Billing: payment succeeded customer={customer_id} R${amount:.2f}"
-        )
+        logger.info(f"Billing: payment succeeded customer={customer_id} R${amount:.2f}")
         await _notify_admin(
             f"\u2705 Pagamento confirmado: customer={customer_id} R${amount:.2f}"
         )
@@ -299,9 +295,7 @@ async def stripe_webhook(request: Request):
     elif event_type == "invoice.payment_failed":
         invoice = event["data"]["object"]
         customer_id = invoice.get("customer")
-        logger.warning(
-            f"Billing: payment failed customer={customer_id}"
-        )
+        logger.warning(f"Billing: payment failed customer={customer_id}")
         await _notify_admin(
             f"\u274c Pagamento falhou: customer={customer_id} \u2014 verificar conta"
         )
@@ -331,9 +325,9 @@ async def billing_status(user_id: str = Depends(verify_webapp_user)):
             raise HTTPException(status_code=404, detail="User not found")
 
         user = result.data[0]
-        plan = user.get("plan") or "free"
+        plan = user.get("plan") or "professional"
         used = user.get("messages_used") or 0
-        limit = user.get("messages_limit") or PLAN_LIMITS["free"]
+        limit = user.get("messages_limit") or PLAN_LIMITS["professional"]
         is_unlimited = limit >= 999999
 
         if is_unlimited:
@@ -342,8 +336,7 @@ async def billing_status(user_id: str = Depends(verify_webapp_user)):
             quota_pct = round((used / limit) * 100, 1) if limit > 0 else 100.0
 
         logger.info(
-            f"Billing status: user={user_id[:8]}"
-            f" plan={plan} used={used}/{limit}"
+            f"Billing status: user={user_id[:8]} plan={plan} used={used}/{limit}"
         )
         return {
             "plan": plan,
@@ -361,9 +354,7 @@ async def billing_status(user_id: str = Depends(verify_webapp_user)):
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to get billing status"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get billing status")
 
 
 # ---------------------------------------------------------------------------
@@ -390,18 +381,14 @@ async def billing_portal(user_id: str = Depends(verify_webapp_user)):
 
         customer_id = result.data[0].get("stripe_customer_id")
         if not customer_id:
-            raise HTTPException(
-                status_code=400, detail="No billing account found"
-            )
+            raise HTTPException(status_code=400, detail="No billing account found")
 
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
             return_url=f"{FRONTEND_URL}/settings",
         )
 
-        logger.info(
-            f"Billing portal: user={user_id[:8]} session created"
-        )
+        logger.info(f"Billing portal: user={user_id[:8]} session created")
         return {"portal_url": session.url}
 
     except HTTPException:
@@ -412,9 +399,7 @@ async def billing_portal(user_id: str = Depends(verify_webapp_user)):
             name=type(e).__name__,
             msg=str(e),
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to create portal session"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create portal session")
 
 
 # ---------------------------------------------------------------------------
@@ -454,9 +439,7 @@ async def reset_daily_usage(request: Request):
 
         reset_count = len(result.data) if result.data else 0
 
-        logger.info(
-            "Cron reset-daily: reset messages_used for {} users", reset_count
-        )
+        logger.info("Cron reset-daily: reset messages_used for {} users", reset_count)
 
         await _notify_admin(
             f"\U0001f504 Reset diário: {reset_count} users zeraram messages_used"

@@ -391,7 +391,9 @@ async def test_send_email_calls_api():
     svc = GmailService()
 
     with patch.object(
-        svc, "_api", new_callable=AsyncMock,
+        svc,
+        "_api",
+        new_callable=AsyncMock,
         return_value={"id": "sent_1", "threadId": "t1", "labelIds": ["SENT"]},
     ) as mock_api:
         result = await svc.send_email(
@@ -412,7 +414,9 @@ async def test_send_email_with_reply():
     svc = GmailService()
 
     with patch.object(
-        svc, "_api", new_callable=AsyncMock,
+        svc,
+        "_api",
+        new_callable=AsyncMock,
         return_value={"id": "sent_2"},
     ) as mock_api:
         await svc.send_email(
@@ -440,10 +444,10 @@ async def test_get_email_body_calls_api():
     encoded = base64.urlsafe_b64encode(text.encode()).decode()
 
     with patch.object(
-        svc, "_api", new_callable=AsyncMock,
-        return_value={
-            "payload": {"mimeType": "text/plain", "body": {"data": encoded}}
-        },
+        svc,
+        "_api",
+        new_callable=AsyncMock,
+        return_value={"payload": {"mimeType": "text/plain", "body": {"data": encoded}}},
     ):
         body = await svc.get_email_body("u1", "m1")
 
@@ -460,7 +464,9 @@ async def test_mark_as_read_calls_api():
         await svc.mark_as_read("u1", "m1")
 
     mock_api.assert_called_once_with(
-        "u1", "POST", "messages/m1/modify",
+        "u1",
+        "POST",
+        "messages/m1/modify",
         json_data={"removeLabelIds": ["UNREAD"]},
     )
 
@@ -475,7 +481,9 @@ async def test_mark_as_unread_calls_api():
         await svc.mark_as_unread("u1", "m1")
 
     mock_api.assert_called_once_with(
-        "u1", "POST", "messages/m1/modify",
+        "u1",
+        "POST",
+        "messages/m1/modify",
         json_data={"addLabelIds": ["UNREAD"]},
     )
 
@@ -490,7 +498,9 @@ async def test_archive_calls_api():
         await svc.archive("u1", "m1")
 
     mock_api.assert_called_once_with(
-        "u1", "POST", "messages/m1/modify",
+        "u1",
+        "POST",
+        "messages/m1/modify",
         json_data={"removeLabelIds": ["INBOX"]},
     )
 
@@ -505,7 +515,9 @@ async def test_trash_calls_api():
         await svc.trash("u1", "m1")
 
     mock_api.assert_called_once_with(
-        "u1", "POST", "messages/m1/trash",
+        "u1",
+        "POST",
+        "messages/m1/trash",
     )
 
 
@@ -516,7 +528,9 @@ async def test_get_profile_calls_api():
     svc = GmailService()
 
     with patch.object(
-        svc, "_api", new_callable=AsyncMock,
+        svc,
+        "_api",
+        new_callable=AsyncMock,
         return_value={"emailAddress": "test@gmail.com", "messagesTotal": 100},
     ):
         result = await svc.get_profile("u1")
@@ -531,7 +545,9 @@ async def test_get_unread_count():
     svc = GmailService()
 
     with patch.object(
-        svc, "_api", new_callable=AsyncMock,
+        svc,
+        "_api",
+        new_callable=AsyncMock,
         return_value={"resultSizeEstimate": 7},
     ):
         count = await svc.get_unread_count("u1")

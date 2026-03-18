@@ -81,6 +81,7 @@ def _mark_supabase_up() -> None:
 # Cache Operations
 # ---------------------------------------------------------------------------
 
+
 async def cache_set(key: str, data: Any, ttl: int = CACHE_TTL_USER) -> bool:
     """Store data in Redis cache."""
     redis = get_service("redis")
@@ -127,6 +128,7 @@ async def cache_delete(key: str) -> bool:
 # Resilient Query Wrapper
 # ---------------------------------------------------------------------------
 
+
 async def resilient_query(
     cache_key: str,
     supabase_fn: Callable,
@@ -163,7 +165,8 @@ async def resilient_query(
         _mark_supabase_down()
         logger.warning(
             "RESILIENCE: Supabase query failed for key=%s: %s. Trying Redis cache.",
-            cache_key, type(e).__name__,
+            cache_key,
+            type(e).__name__,
         )
 
     # Fallback to Redis cache
@@ -179,6 +182,7 @@ async def resilient_query(
 # ---------------------------------------------------------------------------
 # Pre-built Resilient Operations (most common queries)
 # ---------------------------------------------------------------------------
+
 
 async def get_user_resilient(user_id: str) -> Optional[Dict[str, Any]]:
     """Get user profile with Redis fallback."""

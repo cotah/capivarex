@@ -52,6 +52,7 @@ def _get_callback_url() -> str:
 # Step 1: Redirect user to GitHub authorization
 # ---------------------------------------------------------------------------
 
+
 @router.get("/github/connect")
 async def github_connect(user_id: str = Query(...)):
     """Redirect user to GitHub OAuth authorization page."""
@@ -73,6 +74,7 @@ async def github_connect(user_id: str = Query(...)):
 # ---------------------------------------------------------------------------
 # Step 2: GitHub redirects back with code
 # ---------------------------------------------------------------------------
+
 
 @router.get("/github/callback")
 async def github_callback(
@@ -146,7 +148,8 @@ async def github_callback(
             await db.save_github_connection(user_id, github_username, access_token)
             logger.info(
                 "GitHub connected: user=%s github=%s",
-                user_id[:8], github_username,
+                user_id[:8],
+                github_username,
             )
         else:
             logger.error("Database not available for GitHub save")
@@ -165,6 +168,7 @@ async def github_callback(
 # Admin token check (for cybersecurity bot)
 # ---------------------------------------------------------------------------
 
+
 @router.get("/github/admin-status")
 async def github_admin_status():
     """Check if admin GitHub token is configured (for cybersecurity bot)."""
@@ -178,6 +182,7 @@ async def github_admin_status():
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _close_window_response(message: str, success: bool = False) -> HTMLResponse:
     """Return HTML that shows a message and closes the OAuth popup window."""

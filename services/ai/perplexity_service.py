@@ -41,7 +41,9 @@ class PerplexityService(BaseService):
     - Metrics tracking
     """
 
-    def __init__(self, name: str = "perplexity", config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, name: str = "perplexity", config: Optional[Dict[str, Any]] = None
+    ):
         """Initialise the Perplexity service."""
         super().__init__(name, config)
         self.api_key: Optional[str] = None
@@ -160,19 +162,23 @@ class PerplexityService(BaseService):
         for query in queries:
             try:
                 result = await self.search(query, model=model)
-                results.append({
-                    "query": query,
-                    "answer": result["answer"],
-                    "sources": result["sources"],
-                })
+                results.append(
+                    {
+                        "query": query,
+                        "answer": result["answer"],
+                        "sources": result["sources"],
+                    }
+                )
                 all_sources.extend(result["sources"])
             except Exception as e:
                 self.logger.warning(f"Query failed in deep research: {query}: {e}")
-                results.append({
-                    "query": query,
-                    "answer": f"Error: {str(e)}",
-                    "sources": [],
-                })
+                results.append(
+                    {
+                        "query": query,
+                        "answer": f"Error: {str(e)}",
+                        "sources": [],
+                    }
+                )
 
         # Generate summary of all findings
         summary_query = f"Summarize the following research on '{topic}':\n\n"
@@ -237,6 +243,7 @@ def get_perplexity_service() -> PerplexityService:
     global _perplexity_service
     if _perplexity_service is None:
         from services.core import get_service
+
         _perplexity_service = get_service("perplexity")
     return _perplexity_service
 
@@ -245,6 +252,7 @@ def get_perplexity_service() -> PerplexityService:
 async def search_perplexity(query: str, model: str = "sonar") -> Dict[str, Any]:
     """Search using Perplexity (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("perplexity")
     if service and isinstance(service, PerplexityService):
         if not service.is_initialized():
@@ -258,6 +266,7 @@ async def deep_research(
 ) -> Dict[str, Any]:
     """Deep research (backward compatibility)."""
     from services.core import get_service
+
     service = get_service("perplexity")
     if service and isinstance(service, PerplexityService):
         if not service.is_initialized():

@@ -294,9 +294,7 @@ class ReminderService(BaseService):
 
         loop = asyncio.get_event_loop()
         try:
-            response = await loop.run_in_executor(
-                None, _fetch_due
-            )
+            response = await loop.run_in_executor(None, _fetch_due)
         except Exception as e:
             self.logger.warning(
                 "Supabase _fetch_due failed, retrying: %s",
@@ -304,9 +302,7 @@ class ReminderService(BaseService):
             )
             try:
                 await asyncio.sleep(2)
-                response = await loop.run_in_executor(
-                    None, _fetch_due
-                )
+                response = await loop.run_in_executor(None, _fetch_due)
             except Exception as e2:
                 self.logger.error(
                     "Supabase _fetch_due retry failed: %s",

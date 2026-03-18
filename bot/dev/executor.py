@@ -27,9 +27,7 @@ from bot.dev.actions import normalize_action, VALID_ACTION_TYPES
 logger = logging.getLogger("unbx_bot.dev.executor")
 
 
-def _validate_action(
-    action: dict, index: int, base_dir: Path
-) -> tuple:
+def _validate_action(action: dict, index: int, base_dir: Path) -> tuple:
     """
     Validates a single action. Returns (normalized_tuple, error_str).
     normalized_tuple = (index, t_raw, t_norm, path_norm, action) or None on error.
@@ -61,8 +59,10 @@ def _validate_action(
 
 
 def _snapshot_file(
-    path_norm: str, base_dir: Path,
-    originals: Dict[str, str], created: Dict[str, bool],
+    path_norm: str,
+    base_dir: Path,
+    originals: Dict[str, str],
+    created: Dict[str, bool],
 ) -> None:
     """Creates a snapshot for a single file if not already captured."""
     if path_norm in originals or path_norm in created:
@@ -75,7 +75,9 @@ def _snapshot_file(
 
 
 def _rollback(
-    originals: Dict[str, str], created: Dict[str, bool], base_dir: Path,
+    originals: Dict[str, str],
+    created: Dict[str, bool],
+    base_dir: Path,
 ) -> None:
     """Rollback all changes: restore originals and remove created files."""
     for path_norm, old_content in originals.items():
@@ -95,8 +97,15 @@ def _rollback(
 
 
 def _execute_single_action(
-    i: int, t_raw: str, t_norm: str, path_norm: str, action: dict,
-    base_dir: Path, backup_dir: Path, report: List[str], touched: List[str],
+    i: int,
+    t_raw: str,
+    t_norm: str,
+    path_norm: str,
+    action: dict,
+    base_dir: Path,
+    backup_dir: Path,
+    report: List[str],
+    touched: List[str],
 ) -> None:
     """Executes a single action (create/overwrite/append/replace). Raises on error."""
     p = safe_path(path_norm, base_dir)
@@ -106,7 +115,9 @@ def _execute_single_action(
 
     if t_norm == "create_file":
         if p.exists():
-            report.append(f"⚠️ Action {i}: create_file ignored (already exists): {path_norm}")
+            report.append(
+                f"⚠️ Action {i}: create_file ignored (already exists): {path_norm}"
+            )
             logger.info(f"create_file ignored | index={i} | path={path_norm}")
         else:
             write_text_safe(p, action.get("content", "") or "")
@@ -146,10 +157,7 @@ def _execute_single_action(
 
 
 def apply_actions(
-    actions_obj: Dict,
-    base_dir: Path,
-    backup_dir: Path,
-    bot_version: str
+    actions_obj: Dict, base_dir: Path, backup_dir: Path, bot_version: str
 ) -> str:
     """
     Apply actions with rollback support (robust executor).
@@ -195,15 +203,24 @@ def apply_actions(
         _snapshot_file(result[3], base_dir, originals, created)
 
     # Apply actions
-    for (i, t_raw, t_norm, path_norm, action) in normalized_actions:
+    for i, t_raw, t_norm, path_norm, action in normalized_actions:
         try:
             _execute_single_action(
-                i, t_raw, t_norm, path_norm, action,
-                base_dir, backup_dir, report, touched,
+                i,
+                t_raw,
+                t_norm,
+                path_norm,
+                action,
+                base_dir,
+                backup_dir,
+                report,
+                touched,
             )
         except Exception as e:
             report.append(f"❌ Action {i}: error applying {t_norm} on {path_norm}: {e}")
-            logger.error(f"apply failed | index={i} | type={t_norm} | path={path_norm} | err={e}")
+            logger.error(
+                f"apply failed | index={i} | type={t_norm} | path={path_norm} | err={e}"
+            )
 
             _rollback(originals, created, base_dir)
             report.append(f"↩️ Rollback executed: changes reverted ({bot_version})")
@@ -230,7 +247,7 @@ def generate_receipt(
     receipts_dir: Path,
     bot_version: str,
     tenant_id: str,
-    user_id: str
+    user_id: str,
 ) -> str:
     """
     Generate audit receipt for action application.
@@ -266,24 +283,27 @@ def generate_receipt(
         "user_id": user_id,
         "source": source,
         "actions_total": len(actions),
-        "actions_validated": len([
-            a for a in actions
-            if isinstance(a, dict) and a.get("type") and a.get("path")
-        ]),
+        "actions_validated": len(
+            [
+                a
+                for a in actions
+                if isinstance(a, dict) and a.get("type") and a.get("path")
+            ]
+        ),
         "actions_rejected": rejections,
         "files_touched": list(set(files_touched)),
         "backups_created": list(set(backups_created)),
         "dry_run_report": dry_run_report,
         "apply_report": apply_report,
         "success": success,
-        "errors": errors
+        "errors": errors,
     }
 
     receipts_dir.mkdir(parents=True, exist_ok=True)
     receipt_file = receipts_dir / f"{receipt_id}_receipt.json"
 
     try:
-        with open(receipt_file, 'w', encoding='utf-8') as f:
+        with open(receipt_file, "w", encoding="utf-8") as f:
             json.dump(receipt, f, indent=2, ensure_ascii=False)
         logger.info(f"receipt generated | id={receipt_id} | success={success}")
     except Exception as e:

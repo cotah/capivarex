@@ -37,6 +37,7 @@ _code_previews: Dict[str, Dict[str, Any]] = {}
 # 1. Generate code via Dev Agent (structured output)
 # ---------------------------------------------------------------------------
 
+
 async def generate_project(
     user_id: str,
     description: str,
@@ -89,6 +90,7 @@ RESPOND ONLY WITH JSON (no markdown, no backticks):
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -155,6 +157,7 @@ RESPOND ONLY WITH JSON (no markdown, no backticks):
 # 2. Summary message for user
 # ---------------------------------------------------------------------------
 
+
 def format_summary(project: Dict[str, Any], base_url: str = "") -> str:
     """Format a project summary for the user."""
     name = project["name"]
@@ -178,7 +181,9 @@ def format_summary(project: Dict[str, Any], base_url: str = "") -> str:
     )
 
     if batches > 1:
-        summary += f"📦 Dividido em **{batches} lotes** de {MAX_FILES_PER_BATCH} arquivos\n\n"
+        summary += (
+            f"📦 Dividido em **{batches} lotes** de {MAX_FILES_PER_BATCH} arquivos\n\n"
+        )
 
     if preview_id and base_url:
         preview_url = f"{base_url}/api/v1/dev/preview/{preview_id}"
@@ -192,6 +197,7 @@ def format_summary(project: Dict[str, Any], base_url: str = "") -> str:
 # ---------------------------------------------------------------------------
 # 3. Push to GitHub
 # ---------------------------------------------------------------------------
+
 
 async def push_to_github(
     project_id: str,
@@ -267,6 +273,7 @@ async def push_to_github(
     for f in batch_files:
         try:
             import base64
+
             content_b64 = base64.b64encode(f["content"].encode("utf-8")).decode("utf-8")
 
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -282,7 +289,9 @@ async def push_to_github(
             if resp.status_code in (200, 201):
                 pushed += 1
             else:
-                logger.warning("GitHub push file failed: %s %s", f["path"], resp.status_code)
+                logger.warning(
+                    "GitHub push file failed: %s %s", f["path"], resp.status_code
+                )
 
         except Exception as e:
             logger.warning("GitHub push error for %s: %s", f["path"], e)
@@ -329,6 +338,7 @@ def format_push_result(result: Dict[str, Any]) -> str:
 # 4. Code Preview
 # ---------------------------------------------------------------------------
 
+
 def _create_preview(project_id: str, files: List[Dict[str, Any]]) -> str:
     """Create a preview entry for code viewing."""
     preview_id = hashlib.md5(f"{project_id}{time.time()}".encode()).hexdigest()[:12]
@@ -361,6 +371,7 @@ def get_pending_project(project_id: str) -> Optional[Dict[str, Any]]:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_id(user_id: str, name: str) -> str:
     """Generate a unique project ID."""
     raw = f"{user_id}{name}{time.time()}"
@@ -374,6 +385,8 @@ def cleanup_expired():
     for k in expired_previews:
         del _code_previews[k]
 
-    old_projects = [k for k, v in _pending_projects.items() if now - v["created_at"] > 3600]
+    old_projects = [
+        k for k, v in _pending_projects.items() if now - v["created_at"] > 3600
+    ]
     for k in old_projects:
         del _pending_projects[k]

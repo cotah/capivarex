@@ -4,6 +4,7 @@ CRUD de notas do usuario.
 
 Uses services (get_service) instead of direct imports from services/.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Service helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_db():
     """Get the Supabase client from the database service."""
     db_service = get_service("database")
@@ -35,6 +37,7 @@ def _get_db():
 # ============================================
 # NOTES CRUD
 # ============================================
+
 
 @router.get("/", response_model=List[Note])
 async def list_notes(

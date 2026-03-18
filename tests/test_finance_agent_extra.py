@@ -2,6 +2,7 @@
 Tests adicionais para FinanceAgent — cobrindo edge cases e o bug do falso positivo "vale".
 Adicionado na Fase C do QA.
 """
+
 import pytest
 from agents.core import AgentStatus
 
@@ -9,10 +10,12 @@ from agents.core import AgentStatus
 @pytest.fixture
 def finance_agent():
     from agents.specialized.finance_agent import FinanceAgent
+
     return FinanceAgent()
 
 
 # ── Bug regression: falso positivo "vale" ─────────────────────────────────
+
 
 def test_finance_vale_verb_not_company(finance_agent):
     """
@@ -65,6 +68,7 @@ def test_finance_amazon_not_vale(finance_agent):
 
 # ── Tickers com sufixo .SA ─────────────────────────────────────────────────
 
+
 def test_finance_petr4_sa_direct(finance_agent):
     """Ticker PETR4.SA deve ser extraído diretamente."""
     symbol = finance_agent._extract_symbol("cotação PETR4.SA agora")
@@ -79,6 +83,7 @@ def test_finance_dollar_prefix(finance_agent):
 
 # ── Stopwords ─────────────────────────────────────────────────────────────
 
+
 def test_finance_stopwords_filtered(finance_agent):
     """Palavras como BOLSA, COMO, QUAL não devem ser retornadas como tickers."""
     assert finance_agent._extract_symbol("como está a bolsa hoje?") == ""
@@ -87,6 +92,7 @@ def test_finance_stopwords_filtered(finance_agent):
 
 # ── Testes de integração do execute() ─────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_finance_execute_with_context_symbol(finance_agent):
     """execute() usa símbolo do context, não precisa extrair do prompt."""
@@ -94,11 +100,18 @@ async def test_finance_execute_with_context_symbol(finance_agent):
 
     mock_svc = AsyncMock()
     mock_svc.initialize = AsyncMock()
-    mock_svc.get_quote = AsyncMock(return_value={
-        "symbol": "NVDA", "name": "NVIDIA", "price": 875.5,
-        "currency": "USD", "change": 5.2, "percent_change": 0.6,
-        "high": 880.0, "low": 870.0,
-    })
+    mock_svc.get_quote = AsyncMock(
+        return_value={
+            "symbol": "NVDA",
+            "name": "NVIDIA",
+            "price": 875.5,
+            "currency": "USD",
+            "change": 5.2,
+            "percent_change": 0.6,
+            "high": 880.0,
+            "low": 870.0,
+        }
+    )
 
     with patch("agents.specialized.finance_agent.get_service", return_value=mock_svc):
         result = await finance_agent.execute("como está a NVIDIA?", {"symbol": "NVDA"})

@@ -54,12 +54,14 @@ class MemoryManager:
             client = self._get_client()
             result = (
                 client.table("memories")
-                .insert({
-                    "user_id": user_id,
-                    "type": memory_type,
-                    "content": content,
-                    "source": source,
-                })
+                .insert(
+                    {
+                        "user_id": user_id,
+                        "type": memory_type,
+                        "content": content,
+                        "source": source,
+                    }
+                )
                 .execute()
             )
 
@@ -193,7 +195,9 @@ class MemoryManager:
         """
         try:
             client = self._get_client()
-            client.table("memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
+            client.table("memories").delete().eq("id", memory_id).eq(
+                "user_id", user_id
+            ).execute()
             return True
         except Exception as e:
             logger.error(f"Failed to delete memory {memory_id}: {e}")
@@ -233,12 +237,14 @@ class MemoryManager:
         """
         try:
             client = self._get_client()
-            client.table("memory_audit_log").insert({
-                "request_id": request_id,
-                "memory_id": memory_id,
-                "user_id": user_id,
-                "action": action,
-            }).execute()
+            client.table("memory_audit_log").insert(
+                {
+                    "request_id": request_id,
+                    "memory_id": memory_id,
+                    "user_id": user_id,
+                    "action": action,
+                }
+            ).execute()
         except Exception as e:
             logger.warning(f"Failed to log memory audit ({action}): {e}")
 

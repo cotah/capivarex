@@ -152,9 +152,7 @@ class SavedLocationsService:
             logger.error("Error loading saved locations: %s", exc)
             return {}
 
-    async def get_location(
-        self, user_id: str, key: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_location(self, user_id: str, key: str) -> Optional[Dict[str, Any]]:
         """
         Get a specific saved location.
 
@@ -199,13 +197,9 @@ class SavedLocationsService:
                     coords = await maps_svc.geocode(address)
                     if coords:
                         location_data["latitude"] = coords["latitude"]
-                        location_data["longitude"] = coords[
-                            "longitude"
-                        ]
+                        location_data["longitude"] = coords["longitude"]
                 except Exception as exc:
-                    logger.debug(
-                        "Geocode failed for saved location: %s", exc
-                    )
+                    logger.debug("Geocode failed for saved location: %s", exc)
 
         # Load existing, merge, save
         db = await self._get_db()
@@ -216,9 +210,7 @@ class SavedLocationsService:
         try:
             existing = await self.get_all_locations(user_id)
             existing[key] = location_data
-            await db.save_user_context(
-                user_id, self.CONTEXT_TYPE, existing
-            )
+            await db.save_user_context(user_id, self.CONTEXT_TYPE, existing)
             logger.info(
                 "Saved location '%s' for user %s: %s",
                 key,
@@ -240,18 +232,14 @@ class SavedLocationsService:
             existing = await self.get_all_locations(user_id)
             if key in existing:
                 del existing[key]
-                await db.save_user_context(
-                    user_id, self.CONTEXT_TYPE, existing
-                )
+                await db.save_user_context(user_id, self.CONTEXT_TYPE, existing)
                 return True
             return False
         except Exception as exc:
             logger.error("Error deleting location '%s': %s", key, exc)
             return False
 
-    async def resolve_address(
-        self, user_id: str, text: str
-    ) -> Optional[str]:
+    async def resolve_address(self, user_id: str, text: str) -> Optional[str]:
         """
         Try to resolve user text to a saved address.
 

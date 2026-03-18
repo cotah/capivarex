@@ -16,6 +16,7 @@ logger = logging.getLogger("unbx_bot.dev.claude_client")
 
 try:
     from anthropic import Anthropic
+
     claude_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 except Exception as e:
     logger.error(f"Failed to initialize Claude client: {e}")
@@ -48,7 +49,7 @@ def claude_dev_call(
     log_usage_fn: Optional[callable] = None,
     record_exception_fn: Optional[callable] = None,
     tenant_id: str = "local-dev",
-    user_id: str = "unknown"
+    user_id: str = "unknown",
 ) -> str:
     """
     Call Claude as DEV Agent (proposes actions with ACTIONS_JSON).
@@ -76,7 +77,7 @@ def claude_dev_call(
         "- Você SEMPRE retorna:\n"
         "  1) PLANO curto (bullets)\n"
         "  2) ACTIONS_JSON dentro de UM ÚNICO bloco ```json ... ```\n"
-        "- ACTIONS_JSON deve conter {\"actions\": [...]}.\n"
+        '- ACTIONS_JSON deve conter {"actions": [...]}.\n'
         "- Cada action DEVE ter: type, path, e (quando aplicável) content/find/replace.\n"
         "- Tipos válidos: create_file, overwrite_file, append_file, replace_in_file.\n"
         "- Se precisar escrever arquivo, use overwrite_file.\n"
@@ -117,7 +118,7 @@ def claude_dev_call(
                 model=model_id,
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
-                meta={"command": "/dev"}
+                meta={"command": "/dev"},
             )
 
         out = _claude_text(resp)
@@ -135,7 +136,7 @@ def claude_dev_call(
                 kind="dev",
                 status="err",
                 model=model_id,
-                meta={"error_type": type(e).__name__, "message": str(e)[:200]}
+                meta={"error_type": type(e).__name__, "message": str(e)[:200]},
             )
 
         # Record exception
@@ -157,7 +158,7 @@ def claude_dev_strict_call(
     log_usage_fn: Optional[callable] = None,
     record_exception_fn: Optional[callable] = None,
     tenant_id: str = "local-dev",
-    user_id: str = "unknown"
+    user_id: str = "unknown",
 ) -> str:
     """
     Call Claude in STRICT mode (enforces valid ACTIONS_JSON).
@@ -186,8 +187,8 @@ def claude_dev_strict_call(
         "ACTIONS_JSON:\n"
         "```json\n"
         "{\n"
-        "  \"actions\": [\n"
-        "    {\"type\":\"overwrite_file\",\"path\":\"workspace/exemplo.txt\",\"content\":\"ok\"}\n"
+        '  "actions": [\n'
+        '    {"type":"overwrite_file","path":"workspace/exemplo.txt","content":"ok"}\n'
         "  ]\n"
         "}\n"
         "```\n\n"
@@ -234,7 +235,7 @@ def claude_dev_strict_call(
                 model=model_id,
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
-                meta={"command": "/dev_strict"}
+                meta={"command": "/dev_strict"},
             )
 
         out = _claude_text(resp)
@@ -252,7 +253,7 @@ def claude_dev_strict_call(
                 kind="dev",
                 status="err",
                 model=model_id,
-                meta={"error_type": type(e).__name__, "message": str(e)[:200]}
+                meta={"error_type": type(e).__name__, "message": str(e)[:200]},
             )
 
         # Record exception
@@ -274,7 +275,7 @@ def claude_dev_explain_call(
     log_usage_fn: Optional[callable] = None,
     record_exception_fn: Optional[callable] = None,
     tenant_id: str = "local-dev",
-    user_id: str = "unknown"
+    user_id: str = "unknown",
 ) -> str:
     """
     Call Claude in EXPLAIN mode (explanations only, no actions).
@@ -336,7 +337,7 @@ def claude_dev_explain_call(
                 model=model_id,
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
-                meta={"command": "/dev_explain"}
+                meta={"command": "/dev_explain"},
             )
 
         out = _claude_text(resp)
@@ -354,7 +355,7 @@ def claude_dev_explain_call(
                 kind="dev",
                 status="err",
                 model=model_id,
-                meta={"error_type": type(e).__name__, "message": str(e)[:200]}
+                meta={"error_type": type(e).__name__, "message": str(e)[:200]},
             )
 
         # Record exception

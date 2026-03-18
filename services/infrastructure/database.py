@@ -195,7 +195,10 @@ class DatabaseService(BaseService):
             return None
 
         # Use resilient query (Supabase → Redis fallback)
-        from services.infrastructure.resilience_service import resilient_query, CACHE_TTL_USER
+        from services.infrastructure.resilience_service import (
+            resilient_query,
+            CACHE_TTL_USER,
+        )
 
         async def _fetch():
             if not self.client:
@@ -328,6 +331,7 @@ class DatabaseService(BaseService):
     ) -> bool:
         """Save or update a user context entry."""
         import uuid as _uuid
+
         try:
             _uuid.UUID(str(user_id))
         except (ValueError, AttributeError):
@@ -370,6 +374,7 @@ class DatabaseService(BaseService):
     ) -> Optional[Dict[str, Any]]:
         """Get a user context entry by type."""
         import uuid as _uuid
+
         try:
             _uuid.UUID(str(user_id))
         except (ValueError, AttributeError):

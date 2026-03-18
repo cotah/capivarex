@@ -1,6 +1,7 @@
 """
 Unit tests for DevAgent — code generation and programming queries.
 """
+
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from agents.core import AgentStatus
 @pytest.fixture
 def dev_agent():
     from agents.specialized.dev_agent import DevAgent
+
     return DevAgent()
 
 
@@ -32,8 +34,10 @@ def mock_openai():
 async def test_dev_basic_code_gen(dev_agent, mock_openai):
     """DevAgent generates code via OpenAI fallback."""
     with (
-        patch("agents.specialized.dev_agent.get_service",
-              side_effect=lambda n: mock_openai if n == "openai" else None),
+        patch(
+            "agents.specialized.dev_agent.get_service",
+            side_effect=lambda n: mock_openai if n == "openai" else None,
+        ),
     ):
         result = await dev_agent.execute("write a Python hello world", {})
     assert result.status == AgentStatus.SUCCESS

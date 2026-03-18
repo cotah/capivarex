@@ -145,9 +145,7 @@ class TestSavedLocationsService:
 
     @pytest.mark.asyncio
     async def test_get_location_not_exists(self, svc, mock_db):
-        mock_db.get_user_context = AsyncMock(
-            return_value={"home": {"address": "X"}}
-        )
+        mock_db.get_user_context = AsyncMock(return_value={"home": {"address": "X"}})
         with patch(
             "services.business.saved_locations_service.get_service",
             return_value=mock_db,
@@ -176,9 +174,7 @@ class TestSavedLocationsService:
             "services.business.saved_locations_service.get_service",
             side_effect=fake_get_service,
         ):
-            result = await svc.save_location(
-                "user-123", "home", "Swords, Dublin"
-            )
+            result = await svc.save_location("user-123", "home", "Swords, Dublin")
 
         assert result["address"] == "Swords, Dublin"
         assert result["latitude"] == 53.45
@@ -211,9 +207,7 @@ class TestSavedLocationsService:
             "services.business.saved_locations_service.get_service",
             return_value=mock_db,
         ):
-            await svc.save_location(
-                "user-123", "work", "New Work", geocode=False
-            )
+            await svc.save_location("user-123", "work", "New Work", geocode=False)
 
         # Check that save was called with both home and work
         call_args = mock_db.save_user_context.call_args
@@ -246,9 +240,7 @@ class TestSavedLocationsService:
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent(self, svc, mock_db):
-        mock_db.get_user_context = AsyncMock(
-            return_value={"home": {"address": "X"}}
-        )
+        mock_db.get_user_context = AsyncMock(return_value={"home": {"address": "X"}})
 
         with patch(
             "services.business.saved_locations_service.get_service",
@@ -280,16 +272,12 @@ class TestSavedLocationsService:
             "services.business.saved_locations_service.get_service",
             return_value=mock_db,
         ):
-            result = await svc.resolve_address(
-                "user-123", "Dublin Airport"
-            )
+            result = await svc.resolve_address("user-123", "Dublin Airport")
 
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_resolve_address_alias_but_not_saved(
-        self, svc, mock_db
-    ):
+    async def test_resolve_address_alias_but_not_saved(self, svc, mock_db):
         mock_db.get_user_context = AsyncMock(return_value={})
 
         with patch(
@@ -332,9 +320,7 @@ class TestSavedLocationsService:
 
     @pytest.mark.asyncio
     async def test_get_all_locations_exception(self, svc, mock_db):
-        mock_db.get_user_context = AsyncMock(
-            side_effect=Exception("DB error")
-        )
+        mock_db.get_user_context = AsyncMock(side_effect=Exception("DB error"))
         with patch(
             "services.business.saved_locations_service.get_service",
             return_value=mock_db,
@@ -344,9 +330,7 @@ class TestSavedLocationsService:
 
     @pytest.mark.asyncio
     async def test_save_location_exception(self, svc, mock_db):
-        mock_db.get_user_context = AsyncMock(
-            side_effect=Exception("DB error")
-        )
+        mock_db.get_user_context = AsyncMock(side_effect=Exception("DB error"))
         with patch(
             "services.business.saved_locations_service.get_service",
             return_value=mock_db,
@@ -359,12 +343,8 @@ class TestSavedLocationsService:
     @pytest.mark.asyncio
     async def test_delete_location_save_exception(self, svc, mock_db):
         """Exception in save_user_context during delete."""
-        mock_db.get_user_context = AsyncMock(
-            return_value={"home": {"address": "X"}}
-        )
-        mock_db.save_user_context = AsyncMock(
-            side_effect=Exception("DB write error")
-        )
+        mock_db.get_user_context = AsyncMock(return_value={"home": {"address": "X"}})
+        mock_db.save_user_context = AsyncMock(side_effect=Exception("DB write error"))
         with patch(
             "services.business.saved_locations_service.get_service",
             return_value=mock_db,
@@ -377,9 +357,7 @@ class TestSavedLocationsService:
         """Geocode failure should not prevent saving."""
         mock_maps = AsyncMock()
         mock_maps.is_initialized.return_value = True
-        mock_maps.geocode = AsyncMock(
-            side_effect=Exception("Geocode failed")
-        )
+        mock_maps.geocode = AsyncMock(side_effect=Exception("Geocode failed"))
         mock_db.get_user_context = AsyncMock(return_value={})
 
         def fake_get_service(name):
@@ -393,9 +371,7 @@ class TestSavedLocationsService:
             "services.business.saved_locations_service.get_service",
             side_effect=fake_get_service,
         ):
-            result = await svc.save_location(
-                "user-123", "home", "Swords, Dublin"
-            )
+            result = await svc.save_location("user-123", "home", "Swords, Dublin")
         assert result["address"] == "Swords, Dublin"
         assert "latitude" not in result
         mock_db.save_user_context.assert_called_once()
@@ -424,9 +400,7 @@ class TestResolveAddressException:
         """resolve_address returns None when DB raises."""
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_context = AsyncMock(
-            side_effect=Exception("DB error")
-        )
+        mock_db.get_user_context = AsyncMock(side_effect=Exception("DB error"))
         with patch(
             "services.business.saved_locations_service.get_service",
             return_value=mock_db,

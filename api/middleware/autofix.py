@@ -1,4 +1,5 @@
 """Autofix exception middleware for the refactored API."""
+
 import asyncio
 import logging
 from typing import Callable
@@ -12,7 +13,9 @@ from services.infrastructure.security_event_service import record_security_event
 logger = logging.getLogger("capivarex.api.middleware.autofix")
 
 
-async def autofix_exception_middleware(request: Request, call_next: Callable) -> Response:
+async def autofix_exception_middleware(
+    request: Request, call_next: Callable
+) -> Response:
     """
     Global middleware to capture unhandled exceptions and record them
     via the autofix system.
@@ -60,6 +63,7 @@ async def autofix_exception_middleware(request: Request, call_next: Callable) ->
         if ticket:
             try:
                 from autofix.notifier import notify_new_ticket
+
                 asyncio.create_task(notify_new_ticket(ticket, is_new))
             except Exception:
                 pass  # never block the response
@@ -81,5 +85,7 @@ async def autofix_exception_middleware(request: Request, call_next: Callable) ->
 
         return JSONResponse(
             status_code=500,
-            content={"detail": "An internal server error occurred. The issue has been logged."},
+            content={
+                "detail": "An internal server error occurred. The issue has been logged."
+            },
         )

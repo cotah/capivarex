@@ -1,6 +1,7 @@
 """
 Tests for Twilio Media Streams WebSocket endpoint.
 """
+
 import asyncio
 import base64
 import json
@@ -55,9 +56,7 @@ class TestLoadSession:
             telegram_user_id=1,
         )
 
-        session = await _load_session(
-            session_id, "CA_test", "MZ_test"
-        )
+        session = await _load_session(session_id, "CA_test", "MZ_test")
 
         assert session is not None
         assert session.call_sid == "CA_test"
@@ -67,9 +66,7 @@ class TestLoadSession:
     @pytest.mark.asyncio
     async def test_load_missing_session(self):
         """Returns None for unknown session_id."""
-        session = await _load_session(
-            "doesnotexist", "CA1", "MZ1"
-        )
+        session = await _load_session("doesnotexist", "CA1", "MZ1")
         assert session is None
 
     @pytest.mark.asyncio
@@ -92,12 +89,8 @@ class TestRunSTT:
     @pytest.mark.asyncio
     async def test_stt_no_whisper_service(self):
         """No WhisperService returns empty string."""
-        with patch(
-            "services.get_service", return_value=None
-        ):
-            result = await _run_stt(
-                b"RIFF" + b"\x00" * 100, "en"
-            )
+        with patch("services.get_service", return_value=None):
+            result = await _run_stt(b"RIFF" + b"\x00" * 100, "en")
             assert result == ""
 
     @pytest.mark.asyncio
@@ -105,9 +98,7 @@ class TestRunSTT:
         """Successful STT returns transcript."""
         mock_whisper = AsyncMock()
         mock_whisper.is_initialized.return_value = True
-        mock_whisper.speech_to_text = AsyncMock(
-            return_value={"text": "Hello world"}
-        )
+        mock_whisper.speech_to_text = AsyncMock(return_value={"text": "Hello world"})
 
         with (
             patch.dict(os.environ, {"DEEPGRAM_API_KEY": ""}),
@@ -134,13 +125,9 @@ class TestRunSTT:
     async def test_stt_initializes_if_needed(self):
         """Calls initialize() when service not initialized."""
         mock_whisper = AsyncMock()
-        mock_whisper.is_initialized = MagicMock(
-            return_value=False
-        )
+        mock_whisper.is_initialized = MagicMock(return_value=False)
         mock_whisper.initialize = AsyncMock()
-        mock_whisper.speech_to_text = AsyncMock(
-            return_value={"text": "Initialized"}
-        )
+        mock_whisper.speech_to_text = AsyncMock(return_value={"text": "Initialized"})
 
         with (
             patch.dict(os.environ, {"DEEPGRAM_API_KEY": ""}),
@@ -169,9 +156,7 @@ class TestRunSTT:
         """Exception during STT returns empty string."""
         mock_whisper = AsyncMock()
         mock_whisper.is_initialized.return_value = True
-        mock_whisper.speech_to_text = AsyncMock(
-            side_effect=RuntimeError("API error")
-        )
+        mock_whisper.speech_to_text = AsyncMock(side_effect=RuntimeError("API error"))
 
         with (
             patch.dict(os.environ, {"DEEPGRAM_API_KEY": ""}),
@@ -225,17 +210,7 @@ class TestRunSTTDeepgram:
         # Mock Deepgram response
         mock_response = {
             "results": {
-                "channels": [
-                    {
-                        "alternatives": [
-                            {
-                                "transcript": (
-                                    "Teste de voz"
-                                )
-                            }
-                        ]
-                    }
-                ]
+                "channels": [{"alternatives": [{"transcript": ("Teste de voz")}]}]
             }
         }
 
@@ -244,26 +219,15 @@ class TestRunSTTDeepgram:
             {"DEEPGRAM_API_KEY": "fake_key"},
         ):
             with patch(
-                "api.routes.twilio_stream.httpx"
-                ".AsyncClient",
+                "api.routes.twilio_stream.httpx.AsyncClient",
             ) as mock_client_cls:
                 mock_client = AsyncMock()
                 mock_response_obj = MagicMock()
-                mock_response_obj.json.return_value = (
-                    mock_response
-                )
-                mock_response_obj.raise_for_status = (
-                    MagicMock()
-                )
-                mock_client.post = AsyncMock(
-                    return_value=mock_response_obj
-                )
-                mock_client.__aenter__ = AsyncMock(
-                    return_value=mock_client
-                )
-                mock_client.__aexit__ = AsyncMock(
-                    return_value=False
-                )
+                mock_response_obj.json.return_value = mock_response
+                mock_response_obj.raise_for_status = MagicMock()
+                mock_client.post = AsyncMock(return_value=mock_response_obj)
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=False)
                 mock_client_cls.return_value = mock_client
 
                 result = await _run_stt(wav_bytes, "pt")
@@ -294,17 +258,14 @@ class TestRunSTTDeepgram:
             {"DEEPGRAM_API_KEY": "fake_key"},
         ):
             with patch(
-                "api.routes.twilio_stream.httpx"
-                ".AsyncClient",
+                "api.routes.twilio_stream.httpx.AsyncClient",
                 side_effect=Exception("Deepgram down"),
             ):
                 with patch(
                     "services.get_service",
                     return_value=mock_whisper,
                 ):
-                    result = await _run_stt(
-                        wav_bytes, "pt"
-                    )
+                    result = await _run_stt(wav_bytes, "pt")
                     assert result == "Fallback whisper"
 
     @pytest.mark.asyncio
@@ -323,9 +284,7 @@ class TestRunSTTDeepgram:
 
         mock_whisper = AsyncMock()
         mock_whisper.is_initialized.return_value = True
-        mock_whisper.speech_to_text = AsyncMock(
-            return_value={"text": "Whisper result"}
-        )
+        mock_whisper.speech_to_text = AsyncMock(return_value={"text": "Whisper result"})
 
         with patch.dict(os.environ, {}, clear=False):
             # Ensure no DEEPGRAM_API_KEY
@@ -398,9 +357,7 @@ class TestDeepgramStreaming:
         )
         mock_ws = AsyncMock()
 
-        await _process_turn_streaming(
-            mock_ws, session, "MZ_test", ""
-        )
+        await _process_turn_streaming(mock_ws, session, "MZ_test", "")
         assert len(session.conversation) == 0
 
     @pytest.mark.asyncio
@@ -441,8 +398,7 @@ class TestDeepgramStreaming:
             return_value=mock_brain_resp,
         ):
             with patch(
-                "api.routes.twilio_stream"
-                "._text_to_twilio_audio",
+                "api.routes.twilio_stream._text_to_twilio_audio",
                 return_value=1.0,
             ):
                 await _process_turn_streaming(
@@ -454,10 +410,7 @@ class TestDeepgramStreaming:
 
         assert len(session.conversation) == 2
         assert session.conversation[0].content == "Olá"
-        assert (
-            session.conversation[1].content
-            == "Oi, tudo bem!"
-        )
+        assert session.conversation[1].content == "Oi, tudo bem!"
 
     @pytest.mark.asyncio
     async def test_open_deepgram_stream_connect_error(
@@ -469,16 +422,11 @@ class TestDeepgramStreaming:
             {"DEEPGRAM_API_KEY": "fake_key"},
         ):
             with patch(
-                "api.routes.twilio_stream"
-                ".websockets.connect",
+                "api.routes.twilio_stream.websockets.connect",
                 new_callable=AsyncMock,
-                side_effect=Exception(
-                    "Connection refused"
-                ),
+                side_effect=Exception("Connection refused"),
             ):
-                result = await _open_deepgram_stream(
-                    "en"
-                )
+                result = await _open_deepgram_stream("en")
                 assert result is None
 
     @pytest.mark.asyncio
@@ -491,14 +439,11 @@ class TestDeepgramStreaming:
             {"DEEPGRAM_API_KEY": "fake_key"},
         ):
             with patch(
-                "api.routes.twilio_stream"
-                ".websockets.connect",
+                "api.routes.twilio_stream.websockets.connect",
                 new_callable=AsyncMock,
                 return_value=mock_ws,
             ) as mock_connect:
-                result = await _open_deepgram_stream(
-                    "pt"
-                )
+                result = await _open_deepgram_stream("pt")
                 assert result is mock_ws
                 # Verify URL contains correct params
                 call_url = mock_connect.call_args[0][0]
@@ -516,8 +461,7 @@ class TestDeepgramStreaming:
             {"DEEPGRAM_API_KEY": "fake_key"},
         ):
             with patch(
-                "api.routes.twilio_stream"
-                ".websockets.connect",
+                "api.routes.twilio_stream.websockets.connect",
                 new_callable=AsyncMock,
                 return_value=mock_ws,
             ) as mock_connect:
@@ -539,20 +483,14 @@ class TestDeepgramStreaming:
             {"DEEPGRAM_API_KEY": "test_key_123"},
         ):
             with patch(
-                "api.routes.twilio_stream"
-                ".websockets.connect",
+                "api.routes.twilio_stream.websockets.connect",
                 new_callable=AsyncMock,
                 return_value=mock_ws,
             ) as mock_connect:
                 await _open_deepgram_stream("pt")
                 call_kwargs = mock_connect.call_args[1]
-                headers = call_kwargs[
-                    "additional_headers"
-                ]
-                assert (
-                    headers["Authorization"]
-                    == "Token test_key_123"
-                )
+                headers = call_kwargs["additional_headers"]
+                assert headers["Authorization"] == "Token test_key_123"
 
     @pytest.mark.asyncio
     async def test_listen_deepgram_final_transcript(self):
@@ -614,8 +552,7 @@ class TestDeepgramStreaming:
             return_value=mock_brain_resp,
         ):
             with patch(
-                "api.routes.twilio_stream"
-                "._text_to_twilio_audio",
+                "api.routes.twilio_stream._text_to_twilio_audio",
                 return_value=0.5,
             ):
                 await _listen_deepgram(
@@ -627,10 +564,7 @@ class TestDeepgramStreaming:
                 )
 
         assert len(session.conversation) == 2
-        assert (
-            session.conversation[0].content
-            == "Hello there"
-        )
+        assert session.conversation[0].content == "Hello there"
         assert session.conversation[1].content == "Hi!"
 
     @pytest.mark.asyncio
@@ -832,18 +766,14 @@ class TestRedactKey:
             os.environ,
             {"DEEPGRAM_API_KEY": "sk-secret-abc123"},
         ):
-            err = Exception(
-                "Failed with sk-secret-abc123 in msg"
-            )
+            err = Exception("Failed with sk-secret-abc123 in msg")
             result = _redact_key(err)
             assert "sk-secret-abc123" not in result
             assert "[REDACTED]" in result
 
     def test_no_key_passes_through(self):
         """Error without API key passes through."""
-        with patch.dict(
-            os.environ, {"DEEPGRAM_API_KEY": ""}
-        ):
+        with patch.dict(os.environ, {"DEEPGRAM_API_KEY": ""}):
             err = Exception("Connection refused")
             result = _redact_key(err)
             assert result == "Connection refused"
@@ -930,12 +860,8 @@ class TestTextToTwilioAudio:
         """Returns 0.0 when ElevenLabs not available."""
         mock_ws = AsyncMock()
 
-        with patch(
-            "services.get_service", return_value=None
-        ):
-            dur = await _text_to_twilio_audio(
-                mock_ws, "MZ_test", "Hello", "en"
-            )
+        with patch("services.get_service", return_value=None):
+            dur = await _text_to_twilio_audio(mock_ws, "MZ_test", "Hello", "en")
             assert dur == 0.0
 
     @pytest.mark.asyncio
@@ -944,17 +870,13 @@ class TestTextToTwilioAudio:
         mock_ws = AsyncMock()
         mock_el = AsyncMock()
         mock_el.is_initialized.return_value = True
-        mock_el.text_to_speech = AsyncMock(
-            return_value=b""
-        )
+        mock_el.text_to_speech = AsyncMock(return_value=b"")
 
         with patch(
             "services.get_service",
             return_value=mock_el,
         ):
-            dur = await _text_to_twilio_audio(
-                mock_ws, "MZ_test", "Hello", "en"
-            )
+            dur = await _text_to_twilio_audio(mock_ws, "MZ_test", "Hello", "en")
             assert dur == 0.0
 
     @pytest.mark.asyncio
@@ -963,17 +885,13 @@ class TestTextToTwilioAudio:
         mock_ws = AsyncMock()
         mock_el = AsyncMock()
         mock_el.is_initialized.return_value = True
-        mock_el.text_to_speech = AsyncMock(
-            side_effect=RuntimeError("TTS error")
-        )
+        mock_el.text_to_speech = AsyncMock(side_effect=RuntimeError("TTS error"))
 
         with patch(
             "services.get_service",
             return_value=mock_el,
         ):
-            dur = await _text_to_twilio_audio(
-                mock_ws, "MZ_test", "Hello", "pt"
-            )
+            dur = await _text_to_twilio_audio(mock_ws, "MZ_test", "Hello", "pt")
             assert dur == 0.0
 
     @pytest.mark.asyncio
@@ -981,21 +899,15 @@ class TestTextToTwilioAudio:
         """Calls initialize() when not initialized."""
         mock_ws = AsyncMock()
         mock_el = AsyncMock()
-        mock_el.is_initialized = MagicMock(
-            return_value=False
-        )
+        mock_el.is_initialized = MagicMock(return_value=False)
         mock_el.initialize = AsyncMock()
-        mock_el.text_to_speech = AsyncMock(
-            return_value=b""
-        )
+        mock_el.text_to_speech = AsyncMock(return_value=b"")
 
         with patch(
             "services.get_service",
             return_value=mock_el,
         ):
-            await _text_to_twilio_audio(
-                mock_ws, "MZ_test", "Hi", "en"
-            )
+            await _text_to_twilio_audio(mock_ws, "MZ_test", "Hi", "en")
             mock_el.initialize.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1005,12 +917,8 @@ class TestTextToTwilioAudio:
         """Full success path: TTS + mulaw chunks + send."""
         mock_ws = AsyncMock()
         mock_el = AsyncMock()
-        mock_el.is_initialized = MagicMock(
-            return_value=True
-        )
-        mock_el.text_to_speech = AsyncMock(
-            return_value=b"\xff" * 100
-        )
+        mock_el.is_initialized = MagicMock(return_value=True)
+        mock_el.text_to_speech = AsyncMock(return_value=b"\xff" * 100)
 
         fake_chunks = ["AAAA", "BBBB", "CCCC"]
 
@@ -1020,13 +928,11 @@ class TestTextToTwilioAudio:
                 return_value=mock_el,
             ),
             patch(
-                "utils.audio_converter"
-                ".mp3_to_mulaw_chunks",
+                "utils.audio_converter.mp3_to_mulaw_chunks",
                 return_value=fake_chunks,
             ),
             patch(
-                "services.voice_pipeline_service"
-                ".DEFAULT_VOICES",
+                "services.voice_pipeline_service.DEFAULT_VOICES",
                 {"en": "voice_en", "pt": "voice_pt"},
             ),
             patch(
@@ -1034,9 +940,7 @@ class TestTextToTwilioAudio:
                 new_callable=AsyncMock,
             ),
         ):
-            dur = await _text_to_twilio_audio(
-                mock_ws, "MZ_test", "Hello there", "en"
-            )
+            dur = await _text_to_twilio_audio(mock_ws, "MZ_test", "Hello there", "en")
             assert dur == pytest.approx(0.06, abs=0.001)
             assert mock_ws.send_json.call_count == 3
 
@@ -1045,12 +949,8 @@ class TestTextToTwilioAudio:
         """Returns 0.0 when mp3_to_mulaw returns empty."""
         mock_ws = AsyncMock()
         mock_el = AsyncMock()
-        mock_el.is_initialized = MagicMock(
-            return_value=True
-        )
-        mock_el.text_to_speech = AsyncMock(
-            return_value=b"\xff" * 100
-        )
+        mock_el.is_initialized = MagicMock(return_value=True)
+        mock_el.text_to_speech = AsyncMock(return_value=b"\xff" * 100)
 
         with (
             patch(
@@ -1058,19 +958,15 @@ class TestTextToTwilioAudio:
                 return_value=mock_el,
             ),
             patch(
-                "utils.audio_converter"
-                ".mp3_to_mulaw_chunks",
+                "utils.audio_converter.mp3_to_mulaw_chunks",
                 return_value=[],
             ),
             patch(
-                "services.voice_pipeline_service"
-                ".DEFAULT_VOICES",
+                "services.voice_pipeline_service.DEFAULT_VOICES",
                 {"en": "voice_en"},
             ),
         ):
-            dur = await _text_to_twilio_audio(
-                mock_ws, "MZ_test", "Hello", "en"
-            )
+            dur = await _text_to_twilio_audio(mock_ws, "MZ_test", "Hello", "en")
             assert dur == 0.0
 
 
@@ -1084,34 +980,26 @@ class TestSendErrorAndClose:
         mock_ws = AsyncMock()
 
         with patch(
-            "api.routes.twilio_stream"
-            "._text_to_twilio_audio",
+            "api.routes.twilio_stream._text_to_twilio_audio",
             new_callable=AsyncMock,
             return_value=1.0,
         ):
-            await _send_error_and_close(
-                mock_ws, "MZ_test"
-            )
+            await _send_error_and_close(mock_ws, "MZ_test")
             mock_ws.close.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handles_exception_gracefully(self):
         """Doesn't raise even if everything fails."""
         mock_ws = AsyncMock()
-        mock_ws.close = AsyncMock(
-            side_effect=Exception("already closed")
-        )
+        mock_ws.close = AsyncMock(side_effect=Exception("already closed"))
 
         with patch(
-            "api.routes.twilio_stream"
-            "._text_to_twilio_audio",
+            "api.routes.twilio_stream._text_to_twilio_audio",
             new_callable=AsyncMock,
             side_effect=Exception("TTS failed"),
         ):
             # Should not raise
-            await _send_error_and_close(
-                mock_ws, "MZ_test"
-            )
+            await _send_error_and_close(mock_ws, "MZ_test")
 
 
 # -- _send_telegram_report (no token) --------------------------------
@@ -1136,9 +1024,7 @@ class TestSendTelegramReportNoToken:
         )
         session.finalize()
 
-        with patch.dict(
-            "os.environ", {}, clear=True
-        ):
+        with patch.dict("os.environ", {}, clear=True):
             # Should not raise
             await _send_telegram_report(session)
 
@@ -1149,9 +1035,7 @@ class TestSendTelegramReportNoToken:
 class TestTwilioStreamProtocol:
     def test_media_message_format(self):
         """Verify the Twilio media message JSON format."""
-        chunk_b64 = base64.b64encode(
-            b"\x80" * 160
-        ).decode("ascii")
+        chunk_b64 = base64.b64encode(b"\x80" * 160).decode("ascii")
         message = {
             "event": "media",
             "streamSid": "MZ_test_123",
@@ -1162,12 +1046,8 @@ class TestTwilioStreamProtocol:
         serialized = json.dumps(message)
         deserialized = json.loads(serialized)
         assert deserialized["event"] == "media"
-        assert (
-            deserialized["streamSid"] == "MZ_test_123"
-        )
-        decoded = base64.b64decode(
-            deserialized["media"]["payload"]
-        )
+        assert deserialized["streamSid"] == "MZ_test_123"
+        decoded = base64.b64decode(deserialized["media"]["payload"])
         assert len(decoded) == 160
 
     def test_start_event_parsing(self):
@@ -1183,13 +1063,7 @@ class TestTwilioStreamProtocol:
             },
         }
         start_data = start_event.get("start", {})
-        assert (
-            start_data.get("streamSid") == "MZ_abc123"
-        )
-        assert (
-            start_data.get("callSid") == "CA_def456"
-        )
+        assert start_data.get("streamSid") == "MZ_abc123"
+        assert start_data.get("callSid") == "CA_def456"
         custom = start_data.get("customParameters", {})
-        assert (
-            custom.get("session_id") == "sess_xyz789"
-        )
+        assert custom.get("session_id") == "sess_xyz789"

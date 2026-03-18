@@ -7,6 +7,7 @@ BUGS COBERTOS:
      → filtros de anti-spam nunca funcionam
   2. Métodos sync (lrange, lpush, exists) em contexto async com RedisService Upstash
 """
+
 from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
@@ -39,9 +40,11 @@ def _make_redis_svc(responses=None):
 
 # ── Bug 1: redis_service.get_client() não existe ──────────────────────────
 
+
 def test_proactivity_service_class_importable():
     """ProactivityService deve ser importável."""
     from services.business.proactivity_service import ProactivityService
+
     svc = ProactivityService()
     assert svc is not None
 
@@ -147,7 +150,9 @@ async def test_proactivity_record_notification_sent():
 
     # Após registrar, o mesmo insight deve ser bloqueado (deduplication)
     result_blocked = await svc.is_notification_allowed(user_id, insight)
-    assert result_blocked is False, "Insight recém-enviado deveria ser bloqueado por deduplicação"
+    assert result_blocked is False, (
+        "Insight recém-enviado deveria ser bloqueado por deduplicação"
+    )
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,7 @@ Tests for TwilioAgent intelligent call integration.
 
 Tests the new intelligent call mode WITHOUT breaking existing tests.
 """
+
 import json
 import xml.etree.ElementTree as ET
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -169,9 +170,7 @@ class TestIntelligentCallFlow:
             extra_context="",
         )
 
-        with patch.object(
-            CallBrain, "extract_call_plan", return_value=mock_plan
-        ):
+        with patch.object(CallBrain, "extract_call_plan", return_value=mock_plan):
             from services.business.call_session import (
                 register_pending_call,
             )
@@ -195,24 +194,17 @@ class TestIntelligentCallFlow:
         """Verify WSS URL is correctly derived from BACKEND_URL."""
         backend_url = "https://capivarex.up.railway.app"
 
-        ws_url = backend_url.replace("https://", "wss://").replace(
-            "http://", "ws://"
-        )
+        ws_url = backend_url.replace("https://", "wss://").replace("http://", "ws://")
         stream_url = f"{ws_url}/ws/twilio-stream"
 
-        assert (
-            stream_url
-            == "wss://capivarex.up.railway.app/ws/twilio-stream"
-        )
+        assert stream_url == "wss://capivarex.up.railway.app/ws/twilio-stream"
 
     @pytest.mark.asyncio
     async def test_stream_url_http_fallback(self):
         """HTTP URLs get converted to ws://."""
         backend_url = "http://localhost:8000"
 
-        ws_url = backend_url.replace("https://", "wss://").replace(
-            "http://", "ws://"
-        )
+        ws_url = backend_url.replace("https://", "wss://").replace("http://", "ws://")
         stream_url = f"{ws_url}/ws/twilio-stream"
 
         assert stream_url == "ws://localhost:8000/ws/twilio-stream"
@@ -256,17 +248,13 @@ class TestAgentIntelligentCallIntegration:
         )
 
         with (
-            patch(
-                "services.ai.call_brain.CallBrain"
-            ) as MockBrain,
+            patch("services.ai.call_brain.CallBrain") as MockBrain,
             patch(
                 "services.business.call_session.register_pending_call",
                 return_value="sess_1234567890ab",
             ),
         ):
-            MockBrain.return_value.extract_call_plan = AsyncMock(
-                return_value=mock_plan
-            )
+            MockBrain.return_value.extract_call_plan = AsyncMock(return_value=mock_plan)
 
             result = await agent._execute_intelligent_call(
                 mock_twilio_svc,
@@ -462,7 +450,5 @@ def _mock_openai_client(response_content: str):
     mock_response.choices = [mock_choice]
 
     mock_client = AsyncMock()
-    mock_client.chat.completions.create = AsyncMock(
-        return_value=mock_response
-    )
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
     return mock_client

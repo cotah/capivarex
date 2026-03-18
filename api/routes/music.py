@@ -27,15 +27,10 @@ def _get_spotify():
 
 @router.get("/search")
 async def search_music(
-    q: str = Query(
-        ..., description="Search query"
-    ),
+    q: str = Query(..., description="Search query"),
     type: str = Query(
         "track",
-        description=(
-            "Search type: track, artist, "
-            "album, playlist"
-        ),
+        description=("Search type: track, artist, album, playlist"),
     ),
     limit: int = Query(5, ge=1, le=20),
 ):
@@ -58,9 +53,7 @@ async def search_music(
         }
     except Exception as e:
         logger.error("Spotify search failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Search failed"
-        )
+        raise HTTPException(status_code=500, detail="Search failed")
 
 
 @router.get("/track/{track_id}")
@@ -109,9 +102,7 @@ async def get_artist(artist_id: str):
 
 @router.get("/artist/top-tracks")
 async def get_artist_top_tracks(
-    name: str = Query(
-        ..., description="Artist name"
-    ),
+    name: str = Query(..., description="Artist name"),
     limit: int = Query(10, ge=1, le=20),
 ):
     """Get top tracks for an artist (search-based)."""
@@ -121,9 +112,7 @@ async def get_artist_top_tracks(
         await spotify.initialize()
 
     try:
-        tracks = await spotify.get_artist_top_tracks(
-            name, limit=limit
-        )
+        tracks = await spotify.get_artist_top_tracks(name, limit=limit)
         return {"tracks": tracks, "artist": name}
     except Exception as e:
         logger.error(
@@ -156,12 +145,8 @@ async def get_recommendations(
         await spotify.initialize()
 
     try:
-        seed_genres = (
-            genres.split(",") if genres else None
-        )
-        seed_artists = (
-            artists.split(",") if artists else None
-        )
+        seed_genres = genres.split(",") if genres else None
+        seed_artists = artists.split(",") if artists else None
         results = await spotify.get_recommendations(
             seed_genres=seed_genres,
             seed_artists=seed_artists,
@@ -169,9 +154,7 @@ async def get_recommendations(
         )
         return {"recommendations": results}
     except Exception as e:
-        logger.error(
-            "Recommendations failed: %s", e
-        )
+        logger.error("Recommendations failed: %s", e)
         raise HTTPException(
             status_code=500,
             detail="Recommendations failed",

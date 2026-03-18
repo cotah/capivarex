@@ -26,7 +26,7 @@ class AgentRegistry:
     - Type-safe agent registration
     """
 
-    _instance: Optional['AgentRegistry'] = None
+    _instance: Optional["AgentRegistry"] = None
 
     def __new__(cls):
         """Create or return the singleton AgentRegistry instance."""
@@ -45,12 +45,7 @@ class AgentRegistry:
         self._initialized = True
         logger.info("AgentRegistry initialized")
 
-    def register(
-        self,
-        name: str,
-        agent_class: Type[BaseAgent],
-        lazy: bool = True
-    ):
+    def register(self, name: str, agent_class: Type[BaseAgent], lazy: bool = True):
         """
         Register an agent class.
 
@@ -109,10 +104,7 @@ class AgentRegistry:
         Returns:
             Dictionary mapping agent names to their metrics
         """
-        return {
-            name: agent.get_metrics()
-            for name, agent in self._agents.items()
-        }
+        return {name: agent.get_metrics() for name, agent in self._agents.items()}
 
     def clear(self):
         """Clear all registered agents (useful for testing)."""
@@ -138,10 +130,12 @@ def register_agent(name: str, lazy: bool = True):
         name: Agent name
         lazy: If True, instantiate only when first accessed
     """
+
     def decorator(agent_class: Type[BaseAgent]):
         """Register *agent_class* in the global registry and return it unchanged."""
         registry.register(name, agent_class, lazy=lazy)
         return agent_class
+
     return decorator
 
 

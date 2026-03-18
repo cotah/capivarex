@@ -315,9 +315,7 @@ class CarService(BaseService):
             return {"error": f"Failed to get charge status: {exc}"}
 
     @retry_on_failure(max_retries=2, backoff_factor=2.0)
-    async def get_location(
-        self, vehicle_id: str, access_token: str
-    ) -> Dict[str, Any]:
+    async def get_location(self, vehicle_id: str, access_token: str) -> Dict[str, Any]:
         """
         Get current vehicle location.
 
@@ -346,9 +344,7 @@ class CarService(BaseService):
             return {"error": f"Failed to get location: {exc}"}
 
     @retry_on_failure(max_retries=2, backoff_factor=2.0)
-    async def get_odometer(
-        self, vehicle_id: str, access_token: str
-    ) -> Dict[str, Any]:
+    async def get_odometer(self, vehicle_id: str, access_token: str) -> Dict[str, Any]:
         """
         Get vehicle odometer reading.
 
@@ -379,9 +375,7 @@ class CarService(BaseService):
     # Vehicle commands
     # ------------------------------------------------------------------
 
-    async def lock_vehicle(
-        self, vehicle_id: str, access_token: str
-    ) -> Dict[str, Any]:
+    async def lock_vehicle(self, vehicle_id: str, access_token: str) -> Dict[str, Any]:
         """
         Lock the vehicle (counts towards monthly Smartcar command limit).
 
@@ -472,9 +466,7 @@ class CarService(BaseService):
             self.logger.error("Error starting charging: %s", exc)
             return {"error": f"Failed to start charging: {exc}"}
 
-    async def stop_charging(
-        self, vehicle_id: str, access_token: str
-    ) -> Dict[str, Any]:
+    async def stop_charging(self, vehicle_id: str, access_token: str) -> Dict[str, Any]:
         """
         Stop vehicle charging (counts towards monthly Smartcar command limit).
 
@@ -507,9 +499,7 @@ class CarService(BaseService):
     # Aggregated summary
     # ------------------------------------------------------------------
 
-    async def get_vehicle_summary(
-        self, vehicle_id: str, access_token: str
-    ) -> str:
+    async def get_vehicle_summary(self, vehicle_id: str, access_token: str) -> str:
         """
         Get a comprehensive, human-readable vehicle status summary.
 

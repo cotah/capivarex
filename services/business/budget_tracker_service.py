@@ -24,13 +24,104 @@ logger = logging.getLogger(__name__)
 
 # Spending categories
 CATEGORIES = {
-    "food": ["restaurante", "restaurant", "almoço", "lunch", "jantar", "dinner", "café", "coffee", "comida", "food", "supermercado", "grocery", "mercado", "ifood", "uber eats", "deliveroo"],
-    "transport": ["uber", "taxi", "bolt", "gasolina", "gasoline", "fuel", "combustível", "estacionamento", "parking", "pedágio", "toll", "bilhete", "ticket", "metro", "bus", "luas", "dart"],
-    "entertainment": ["cinema", "movie", "netflix", "spotify", "disney", "show", "concerto", "concert", "bar", "pub", "jogo", "game"],
-    "bills": ["conta", "bill", "aluguel", "rent", "luz", "electricity", "água", "water", "internet", "telefone", "phone", "seguro", "insurance"],
-    "shopping": ["roupa", "clothes", "shopping", "compra", "bought", "amazon", "zara", "nike", "loja", "store"],
-    "health": ["médico", "doctor", "farmácia", "pharmacy", "remédio", "medicine", "academia", "gym"],
-    "education": ["curso", "course", "livro", "book", "escola", "school", "aula", "class"],
+    "food": [
+        "restaurante",
+        "restaurant",
+        "almoço",
+        "lunch",
+        "jantar",
+        "dinner",
+        "café",
+        "coffee",
+        "comida",
+        "food",
+        "supermercado",
+        "grocery",
+        "mercado",
+        "ifood",
+        "uber eats",
+        "deliveroo",
+    ],
+    "transport": [
+        "uber",
+        "taxi",
+        "bolt",
+        "gasolina",
+        "gasoline",
+        "fuel",
+        "combustível",
+        "estacionamento",
+        "parking",
+        "pedágio",
+        "toll",
+        "bilhete",
+        "ticket",
+        "metro",
+        "bus",
+        "luas",
+        "dart",
+    ],
+    "entertainment": [
+        "cinema",
+        "movie",
+        "netflix",
+        "spotify",
+        "disney",
+        "show",
+        "concerto",
+        "concert",
+        "bar",
+        "pub",
+        "jogo",
+        "game",
+    ],
+    "bills": [
+        "conta",
+        "bill",
+        "aluguel",
+        "rent",
+        "luz",
+        "electricity",
+        "água",
+        "water",
+        "internet",
+        "telefone",
+        "phone",
+        "seguro",
+        "insurance",
+    ],
+    "shopping": [
+        "roupa",
+        "clothes",
+        "shopping",
+        "compra",
+        "bought",
+        "amazon",
+        "zara",
+        "nike",
+        "loja",
+        "store",
+    ],
+    "health": [
+        "médico",
+        "doctor",
+        "farmácia",
+        "pharmacy",
+        "remédio",
+        "medicine",
+        "academia",
+        "gym",
+    ],
+    "education": [
+        "curso",
+        "course",
+        "livro",
+        "book",
+        "escola",
+        "school",
+        "aula",
+        "class",
+    ],
 }
 
 # Currency patterns
@@ -46,8 +137,19 @@ CURRENCY_PATTERNS = [
 
 # Spending verbs
 SPENDING_VERBS = [
-    "gastei", "paguei", "comprei", "custou", "spent", "paid", "bought",
-    "cost", "gasto", "pago", "gastar", "cobrou", "charged",
+    "gastei",
+    "paguei",
+    "comprei",
+    "custou",
+    "spent",
+    "paid",
+    "bought",
+    "cost",
+    "gasto",
+    "pago",
+    "gastar",
+    "cobrou",
+    "charged",
 ]
 
 
@@ -151,23 +253,33 @@ async def save_spending(user_id: str, entry: Dict[str, Any]) -> bool:
         entries = await _load_month_entries(user_id, month_key)
 
         # Add new entry
-        entries.append({
-            "amount": entry["amount"],
-            "currency": entry.get("currency", "EUR"),
-            "category": entry.get("category", "other"),
-            "description": entry.get("description", ""),
-            "timestamp": time.time(),
-            "date": now.isoformat(),
-        })
+        entries.append(
+            {
+                "amount": entry["amount"],
+                "currency": entry.get("currency", "EUR"),
+                "category": entry.get("category", "other"),
+                "description": entry.get("description", ""),
+                "timestamp": time.time(),
+                "date": now.isoformat(),
+            }
+        )
 
         # Save
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": f"budget_{month_key}",
-            "value": json.dumps(entries),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": f"budget_{month_key}",
+                "value": json.dumps(entries),
+            }
+        ).execute()
 
-        logger.info("Budget: saved %.2f %s (%s) for user=%s", entry["amount"], entry.get("currency", "EUR"), entry.get("category", "other"), user_id[:8])
+        logger.info(
+            "Budget: saved %.2f %s (%s) for user=%s",
+            entry["amount"],
+            entry.get("currency", "EUR"),
+            entry.get("category", "other"),
+            user_id[:8],
+        )
         return True
 
     except Exception as e:
@@ -175,7 +287,9 @@ async def save_spending(user_id: str, entry: Dict[str, Any]) -> bool:
         return False
 
 
-async def get_monthly_summary(user_id: str, month: Optional[str] = None) -> Dict[str, Any]:
+async def get_monthly_summary(
+    user_id: str, month: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Get monthly spending summary.
 
@@ -198,7 +312,9 @@ async def get_monthly_summary(user_id: str, month: Optional[str] = None) -> Dict
     return {
         "month": month,
         "total": round(total, 2),
-        "by_category": {k: round(v, 2) for k, v in sorted(by_category.items(), key=lambda x: -x[1])},
+        "by_category": {
+            k: round(v, 2) for k, v in sorted(by_category.items(), key=lambda x: -x[1])
+        },
         "entry_count": len(entries),
         "limits": limits,
         "currency": entries[0].get("currency", "EUR") if entries else "EUR",
@@ -221,16 +337,21 @@ def format_monthly_summary(summary: Dict[str, Any], name: str = "") -> str:
 
     if by_cat:
         category_emojis = {
-            "food": "🍽️", "transport": "🚗", "entertainment": "🎭",
-            "bills": "📄", "shopping": "🛍️", "health": "🏥",
-            "education": "📚", "other": "📦",
+            "food": "🍽️",
+            "transport": "🚗",
+            "entertainment": "🎭",
+            "bills": "📄",
+            "shopping": "🛍️",
+            "health": "🏥",
+            "education": "📚",
+            "other": "📦",
         }
         for cat, amount in by_cat.items():
             emoji = category_emojis.get(cat, "📦")
             cat_label = cat.capitalize()
             limit = limits.get(cat)
             limit_str = f" / {currency_symbol}{limit:.0f}" if limit else ""
-            pct = f" ({amount/limit*100:.0f}%)" if limit else ""
+            pct = f" ({amount / limit * 100:.0f}%)" if limit else ""
             msg += f"{emoji} **{cat_label}:** {currency_symbol}{amount:.2f}{limit_str}{pct}\n"
 
     # Budget warnings
@@ -257,11 +378,13 @@ async def set_budget_limit(user_id: str, category: str, limit: float) -> bool:
         limits = await _get_budget_limits(user_id)
         limits[category] = limit
 
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": "budget_limits",
-            "value": json.dumps(limits),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": "budget_limits",
+                "value": json.dumps(limits),
+            }
+        ).execute()
         return True
     except Exception as e:
         logger.warning("Budget limit save failed: %s", e)

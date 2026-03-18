@@ -23,6 +23,7 @@ import httpx
 
 # ─── Factories de resposta da API ─────────────────────────────────────────────
 
+
 def _search_item(video_id="abc12345678", title="Test Video", channel="Test Chan"):
     return {
         "id": {"kind": "youtube#video", "videoId": video_id},
@@ -80,9 +81,11 @@ def _channel_item(channel_id="UC123", name="Test Channel"):
 # FIXTURES
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def youtube_service():
     from services.integrations.youtube_service import YouTubeService
+
     svc = YouTubeService()
     svc._api_key = "FAKE_KEY"
     svc._client = AsyncMock()
@@ -93,6 +96,7 @@ def youtube_service():
 @pytest.fixture
 def youtube_agent():
     from agents.specialized.youtube_agent import YouTubeAgent
+
     return YouTubeAgent()
 
 
@@ -112,11 +116,14 @@ def _mock_response(data: Dict, status: int = 200) -> MagicMock:
 # 1. YouTubeService — search_videos
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestYouTubeServiceSearch:
 
+class TestYouTubeServiceSearch:
     @pytest.mark.asyncio
     async def test_search_returns_videos(self, youtube_service):
-        items = [_search_item("vid1", "Python Tutorial"), _search_item("vid2", "Python Basics")]
+        items = [
+            _search_item("vid1", "Python Tutorial"),
+            _search_item("vid2", "Python Basics"),
+        ]
         youtube_service._client.get = AsyncMock(
             return_value=_mock_response({"items": items})
         )
@@ -165,12 +172,14 @@ class TestYouTubeServiceSearch:
 # 2. YouTubeService — get_video_details
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestYouTubeServiceVideoDetails:
 
+class TestYouTubeServiceVideoDetails:
     @pytest.mark.asyncio
     async def test_get_video_details(self, youtube_service):
         youtube_service._client.get = AsyncMock(
-            return_value=_mock_response({"items": [_video_item("abc12345678", "Tutorial")]})
+            return_value=_mock_response(
+                {"items": [_video_item("abc12345678", "Tutorial")]}
+            )
         )
         video = await youtube_service.get_video_details("abc12345678")
         assert video is not None
@@ -201,12 +210,14 @@ class TestYouTubeServiceVideoDetails:
 # 3. YouTubeService — get_channel_info
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestYouTubeServiceChannel:
 
+class TestYouTubeServiceChannel:
     @pytest.mark.asyncio
     async def test_get_channel_by_handle(self, youtube_service):
         youtube_service._client.get = AsyncMock(
-            return_value=_mock_response({"items": [_channel_item("UC123", "Código Fonte TV")]})
+            return_value=_mock_response(
+                {"items": [_channel_item("UC123", "Código Fonte TV")]}
+            )
         )
         info = await youtube_service.get_channel_info("@codigofonte")
         assert info is not None
@@ -234,12 +245,14 @@ class TestYouTubeServiceChannel:
 # 4. YouTubeService — get_trending
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestYouTubeServiceTrending:
 
+class TestYouTubeServiceTrending:
     @pytest.mark.asyncio
     async def test_get_trending_returns_videos(self, youtube_service):
         youtube_service._client.get = AsyncMock(
-            return_value=_mock_response({"items": [_video_item(), _video_item("vid2", "Outro")]})
+            return_value=_mock_response(
+                {"items": [_video_item(), _video_item("vid2", "Outro")]}
+            )
         )
         videos = await youtube_service.get_trending(region_code="BR", max_results=2)
         assert len(videos) == 2
@@ -267,34 +280,41 @@ class TestYouTubeServiceTrending:
 # 5. Helpers estáticos
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestYouTubeHelpers:
 
+class TestYouTubeHelpers:
     def test_iso_duration_minutes_seconds(self):
         from services.integrations.youtube_service import _iso_to_readable
+
         assert _iso_to_readable("PT4M13S") == "4:13"
 
     def test_iso_duration_hours(self):
         from services.integrations.youtube_service import _iso_to_readable
+
         assert _iso_to_readable("PT1H30M0S") == "1:30:00"
 
     def test_iso_duration_seconds_only(self):
         from services.integrations.youtube_service import _iso_to_readable
+
         assert _iso_to_readable("PT45S") == "0:45"
 
     def test_format_count_millions(self):
         from services.integrations.youtube_service import _format_count
+
         assert _format_count(1_500_000) == "1.5M"
 
     def test_format_count_thousands(self):
         from services.integrations.youtube_service import _format_count
+
         assert _format_count(25_000) == "25.0K"
 
     def test_format_count_small(self):
         from services.integrations.youtube_service import _format_count
+
         assert _format_count(500) == "500"
 
     def test_format_count_invalid(self):
         from services.integrations.youtube_service import _format_count
+
         assert _format_count(None) == "N/A"
 
 
@@ -302,11 +322,12 @@ class TestYouTubeHelpers:
 # 6. YouTubeAgent — intents
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestYouTubeAgent:
 
+class TestYouTubeAgent:
     @pytest.fixture
     def mock_svc(self):
         from services.integrations.youtube_service import YouTubeService
+
         svc = AsyncMock(spec=YouTubeService)
         svc.is_initialized.return_value = True
 
@@ -346,17 +367,19 @@ class TestYouTubeAgent:
 
     @pytest.mark.asyncio
     async def test_search_intent(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
-            r = await youtube_agent.execute(
-                "Busca vídeos de Python no YouTube", {}
-            )
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
+            r = await youtube_agent.execute("Busca vídeos de Python no YouTube", {})
         assert r.is_success()
         mock_svc.search_videos.assert_called_once()
         assert "Python" in r.response or "python" in r.response.lower()
 
     @pytest.mark.asyncio
     async def test_trending_intent(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             r = await youtube_agent.execute("Vídeos em alta no YouTube", {})
         assert r.is_success()
         mock_svc.get_trending.assert_called_once()
@@ -364,14 +387,18 @@ class TestYouTubeAgent:
 
     @pytest.mark.asyncio
     async def test_trending_music_category(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             await youtube_agent.execute("Trending de música no YouTube", {})
         call_kwargs = mock_svc.get_trending.call_args.kwargs
         assert call_kwargs.get("category_id") == "10"
 
     @pytest.mark.asyncio
     async def test_channel_intent(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             r = await youtube_agent.execute("Info do canal @codigofonte", {})
         assert r.is_success()
         mock_svc.get_channel_info.assert_called_once()
@@ -379,25 +406,27 @@ class TestYouTubeAgent:
 
     @pytest.mark.asyncio
     async def test_detail_with_video_id(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
-            r = await youtube_agent.execute(
-                "Detalhes do vídeo abc12345678", {}
-            )
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
+            r = await youtube_agent.execute("Detalhes do vídeo abc12345678", {})
         assert r.is_success()
         mock_svc.get_video_details.assert_called_once_with("abc12345678")
 
     @pytest.mark.asyncio
     async def test_detail_from_url(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
-            r = await youtube_agent.execute(
-                "https://youtu.be/dQw4w9WgXcQ", {}
-            )
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
+            r = await youtube_agent.execute("https://youtu.be/dQw4w9WgXcQ", {})
         assert r.is_success()
         mock_svc.get_video_details.assert_called_once_with("dQw4w9WgXcQ")
 
     @pytest.mark.asyncio
     async def test_context_action_search(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             r = await youtube_agent.execute(
                 "algo",
                 {"action": "search", "query": "machine learning"},
@@ -408,7 +437,9 @@ class TestYouTubeAgent:
 
     @pytest.mark.asyncio
     async def test_context_action_trending(self, youtube_agent, mock_svc):
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             r = await youtube_agent.execute(
                 "algo",
                 {"action": "trending", "region_code": "US", "category_id": "20"},
@@ -427,7 +458,9 @@ class TestYouTubeAgent:
         mock_svc.search_videos = AsyncMock(
             side_effect=RuntimeError("403 quota excedida")
         )
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             r = await youtube_agent.execute("busca python", {})
         assert not r.is_success()
         assert "Quota" in r.response or "quota" in r.response.lower()
@@ -435,7 +468,9 @@ class TestYouTubeAgent:
     @pytest.mark.asyncio
     async def test_video_not_found(self, youtube_agent, mock_svc):
         mock_svc.get_video_details.return_value = None
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             r = await youtube_agent.execute("detalhes dQw4w9WgXcQ", {})
         assert not r.is_success()
         assert "não encontrado" in r.response.lower()
@@ -443,7 +478,9 @@ class TestYouTubeAgent:
     @pytest.mark.asyncio
     async def test_search_no_results(self, youtube_agent, mock_svc):
         mock_svc.search_videos.return_value = []
-        with patch("agents.specialized.youtube_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.youtube_agent.get_service", return_value=mock_svc
+        ):
             r = await youtube_agent.execute("busca zzznothingzzz", {})
         assert r.is_success()
         assert "nenhum" in r.response.lower()
@@ -459,11 +496,12 @@ class TestYouTubeAgent:
 # 7. Agent helpers — extração de texto
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestYouTubeAgentHelpers:
 
+class TestYouTubeAgentHelpers:
     @pytest.fixture
     def agent(self):
         from agents.specialized.youtube_agent import YouTubeAgent
+
         return YouTubeAgent()
 
     def test_extract_video_id_from_youtu_be(self, agent):
@@ -480,18 +518,22 @@ class TestYouTubeAgentHelpers:
 
     def test_extract_category_music(self):
         from agents.specialized.youtube_agent import _extract_category
+
         assert _extract_category("trending de música") == "10"
 
     def test_extract_category_gaming(self):
         from agents.specialized.youtube_agent import _extract_category
+
         assert _extract_category("games em alta") == "20"
 
     def test_extract_category_default(self):
         from agents.specialized.youtube_agent import _extract_category
+
         assert _extract_category("vídeos em alta") == "0"
 
     def test_extract_count(self):
         from agents.specialized.youtube_agent import _extract_count
+
         assert _extract_count("top 5 vídeos") == 5
         assert _extract_count("10 vídeos") == 10
         assert _extract_count("sem número") == 5  # default

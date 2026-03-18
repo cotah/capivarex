@@ -4,6 +4,7 @@ CRUD de projetos + operacoes Git.
 
 Uses services (get_service) instead of direct imports from services/.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Service helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_file_manager():
     """Get the file manager service from the registry."""
     return _get_service_or_503("file_manager", "File manager")
@@ -53,6 +55,7 @@ def _git_op(operation: str, *args, **kwargs) -> Any:
 # ============================================
 # PROJECT CRUD
 # ============================================
+
 
 @router.get("/projects", response_model=List[Project])
 async def list_projects(
@@ -89,7 +92,9 @@ async def create_project(
     )
 
     if existing.data:
-        raise HTTPException(status_code=400, detail="Project with this name already exists")
+        raise HTTPException(
+            status_code=400, detail="Project with this name already exists"
+        )
 
     user_id = str(current_user["id"])
 
@@ -168,6 +173,7 @@ async def delete_project(
 # GIT OPERATIONS
 # ============================================
 
+
 @router.post("/git/init")
 async def git_init(
     request: GitInitRequest,
@@ -227,7 +233,9 @@ async def git_checkout(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Faz checkout de uma branch."""
-    return _git_op("checkout_branch", project_path=project_path, branch_name=branch_name)
+    return _git_op(
+        "checkout_branch", project_path=project_path, branch_name=branch_name
+    )
 
 
 @router.post("/git/clone")

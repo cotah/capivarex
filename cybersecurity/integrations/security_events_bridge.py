@@ -17,6 +17,7 @@ async def get_recent_events(
     """Fetch recent security events from Supabase."""
     try:
         from services import get_service
+
         db = get_service("database")
         if not db or not db.client:
             return []

@@ -12,6 +12,7 @@ Covers:
 - rag_service static analysis (no bare db.table() calls)
 - Migration file existence
 """
+
 import os
 import sys
 import uuid
@@ -141,18 +142,22 @@ class TestRateLimitKeyFunction:
 
         _secret = "test-secret-for-rate-limit"
         token = jwt.encode(
-            {"sub": "user-abc", "plan": "me"},
+            {"sub": "user-abc", "plan": "professional"},
             _secret,
             algorithm="HS256",
         )
         req = self._make_request(auth_header=f"Bearer {token}")
         with (
-            patch("api.middleware.rate_limit.get_remote_address", return_value="127.0.0.1"),
-            patch.dict("os.environ", {"JWT_SECRET_KEY": _secret, "JWT_ALGORITHM": "HS256"}),
+            patch(
+                "api.middleware.rate_limit.get_remote_address", return_value="127.0.0.1"
+            ),
+            patch.dict(
+                "os.environ", {"JWT_SECRET_KEY": _secret, "JWT_ALGORITHM": "HS256"}
+            ),
         ):
             key = get_user_plan_key(req)
         assert "user-abc" in key
-        assert "me" in key
+        assert "professional" in key
 
     def test_malformed_token_falls_back_to_ip(self):
         """Malformed JWT should fall back to IP-based key."""
@@ -177,8 +182,12 @@ class TestRateLimitKeyFunction:
         token = jwt.encode({"sub": "user-xyz"}, _secret, algorithm="HS256")
         req = self._make_request(auth_header=f"Bearer {token}")
         with (
-            patch("api.middleware.rate_limit.get_remote_address", return_value="127.0.0.1"),
-            patch.dict("os.environ", {"JWT_SECRET_KEY": _secret, "JWT_ALGORITHM": "HS256"}),
+            patch(
+                "api.middleware.rate_limit.get_remote_address", return_value="127.0.0.1"
+            ),
+            patch.dict(
+                "os.environ", {"JWT_SECRET_KEY": _secret, "JWT_ALGORITHM": "HS256"}
+            ),
         ):
             key = get_user_plan_key(req)
         assert "user-xyz" in key
@@ -340,11 +349,16 @@ class TestGetAdminUserDependency:
 
     @pytest.mark.asyncio
     async def test_admin_user_allowed(self):
-        """Users with admin role or 'everywhere' plan should pass."""
+        """Users with admin role or 'executive' plan should pass."""
         from api.dependencies.auth import get_admin_user
 
-        # 'everywhere' plan is treated as admin
-        mock_user = {"id": "admin-1", "email": "admin@test.com", "plan": "everywhere", "role": "user"}
+        # 'executive' plan is treated as admin
+        mock_user = {
+            "id": "admin-1",
+            "email": "admin@test.com",
+            "plan": "executive",
+            "role": "user",
+        }
         result = await get_admin_user(current_user=mock_user)
         assert result == mock_user
 
@@ -353,17 +367,27 @@ class TestGetAdminUserDependency:
         """Users with admin role should pass regardless of plan."""
         from api.dependencies.auth import get_admin_user
 
-        mock_user = {"id": "admin-1", "email": "admin@test.com", "plan": "free", "role": "admin"}
+        mock_user = {
+            "id": "admin-1",
+            "email": "admin@test.com",
+            "plan": "professional",
+            "role": "admin",
+        }
         result = await get_admin_user(current_user=mock_user)
         assert result == mock_user
 
     @pytest.mark.asyncio
     async def test_non_admin_user_rejected(self):
-        """Free plan users without admin role should receive 403 Forbidden."""
+        """Professional plan users without admin role should receive 403 Forbidden."""
         from fastapi import HTTPException
         from api.dependencies.auth import get_admin_user
 
-        mock_user = {"id": "user-1", "email": "user@test.com", "plan": "free", "role": "user"}
+        mock_user = {
+            "id": "user-1",
+            "email": "user@test.com",
+            "plan": "professional",
+            "role": "user",
+        }
 
         with pytest.raises(HTTPException) as exc_info:
             await get_admin_user(current_user=mock_user)
@@ -396,6 +420,7 @@ class TestRagServiceDbAccess:
         """rag_service should call db.get_client().table(), not db.table()."""
         import ast
         import pathlib
+
         _repo_root = pathlib.Path(__file__).parent.parent
         rag_path = _repo_root / "services" / "business" / "rag_service.py"
         if not rag_path.exists():
@@ -432,6 +457,7 @@ class TestMigrationFiles:
     def test_security_events_migration_exists(self):
         """Migration 005 for security_events table must exist."""
         import pathlib
+
         _repo_root = pathlib.Path(__file__).parent.parent
         migration = _repo_root / "migrations" / "005_create_security_events.sql"
         assert migration.exists(), "Migration 005_create_security_events.sql not found"
@@ -439,6 +465,7 @@ class TestMigrationFiles:
     def test_security_events_migration_has_rls(self):
         """Migration 005 must include RLS policies."""
         import pathlib
+
         _repo_root = pathlib.Path(__file__).parent.parent
         migration = _repo_root / "migrations" / "005_create_security_events.sql"
         if not migration.exists():
@@ -451,6 +478,7 @@ class TestMigrationFiles:
     def test_security_events_migration_has_indexes(self):
         """Migration 005 must include performance indexes."""
         import pathlib
+
         _repo_root = pathlib.Path(__file__).parent.parent
         migration = _repo_root / "migrations" / "005_create_security_events.sql"
         if not migration.exists():
@@ -477,7 +505,10 @@ class TestRateLimitMiddlewareLogging:
 
     def test_setup_rate_limiting_registers_custom_handler(self):
         """setup_rate_limiting() should register the custom handler."""
-        from api.middleware.rate_limit import setup_rate_limiting, _rate_limit_with_logging
+        from api.middleware.rate_limit import (
+            setup_rate_limiting,
+            _rate_limit_with_logging,
+        )
         from slowapi.errors import RateLimitExceeded
 
         mock_app = Mock()
@@ -496,17 +527,27 @@ class TestRateLimitMiddlewareLogging:
 # _send_admin_alert, and record_security_event module-level function
 # ---------------------------------------------------------------------------
 
+
 class TestSecurityEventServiceExtended:
     """Cover previously uncovered branches in SecurityEventService."""
 
     def _make_service(self, db=None, notification=None, admin_chat_id=None):
         """Build a SecurityEventService with all attributes set directly."""
         import sys
+
         # Ensure heavy deps are mocked before importing
         for mod in [
-            "supabase", "postgrest", "gotrue", "realtime", "storage3",
-            "anthropic", "openai", "telegram", "telegram.ext",
-            "google.generativeai", "google.genai",
+            "supabase",
+            "postgrest",
+            "gotrue",
+            "realtime",
+            "storage3",
+            "anthropic",
+            "openai",
+            "telegram",
+            "telegram.ext",
+            "google.generativeai",
+            "google.genai",
         ]:
             if mod not in sys.modules:
                 sys.modules[mod] = MagicMock()
@@ -601,9 +642,13 @@ class TestSecurityEventServiceExtended:
         notification = MagicMock()
         notification.send_message = MagicMock(return_value=None)
 
-        svc = self._make_service(db=db, notification=notification, admin_chat_id="12345")
+        svc = self._make_service(
+            db=db, notification=notification, admin_chat_id="12345"
+        )
 
-        with patch.object(svc, "_send_admin_alert", new=MagicMock(return_value=None)) as mock_alert:
+        with patch.object(
+            svc, "_send_admin_alert", new=MagicMock(return_value=None)
+        ) as mock_alert:
             await svc.record("auth_failure", "critical", user_id="u1")
             mock_alert.assert_called_once()
 
@@ -614,7 +659,9 @@ class TestSecurityEventServiceExtended:
 
         svc = self._make_service(db=db, admin_chat_id="12345")
 
-        with patch.object(svc, "_send_admin_alert", new=MagicMock(return_value=None)) as mock_alert:
+        with patch.object(
+            svc, "_send_admin_alert", new=MagicMock(return_value=None)
+        ) as mock_alert:
             await svc.record("auth_success", "low")
             mock_alert.assert_not_called()
 
@@ -625,7 +672,9 @@ class TestSecurityEventServiceExtended:
 
         svc = self._make_service(db=db, admin_chat_id=None)
 
-        with patch.object(svc, "_send_admin_alert", new=MagicMock(return_value=None)) as mock_alert:
+        with patch.object(
+            svc, "_send_admin_alert", new=MagicMock(return_value=None)
+        ) as mock_alert:
             await svc.record("auth_failure", "critical")
             mock_alert.assert_not_called()
 
@@ -642,8 +691,11 @@ class TestSecurityEventServiceExtended:
         svc = self._make_service(notification=notification, admin_chat_id="99999")
         # Should not raise
         await svc._send_admin_alert(
-            "auth_failure", "critical", "user123", "10.0.0.1",
-            {"reason": "bad_password", "email": "test@test.com"}
+            "auth_failure",
+            "critical",
+            "user123",
+            "10.0.0.1",
+            {"reason": "bad_password", "email": "test@test.com"},
         )
 
     @pytest.mark.asyncio
@@ -668,6 +720,7 @@ class TestSecurityEventServiceExtended:
 # record_security_event() module-level function coverage
 # ---------------------------------------------------------------------------
 
+
 class TestRecordSecurityEventFunction:
     """Cover the module-level record_security_event convenience function."""
 
@@ -675,8 +728,18 @@ class TestRecordSecurityEventFunction:
     async def test_record_security_event_noop_when_service_unavailable(self):
         """Should silently no-op when service registry returns None."""
         import sys
-        for mod in ["supabase", "postgrest", "gotrue", "realtime", "storage3",
-                    "anthropic", "openai", "telegram", "telegram.ext"]:
+
+        for mod in [
+            "supabase",
+            "postgrest",
+            "gotrue",
+            "realtime",
+            "storage3",
+            "anthropic",
+            "openai",
+            "telegram",
+            "telegram.ext",
+        ]:
             if mod not in sys.modules:
                 sys.modules[mod] = MagicMock()
 
@@ -690,8 +753,18 @@ class TestRecordSecurityEventFunction:
     async def test_record_security_event_calls_svc_record_when_available(self):
         """Should delegate to svc.record() when service is initialized."""
         import sys
-        for mod in ["supabase", "postgrest", "gotrue", "realtime", "storage3",
-                    "anthropic", "openai", "telegram", "telegram.ext"]:
+
+        for mod in [
+            "supabase",
+            "postgrest",
+            "gotrue",
+            "realtime",
+            "storage3",
+            "anthropic",
+            "openai",
+            "telegram",
+            "telegram.ext",
+        ]:
             if mod not in sys.modules:
                 sys.modules[mod] = MagicMock()
 
@@ -703,8 +776,10 @@ class TestRecordSecurityEventFunction:
 
         with patch("services.core.get_service", return_value=mock_svc):
             await record_security_event(
-                "rate_limit_exceeded", "medium",
-                ip_address="1.2.3.4", endpoint="/api/chat"
+                "rate_limit_exceeded",
+                "medium",
+                ip_address="1.2.3.4",
+                endpoint="/api/chat",
             )
             mock_svc.record.assert_called_once()
 
@@ -712,14 +787,26 @@ class TestRecordSecurityEventFunction:
     async def test_record_security_event_handles_exception_gracefully(self):
         """Should swallow exceptions from get_service."""
         import sys
-        for mod in ["supabase", "postgrest", "gotrue", "realtime", "storage3",
-                    "anthropic", "openai", "telegram", "telegram.ext"]:
+
+        for mod in [
+            "supabase",
+            "postgrest",
+            "gotrue",
+            "realtime",
+            "storage3",
+            "anthropic",
+            "openai",
+            "telegram",
+            "telegram.ext",
+        ]:
             if mod not in sys.modules:
                 sys.modules[mod] = MagicMock()
 
         from services.infrastructure.security_event_service import record_security_event
 
-        with patch("services.core.get_service", side_effect=RuntimeError("registry down")):
+        with patch(
+            "services.core.get_service", side_effect=RuntimeError("registry down")
+        ):
             # Must not raise
             await record_security_event("server_error", "critical")
 
@@ -727,8 +814,18 @@ class TestRecordSecurityEventFunction:
     async def test_record_security_event_fallback_log_when_svc_not_initialized(self):
         """Should log but not crash when service exists but is not initialized."""
         import sys
-        for mod in ["supabase", "postgrest", "gotrue", "realtime", "storage3",
-                    "anthropic", "openai", "telegram", "telegram.ext"]:
+
+        for mod in [
+            "supabase",
+            "postgrest",
+            "gotrue",
+            "realtime",
+            "storage3",
+            "anthropic",
+            "openai",
+            "telegram",
+            "telegram.ext",
+        ]:
             if mod not in sys.modules:
                 sys.modules[mod] = MagicMock()
 

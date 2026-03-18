@@ -104,6 +104,7 @@ async def _check_overdue_notes(user_id: str) -> List[Dict[str, Any]]:
 # Alert Generation
 # ---------------------------------------------------------------------------
 
+
 async def generate_overdue_alert(
     user_name: str,
     overdue: Dict[str, List[Dict[str, Any]]],
@@ -123,11 +124,15 @@ async def generate_overdue_alert(
     if reminders:
         raw += "\nOverdue reminders:\n"
         for r in reminders[:5]:
-            raw += f"  - {r.get('title', '?')} (was due {r.get('remind_at', '?')[:10]})\n"
+            raw += (
+                f"  - {r.get('title', '?')} (was due {r.get('remind_at', '?')[:10]})\n"
+            )
     if notes:
         raw += "\nOverdue tasks/notes:\n"
         for n in notes[:5]:
-            raw += f"  - {n.get('title', '?')} (was due {n.get('due_date', '?')[:10]})\n"
+            raw += (
+                f"  - {n.get('title', '?')} (was due {n.get('due_date', '?')[:10]})\n"
+            )
 
     if openai_svc and openai_svc.is_initialized():
         prompt = f"""You are CAPIVAREX, a warm personal assistant. {name} has overdue tasks/reminders. Give a gentle nudge.
@@ -148,6 +153,7 @@ Generate:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -155,19 +161,27 @@ Generate:"""
                 max_tokens=250,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception:
             pass
 
     # Fallback
-    lines = [f"📋 Hey {name}! Just checking in — you have {total} overdue item{'s' if total > 1 else ''}:\n"]
+    lines = [
+        f"📋 Hey {name}! Just checking in — you have {total} overdue item{'s' if total > 1 else ''}:\n"
+    ]
 
     for r in reminders[:2]:
-        lines.append(f"⏰ {r.get('title', 'Reminder')} (was due {r.get('remind_at', '?')[:10]})")
+        lines.append(
+            f"⏰ {r.get('title', 'Reminder')} (was due {r.get('remind_at', '?')[:10]})"
+        )
     for n in notes[:2]:
-        lines.append(f"📝 {n.get('title', 'Task')} (was due {n.get('due_date', '?')[:10]})")
+        lines.append(
+            f"📝 {n.get('title', 'Task')} (was due {n.get('due_date', '?')[:10]})"
+        )
 
     if total > 4:
         lines.append(f"  ...and {total - 4} more")
@@ -179,6 +193,7 @@ Generate:"""
 # ---------------------------------------------------------------------------
 # Proactivity Loop Runner
 # ---------------------------------------------------------------------------
+
 
 async def check_overdue_for_all_users() -> int:
     """Run overdue check for all proactivity-enabled users.
@@ -194,7 +209,7 @@ async def check_overdue_for_all_users() -> int:
         return 0
 
     alerts_sent = 0
-    for pref in (pref_users or []):
+    for pref in pref_users or []:
         user_id = pref["user_id"]
         try:
             user_data = await db.get_user_by_id(user_id)
@@ -211,7 +226,11 @@ async def check_overdue_for_all_users() -> int:
                 overdue=overdue,
             )
             if alert:
-                chat_id = str(user_data.get("telegram_chat_id")) if user_data.get("telegram_chat_id") else None
+                chat_id = (
+                    str(user_data.get("telegram_chat_id"))
+                    if user_data.get("telegram_chat_id")
+                    else None
+                )
                 if chat_id:
                     try:
                         notif = get_service("notification")

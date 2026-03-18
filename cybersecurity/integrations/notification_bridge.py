@@ -6,7 +6,11 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from cybersecurity.config import SEVERITY_EMOJI, ALERT_SEVERITIES, TELEGRAM_ADMIN_CHAT_ID
+from cybersecurity.config import (
+    SEVERITY_EMOJI,
+    ALERT_SEVERITIES,
+    TELEGRAM_ADMIN_CHAT_ID,
+)
 from cybersecurity.engine.finding import SecurityFinding
 
 logger = logging.getLogger("cybersecurity.notifications")
@@ -26,6 +30,7 @@ async def alert_finding(finding: SecurityFinding) -> bool:
 
     try:
         from services import get_service
+
         svc = get_service("notification")
         if svc:
             await svc.send_message("telegram", chat_id, message)
@@ -74,6 +79,7 @@ async def send_weekly_digest(
 
     try:
         from services import get_service
+
         svc = get_service("notification")
         if svc:
             await svc.send_message("telegram", chat_id, message)
@@ -98,6 +104,7 @@ async def send_scan_error(scanner_name: str, error: str) -> None:
 
     try:
         from services import get_service
+
         svc = get_service("notification")
         if svc:
             await svc.send_message("telegram", chat_id, message)
@@ -108,6 +115,7 @@ async def send_scan_error(scanner_name: str, error: str) -> None:
 # ---------------------------------------------------------------------------
 # Formatting
 # ---------------------------------------------------------------------------
+
 
 def _format_finding_alert(finding: SecurityFinding) -> str:
     emoji = SEVERITY_EMOJI.get(finding.severity, "\u2753")

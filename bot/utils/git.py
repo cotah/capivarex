@@ -27,11 +27,7 @@ def run_git_command(cmd: List[str], cwd: Optional[str] = None) -> str:
     """
     try:
         result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=30
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=30
         )
 
         if result.returncode == 0:
@@ -73,10 +69,7 @@ def git_init(cwd: Optional[str] = None) -> str:
 
 def git_log(limit: int = 10, cwd: Optional[str] = None) -> str:
     """Get git log."""
-    return run_git_command(
-        ["git", "log", f"--max-count={limit}", "--oneline"],
-        cwd=cwd
-    )
+    return run_git_command(["git", "log", f"--max-count={limit}", "--oneline"], cwd=cwd)
 
 
 def git_diff(cwd: Optional[str] = None) -> str:

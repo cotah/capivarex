@@ -302,9 +302,7 @@ class CallSession:
 
     # -- Conversation Management ----------------------------------------------
 
-    def add_assistant_turn(
-        self, text: str, audio_duration_s: float = 0.0
-    ) -> None:
+    def add_assistant_turn(self, text: str, audio_duration_s: float = 0.0) -> None:
         """Record what the bot said."""
         self.conversation.append(
             ConversationTurn(
@@ -315,9 +313,7 @@ class CallSession:
         )
         self._turn_count += 1
 
-    def add_user_turn(
-        self, text: str, audio_duration_s: float = 0.0
-    ) -> None:
+    def add_user_turn(self, text: str, audio_duration_s: float = 0.0) -> None:
         """Record what the person on the phone said."""
         self.conversation.append(
             ConversationTurn(
@@ -330,8 +326,7 @@ class CallSession:
     def get_conversation_history(self) -> List[Dict[str, str]]:
         """Get conversation as OpenAI messages format."""
         return [
-            {"role": turn.role, "content": turn.content}
-            for turn in self.conversation
+            {"role": turn.role, "content": turn.content} for turn in self.conversation
         ]
 
     def get_last_user_message(self) -> str:
@@ -363,9 +358,7 @@ class CallSession:
         if elapsed > self.MAX_DURATION_S:
             self.status = CallStatus.TIMEOUT
             self.result = CallResult.TIMEOUT
-            self.result_details = (
-                f"Call exceeded {self.MAX_DURATION_S}s limit"
-            )
+            self.result_details = f"Call exceeded {self.MAX_DURATION_S}s limit"
             logger.warning(
                 "Session %s: timeout after %.0fs",
                 self.session_id[:8],
@@ -377,9 +370,7 @@ class CallSession:
             self.status = CallStatus.COMPLETED
             self.result = CallResult.PARTIAL
             self.result_details = f"Reached max {self.MAX_TURNS} turns"
-            logger.info(
-                "Session %s: max turns reached", self.session_id[:8]
-            )
+            logger.info("Session %s: max turns reached", self.session_id[:8])
             return True
 
         return False
@@ -400,9 +391,7 @@ class CallSession:
         self.status = CallStatus.FAILED
         self.result = CallResult.FAILED
         self.result_details = reason or "Call failed"
-        logger.warning(
-            "Session %s: failed — %s", self.session_id[:8], reason
-        )
+        logger.warning("Session %s: failed — %s", self.session_id[:8], reason)
 
     def mark_hangup(self) -> None:
         """Mark that the person hung up."""
@@ -485,9 +474,7 @@ class CallSession:
         # Duration
         minutes = int(self.duration_s // 60)
         seconds = int(self.duration_s % 60)
-        duration_str = (
-            f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
-        )
+        duration_str = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
 
         # Language display
         lang_display = {
@@ -521,11 +508,7 @@ class CallSession:
             lines.append("\n\U0001f4dd *Transcript:*")
             turns_to_show = self.conversation[:max_transcript_turns]
             for turn in turns_to_show:
-                icon = (
-                    "\U0001f916"
-                    if turn.role == "assistant"
-                    else "\U0001f464"
-                )
+                icon = "\U0001f916" if turn.role == "assistant" else "\U0001f464"
                 safe_content = self._escape_markdown(turn.content)
                 if len(safe_content) > 200:
                     safe_content = safe_content[:197] + "..."
@@ -541,17 +524,11 @@ class CallSession:
             lines.append("\n\u26a1 *Performance:*")
             lines.append(f"  Avg response: {m['avg_turn_latency_s']}s")
             if m["stt_total_latency_s"] > 0:
-                lines.append(
-                    f"  STT: {m['stt_total_latency_s']}s total"
-                )
+                lines.append(f"  STT: {m['stt_total_latency_s']}s total")
             if m["llm_total_latency_s"] > 0:
-                lines.append(
-                    f"  LLM: {m['llm_total_latency_s']}s total"
-                )
+                lines.append(f"  LLM: {m['llm_total_latency_s']}s total")
             if m["tts_total_latency_s"] > 0:
-                lines.append(
-                    f"  TTS: {m['tts_total_latency_s']}s total"
-                )
+                lines.append(f"  TTS: {m['tts_total_latency_s']}s total")
 
         # Footer
         lines.append(f"\n\U0001f511 `{self.session_id[:12]}...`")
@@ -578,9 +555,7 @@ class CallSession:
 
         minutes = int(self.duration_s // 60)
         seconds = int(self.duration_s % 60)
-        duration_str = (
-            f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
-        )
+        duration_str = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
 
         lines = [
             "\U0001f4de *Call completed*",
@@ -591,9 +566,7 @@ class CallSession:
 
         if self.result_details:
             details = self.result_details[:100]
-            lines.append(
-                f"_{self._escape_markdown(details)}_"
-            )
+            lines.append(f"_{self._escape_markdown(details)}_")
 
         lines.append(f"\n\U0001f511 `{self.session_id[:12]}...`")
 
@@ -665,18 +638,20 @@ def _get_redis_client():
 
 def _serialize_pending(pending: PendingCall) -> str:
     """Serialize PendingCall to JSON string for Redis."""
-    return json.dumps({
-        "session_id": pending.session_id,
-        "objective": pending.objective,
-        "user_name": pending.user_name,
-        "language": pending.language,
-        "phone_number": pending.phone_number,
-        "telegram_chat_id": pending.telegram_chat_id,
-        "telegram_user_id": pending.telegram_user_id,
-        "extra_context": pending.extra_context,
-        "greeting": pending.greeting,
-        "created_at": pending.created_at,
-    })
+    return json.dumps(
+        {
+            "session_id": pending.session_id,
+            "objective": pending.objective,
+            "user_name": pending.user_name,
+            "language": pending.language,
+            "phone_number": pending.phone_number,
+            "telegram_chat_id": pending.telegram_chat_id,
+            "telegram_user_id": pending.telegram_user_id,
+            "extra_context": pending.extra_context,
+            "greeting": pending.greeting,
+            "created_at": pending.created_at,
+        }
+    )
 
 
 def _deserialize_pending(data: str) -> PendingCall:
@@ -746,9 +721,7 @@ def register_pending_call(
             )
             return session_id
         except Exception as e:
-            logger.warning(
-                "Redis register failed, using in-memory: %s", e
-            )
+            logger.warning("Redis register failed, using in-memory: %s", e)
 
     # Fallback: in-memory
     _cleanup_expired()
@@ -792,9 +765,7 @@ def get_pending_call(session_id: str) -> Optional[PendingCall]:
                 session_id[:8],
             )
         except Exception as e:
-            logger.warning(
-                "Redis get failed, trying in-memory: %s", e
-            )
+            logger.warning("Redis get failed, trying in-memory: %s", e)
 
     # Fallback: in-memory
     pending = _PENDING_CALLS.pop(session_id, None)
@@ -815,9 +786,7 @@ def get_pending_calls_count() -> int:
 
 def _cleanup_expired() -> None:
     """Remove expired pending calls from in-memory dict."""
-    expired = [
-        sid for sid, p in _PENDING_CALLS.items() if p.is_expired
-    ]
+    expired = [sid for sid, p in _PENDING_CALLS.items() if p.is_expired]
     for sid in expired:
         del _PENDING_CALLS[sid]
         logger.debug("Cleaned up expired pending call: %s", sid[:8])

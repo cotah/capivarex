@@ -462,8 +462,9 @@ class TestGatherContextServicePaths:
         # calendar/weather Circuit Open gets schema-validated into "Invalid data structure"
         assert "error" in result.get("calendar", {})
         assert "error" in result.get("weather", {})
-        # car_status passes CarStatus validation with Circuit Open message intact
-        assert "Circuit Open" in str(result.get("car_status", {}))
+        # car_status and news removed from gather_context (agents paused — Q3 2026)
+        assert "car_status" not in result
+        assert "news" not in result
 
 
 class TestGetProactivityService:

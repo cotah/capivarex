@@ -169,7 +169,10 @@ async def connect_vehicle_redirect(
     try:
         car_service = await _get_car_service_async()
         connect_url = car_service.get_connect_url(user_id)
-        logger.info("User %s initiating Smartcar OAuth", user_id[:8] if len(user_id) > 8 else user_id)
+        logger.info(
+            "User %s initiating Smartcar OAuth",
+            user_id[:8] if len(user_id) > 8 else user_id,
+        )
         return RedirectResponse(url=connect_url)
     except HTTPException:
         raise
@@ -229,9 +232,7 @@ async def smartcar_callback(
         car_service = await _get_car_service_async()
         vehicle_db = _get_vehicle_db_service()
 
-        user_id = await resolve_user_uuid(
-            state, context="smartcar_callback"
-        )
+        user_id = await resolve_user_uuid(state, context="smartcar_callback")
 
         # Exchange authorization code for tokens
         tokens = await car_service.exchange_code(code)
@@ -267,10 +268,12 @@ async def smartcar_callback(
                 detail=f"Failed to save vehicle: {saved_vehicle['error']}",
             )
 
-        return HTMLResponse(content=_smartcar_success_page(
-            vehicle_info.get("make", ""),
-            vehicle_info.get("model", ""),
-        ))
+        return HTMLResponse(
+            content=_smartcar_success_page(
+                vehicle_info.get("make", ""),
+                vehicle_info.get("model", ""),
+            )
+        )
 
     except HTTPException:
         raise

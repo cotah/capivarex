@@ -144,9 +144,22 @@ class FinanceAgent(BaseAgent):
             return await self._handle_alert_config(prompt_lower, user_id, lang)
 
         # ── Watchlist management ──
-        watchlist_keywords = ["watchlist", "lista", "acompanhar", "seguir", "track",
-                              "add to my", "adiciona", "remove from", "remov", "show my watchlist",
-                              "my stocks", "my crypto", "meus ativos", "minha carteira"]
+        watchlist_keywords = [
+            "watchlist",
+            "lista",
+            "acompanhar",
+            "seguir",
+            "track",
+            "add to my",
+            "adiciona",
+            "remove from",
+            "remov",
+            "show my watchlist",
+            "my stocks",
+            "my crypto",
+            "meus ativos",
+            "minha carteira",
+        ]
         if any(kw in prompt_lower for kw in watchlist_keywords):
             return await self._handle_watchlist(prompt, prompt_lower, user_id, lang)
 
@@ -207,12 +220,19 @@ class FinanceAgent(BaseAgent):
     ) -> AgentResponse:
         """Handle watchlist add/remove/show commands."""
         from services.business.weekly_recap_service import (
-            get_user_watchlist, add_to_watchlist, remove_from_watchlist,
+            get_user_watchlist,
+            add_to_watchlist,
+            remove_from_watchlist,
         )
 
         # Detect intent: add, remove, or show
-        is_add = any(kw in prompt_lower for kw in ["add", "adiciona", "acompanhar", "seguir", "track"])
-        is_remove = any(kw in prompt_lower for kw in ["remove", "remov", "tira", "delete", "exclu"])
+        is_add = any(
+            kw in prompt_lower
+            for kw in ["add", "adiciona", "acompanhar", "seguir", "track"]
+        )
+        is_remove = any(
+            kw in prompt_lower for kw in ["remove", "remov", "tira", "delete", "exclu"]
+        )
 
         # Show watchlist only if NOT adding or removing
         if not is_add and not is_remove:
@@ -226,17 +246,51 @@ class FinanceAgent(BaseAgent):
             )
 
         # Detect if crypto
-        crypto_words = ["bitcoin", "btc", "ethereum", "eth", "solana", "sol",
-                        "crypto", "cripto", "bnb", "cardano", "ada", "xrp", "doge",
-                        "dogecoin", "polkadot", "dot", "avalanche", "avax", "matic",
-                        "polygon", "litecoin", "ltc"]
+        crypto_words = [
+            "bitcoin",
+            "btc",
+            "ethereum",
+            "eth",
+            "solana",
+            "sol",
+            "crypto",
+            "cripto",
+            "bnb",
+            "cardano",
+            "ada",
+            "xrp",
+            "doge",
+            "dogecoin",
+            "polkadot",
+            "dot",
+            "avalanche",
+            "avax",
+            "matic",
+            "polygon",
+            "litecoin",
+            "ltc",
+        ]
         is_crypto = any(w in prompt_lower for w in crypto_words)
 
         # Extract symbol — strip command words first to avoid extracting "add" as ticker
         clean_prompt = prompt
-        for noise in ["add", "remove", "to my watchlist", "from my watchlist", "to my list",
-                       "from my list", "adiciona", "remove", "na minha", "da minha",
-                       "watchlist", "lista", "acompanhar", "seguir", "track"]:
+        for noise in [
+            "add",
+            "remove",
+            "to my watchlist",
+            "from my watchlist",
+            "to my list",
+            "from my list",
+            "adiciona",
+            "remove",
+            "na minha",
+            "da minha",
+            "watchlist",
+            "lista",
+            "acompanhar",
+            "seguir",
+            "track",
+        ]:
             clean_prompt = clean_prompt.replace(noise, " ").replace(noise.upper(), " ")
         clean_prompt = " ".join(clean_prompt.split())  # normalize whitespace
 
@@ -280,10 +334,16 @@ class FinanceAgent(BaseAgent):
     ) -> AgentResponse:
         """Handle alert configuration commands."""
         import re
-        from services.business.finance_alert_service import get_alert_config, set_alert_config
+        from services.business.finance_alert_service import (
+            get_alert_config,
+            set_alert_config,
+        )
 
         # Disable alerts
-        if any(kw in prompt_lower for kw in ["disable", "desativar", "off", "desligar", "stop"]):
+        if any(
+            kw in prompt_lower
+            for kw in ["disable", "desativar", "off", "desligar", "stop"]
+        ):
             await set_alert_config(user_id, {"enabled": False})
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
@@ -291,7 +351,9 @@ class FinanceAgent(BaseAgent):
             )
 
         # Enable alerts
-        if any(kw in prompt_lower for kw in ["enable", "ativar", "on", "ligar", "start"]):
+        if any(
+            kw in prompt_lower for kw in ["enable", "ativar", "on", "ligar", "start"]
+        ):
             await set_alert_config(user_id, {"enabled": True})
             config = await get_alert_config(user_id)
             return AgentResponse(
@@ -300,7 +362,7 @@ class FinanceAgent(BaseAgent):
             )
 
         # Set threshold: "set alerts to 3%", "alert threshold 5%", "alerta 3%"
-        pct_match = re.search(r'(\d+(?:\.\d+)?)\s*%', prompt_lower)
+        pct_match = re.search(r"(\d+(?:\.\d+)?)\s*%", prompt_lower)
         if pct_match:
             threshold = float(pct_match.group(1))
             if threshold < 0.5:
@@ -313,7 +375,9 @@ class FinanceAgent(BaseAgent):
                     status=AgentStatus.SUCCESS,
                     response="⚠️ Maximum threshold is 50%. That high, you'd almost never get alerts.",
                 )
-            await set_alert_config(user_id, {"threshold_pct": threshold, "enabled": True})
+            await set_alert_config(
+                user_id, {"threshold_pct": threshold, "enabled": True}
+            )
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
                 response=f"✅ Alert threshold set to {threshold}%. I'll notify you when any stock or crypto moves more than {threshold}% in a day.",
@@ -325,7 +389,7 @@ class FinanceAgent(BaseAgent):
         threshold = config.get("threshold_pct", 5.0)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=f"📊 Your finance alerts are **{status}** with a **{threshold}%** threshold.\n\nYou can say:\n• \"Set alerts to 3%\" — change threshold\n• \"Disable alerts\" — turn off\n• \"Enable alerts\" — turn on",
+            response=f'📊 Your finance alerts are **{status}** with a **{threshold}%** threshold.\n\nYou can say:\n• "Set alerts to 3%" — change threshold\n• "Disable alerts" — turn off\n• "Enable alerts" — turn on',
         )
 
     def _extract_symbol(self, prompt: str) -> str:

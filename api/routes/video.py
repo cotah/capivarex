@@ -4,6 +4,7 @@ Video Routes - Refactored to use services.
 Endpoints for text-to-video and image-to-video generation via the
 registered ``video`` service from the refactored service registry.
 """
+
 import logging
 from typing import Any, Dict
 
@@ -55,7 +56,7 @@ async def text_to_video(
     """Generate a video from a text prompt."""
     try:
         service = await _get_video_service()
-        user_plan: str = current_user.get("plan", "basic")
+        user_plan: str = current_user.get("plan", "professional")
 
         _validate_and_generate(service, user_plan, duration, ratio)
 
@@ -91,7 +92,7 @@ async def image_to_video(
     try:
         async with temp_upload(image, prefix="video_ref") as temp_image_path:
             service = await _get_video_service()
-            user_plan: str = current_user.get("plan", "basic")
+            user_plan: str = current_user.get("plan", "professional")
 
             _validate_and_generate(service, user_plan, duration, ratio)
 

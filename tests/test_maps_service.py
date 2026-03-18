@@ -19,6 +19,7 @@ from services.integrations.maps_service import (
 
 # ── Unit: Helper functions ────────────────────────────────────────────
 
+
 class TestMapsHelpers:
     def test_parse_duration(self):
         assert _parse_duration("1234s") == 1234
@@ -66,6 +67,7 @@ class TestMapsHelpers:
 
 # ── Service Lifecycle ─────────────────────────────────────────────────
 
+
 class TestMapsServiceLifecycle:
     @pytest.mark.asyncio
     async def test_initialize_with_key(self):
@@ -93,6 +95,7 @@ class TestMapsServiceLifecycle:
 
 # ── Geocoding ─────────────────────────────────────────────────────────
 
+
 class TestMapsGeocoding:
     @pytest.mark.asyncio
     async def test_geocode_success(self):
@@ -102,9 +105,7 @@ class TestMapsGeocoding:
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "status": "OK",
-            "results": [
-                {"geometry": {"location": {"lat": 53.35, "lng": -6.26}}}
-            ],
+            "results": [{"geometry": {"location": {"lat": 53.35, "lng": -6.26}}}],
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -154,6 +155,7 @@ class TestMapsGeocoding:
 
 
 # ── Directions ────────────────────────────────────────────────────────
+
 
 class TestMapsDirections:
     @pytest.mark.asyncio
@@ -237,9 +239,7 @@ class TestMapsDirections:
         svc.api_key = "test_key"
         svc._track_call = MagicMock()
 
-        svc.geocode = AsyncMock(
-            return_value={"latitude": 53.35, "longitude": -6.26}
-        )
+        svc.geocode = AsyncMock(return_value={"latitude": 53.35, "longitude": -6.26})
 
         mock_response = MagicMock()
         mock_response.json.return_value = {"routes": []}
@@ -254,6 +254,7 @@ class TestMapsDirections:
 
 
 # ── Places Search ─────────────────────────────────────────────────────
+
 
 class TestMapsPlacesSearch:
     @pytest.mark.asyncio
@@ -309,6 +310,7 @@ class TestMapsPlacesSearch:
 
 
 # ── Place Formatting ──────────────────────────────────────────────────
+
 
 class TestMapsPlaceFormatting:
     def test_format_place(self):

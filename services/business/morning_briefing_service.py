@@ -10,6 +10,7 @@ Generates a personalized morning briefing combining:
 Triggered on first interaction of the day or via proactivity loop (08:00 UTC).
 Stored in proactivity_feed for bell notification display.
 """
+
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -35,16 +36,21 @@ async def generate_morning_briefing(
         logger.info("Morning briefing: already sent today for user={}", user_id[:8])
         return None
 
-    logger.info("Morning briefing: generating for user={} location={}", user_id[:8], location)
+    logger.info(
+        "Morning briefing: generating for user={} location={}", user_id[:8], location
+    )
 
     # Gather all data concurrently
     import asyncio
+
     weather_task = _get_weather(location)
     calendar_task = _get_today_events(user_id)
     finance_task = _get_finance_summary(user_id)
 
     weather, events, finance = await asyncio.gather(
-        weather_task, calendar_task, finance_task,
+        weather_task,
+        calendar_task,
+        finance_task,
         return_exceptions=True,
     )
 
@@ -62,7 +68,9 @@ async def generate_morning_briefing(
     # Build raw data for GPT humanization
     name = user_name.split()[0] if user_name else "there"
     greeting = _get_greeting()
-    raw_data = _build_briefing_raw_data(name, greeting, location, weather, events, finance)
+    raw_data = _build_briefing_raw_data(
+        name, greeting, location, weather, events, finance
+    )
 
     # Humanize through GPT
     message = await _humanize_briefing(raw_data, name)
@@ -84,7 +92,9 @@ async def generate_morning_briefing(
         except Exception as e:
             logger.warning("Morning briefing: Telegram send failed: {}", e)
 
-    logger.info("Morning briefing: generated for user={} ({} chars)", user_id[:8], len(message))
+    logger.info(
+        "Morning briefing: generated for user={} ({} chars)", user_id[:8], len(message)
+    )
     return {"title": title, "message": message}
 
 
@@ -93,15 +103,22 @@ async def generate_morning_briefing(
 # Humanization — GPT makes it feel like a friend, not a robot
 # ---------------------------------------------------------------------------
 
+
 def _build_briefing_raw_data(
-    name: str, greeting: str, location: str,
-    weather: Any, events: Any, finance: Any,
+    name: str,
+    greeting: str,
+    location: str,
+    weather: Any,
+    events: Any,
+    finance: Any,
 ) -> str:
     """Build structured raw data for GPT to humanize."""
     parts = [f"User name: {name}", f"Greeting: {greeting}", f"Location: {location}"]
 
     if weather:
-        parts.append(f"Weather: {weather.get('temperature', '?')}°C, {weather.get('description', '?')}")
+        parts.append(
+            f"Weather: {weather.get('temperature', '?')}°C, {weather.get('description', '?')}"
+        )
 
     if events and isinstance(events, list) and len(events) > 0:
         parts.append(f"Calendar: {len(events)} events today")
@@ -146,6 +163,7 @@ Generate the morning briefing:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -153,7 +171,9 @@ Generate the morning briefing:"""
                 max_tokens=400,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception as e:
@@ -190,6 +210,7 @@ def _fallback_briefing(raw_data: str, name: str) -> str:
 # Data fetchers
 # ---------------------------------------------------------------------------
 
+
 async def _get_weather(location: str) -> Optional[Dict[str, Any]]:
     """Get current weather for location."""
     weather_svc = get_service("weather")
@@ -197,6 +218,7 @@ async def _get_weather(location: str) -> Optional[Dict[str, Any]]:
         return None
 
     import asyncio
+
     result = await asyncio.to_thread(weather_svc.get_current_weather, location)
     if not result or "error" in result:
         return None
@@ -236,6 +258,7 @@ async def _get_finance_summary(user_id: str) -> Optional[Dict[str, Any]]:
     if finance_svc and finance_svc.is_initialized() and watchlist.get("stocks"):
         try:
             import asyncio
+
             summary = await asyncio.to_thread(
                 finance_svc.get_watchlist_summary,
                 watchlist["stocks"][:5],  # Top 5 from their list
@@ -254,6 +277,7 @@ async def _get_finance_summary(user_id: str) -> Optional[Dict[str, Any]]:
     if crypto_svc and crypto_svc.is_initialized():
         try:
             import asyncio
+
             top = await asyncio.to_thread(crypto_svc.get_top_coins, 3)
             if top and isinstance(top, list):
                 changes = []
@@ -273,6 +297,7 @@ async def _get_finance_summary(user_id: str) -> Optional[Dict[str, Any]]:
 # Storage
 # ---------------------------------------------------------------------------
 
+
 async def _briefing_sent_today(user_id: str) -> bool:
     """Check if morning briefing was already sent today."""
     db = get_service("database")
@@ -281,7 +306,9 @@ async def _briefing_sent_today(user_id: str) -> bool:
 
     try:
         client = db.get_client()
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+        today_start = (
+            datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+        )
         result = (
             client.table("proactivity_feed")
             .select("id")
@@ -304,15 +331,17 @@ async def _store_briefing(user_id: str, title: str, message: str) -> None:
 
     try:
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "morning_briefing",
-            "title": title,
-            "message": message,
-            "metadata": json.dumps({"version": "1.0"}),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "morning_briefing",
+                "title": title,
+                "message": message,
+                "metadata": json.dumps({"version": "1.0"}),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Morning briefing: failed to store: {}", e)
 
@@ -320,6 +349,7 @@ async def _store_briefing(user_id: str, title: str, message: str) -> None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_greeting() -> str:
     """Get time-appropriate greeting."""

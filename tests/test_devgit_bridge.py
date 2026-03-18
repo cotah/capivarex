@@ -1,4 +1,5 @@
 """Tests for DevGit Bridge — Dev Agent + GitHub integration."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
@@ -69,7 +70,9 @@ class TestFormatSummary:
             "total_lines": 500,
             "language": "python",
             "batches": 2,
-            "files": [{"path": f"file{i}.py", "content": "", "lines": 33} for i in range(15)],
+            "files": [
+                {"path": f"file{i}.py", "content": "", "lines": 33} for i in range(15)
+            ],
         }
         result = format_summary(project)
         assert "2 lotes" in result
@@ -77,21 +80,25 @@ class TestFormatSummary:
 
 class TestFormatPushResult:
     def test_done(self):
-        result = format_push_result({
-            "done": True,
-            "repo_url": "https://github.com/user/repo",
-            "total_pushed": 5,
-        })
+        result = format_push_result(
+            {
+                "done": True,
+                "repo_url": "https://github.com/user/repo",
+                "total_pushed": 5,
+            }
+        )
         assert "✅" in result
         assert "github.com/user/repo" in result
 
     def test_batch_in_progress(self):
-        result = format_push_result({
-            "done": False,
-            "batch": 1,
-            "batches": 3,
-            "files_pushed": 10,
-        })
+        result = format_push_result(
+            {
+                "done": False,
+                "batch": 1,
+                "batches": 3,
+                "files_pushed": 10,
+            }
+        )
         assert "Lote 1/3" in result
         assert "continuar" in result.lower()
 
@@ -119,7 +126,12 @@ class TestPreview:
 
 class TestCleanup:
     def test_cleanup_expired(self):
-        _code_previews["old1"] = {"expires_at": 0, "project_id": "p", "files": [], "created_at": 0}
+        _code_previews["old1"] = {
+            "expires_at": 0,
+            "project_id": "p",
+            "files": [],
+            "created_at": 0,
+        }
         _pending_projects["old2"] = {"created_at": 0, "user_id": "u", "files": []}
         cleanup_expired()
         assert "old1" not in _code_previews
@@ -166,12 +178,17 @@ class TestGenerateRoute:
             '"files": [{"path": "main.py", "content": "from fastapi import FastAPI\\napp = FastAPI()"}]}'
         )
 
-        with patch("services.business.devgit_bridge.get_service", return_value=mock_openai):
-            resp = client.post("/generate", json={
-                "user_id": "user-123",
-                "description": "FastAPI task manager",
-                "language": "python",
-            })
+        with patch(
+            "services.business.devgit_bridge.get_service", return_value=mock_openai
+        ):
+            resp = client.post(
+                "/generate",
+                json={
+                    "user_id": "user-123",
+                    "description": "FastAPI task manager",
+                    "language": "python",
+                },
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["name"] == "task-api"
@@ -214,6 +231,7 @@ class TestGenerateProject:
     @pytest.mark.asyncio
     async def test_no_openai(self):
         from services.business.devgit_bridge import generate_project
+
         with patch("services.business.devgit_bridge.get_service", return_value=None):
             result = await generate_project("u1", "test project")
         assert result is None
@@ -221,28 +239,35 @@ class TestGenerateProject:
     @pytest.mark.asyncio
     async def test_openai_bad_json(self):
         from services.business.devgit_bridge import generate_project
+
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = "not json at all"
 
-        with patch("services.business.devgit_bridge.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.devgit_bridge.get_service", return_value=mock_openai
+        ):
             result = await generate_project("u1", "test project")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_openai_empty_files(self):
         from services.business.devgit_bridge import generate_project
+
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = '{"name": "test", "files": []}'
 
-        with patch("services.business.devgit_bridge.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.devgit_bridge.get_service", return_value=mock_openai
+        ):
             result = await generate_project("u1", "test project")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_openai_success(self):
         from services.business.devgit_bridge import generate_project
+
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = (
@@ -250,7 +275,9 @@ class TestGenerateProject:
             '"files": [{"path": "main.py", "content": "print(1)\\nprint(2)"}]}'
         )
 
-        with patch("services.business.devgit_bridge.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.devgit_bridge.get_service", return_value=mock_openai
+        ):
             result = await generate_project("u1", "test api")
         assert result is not None
         assert result["name"] == "my-api"
@@ -258,7 +285,13 @@ class TestGenerateProject:
         assert result["files"][0]["lines"] == 2
 
     def test_preview_html_has_syntax_highlighting(self, client):
-        files = [{"path": "app.py", "content": "def hello():\n    return 'world'", "lines": 2}]
+        files = [
+            {
+                "path": "app.py",
+                "content": "def hello():\n    return 'world'",
+                "lines": 2,
+            }
+        ]
         pid = _create_preview("p1", files)
         resp = client.get(f"/preview/{pid}")
         assert "highlight.js" in resp.text
@@ -281,16 +314,23 @@ class TestPushToGitHub:
     @pytest.mark.asyncio
     async def test_push_no_project(self):
         from services.business.devgit_bridge import push_to_github
+
         result = await push_to_github("nonexistent")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_push_no_db(self):
         from services.business.devgit_bridge import push_to_github
+
         _pending_projects["test-push"] = {
-            "user_id": "u1", "name": "test", "files": [],
-            "current_batch": 0, "pushed_files": 0, "batches": 1,
-            "description": "test", "repo_url": "",
+            "user_id": "u1",
+            "name": "test",
+            "files": [],
+            "current_batch": 0,
+            "pushed_files": 0,
+            "batches": 1,
+            "description": "test",
+            "repo_url": "",
         }
         with patch("services.business.devgit_bridge.get_service", return_value=None):
             result = await push_to_github("test-push")

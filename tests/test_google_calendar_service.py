@@ -78,7 +78,9 @@ async def test_async_get_upcoming_events_returns_formatted_list():
         ]
     }
 
-    with patch.object(svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)):
+    with patch.object(
+        svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)
+    ):
         result = await svc.async_get_upcoming_events(user_id="test_user", max_results=5)
 
     assert len(result) == 1
@@ -97,7 +99,9 @@ async def test_async_get_upcoming_events_empty():
     mock_service.events.return_value = events_resource
     events_resource.list.return_value.execute.return_value = {"items": []}
 
-    with patch.object(svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)):
+    with patch.object(
+        svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)
+    ):
         result = await svc.async_get_upcoming_events(user_id="test_user")
 
     assert result == []
@@ -133,7 +137,9 @@ async def test_async_get_next_meeting_prefers_event_with_attendees():
         ]
     }
 
-    with patch.object(svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)):
+    with patch.object(
+        svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)
+    ):
         result = await svc.async_get_next_meeting(user_id="test_user")
 
     assert result is not None
@@ -161,7 +167,9 @@ async def test_async_get_next_meeting_returns_first_when_no_attendees():
         ]
     }
 
-    with patch.object(svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)):
+    with patch.object(
+        svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)
+    ):
         result = await svc.async_get_next_meeting(user_id="test_user")
 
     assert result is not None
@@ -193,7 +201,9 @@ async def test_async_get_today_events_success():
         ]
     }
 
-    with patch.object(svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)):
+    with patch.object(
+        svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)
+    ):
         result = await svc.async_get_today_events(user_id="test_user")
 
     assert len(result) == 1
@@ -217,7 +227,9 @@ async def test_async_create_event_success():
         "htmlLink": "http://x",
     }
 
-    with patch.object(svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)):
+    with patch.object(
+        svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)
+    ):
         result = await svc.async_create_event(
             user_id="test_user",
             summary="Meeting",
@@ -259,7 +271,9 @@ async def test_async_create_meeting_includes_conference_data():
         },
     }
 
-    with patch.object(svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)):
+    with patch.object(
+        svc, "_get_oauth_service", new=AsyncMock(return_value=mock_service)
+    ):
         result = await svc.async_create_meeting(
             user_id="test_user",
             summary="Meet",

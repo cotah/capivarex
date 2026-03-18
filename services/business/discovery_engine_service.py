@@ -199,10 +199,13 @@ async def _generate_by_category(
     }
 
     prompt = prompts.get(category, prompts["tip"])
-    prompt += "\n\nRespond ONLY in JSON: {\"title\": \"...\", \"description\": \"...\", \"why\": \"...\"}"
+    prompt += (
+        '\n\nRespond ONLY in JSON: {"title": "...", "description": "...", "why": "..."}'
+    )
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -229,16 +232,35 @@ async def _generate_by_category(
 def _fallback_discovery(category: str, interests: List[str]) -> Dict[str, Any]:
     """Fallback discovery without AI."""
     fallbacks = {
-        "restaurant": {"title": "Novo restaurante local", "description": "Descubra um novo lugar perto de você", "why": "Experimentar coisas novas!"},
-        "event": {"title": "Evento na cidade", "description": "Confira os eventos da semana", "why": "Sempre tem algo legal acontecendo"},
-        "article": {"title": f"Artigo sobre {interests[0] if interests else 'algo'}", "description": "Uma leitura interessante", "why": "Baseado nos seus interesses"},
-        "tip": {"title": "Dica do dia", "description": "Uma dica prática para melhorar seu dia", "why": "Pequenas mudanças, grandes resultados"},
+        "restaurant": {
+            "title": "Novo restaurante local",
+            "description": "Descubra um novo lugar perto de você",
+            "why": "Experimentar coisas novas!",
+        },
+        "event": {
+            "title": "Evento na cidade",
+            "description": "Confira os eventos da semana",
+            "why": "Sempre tem algo legal acontecendo",
+        },
+        "article": {
+            "title": f"Artigo sobre {interests[0] if interests else 'algo'}",
+            "description": "Uma leitura interessante",
+            "why": "Baseado nos seus interesses",
+        },
+        "tip": {
+            "title": "Dica do dia",
+            "description": "Uma dica prática para melhorar seu dia",
+            "why": "Pequenas mudanças, grandes resultados",
+        },
     }
     return fallbacks.get(category, fallbacks["tip"])
 
 
 async def _generate_ai_discovery(
-    name: str, category: str, discovery: Dict[str, Any], interests: List[str],
+    name: str,
+    category: str,
+    discovery: Dict[str, Any],
+    interests: List[str],
 ) -> Optional[str]:
     """Generate discovery message via GPT."""
     openai_svc = get_service("openai")
@@ -256,6 +278,7 @@ async def _generate_ai_discovery(
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -271,7 +294,9 @@ async def _generate_ai_discovery(
     return None
 
 
-def _generate_fallback_discovery(name: str, category: str, discovery: Dict[str, Any]) -> str:
+def _generate_fallback_discovery(
+    name: str, category: str, discovery: Dict[str, Any]
+) -> str:
     """Fallback discovery message."""
     greeting = f"Oi {name}!" if name else ""
     title = discovery.get("title", "Algo interessante")
@@ -279,7 +304,10 @@ def _generate_fallback_discovery(name: str, category: str, discovery: Dict[str, 
     why = discovery.get("why", "")
 
     category_emoji = {
-        "restaurant": "🍽️", "event": "🎭", "article": "📖", "tip": "💡",
+        "restaurant": "🍽️",
+        "event": "🎭",
+        "article": "📖",
+        "tip": "💡",
     }
     emoji = category_emoji.get(category, "💡")
 
@@ -301,11 +329,13 @@ async def _store_discovery(user_id: str, text: str, data: Dict[str, Any]) -> Non
             return
 
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "discovery",
-            "content": text[:2000],
-            "metadata": json.dumps(data, default=str),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "discovery",
+                "content": text[:2000],
+                "metadata": json.dumps(data, default=str),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Discovery store failed: %s", e)

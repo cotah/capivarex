@@ -53,6 +53,7 @@ class SmartHomeAgent(BaseAgent):
         """Get the Tuya OAuth service."""
         try:
             from services.auth.tuya_oauth_service import get_tuya_oauth
+
             oauth = get_tuya_oauth()
             if oauth.client_id and oauth.client_secret:
                 return oauth
@@ -151,7 +152,9 @@ class SmartHomeAgent(BaseAgent):
             try:
                 is_connected = await tuya.is_connected(user_id)
                 if is_connected:
-                    return await self._execute_tuya(tuya, user_id, prompt, context, lang)
+                    return await self._execute_tuya(
+                        tuya, user_id, prompt, context, lang
+                    )
             except Exception as e:
                 self.logger.error("Tuya check failed: %s", e)
 
@@ -167,8 +170,12 @@ class SmartHomeAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _execute_tuya(
-        self, tuya: Any, user_id: str, prompt: str,
-        context: Dict[str, Any], lang: str,
+        self,
+        tuya: Any,
+        user_id: str,
+        prompt: str,
+        context: Dict[str, Any],
+        lang: str,
     ) -> AgentResponse:
         """Execute smart home commands via Tuya API."""
         analysis = await self._analyze_intent(prompt)
@@ -186,10 +193,14 @@ class SmartHomeAgent(BaseAgent):
                 return await self._tuya_switch(tuya, user_id, device_name, False, lang)
             elif intent == "set_brightness":
                 brightness = analysis.get("brightness", 50)
-                return await self._tuya_brightness(tuya, user_id, device_name, brightness, lang)
+                return await self._tuya_brightness(
+                    tuya, user_id, device_name, brightness, lang
+                )
             elif intent == "thermostat":
                 temperature = analysis.get("temperature", 22)
-                return await self._tuya_thermostat(tuya, user_id, device_name, temperature, lang)
+                return await self._tuya_thermostat(
+                    tuya, user_id, device_name, temperature, lang
+                )
             else:
                 return await self._tuya_list_devices(tuya, user_id, lang)
         except Exception as e:
@@ -205,7 +216,10 @@ class SmartHomeAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _tuya_find_device(
-        self, tuya: Any, user_id: str, device_name: Optional[str],
+        self,
+        tuya: Any,
+        user_id: str,
+        device_name: Optional[str],
     ) -> Optional[Dict[str, Any]]:
         """Find a Tuya device by name (fuzzy match)."""
         devices = await tuya.get_user_devices(user_id)
@@ -223,7 +237,10 @@ class SmartHomeAgent(BaseAgent):
         return None
 
     async def _tuya_list_devices(
-        self, tuya: Any, user_id: str, lang: str,
+        self,
+        tuya: Any,
+        user_id: str,
+        lang: str,
     ) -> AgentResponse:
         """List all Tuya devices."""
         devices = await tuya.get_user_devices(user_id)
@@ -247,21 +264,29 @@ class SmartHomeAgent(BaseAgent):
         )
 
     async def _tuya_device_status(
-        self, tuya: Any, user_id: str, device_name: Optional[str], lang: str,
+        self,
+        tuya: Any,
+        user_id: str,
+        device_name: Optional[str],
+        lang: str,
     ) -> AgentResponse:
         """Get status of a Tuya device."""
         device = await self._tuya_find_device(tuya, user_id, device_name)
         if not device:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t("smarthome_device_not_found", lang=lang, name=device_name or "unknown"),
+                response=t(
+                    "smarthome_device_not_found",
+                    lang=lang,
+                    name=device_name or "unknown",
+                ),
             )
         device_id = device.get("id")
         name = device.get("name") or device.get("custom_name") or "Device"
         status_list = await tuya.get_device_status(user_id, device_id)
         online = "🟢 Online" if device.get("online") else "🔴 Offline"
         lines = [f"**{name}** — {online}"]
-        for s in (status_list or []):
+        for s in status_list or []:
             code = s.get("code", "")
             value = s.get("value", "")
             lines.append(f"  • {code}: {value}")
@@ -272,15 +297,23 @@ class SmartHomeAgent(BaseAgent):
         )
 
     async def _tuya_switch(
-        self, tuya: Any, user_id: str, device_name: Optional[str],
-        turn_on: bool, lang: str,
+        self,
+        tuya: Any,
+        user_id: str,
+        device_name: Optional[str],
+        turn_on: bool,
+        lang: str,
     ) -> AgentResponse:
         """Turn a Tuya device on or off."""
         device = await self._tuya_find_device(tuya, user_id, device_name)
         if not device:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t("smarthome_device_not_found", lang=lang, name=device_name or "unknown"),
+                response=t(
+                    "smarthome_device_not_found",
+                    lang=lang,
+                    name=device_name or "unknown",
+                ),
             )
         device_id = device.get("id")
         name = device.get("name") or device.get("custom_name") or "Device"
@@ -290,10 +323,17 @@ class SmartHomeAgent(BaseAgent):
         device_codes = [s.get("code", "") for s in (status_list or [])]
 
         # Build list of switch codes to try, prioritizing codes the device actually has
-        known_switch_codes = ["switch_led", "switch_1", "switch", "switch_led_1", "Power", "power"]
+        known_switch_codes = [
+            "switch_led",
+            "switch_1",
+            "switch",
+            "switch_led_1",
+            "Power",
+            "power",
+        ]
         codes_to_try = [c for c in known_switch_codes if c in device_codes]
         # Also try any boolean codes from status that look like switches
-        for s in (status_list or []):
+        for s in status_list or []:
             code = s.get("code", "")
             value = s.get("value")
             if isinstance(value, bool) and code not in codes_to_try:
@@ -303,7 +343,9 @@ class SmartHomeAgent(BaseAgent):
             codes_to_try = known_switch_codes
 
         for code in codes_to_try:
-            result = await tuya.send_command(user_id, device_id, [{"code": code, "value": turn_on}])
+            result = await tuya.send_command(
+                user_id, device_id, [{"code": code, "value": turn_on}]
+            )
             if result.get("success"):
                 if turn_on:
                     action = t("smarthome_turned_on", lang=lang, label=name)
@@ -322,29 +364,48 @@ class SmartHomeAgent(BaseAgent):
                 )
         return AgentResponse(
             status=AgentStatus.ERROR,
-            response=t("smarthome_command_error", lang=lang, error=f"No switch code found for {name}. Available codes: {', '.join(device_codes)}"),
+            response=t(
+                "smarthome_command_error",
+                lang=lang,
+                error=f"No switch code found for {name}. Available codes: {', '.join(device_codes)}",
+            ),
         )
 
     async def _tuya_brightness(
-        self, tuya: Any, user_id: str, device_name: Optional[str],
-        brightness: int, lang: str,
+        self,
+        tuya: Any,
+        user_id: str,
+        device_name: Optional[str],
+        brightness: int,
+        lang: str,
     ) -> AgentResponse:
         """Set brightness of a Tuya light."""
         device = await self._tuya_find_device(tuya, user_id, device_name)
         if not device:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t("smarthome_device_not_found", lang=lang, name=device_name or "unknown"),
+                response=t(
+                    "smarthome_device_not_found",
+                    lang=lang,
+                    name=device_name or "unknown",
+                ),
             )
         device_id = device.get("id")
         name = device.get("name") or device.get("custom_name") or "Light"
         tuya_brightness = max(10, min(1000, int(brightness * 10)))
         for code in ["bright_value_v2", "bright_value"]:
-            result = await tuya.send_command(user_id, device_id, [{"code": code, "value": tuya_brightness}])
+            result = await tuya.send_command(
+                user_id, device_id, [{"code": code, "value": tuya_brightness}]
+            )
             if result.get("success"):
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=t("smarthome_brightness_set", lang=lang, name=name, brightness=brightness),
+                    response=t(
+                        "smarthome_brightness_set",
+                        lang=lang,
+                        name=name,
+                        brightness=brightness,
+                    ),
                 )
             if result.get("error") == "device_offline":
                 return AgentResponse(
@@ -353,31 +414,47 @@ class SmartHomeAgent(BaseAgent):
                 )
         return AgentResponse(
             status=AgentStatus.ERROR,
-            response=t("smarthome_command_error", lang=lang, error="Brightness not supported"),
+            response=t(
+                "smarthome_command_error", lang=lang, error="Brightness not supported"
+            ),
         )
 
     async def _tuya_thermostat(
-        self, tuya: Any, user_id: str, device_name: Optional[str],
-        temperature: int, lang: str,
+        self,
+        tuya: Any,
+        user_id: str,
+        device_name: Optional[str],
+        temperature: int,
+        lang: str,
     ) -> AgentResponse:
         """Set thermostat temperature."""
         device = await self._tuya_find_device(tuya, user_id, device_name)
         if not device:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t("smarthome_device_not_found", lang=lang, name=device_name or "unknown"),
+                response=t(
+                    "smarthome_device_not_found",
+                    lang=lang,
+                    name=device_name or "unknown",
+                ),
             )
         device_id = device.get("id")
         name = device.get("name") or device.get("custom_name") or "Thermostat"
-        result = await tuya.send_command(user_id, device_id, [{"code": "temp_set", "value": temperature}])
+        result = await tuya.send_command(
+            user_id, device_id, [{"code": "temp_set", "value": temperature}]
+        )
         if result.get("success"):
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t("smarthome_thermostat_set", lang=lang, name=name, temp=temperature),
+                response=t(
+                    "smarthome_thermostat_set", lang=lang, name=name, temp=temperature
+                ),
             )
         return AgentResponse(
             status=AgentStatus.ERROR,
-            response=t("smarthome_command_error", lang=lang, error="Thermostat command failed"),
+            response=t(
+                "smarthome_command_error", lang=lang, error="Thermostat command failed"
+            ),
         )
 
     # ------------------------------------------------------------------

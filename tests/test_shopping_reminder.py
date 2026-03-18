@@ -163,9 +163,7 @@ class TestShoppingReminderKeyboard:
         )
 
         kb = build_shopping_reminder_keyboard(lang="en")
-        callbacks = [
-            btn.callback_data for row in kb.inline_keyboard for btn in row
-        ]
+        callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
         assert "mr:view_list" in callbacks
         assert "mr:clear_done" in callbacks
         assert "mr:snooze" in callbacks
@@ -203,9 +201,7 @@ class TestCallbackHandlers:
         mock_query = AsyncMock()
         mock_svc = MagicMock()
         mock_svc.is_initialized.return_value = True
-        mock_svc.ver_lista = AsyncMock(
-            return_value={"mensagem": "🛒 pão, leite"}
-        )
+        mock_svc.ver_lista = AsyncMock(return_value={"mensagem": "🛒 pão, leite"})
 
         with patch(
             "telegram_bot.handlers.mercado_callback.get_service",
@@ -245,9 +241,7 @@ class TestCallbackHandlers:
         ):
             await _clear_list(mock_query, "123", "en")
 
-        mock_svc.limpar_lista.assert_awaited_once_with(
-            user_id="123", lang="en"
-        )
+        mock_svc.limpar_lista.assert_awaited_once_with(user_id="123", lang="en")
         mock_query.edit_message_text.assert_awaited_once()
 
     @pytest.mark.asyncio

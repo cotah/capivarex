@@ -168,9 +168,7 @@ async def google_disconnect(
         logger.info("Google disconnected: user=%s", user_id)
         return {"success": True, "message": t("oauth_disconnected")}
     else:
-        raise HTTPException(
-            status_code=500, detail=t("oauth_disconnect_failed")
-        )
+        raise HTTPException(status_code=500, detail=t("oauth_disconnect_failed"))
 
 
 # -- HTML Pages ----------------------------------------------------------------

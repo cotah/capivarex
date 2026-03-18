@@ -1,6 +1,7 @@
 """
 Tests for CallSession — AI phone call state management.
 """
+
 import time
 from unittest.mock import patch
 
@@ -421,15 +422,17 @@ class TestSerializePending:
         """Deserialize handles missing optional fields gracefully."""
         import json
 
-        data = json.dumps({
-            "session_id": "abc",
-            "objective": "test",
-            "user_name": "U",
-            "language": "en",
-            "phone_number": "+1",
-            "telegram_chat_id": 1,
-            "telegram_user_id": 2,
-        })
+        data = json.dumps(
+            {
+                "session_id": "abc",
+                "objective": "test",
+                "user_name": "U",
+                "language": "en",
+                "phone_number": "+1",
+                "telegram_chat_id": 1,
+                "telegram_user_id": 2,
+            }
+        )
         p = _deserialize_pending(data)
         assert p.extra_context == ""
         assert p.greeting == ""
@@ -475,9 +478,7 @@ class TestRedisRegisterAndGet:
 
         assert result is not None
         assert result.objective == p.objective
-        mock_redis.get.assert_called_once_with(
-            f"pending_call:{p.session_id}"
-        )
+        mock_redis.get.assert_called_once_with(f"pending_call:{p.session_id}")
         mock_redis.delete.assert_called_once()
 
     def test_get_empty_session_id(self):

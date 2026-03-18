@@ -22,7 +22,11 @@ logger = logging.getLogger(__name__)
 # Urgency categories
 URGENCY_LEVELS = {
     "urgent": {"emoji": "🔴", "label": "Urgent", "description": "Needs response today"},
-    "important": {"emoji": "🟡", "label": "Important", "description": "Respond in 2-3 days"},
+    "important": {
+        "emoji": "🟡",
+        "label": "Important",
+        "description": "Respond in 2-3 days",
+    },
     "info": {"emoji": "🟢", "label": "Informative", "description": "Read when you can"},
     "ignore": {"emoji": "⚪", "label": "Skip", "description": "Spam/marketing/noise"},
 }
@@ -78,10 +82,12 @@ async def triage_inbox(
         except Exception:
             body_preview = email.get("snippet", "")
 
-        enriched.append({
-            **email,
-            "body_preview": body_preview,
-        })
+        enriched.append(
+            {
+                **email,
+                "body_preview": body_preview,
+            }
+        )
 
     # 3. Classify all emails via GPT (batch for efficiency)
     classified = await _classify_emails(enriched, user_name)
@@ -108,7 +114,8 @@ async def triage_inbox(
 
 
 async def _classify_emails(
-    emails: List[Dict[str, Any]], user_name: str = "",
+    emails: List[Dict[str, Any]],
+    user_name: str = "",
 ) -> List[Dict[str, Any]]:
     """Classify emails by urgency using GPT."""
     openai_svc = get_service("openai")
@@ -118,7 +125,7 @@ async def _classify_emails(
 
     # Build batch prompt
     email_list = "\n".join(
-        f"{i+1}. FROM: {e.get('from_name', '')} <{e.get('from_email', '')}>\n"
+        f"{i + 1}. FROM: {e.get('from_name', '')} <{e.get('from_email', '')}>\n"
         f"   SUBJECT: {e.get('subject', '')}\n"
         f"   PREVIEW: {e.get('body_preview', e.get('snippet', ''))[:200]}"
         for i, e in enumerate(emails[:10])
@@ -142,6 +149,7 @@ JSON array:"""
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -175,10 +183,19 @@ JSON array:"""
 def _fallback_classify(emails: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Simple keyword-based classification when GPT unavailable."""
     urgent_senders = ["boss", "ceo", "cto", "manager", "client", "urgent"]
-    ignore_words = ["unsubscribe", "newsletter", "promotion", "marketing", "noreply", "no-reply"]
+    ignore_words = [
+        "unsubscribe",
+        "newsletter",
+        "promotion",
+        "marketing",
+        "noreply",
+        "no-reply",
+    ]
 
     for email in emails:
-        from_str = (email.get("from_name", "") + " " + email.get("from_email", "")).lower()
+        from_str = (
+            email.get("from_name", "") + " " + email.get("from_email", "")
+        ).lower()
         subject = email.get("subject", "").lower()
         combined = f"{from_str} {subject}"
 
@@ -204,14 +221,16 @@ def _extract_actions(emails: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for email in emails:
         action_text = email.get("action", "")
         if action_text and len(action_text) > 5:
-            actions.append({
-                "type": "task",
-                "content": action_text,
-                "from_email": email.get("from_email", ""),
-                "from_name": email.get("from_name", ""),
-                "subject": email.get("subject", ""),
-                "email_id": email.get("id", ""),
-            })
+            actions.append(
+                {
+                    "type": "task",
+                    "content": action_text,
+                    "from_email": email.get("from_email", ""),
+                    "from_name": email.get("from_name", ""),
+                    "subject": email.get("subject", ""),
+                    "email_id": email.get("id", ""),
+                }
+            )
     return actions
 
 
@@ -273,6 +292,7 @@ Generate the triage summary:"""
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -280,7 +300,9 @@ Generate the triage summary:"""
                 max_tokens=500,
                 temperature=0.8,
             )
-            text = response if isinstance(response, str) else response.get("content", "")
+            text = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if text and len(text) > 20:
                 return text
         except Exception as e:
@@ -322,13 +344,16 @@ def _fallback_summary(
         for a in actions[:3]:
             parts.append(f"  • {a['content']}")
 
-    parts.append("\n💬 Want me to draft a reply, create a reminder, or archive the noise?")
+    parts.append(
+        "\n💬 Want me to draft a reply, create a reminder, or archive the noise?"
+    )
     return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
 # Draft Reply Generation
 # ---------------------------------------------------------------------------
+
 
 async def generate_reply_draft(
     user_id: str,
@@ -354,7 +379,9 @@ async def generate_reply_draft(
     # Get the full email
     try:
         body = await gmail.get_email_body(user_id, email_id)
-        emails = await gmail.list_emails(user_id, max_results=1, query=f"rfc822msgid:{email_id}")
+        emails = await gmail.list_emails(
+            user_id, max_results=1, query=f"rfc822msgid:{email_id}"
+        )
         email_meta = emails[0] if emails else {}
     except Exception:
         body = ""
@@ -372,7 +399,7 @@ async def generate_reply_draft(
     subject = email_meta.get("subject", "")
     from_name = email_meta.get("from_name", "")
 
-    prompt = f"""You are helping {name or 'the user'} draft a reply to an email.
+    prompt = f"""You are helping {name or "the user"} draft a reply to an email.
 
 TONE: {tone}
 FROM: {from_name}
@@ -385,13 +412,14 @@ RULES:
 - Address the sender by name if known
 - Be concise but thorough
 - Don't over-apologize or be overly formal
-- Sign off with {name or 'Best regards'}
+- Sign off with {name or "Best regards"}
 - Keep it under 10 sentences
 
 Draft the reply:"""
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],

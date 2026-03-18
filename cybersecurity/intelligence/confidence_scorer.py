@@ -19,10 +19,10 @@ from cybersecurity.engine.finding import SecurityFinding
 logger = logging.getLogger("cybersecurity.confidence_scorer")
 
 # Adjustment weights
-_TRUE_POSITIVE_BOOST = 0.1     # Max boost from similar true positives
+_TRUE_POSITIVE_BOOST = 0.1  # Max boost from similar true positives
 _FALSE_POSITIVE_PENALTY = 0.15  # Max penalty from similar false positives
-_KNOWN_FIX_BOOST = 0.05        # Boost when a known fix exists
-_LLM_MAX_ADJUSTMENT = 0.2      # Max confidence change from LLM triage
+_KNOWN_FIX_BOOST = 0.05  # Boost when a known fix exists
+_LLM_MAX_ADJUSTMENT = 0.2  # Max confidence change from LLM triage
 
 # Auto-fix eligibility thresholds
 _AUTO_FIX_MIN_OCCURRENCES = 10
@@ -38,10 +38,12 @@ def _get_llm_client():
     global _openai_client
     if _openai_client is None:
         from cybersecurity.config import CYBER_OPENAI_API_KEY
+
         if not CYBER_OPENAI_API_KEY:
             return None
         try:
             from openai import AsyncOpenAI
+
             _openai_client = AsyncOpenAI(api_key=CYBER_OPENAI_API_KEY)
         except ImportError:
             logger.warning("openai package not installed — LLM triage disabled")
@@ -161,13 +163,17 @@ async def score_finding(finding: SecurityFinding) -> float:
         # Check for similar true positive findings
         similar_findings = await search_similar_findings(query, limit=3)
         if similar_findings:
-            avg_similarity = sum(f.get("similarity", 0) for f in similar_findings) / len(similar_findings)
+            avg_similarity = sum(
+                f.get("similarity", 0) for f in similar_findings
+            ) / len(similar_findings)
             rag_adjustment += avg_similarity * _TRUE_POSITIVE_BOOST
 
         # Check for similar false positives
         similar_fps = await search_false_positives(query, limit=3)
         if similar_fps:
-            avg_similarity = sum(f.get("similarity", 0) for f in similar_fps) / len(similar_fps)
+            avg_similarity = sum(f.get("similarity", 0) for f in similar_fps) / len(
+                similar_fps
+            )
             rag_adjustment -= avg_similarity * _FALSE_POSITIVE_PENALTY
 
         # Check for known fix patterns
@@ -223,7 +229,10 @@ async def score_finding(finding: SecurityFinding) -> float:
     if total_adjustment != 0:
         logger.info(
             "Confidence: %.2f → %.2f (rag=%+.3f, llm=%+.3f) for: %s",
-            base_confidence, final, rag_adjustment, llm_adjustment,
+            base_confidence,
+            final,
+            rag_adjustment,
+            llm_adjustment,
             finding.title[:60],
         )
 
@@ -239,6 +248,7 @@ async def is_auto_fix_eligible(finding_type: str) -> bool:
     """Check if a finding type has enough history for autonomous auto-fix."""
     try:
         from cybersecurity.intelligence.knowledge_base import get_finding_type_stats
+
         stats = await get_finding_type_stats(finding_type)
 
         eligible = (
@@ -250,7 +260,8 @@ async def is_auto_fix_eligible(finding_type: str) -> bool:
         if eligible:
             logger.info(
                 "Finding type '%s' is auto-fix eligible: %d occurrences, TP=%.1f%%, Fix=%.1f%%",
-                finding_type, stats["total"],
+                finding_type,
+                stats["total"],
                 stats.get("true_positive_rate", 0) * 100,
                 stats.get("fix_success_rate", 0) * 100,
             )

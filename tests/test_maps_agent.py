@@ -13,6 +13,7 @@ from agents.specialized.maps_agent import MapsAgent
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def agent():
     return MapsAgent()
@@ -103,6 +104,7 @@ def places_result():
 
 # ── Registration ──────────────────────────────────────────────────────
 
+
 class TestMapsAgentRegistration:
     def test_agent_registered(self, agent):
         assert agent.name == "maps"
@@ -115,6 +117,7 @@ class TestMapsAgentRegistration:
 
 
 # ── Intent Classification ─────────────────────────────────────────────
+
 
 class TestMapsIntentClassification:
     def test_regex_directions_pt(self, agent):
@@ -140,6 +143,7 @@ class TestMapsIntentClassification:
 
 
 # ── Directions Handler ────────────────────────────────────────────────
+
 
 class TestMapsDirections:
     @pytest.mark.asyncio
@@ -169,7 +173,9 @@ class TestMapsDirections:
         assert "38 min" in result.response
 
     @pytest.mark.asyncio
-    async def test_directions_no_destination(self, agent, mock_maps_service, base_context):
+    async def test_directions_no_destination(
+        self, agent, mock_maps_service, base_context
+    ):
         intent = {
             "action": "directions",
             "origin": "Dublin",
@@ -240,6 +246,7 @@ class TestMapsDirections:
 
 
 # ── Places Search Handler ─────────────────────────────────────────────
+
 
 class TestMapsSearch:
     @pytest.mark.asyncio
@@ -314,6 +321,7 @@ class TestMapsSearch:
 
 # ── Nearby Handler ────────────────────────────────────────────────────
 
+
 class TestMapsNearby:
     @pytest.mark.asyncio
     async def test_nearby_with_coords_and_type(
@@ -352,14 +360,13 @@ class TestMapsNearby:
         }
         context = {**base_context, "user_location": ""}
 
-        result = await agent._handle_nearby(
-            mock_maps_service, intent, context, "pt"
-        )
+        result = await agent._handle_nearby(mock_maps_service, intent, context, "pt")
         assert result.status.value == "success"
         mock_maps_service.search_places.assert_called_once()
 
 
 # ── Execute (full flow) ───────────────────────────────────────────────
+
 
 class TestMapsExecute:
     @pytest.mark.asyncio
@@ -399,14 +406,14 @@ class TestMapsExecute:
         assert result.status.value == "success"
 
     @pytest.mark.asyncio
-    async def test_execute_exception_handling(self, agent, mock_maps_service, base_context):
+    async def test_execute_exception_handling(
+        self, agent, mock_maps_service, base_context
+    ):
         mock_maps_service.is_initialized.return_value = True
 
         with patch("agents.specialized.maps_agent.get_service") as mock_get:
             mock_get.return_value = mock_maps_service
-            with patch.object(
-                agent, "_classify_intent", side_effect=Exception("boom")
-            ):
+            with patch.object(agent, "_classify_intent", side_effect=Exception("boom")):
                 result = await agent.execute("teste", base_context)
 
         assert result.status.value == "error"
@@ -414,11 +421,10 @@ class TestMapsExecute:
 
 # ── Response Formatting ───────────────────────────────────────────────
 
+
 class TestMapsFormatting:
     def test_format_places_response(self, agent, places_result):
-        text = agent._format_places_response(
-            places_result["places"], "farmácia", "pt"
-        )
+        text = agent._format_places_response(places_result["places"], "farmácia", "pt")
         assert "Boots Pharmacy" in text
         assert "Aberto agora" in text
         assert "Fechado" in text

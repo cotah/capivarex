@@ -133,14 +133,18 @@ class CyberSecurityOrchestrator:
             duration_ms = int((time.monotonic() - t0) * 1000)
 
             all_findings.extend(findings)
-            await self._record_scan_end(scan_run_id, scanner.name, findings, duration_ms)
+            await self._record_scan_end(
+                scan_run_id, scanner.name, findings, duration_ms
+            )
 
         if all_findings:
             # Deduplicate
             unique = _deduplicate(all_findings)
             logger.info(
                 "Cycle #%d — %d findings (%d unique after dedup)",
-                self._scan_count, len(all_findings), len(unique),
+                self._scan_count,
+                len(all_findings),
+                len(unique),
             )
 
             # Persist and alert
@@ -184,15 +188,24 @@ class CyberSecurityOrchestrator:
             # 2. Alert on high/critical
             if finding.severity in ALERT_SEVERITIES:
                 try:
-                    from cybersecurity.integrations.notification_bridge import alert_finding
+                    from cybersecurity.integrations.notification_bridge import (
+                        alert_finding,
+                    )
+
                     await alert_finding(finding)
                 except Exception:
                     logger.debug("Failed to send alert for finding")
 
             # 3. Create autofix ticket for high-confidence findings
-            if finding.confidence >= AUTOFIX_SUGGEST_THRESHOLD and finding.severity in {"high", "critical"}:
+            if finding.confidence >= AUTOFIX_SUGGEST_THRESHOLD and finding.severity in {
+                "high",
+                "critical",
+            }:
                 try:
-                    from cybersecurity.integrations.autofix_bridge import create_ticket_from_finding
+                    from cybersecurity.integrations.autofix_bridge import (
+                        create_ticket_from_finding,
+                    )
+
                     await create_ticket_from_finding(finding)
                 except Exception:
                     logger.debug("Failed to create autofix ticket")
@@ -201,6 +214,7 @@ class CyberSecurityOrchestrator:
         """Insert or update finding in cyber_findings table."""
         try:
             from services import get_service
+
             db = get_service("database")
             if not db or not db.client:
                 return None
@@ -225,11 +239,13 @@ class CyberSecurityOrchestrator:
             if existing.data:
                 # Update existing — bump last_seen, update confidence
                 record = existing.data[0]
-                db.client.table("cyber_findings").update({
-                    "last_seen": row["last_seen"],
-                    "confidence": max(row["confidence"], 0),  # Don't decrease
-                    "evidence": row["evidence"],
-                }).eq("id", record["id"]).execute()
+                db.client.table("cyber_findings").update(
+                    {
+                        "last_seen": row["last_seen"],
+                        "confidence": max(row["confidence"], 0),  # Don't decrease
+                        "evidence": row["evidence"],
+                    }
+                ).eq("id", record["id"]).execute()
                 return record["id"]
             else:
                 # Insert new finding
@@ -246,19 +262,28 @@ class CyberSecurityOrchestrator:
     # ------------------------------------------------------------------
 
     async def _record_scan_start(
-        self, scanner_name: str, scan_type: str = "scheduled",
+        self,
+        scanner_name: str,
+        scan_type: str = "scheduled",
     ) -> str | None:
         try:
             from services import get_service
+
             db = get_service("database")
             if not db or not db.client:
                 return None
 
-            result = db.client.table("cyber_scan_runs").insert({
-                "scanner": scanner_name,
-                "scan_type": scan_type,
-                "status": "running",
-            }).execute()
+            result = (
+                db.client.table("cyber_scan_runs")
+                .insert(
+                    {
+                        "scanner": scanner_name,
+                        "scan_type": scan_type,
+                        "status": "running",
+                    }
+                )
+                .execute()
+            )
 
             if result.data:
                 return result.data[0].get("id")
@@ -277,17 +302,20 @@ class CyberSecurityOrchestrator:
             return
         try:
             from services import get_service
+
             db = get_service("database")
             if not db or not db.client:
                 return
 
-            db.client.table("cyber_scan_runs").update({
-                "status": "completed",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-                "findings_count": len(findings),
-                "new_findings": len(findings),  # Dedup happens later
-                "duration_ms": duration_ms,
-            }).eq("id", scan_run_id).execute()
+            db.client.table("cyber_scan_runs").update(
+                {
+                    "status": "completed",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "findings_count": len(findings),
+                    "new_findings": len(findings),  # Dedup happens later
+                    "duration_ms": duration_ms,
+                }
+            ).eq("id", scan_run_id).execute()
         except Exception:
             pass
 
@@ -299,6 +327,7 @@ class CyberSecurityOrchestrator:
         """Get dashboard overview data."""
         try:
             from services import get_service
+
             db = get_service("database")
             if not db or not db.client:
                 return self._empty_overview()
@@ -307,20 +336,33 @@ class CyberSecurityOrchestrator:
 
         try:
             # Open findings by severity
-            result = db.client.table("cyber_findings").select(
-                "severity, status"
-            ).eq("status", "open").execute()
+            result = (
+                db.client.table("cyber_findings")
+                .select("severity, status")
+                .eq("status", "open")
+                .execute()
+            )
 
             findings = result.data or []
-            severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+            severity_counts = {
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "info": 0,
+            }
             for f in findings:
                 sev = f.get("severity", "info")
                 severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
             # Last scan runs
-            scans = db.client.table("cyber_scan_runs").select(
-                "scanner, status, started_at, duration_ms, findings_count"
-            ).order("started_at", desc=True).limit(20).execute()
+            scans = (
+                db.client.table("cyber_scan_runs")
+                .select("scanner, status, started_at, duration_ms, findings_count")
+                .order("started_at", desc=True)
+                .limit(20)
+                .execute()
+            )
 
             return {
                 "total_open": len(findings),
@@ -336,7 +378,13 @@ class CyberSecurityOrchestrator:
     def _empty_overview(self) -> dict:
         return {
             "total_open": 0,
-            "severity_counts": {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
+            "severity_counts": {
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "info": 0,
+            },
             "scanners": {s.name: s.get_metrics() for s in self._scanners.values()},
             "recent_scans": [],
             "cycle_count": self._scan_count,
@@ -350,6 +398,7 @@ class CyberSecurityOrchestrator:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_interval(schedule: str) -> float:
     return {

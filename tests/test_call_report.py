@@ -98,8 +98,7 @@ class TestTranscript:
         s = _make_session()
         s.result = CallResult.SUCCESS
         s.conversation = [
-            ConversationTurn(role="assistant", content=f"Turn {i}")
-            for i in range(15)
+            ConversationTurn(role="assistant", content=f"Turn {i}") for i in range(15)
         ]
 
         report = s.generate_report(max_transcript_turns=5)
@@ -147,8 +146,7 @@ class TestTelegramLimit:
         s.result = CallResult.SUCCESS
         # Create many turns with long content to exceed 4000 chars
         s.conversation = [
-            ConversationTurn(role="assistant", content="X" * 200)
-            for _ in range(30)
+            ConversationTurn(role="assistant", content="X" * 200) for _ in range(30)
         ]
 
         report = s.generate_report()

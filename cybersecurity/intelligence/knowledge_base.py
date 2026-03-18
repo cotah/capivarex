@@ -31,11 +31,14 @@ def _get_openai_client():
     if _openai_client is None:
         try:
             from openai import AsyncOpenAI
+
             api_key = os.getenv("OPENAI_API_KEY", "")
             if api_key:
                 _openai_client = AsyncOpenAI(api_key=api_key)
         except ImportError:
-            logger.warning("openai package not installed — knowledge base embeddings disabled")
+            logger.warning(
+                "openai package not installed — knowledge base embeddings disabled"
+            )
     return _openai_client
 
 
@@ -59,6 +62,7 @@ def _get_db():
     """Get database service client."""
     try:
         from services import get_service
+
         db = get_service("database")
         if db and db.client:
             return db.client
@@ -151,7 +155,11 @@ async def store_resolution(
     try:
         result = client.table("cyber_knowledge").insert(row).execute()
         if result.data:
-            logger.info("Resolution stored for finding %s (true_positive=%s)", finding_id[:8], was_true_positive)
+            logger.info(
+                "Resolution stored for finding %s (true_positive=%s)",
+                finding_id[:8],
+                was_true_positive,
+            )
             return result.data[0].get("id")
     except Exception:
         logger.debug("Failed to store resolution in knowledge base")
@@ -223,11 +231,14 @@ async def search_similar(
     _limit = limit or KNOWLEDGE_MAX_RESULTS
 
     try:
-        result = client.rpc("match_cyber_knowledge", {
-            "query_embedding": embedding,
-            "match_threshold": _threshold,
-            "match_count": _limit,
-        }).execute()
+        result = client.rpc(
+            "match_cyber_knowledge",
+            {
+                "query_embedding": embedding,
+                "match_threshold": _threshold,
+                "match_count": _limit,
+            },
+        ).execute()
 
         results = result.data or []
 
@@ -272,20 +283,31 @@ async def get_finding_type_stats(finding_type: str) -> dict:
 
     try:
         # Count total findings of this type
-        total_result = client.table("cyber_findings").select(
-            "id", count="exact"
-        ).eq("finding_type", finding_type).execute()
+        total_result = (
+            client.table("cyber_findings")
+            .select("id", count="exact")
+            .eq("finding_type", finding_type)
+            .execute()
+        )
         total = total_result.count or 0
 
         # Count by status
-        fixed_result = client.table("cyber_findings").select(
-            "id", count="exact"
-        ).eq("finding_type", finding_type).eq("status", "fixed").execute()
+        fixed_result = (
+            client.table("cyber_findings")
+            .select("id", count="exact")
+            .eq("finding_type", finding_type)
+            .eq("status", "fixed")
+            .execute()
+        )
         fixed = fixed_result.count or 0
 
-        fp_result = client.table("cyber_findings").select(
-            "id", count="exact"
-        ).eq("finding_type", finding_type).eq("status", "false_positive").execute()
+        fp_result = (
+            client.table("cyber_findings")
+            .select("id", count="exact")
+            .eq("finding_type", finding_type)
+            .eq("status", "false_positive")
+            .execute()
+        )
         false_positives = fp_result.count or 0
 
         true_positives = total - false_positives

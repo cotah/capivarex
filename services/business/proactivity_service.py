@@ -26,7 +26,7 @@ from services.core import (
 )
 from services.ai.model_config import DEFAULT_MODEL
 from schemas.context import UserContext
-from .schemas import WeatherData, CalendarEvent, CarStatus, NewsData, FinanceData
+from .schemas import WeatherData, CalendarEvent, FinanceData
 from .user_preferences_service import get_preferences
 
 logger = logging.getLogger(__name__)
@@ -214,51 +214,8 @@ class ProactivityService(BaseService):
                 error_msg = "Weather service is offline (Circuit Open)"
             tasks["weather"] = self._immediate({"error": error_msg})
 
-        # Car
-        car_service = get_service("car")
-        car_breaker = self._service_breakers["car"]
-        if (
-            car_service
-            and car_service.is_initialized()
-            and not car_breaker.current_state == "open"
-        ):
-
-            @car_breaker
-            async def protected_car_call():
-                """Fetch car battery and location status (circuit-protected)."""
-                return await self._get_car_status(user_id)
-
-            tasks["car_status"] = protected_car_call()
-        else:
-            error_msg = "Car unavailable"
-            if car_breaker.current_state == "open":
-                error_msg = "Car service is offline (Circuit Open)"
-            tasks["car_status"] = self._immediate(
-                {"connected": False, "error": error_msg}
-            )
-
-        # Research/News
-        research_service = get_service("research")
-        research_breaker = self._service_breakers["research"]
-        if (
-            research_service
-            and research_service.is_initialized()
-            and not research_breaker.current_state == "open"
-        ):
-
-            @research_breaker
-            async def protected_research_call():
-                """Search for latest news headlines (circuit-protected)."""
-                return await research_service.search_news(
-                    "latest technology and finance news"
-                )
-
-            tasks["news"] = protected_research_call()
-        else:
-            error_msg = "Research unavailable"
-            if research_breaker.current_state == "open":
-                error_msg = "Research service is offline (Circuit Open)"
-            tasks["news"] = self._immediate({"error": error_msg})
+        # Car: PAUSED — TODO: Reativar no Q3 2026 (agente car desativado)
+        # News/Research: PAUSED — TODO: Reativar no Q3 2026 (news fetch removido do loop)
 
         # Finance
         finance_service = get_service("finance")
@@ -294,11 +251,10 @@ class ProactivityService(BaseService):
             return {key: {"error": "Timeout"} for key in tasks.keys()}
 
         # Map context keys to their validation schemas
+        # car_status and news removed — agents paused (Q3 2026)
         schema_map = {
             "calendar": CalendarEvent,
             "weather": WeatherData,
-            "car_status": CarStatus,
-            "news": NewsData,
             "finance_alerts": FinanceData,
         }
 
@@ -339,48 +295,7 @@ class ProactivityService(BaseService):
         if work_lat and work_lon:
             context["work_location"] = {"latitude": work_lat, "longitude": work_lon}
 
-        # Add traffic if there's an event with location
-        context["traffic"] = {}
-        traffic_breaker = self._service_breakers["traffic"]
-        try:
-            traffic_service = get_service("traffic")
-            if (
-                traffic_service
-                and traffic_service.is_initialized()
-                and not traffic_breaker.current_state == "open"
-                and isinstance(context.get("calendar"), dict)
-                and context["calendar"].get("location")
-            ):
-                event = context["calendar"]
-                start_value = event.get("start")
-                if isinstance(start_value, str):
-                    event_time = datetime.fromisoformat(
-                        start_value.replace("Z", "+00:00")
-                    )
-                    event_time = event_time.replace(tzinfo=None)
-
-                    @traffic_breaker
-                    async def protected_traffic_call():
-                        """Check traffic conditions to the next event location (circuit-protected)."""
-                        return await asyncio.to_thread(
-                            traffic_service.check_traffic_before_event,
-                            event.get("location"),
-                            location,
-                            event_time,
-                            15,
-                        )
-
-                    context["traffic"] = await protected_traffic_call()
-            elif traffic_breaker.current_state == "open":
-                context["traffic"] = {
-                    "error": "Traffic service is offline (Circuit Open)"
-                }
-        except pybreaker.CircuitBreakerError:
-            self.logger.error("Traffic call blocked by open circuit breaker.")
-            context["traffic"] = {"error": "Traffic service is offline (Circuit Open)"}
-        except Exception as e:
-            self.logger.warning(f"Failed to get traffic context: {e}")
-            context["traffic"] = {"error": str(e)}
+        # Traffic: PAUSED — TODO: Reativar no Q3 2026 (agente traffic desativado)
 
         self.logger.info(f"Context gathered: {list(context.keys())}")
         return context
@@ -442,9 +357,6 @@ class ProactivityService(BaseService):
         - User: {context.get("user")}
         - Next Event: {context.get("calendar")}
         - Weather: {context.get("weather")}
-        - Traffic to Event: {context.get("traffic")}
-        - Car Status: {context.get("car_status")}
-        - News: {context.get("news")}
         - Stock Alerts: {context.get("finance_alerts")}
 
         {memory_context}

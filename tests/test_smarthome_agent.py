@@ -18,15 +18,25 @@ def _mock_tuya(connected=True, devices=None, send_ok=True):
     t.client_id = "test_id"
     t.client_secret = "test_secret"
     t.is_connected = AsyncMock(return_value=connected)
-    t.get_user_devices = AsyncMock(return_value=devices if devices is not None else [
-        {"id": "d1", "name": "Zigbee Smart Bulb", "category": "dj", "online": True},
-        {"id": "d2", "name": "Bedroom", "category": "dj", "online": False},
-    ])
-    t.get_device_status = AsyncMock(return_value=[
-        {"code": "switch_led", "value": True},
-    ])
+    t.get_user_devices = AsyncMock(
+        return_value=devices
+        if devices is not None
+        else [
+            {"id": "d1", "name": "Zigbee Smart Bulb", "category": "dj", "online": True},
+            {"id": "d2", "name": "Bedroom", "category": "dj", "online": False},
+        ]
+    )
+    t.get_device_status = AsyncMock(
+        return_value=[
+            {"code": "switch_led", "value": True},
+        ]
+    )
     t.send_command = AsyncMock(
-        return_value={"success": send_ok, "error": None if send_ok else "failed", "code": None}
+        return_value={
+            "success": send_ok,
+            "error": None if send_ok else "failed",
+            "code": None,
+        }
     )
     return t
 
@@ -45,7 +55,8 @@ async def test_list_devices(smarthome_agent):
     tuya = _mock_tuya()
     _setup(smarthome_agent, tuya, {"intent": "list_devices", "device_name": None})
     result = await smarthome_agent.execute(
-        "list my devices", {"user_id": "u123", "lang": "en"},
+        "list my devices",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.SUCCESS
     assert "Zigbee Smart Bulb" in result.response
@@ -55,9 +66,12 @@ async def test_list_devices(smarthome_agent):
 @pytest.mark.asyncio
 async def test_turn_on(smarthome_agent):
     tuya = _mock_tuya()
-    _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"})
+    _setup(
+        smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"}
+    )
     result = await smarthome_agent.execute(
-        "turn on the Zigbee Smart Bulb", {"user_id": "u123", "lang": "en"},
+        "turn on the Zigbee Smart Bulb",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.SUCCESS
     assert result.data.get("action") == "on"
@@ -68,7 +82,8 @@ async def test_turn_off(smarthome_agent):
     tuya = _mock_tuya()
     _setup(smarthome_agent, tuya, {"intent": "turn_off", "device_name": "Bedroom"})
     result = await smarthome_agent.execute(
-        "turn off bedroom", {"user_id": "u123", "lang": "en"},
+        "turn off bedroom",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.SUCCESS
     assert result.data.get("action") == "off"
@@ -79,7 +94,8 @@ async def test_device_not_found(smarthome_agent):
     tuya = _mock_tuya()
     _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "kitchen light"})
     result = await smarthome_agent.execute(
-        "turn on the kitchen light", {"user_id": "u123", "lang": "en"},
+        "turn on the kitchen light",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.SUCCESS
     assert "not found" in result.response.lower()
@@ -88,9 +104,14 @@ async def test_device_not_found(smarthome_agent):
 @pytest.mark.asyncio
 async def test_device_status(smarthome_agent):
     tuya = _mock_tuya()
-    _setup(smarthome_agent, tuya, {"intent": "device_status", "device_name": "Zigbee Smart Bulb"})
+    _setup(
+        smarthome_agent,
+        tuya,
+        {"intent": "device_status", "device_name": "Zigbee Smart Bulb"},
+    )
     result = await smarthome_agent.execute(
-        "status of the bulb", {"user_id": "u123", "lang": "en"},
+        "status of the bulb",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.SUCCESS
     assert "Zigbee Smart Bulb" in result.response
@@ -111,7 +132,8 @@ async def test_not_connected(smarthome_agent):
     tuya = _mock_tuya(connected=False)
     smarthome_agent._get_tuya_oauth = lambda: tuya
     result = await smarthome_agent.execute(
-        "list my devices", {"user_id": "u123", "lang": "en"},
+        "list my devices",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.data.get("needs_connection") is True
 
@@ -120,7 +142,8 @@ async def test_not_connected(smarthome_agent):
 async def test_no_tuya_env(smarthome_agent):
     smarthome_agent._get_tuya_oauth = lambda: None
     result = await smarthome_agent.execute(
-        "list my devices", {"user_id": "u123", "lang": "en"},
+        "list my devices",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.data.get("needs_connection") is True
 
@@ -130,7 +153,8 @@ async def test_no_devices(smarthome_agent):
     tuya = _mock_tuya(devices=[])
     _setup(smarthome_agent, tuya, {"intent": "list_devices", "device_name": None})
     result = await smarthome_agent.execute(
-        "list my devices", {"user_id": "u123", "lang": "en"},
+        "list my devices",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.SUCCESS
     assert "no device" in result.response.lower() or result.data.get("devices") == []
@@ -139,9 +163,12 @@ async def test_no_devices(smarthome_agent):
 @pytest.mark.asyncio
 async def test_command_fails(smarthome_agent):
     tuya = _mock_tuya(send_ok=False)
-    _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"})
+    _setup(
+        smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"}
+    )
     result = await smarthome_agent.execute(
-        "turn on the bulb", {"user_id": "u123", "lang": "en"},
+        "turn on the bulb",
+        {"user_id": "u123", "lang": "en"},
     )
     assert result.status == AgentStatus.ERROR
 
@@ -153,7 +180,9 @@ async def test_device_offline(smarthome_agent):
     tuya.send_command = AsyncMock(
         return_value={"success": False, "error": "device_offline", "code": "2001"}
     )
-    _setup(smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"})
+    _setup(
+        smarthome_agent, tuya, {"intent": "turn_on", "device_name": "Zigbee Smart Bulb"}
+    )
     result = await smarthome_agent.execute(
         "turn on the light", {"user_id": "u1", "lang": "en"}
     )
@@ -168,7 +197,15 @@ async def test_brightness_offline(smarthome_agent):
     tuya.send_command = AsyncMock(
         return_value={"success": False, "error": "device_offline", "code": "2001"}
     )
-    _setup(smarthome_agent, tuya, {"intent": "set_brightness", "device_name": "Zigbee Smart Bulb", "brightness": 50})
+    _setup(
+        smarthome_agent,
+        tuya,
+        {
+            "intent": "set_brightness",
+            "device_name": "Zigbee Smart Bulb",
+            "brightness": 50,
+        },
+    )
     result = await smarthome_agent.execute(
         "set brightness to 50", {"user_id": "u1", "lang": "en"}
     )

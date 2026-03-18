@@ -143,7 +143,7 @@ async def _get_week_focus_time(user_id: str) -> int:
         )
 
         total = 0
-        for row in (result.data or []):
+        for row in result.data or []:
             meta = row.get("metadata", "{}")
             if isinstance(meta, str):
                 meta = json.loads(meta)
@@ -175,6 +175,7 @@ async def _generate_ai_wins(name: str, stats: Dict[str, Any]) -> Optional[str]:
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -204,11 +205,17 @@ def _generate_fallback_wins(name: str, stats: Dict[str, Any]) -> str:
     achievements = []
 
     if events > 0:
-        achievements.append(f"📅 **{events} evento{'s' if events > 1 else ''}** na agenda")
+        achievements.append(
+            f"📅 **{events} evento{'s' if events > 1 else ''}** na agenda"
+        )
     if tasks > 0:
-        achievements.append(f"✅ **{tasks} tarefa{'s' if tasks > 1 else ''}** completada{'s' if tasks > 1 else ''}")
+        achievements.append(
+            f"✅ **{tasks} tarefa{'s' if tasks > 1 else ''}** completada{'s' if tasks > 1 else ''}"
+        )
     if convos > 0:
-        achievements.append(f"💬 **{convos} conversa{'s' if convos > 1 else ''}** comigo")
+        achievements.append(
+            f"💬 **{convos} conversa{'s' if convos > 1 else ''}** comigo"
+        )
     if focus > 0:
         hours = focus // 60
         mins = focus % 60
@@ -245,11 +252,13 @@ async def _store_wins(user_id: str, text: str, stats: Dict[str, Any]) -> None:
             return
 
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "weekly_wins",
-            "content": text[:2000],
-            "metadata": json.dumps(stats),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "weekly_wins",
+                "content": text[:2000],
+                "metadata": json.dumps(stats),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Weekly wins store failed: %s", e)

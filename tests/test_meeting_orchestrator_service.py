@@ -1,4 +1,5 @@
 """Tests for meeting orchestrator service — S9: full meeting setup."""
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -24,7 +25,10 @@ class TestAvailability:
 
     @pytest.mark.asyncio
     async def test_no_calendar(self):
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=None):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=None,
+        ):
             result = await _check_availability("u1", FUTURE, FUTURE_END)
         assert result is None  # No service, proceed optimistically
 
@@ -32,12 +36,20 @@ class TestAvailability:
     async def test_no_conflict(self):
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            {"summary": "Other meeting", "start": (FUTURE + timedelta(hours=3)).isoformat(),
-             "end": (FUTURE + timedelta(hours=4)).isoformat()},
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "summary": "Other meeting",
+                    "start": (FUTURE + timedelta(hours=3)).isoformat(),
+                    "end": (FUTURE + timedelta(hours=4)).isoformat(),
+                },
+            ]
+        )
 
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=mock_cal,
+        ):
             result = await _check_availability("u1", FUTURE, FUTURE_END)
         assert result is None
 
@@ -45,11 +57,20 @@ class TestAvailability:
     async def test_conflict_detected(self):
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            {"summary": "Existing meeting", "start": FUTURE.isoformat(), "end": FUTURE_END.isoformat()},
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "summary": "Existing meeting",
+                    "start": FUTURE.isoformat(),
+                    "end": FUTURE_END.isoformat(),
+                },
+            ]
+        )
 
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=mock_cal,
+        ):
             result = await _check_availability("u1", FUTURE, FUTURE_END)
         assert result is not None
         assert result["summary"] == "Existing meeting"
@@ -60,22 +81,39 @@ class TestCreateEvent:
 
     @pytest.mark.asyncio
     async def test_no_calendar(self):
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=None):
-            result = await _create_meeting_event("u1", "Test", ["a@b.com"], FUTURE, FUTURE_END, "")
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=None,
+        ):
+            result = await _create_meeting_event(
+                "u1", "Test", ["a@b.com"], FUTURE, FUTURE_END, ""
+            )
         assert result is None
 
     @pytest.mark.asyncio
     async def test_create_success(self):
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_create_meeting = AsyncMock(return_value={
-            "id": "evt-1", "summary": "Test", "meet_link": "https://meet.google.com/abc",
-            "html_link": "https://calendar.google.com/event", "start": FUTURE.isoformat(),
-            "end": FUTURE_END.isoformat(), "attendees": ["a@b.com"], "status": "created",
-        })
+        mock_cal.async_create_meeting = AsyncMock(
+            return_value={
+                "id": "evt-1",
+                "summary": "Test",
+                "meet_link": "https://meet.google.com/abc",
+                "html_link": "https://calendar.google.com/event",
+                "start": FUTURE.isoformat(),
+                "end": FUTURE_END.isoformat(),
+                "attendees": ["a@b.com"],
+                "status": "created",
+            }
+        )
 
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=mock_cal):
-            result = await _create_meeting_event("u1", "Test", ["a@b.com"], FUTURE, FUTURE_END, "Agenda")
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=mock_cal,
+        ):
+            result = await _create_meeting_event(
+                "u1", "Test", ["a@b.com"], FUTURE, FUTURE_END, "Agenda"
+            )
         assert result is not None
         assert result["meet_link"] == "https://meet.google.com/abc"
 
@@ -85,8 +123,13 @@ class TestSendInvite:
 
     @pytest.mark.asyncio
     async def test_no_gmail(self):
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=None):
-            result = await _send_invite_email("u1", "Test", ["a@b.com"], FUTURE, FUTURE_END, "", "", "Marcos")
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=None,
+        ):
+            result = await _send_invite_email(
+                "u1", "Test", ["a@b.com"], FUTURE, FUTURE_END, "", "", "Marcos"
+            )
         assert result is False
 
     @pytest.mark.asyncio
@@ -95,10 +138,19 @@ class TestSendInvite:
         mock_gmail.is_initialized.return_value = True
         mock_gmail.send_email = AsyncMock(return_value=True)
 
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=mock_gmail):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=mock_gmail,
+        ):
             result = await _send_invite_email(
-                "u1", "Project Review", ["john@test.com"],
-                FUTURE, FUTURE_END, "https://meet.google.com/abc", "Q4 review", "Marcos",
+                "u1",
+                "Project Review",
+                ["john@test.com"],
+                FUTURE,
+                FUTURE_END,
+                "https://meet.google.com/abc",
+                "Q4 review",
+                "Marcos",
             )
         assert result is True
 
@@ -109,7 +161,9 @@ class TestCreateNotes:
     @pytest.mark.asyncio
     async def test_no_notes_agent(self):
         with patch("agents.core.get_agent", return_value=None):
-            result = await _create_meeting_notes("u1", "Test", ["a@b.com"], FUTURE, "", "Marcos")
+            result = await _create_meeting_notes(
+                "u1", "Test", ["a@b.com"], FUTURE, "", "Marcos"
+            )
         assert result is False
 
     @pytest.mark.asyncio
@@ -118,7 +172,9 @@ class TestCreateNotes:
         mock_agent.execute = AsyncMock(return_value=MagicMock(response="Note saved"))
 
         with patch("agents.core.get_agent", return_value=mock_agent):
-            result = await _create_meeting_notes("u1", "Project Review", ["john@test.com"], FUTURE, "Q4 review", "Marcos")
+            result = await _create_meeting_notes(
+                "u1", "Project Review", ["john@test.com"], FUTURE, "Q4 review", "Marcos"
+            )
         assert result is True
 
 
@@ -130,11 +186,17 @@ class TestOrchestrateFullFlow:
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
         mock_cal.async_get_upcoming_events = AsyncMock(return_value=[])
-        mock_cal.async_create_meeting = AsyncMock(return_value={
-            "id": "evt-1", "summary": "Project Review", "meet_link": "https://meet.google.com/abc",
-            "start": FUTURE.isoformat(), "end": FUTURE_END.isoformat(),
-            "attendees": ["john@test.com"], "status": "created",
-        })
+        mock_cal.async_create_meeting = AsyncMock(
+            return_value={
+                "id": "evt-1",
+                "summary": "Project Review",
+                "meet_link": "https://meet.google.com/abc",
+                "start": FUTURE.isoformat(),
+                "end": FUTURE_END.isoformat(),
+                "attendees": ["john@test.com"],
+                "status": "created",
+            }
+        )
 
         mock_gmail = MagicMock()
         mock_gmail.is_initialized.return_value = True
@@ -151,12 +213,16 @@ class TestOrchestrateFullFlow:
             return None
 
         with (
-            patch("services.business.meeting_orchestrator_service.get_service", fake_svc),
+            patch(
+                "services.business.meeting_orchestrator_service.get_service", fake_svc
+            ),
             patch("agents.core.get_agent", return_value=mock_agent),
         ):
             result = await orchestrate_meeting(
-                user_id="u1", title="Project Review",
-                attendees=["john@test.com"], start_time=FUTURE,
+                user_id="u1",
+                title="Project Review",
+                attendees=["john@test.com"],
+                start_time=FUTURE,
                 user_name="Marcos Silva",
             )
 
@@ -170,14 +236,25 @@ class TestOrchestrateFullFlow:
     async def test_conflict_stops_flow(self):
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_upcoming_events = AsyncMock(return_value=[
-            {"summary": "Existing", "start": FUTURE.isoformat(), "end": FUTURE_END.isoformat()},
-        ])
+        mock_cal.async_get_upcoming_events = AsyncMock(
+            return_value=[
+                {
+                    "summary": "Existing",
+                    "start": FUTURE.isoformat(),
+                    "end": FUTURE_END.isoformat(),
+                },
+            ]
+        )
 
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=mock_cal,
+        ):
             result = await orchestrate_meeting(
-                user_id="u1", title="New Meeting",
-                attendees=["a@b.com"], start_time=FUTURE,
+                user_id="u1",
+                title="New Meeting",
+                attendees=["a@b.com"],
+                start_time=FUTURE,
                 user_name="Ana",
             )
 
@@ -188,12 +265,17 @@ class TestOrchestrateFullFlow:
     async def test_no_services_still_confirms(self):
         """Even with no services, returns a confirmation (with errors)."""
         with (
-            patch("services.business.meeting_orchestrator_service.get_service", return_value=None),
+            patch(
+                "services.business.meeting_orchestrator_service.get_service",
+                return_value=None,
+            ),
             patch("agents.core.get_agent", return_value=None),
         ):
             result = await orchestrate_meeting(
-                user_id="u1", title="Test",
-                attendees=["a@b.com"], start_time=FUTURE,
+                user_id="u1",
+                title="Test",
+                attendees=["a@b.com"],
+                start_time=FUTURE,
                 user_name="Test",
             )
 
@@ -206,25 +288,54 @@ class TestHumanization:
 
     @pytest.mark.asyncio
     async def test_conflict_fallback(self):
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=None):
-            result = await _humanize_conflict("Marcos", "Meeting", {"summary": "Other", "start": "14:00", "end": "15:00"}, FUTURE)
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=None,
+        ):
+            result = await _humanize_conflict(
+                "Marcos",
+                "Meeting",
+                {"summary": "Other", "start": "14:00", "end": "15:00"},
+                FUTURE,
+            )
         assert "Marcos" in result
         assert "Other" in result
 
     @pytest.mark.asyncio
     async def test_confirmation_fallback(self):
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=None):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=None,
+        ):
             result = await _humanize_confirmation(
-                "Ana", "Review", ["john@test.com"], FUTURE,
-                {"meet_link": "https://meet.google.com/abc", "invite_sent": True, "notes_created": True, "errors": []},
+                "Ana",
+                "Review",
+                ["john@test.com"],
+                FUTURE,
+                {
+                    "meet_link": "https://meet.google.com/abc",
+                    "invite_sent": True,
+                    "notes_created": True,
+                    "errors": [],
+                },
             )
         assert "Ana" in result
         assert "📅" in result
 
     @pytest.mark.asyncio
     async def test_invite_email_fallback(self):
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=None):
-            result = await _build_invite_email("Review", FUTURE, FUTURE_END, "https://meet.google.com/abc", "Q4", "Marcos")
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=None,
+        ):
+            result = await _build_invite_email(
+                "Review",
+                FUTURE,
+                FUTURE_END,
+                "https://meet.google.com/abc",
+                "Q4",
+                "Marcos",
+            )
         assert "Review" in result
         assert "meet.google.com" in result
 
@@ -234,7 +345,10 @@ class TestParseRequest:
 
     @pytest.mark.asyncio
     async def test_no_openai(self):
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=None):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=None,
+        ):
             result = await parse_meeting_request("marca reunião com o João")
         assert result is None
 
@@ -247,8 +361,13 @@ class TestParseRequest:
             '"date": "2026-03-20", "time": "15:00", "duration_minutes": 60, "description": "Q4 review"}'
         )
 
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=mock_openai):
-            result = await parse_meeting_request("marca reunião com o João sobre projecto X sexta às 15h")
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=mock_openai,
+        ):
+            result = await parse_meeting_request(
+                "marca reunião com o João sobre projecto X sexta às 15h"
+            )
         assert result is not None
         assert result["title"] == "Project Review"
 
@@ -258,6 +377,9 @@ class TestParseRequest:
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = '{"is_meeting": false}'
 
-        with patch("services.business.meeting_orchestrator_service.get_service", return_value=mock_openai):
+        with patch(
+            "services.business.meeting_orchestrator_service.get_service",
+            return_value=mock_openai,
+        ):
             result = await parse_meeting_request("que horas são?")
         assert result is None

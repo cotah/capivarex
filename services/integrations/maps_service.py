@@ -72,39 +72,43 @@ TRAVEL_MODES = {
 }
 
 # ── Places field masks ─────────────────────────────────────────────────
-PLACES_FIELDS = ",".join([
-    "places.id",
-    "places.displayName",
-    "places.formattedAddress",
-    "places.rating",
-    "places.userRatingCount",
-    "places.location",
-    "places.currentOpeningHours",
-    "places.nationalPhoneNumber",
-    "places.websiteUri",
-    "places.primaryType",
-    "places.editorialSummary",
-    "places.priceLevel",
-])
+PLACES_FIELDS = ",".join(
+    [
+        "places.id",
+        "places.displayName",
+        "places.formattedAddress",
+        "places.rating",
+        "places.userRatingCount",
+        "places.location",
+        "places.currentOpeningHours",
+        "places.nationalPhoneNumber",
+        "places.websiteUri",
+        "places.primaryType",
+        "places.editorialSummary",
+        "places.priceLevel",
+    ]
+)
 
-PLACE_DETAIL_FIELDS = ",".join([
-    "id",
-    "displayName",
-    "formattedAddress",
-    "rating",
-    "userRatingCount",
-    "location",
-    "currentOpeningHours",
-    "nationalPhoneNumber",
-    "websiteUri",
-    "primaryType",
-    "types",
-    "editorialSummary",
-    "priceLevel",
-    "reviews",
-    "regularOpeningHours",
-    "googleMapsUri",
-])
+PLACE_DETAIL_FIELDS = ",".join(
+    [
+        "id",
+        "displayName",
+        "formattedAddress",
+        "rating",
+        "userRatingCount",
+        "location",
+        "currentOpeningHours",
+        "nationalPhoneNumber",
+        "websiteUri",
+        "primaryType",
+        "types",
+        "editorialSummary",
+        "priceLevel",
+        "reviews",
+        "regularOpeningHours",
+        "googleMapsUri",
+    ]
+)
 
 # ── Routes field mask for step-by-step directions ──────────────────────
 ROUTES_FIELD_MASK = (
@@ -222,9 +226,7 @@ class MapsService(BaseService):
             self.logger.error("Geocode failed for '%s': %s", address, exc)
             return None
 
-    async def reverse_geocode(
-        self, lat: float, lng: float
-    ) -> Optional[str]:
+    async def reverse_geocode(self, lat: float, lng: float) -> Optional[str]:
         """Coordinates → formatted address string."""
         try:
             client = await self._get_client()
@@ -341,9 +343,7 @@ class MapsService(BaseService):
                     instruction = nav.get("instructions", "")
                     maneuver = nav.get("maneuver", "")
                     step_distance = step.get("distanceMeters", 0)
-                    step_duration = _parse_duration(
-                        step.get("staticDuration", "0s")
-                    )
+                    step_duration = _parse_duration(step.get("staticDuration", "0s"))
                     step_mode = step.get("travelMode", travel_mode)
 
                     step_data: Dict[str, Any] = {
@@ -361,19 +361,12 @@ class MapsService(BaseService):
                     if transit:
                         line = transit.get("transitLine", {})
                         step_data["transit"] = {
-                            "line_name": line.get("nameShort")
-                            or line.get("name", ""),
-                            "vehicle_type": line.get("vehicle", {}).get(
-                                "type", ""
-                            ),
-                            "departure_stop": transit.get(
-                                "stopDetails", {}
-                            )
+                            "line_name": line.get("nameShort") or line.get("name", ""),
+                            "vehicle_type": line.get("vehicle", {}).get("type", ""),
+                            "departure_stop": transit.get("stopDetails", {})
                             .get("departureStop", {})
                             .get("name", ""),
-                            "arrival_stop": transit.get(
-                                "stopDetails", {}
-                            )
+                            "arrival_stop": transit.get("stopDetails", {})
                             .get("arrivalStop", {})
                             .get("name", ""),
                             "num_stops": transit.get("stopCount", 0),
@@ -657,14 +650,14 @@ class MapsService(BaseService):
         reviews = []
         for r in (p.get("reviews") or [])[:3]:
             text_obj = r.get("text", {})
-            reviews.append({
-                "rating": r.get("rating"),
-                "text": text_obj.get("text", ""),
-                "author": r.get("authorAttribution", {}).get(
-                    "displayName", ""
-                ),
-                "time": r.get("relativePublishTimeDescription", ""),
-            })
+            reviews.append(
+                {
+                    "rating": r.get("rating"),
+                    "text": text_obj.get("text", ""),
+                    "author": r.get("authorAttribution", {}).get("displayName", ""),
+                    "time": r.get("relativePublishTimeDescription", ""),
+                }
+            )
 
         return {
             "id": p.get("id", ""),
@@ -680,9 +673,7 @@ class MapsService(BaseService):
             "google_maps_url": p.get("googleMapsUri", ""),
             "summary": summary.get("text", ""),
             "is_open": hours.get("openNow") if hours else None,
-            "weekday_hours": regular_hours.get(
-                "weekdayDescriptions", []
-            ),
+            "weekday_hours": regular_hours.get("weekdayDescriptions", []),
             "latitude": location.get("latitude"),
             "longitude": location.get("longitude"),
             "reviews": reviews,

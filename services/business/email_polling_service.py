@@ -89,9 +89,7 @@ class EmailNotification:
 class EmailNotificationBatch:
     """Container for one polling cycle's notifications."""
 
-    notifications: List[EmailNotification] = field(
-        default_factory=list
-    )
+    notifications: List[EmailNotification] = field(default_factory=list)
     is_multiple: bool = False
     grouped_text: str = ""
 
@@ -106,9 +104,7 @@ class EmailPollingService(BaseService):
     async def _initialize(self) -> None:
         db = self._get_db()
         if not db:
-            logger.warning(
-                "EmailPollingService: DatabaseService unavailable at init"
-            )
+            logger.warning("EmailPollingService: DatabaseService unavailable at init")
         self.logger.info("EmailPollingService initialized")
 
     async def _health_check(self) -> bool:
@@ -142,9 +138,7 @@ class EmailPollingService(BaseService):
         """
         if hasattr(ai, "chat_completion"):
             return await ai.chat_completion(
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
@@ -154,8 +148,7 @@ class EmailPollingService(BaseService):
                 max_tokens=max_tokens,
             )
         raise AttributeError(
-            f"{type(ai).__name__} has no compatible "
-            "text generation method"
+            f"{type(ai).__name__} has no compatible text generation method"
         )
 
     @staticmethod
@@ -181,9 +174,7 @@ class EmailPollingService(BaseService):
         try:
             proposed = datetime.fromisoformat(proposed_dt)
         except (ValueError, TypeError):
-            logger.debug(
-                "Invalid proposed_datetime: %r", proposed_dt
-            )
+            logger.debug("Invalid proposed_datetime: %r", proposed_dt)
             return None
 
         # Make timezone-aware if naive
@@ -198,14 +189,10 @@ class EmailPollingService(BaseService):
                 user_id=user_id, max_results=20, days_ahead=2
             )
         except ServiceUnavailableError:
-            logger.debug(
-                "Calendar not connected for user %s", user_id
-            )
+            logger.debug("Calendar not connected for user %s", user_id)
             return None
         except Exception as e:
-            logger.warning(
-                "Calendar fetch failed for %s: %s", user_id, e
-            )
+            logger.warning("Calendar fetch failed for %s: %s", user_id, e)
             return None
 
         # Check for overlap
@@ -218,9 +205,7 @@ class EmailPollingService(BaseService):
                 ev_start = datetime.fromisoformat(
                     str(ev_start_raw).replace("Z", "+00:00")
                 )
-                ev_end = datetime.fromisoformat(
-                    str(ev_end_raw).replace("Z", "+00:00")
-                )
+                ev_end = datetime.fromisoformat(str(ev_end_raw).replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 continue
 
@@ -233,9 +218,7 @@ class EmailPollingService(BaseService):
                 break
 
         # Find free 30-min slots (09:00-18:00 on the proposed day)
-        proposed_day = proposed.replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        proposed_day = proposed.replace(hour=0, minute=0, second=0, microsecond=0)
         free_slots = []
         for h in range(9, 18):
             for m in (0, 30):
@@ -250,14 +233,10 @@ class EmailPollingService(BaseService):
                 for ev in events:
                     try:
                         es = datetime.fromisoformat(
-                            str(ev.get("start", "")).replace(
-                                "Z", "+00:00"
-                            )
+                            str(ev.get("start", "")).replace("Z", "+00:00")
                         )
                         ee = datetime.fromisoformat(
-                            str(ev.get("end", "")).replace(
-                                "Z", "+00:00"
-                            )
+                            str(ev.get("end", "")).replace("Z", "+00:00")
                         )
                         if slot_start < ee and slot_end > es:
                             is_free = False
@@ -324,9 +303,7 @@ class EmailPollingService(BaseService):
                             uid,
                         )
                 except Exception:
-                    logger.debug(
-                        "Could not verify Gmail for user %s", uid
-                    )
+                    logger.debug("Could not verify Gmail for user %s", uid)
             return pollable
 
         except Exception as e:
@@ -335,9 +312,7 @@ class EmailPollingService(BaseService):
 
     # ── Poll new emails ──────────────────────────────────────────────────────
 
-    async def poll_new_emails(
-        self, user_id: str
-    ) -> List[Dict[str, Any]]:
+    async def poll_new_emails(self, user_id: str) -> List[Dict[str, Any]]:
         """
         Fetch unread emails and return only NEW ones (not yet notified).
 
@@ -368,16 +343,12 @@ class EmailPollingService(BaseService):
             await self._handle_token_expiry(user_id)
             return []
         except Exception as e:
-            logger.warning(
-                "poll_new_emails failed for %s: %s", user_id, e
-            )
+            logger.warning("poll_new_emails failed for %s: %s", user_id, e)
             sentry_sdk.capture_exception(e)
             return []
 
         # Filter: only NEW (not in known_ids)
-        new_emails = [
-            e for e in emails if e.get("id") not in known_ids
-        ]
+        new_emails = [e for e in emails if e.get("id") not in known_ids]
 
         # Apply smart label filtering
         new_emails = self.filter_by_labels(new_emails)
@@ -411,12 +382,8 @@ class EmailPollingService(BaseService):
                 continue
 
             # Check category labels
-            category_labels = {
-                lbl for lbl in labels if lbl.startswith("CATEGORY_")
-            }
-            if category_labels and not (
-                category_labels & ALLOWED_CATEGORIES
-            ):
+            category_labels = {lbl for lbl in labels if lbl.startswith("CATEGORY_")}
+            if category_labels and not (category_labels & ALLOWED_CATEGORIES):
                 continue
 
             filtered.append(email)
@@ -424,9 +391,7 @@ class EmailPollingService(BaseService):
 
     # ── Mark as notified ─────────────────────────────────────────────────────
 
-    async def mark_as_notified(
-        self, user_id: str, message_ids: List[str]
-    ) -> None:
+    async def mark_as_notified(self, user_id: str, message_ids: List[str]) -> None:
         """Merge new IDs into known set and update last_checked_at."""
         known = await self._get_known_ids(user_id)
         merged = list(known | set(message_ids))
@@ -447,16 +412,12 @@ class EmailPollingService(BaseService):
             sb.table("email_poll_state").update(
                 {
                     "last_message_ids": merged,
-                    "last_checked_at": datetime.now(
-                        timezone.utc
-                    ).isoformat(),
+                    "last_checked_at": datetime.now(timezone.utc).isoformat(),
                 }
             ).eq("user_id", user_id).execute()
 
         except Exception as e:
-            logger.error(
-                "mark_as_notified failed for %s: %s", user_id, e
-            )
+            logger.error("mark_as_notified failed for %s: %s", user_id, e)
 
     # ── Notification formatting ──────────────────────────────────────────────
 
@@ -474,8 +435,7 @@ class EmailPollingService(BaseService):
         - 2+ emails → grouped compact list (no per-email analysis)
         """
         logger.info(
-            "summarize_for_notification: %d emails, "
-            "user=%s, lang=%s",
+            "summarize_for_notification: %d emails, user=%s, lang=%s",
             len(emails),
             user_id,
             lang,
@@ -490,12 +450,8 @@ class EmailPollingService(BaseService):
         )
 
         if len(emails) == 1:
-            notif = await self._format_single_rich(
-                emails[0], user_id, lang
-            )
-            return EmailNotificationBatch(
-                notifications=[notif]
-            )
+            notif = await self._format_single_rich(emails[0], user_id, lang)
+            return EmailNotificationBatch(notifications=[notif])
 
         # Multiple emails: grouped text + basic notifications
         grouped_text = self._format_multiple(emails, lang)
@@ -507,8 +463,7 @@ class EmailPollingService(BaseService):
                     thread_id=email.get("thread_id", ""),
                     message_id=email.get("message_id", ""),
                     from_email=email.get("from_email", ""),
-                    from_name=email.get("from_name")
-                    or email.get("from_email", ""),
+                    from_name=email.get("from_name") or email.get("from_email", ""),
                     subject=email.get("subject", ""),
                     user_id=user_id,
                     lang=lang,
@@ -532,38 +487,27 @@ class EmailPollingService(BaseService):
             email.get("subject", "?"),
             email.get("id", "?"),
         )
-        sender = email.get("from_name") or email.get(
-            "from_email", "Unknown"
-        )
+        sender = email.get("from_name") or email.get("from_email", "Unknown")
         subject = email.get("subject", "")
         snippet = email.get("snippet", "")
 
         # LLM summary
-        summary = await self._get_llm_summary(
-            email, user_id, lang
-        )
+        summary = await self._get_llm_summary(email, user_id, lang)
         if not summary:
             summary = snippet[:120] if snippet else subject
 
         # LLM analysis (needs_reply, suggested_reply, urgency)
-        analysis = await self._analyze_email(
-            email, user_id, summary, lang
-        )
+        analysis = await self._analyze_email(email, user_id, summary, lang)
 
         # Calendar conflict check for event requests
         cal_text = ""
-        if (
-            analysis.event_request
-            and analysis.proposed_datetime
-        ):
+        if analysis.event_request and analysis.proposed_datetime:
             cal_info = await self._check_calendar_conflicts(
                 user_id, analysis.proposed_datetime
             )
             if cal_info is not None:
                 if cal_info["has_conflict"]:
-                    free = ", ".join(
-                        cal_info.get("free_slots_today", [])
-                    ) or "—"
+                    free = ", ".join(cal_info.get("free_slots_today", [])) or "—"
                     cal_text = t(
                         "email_cal_conflict",
                         lang=lang,
@@ -576,9 +520,7 @@ class EmailPollingService(BaseService):
                         email, summary, cal_info, analysis, lang
                     )
                 else:
-                    cal_text = t(
-                        "email_cal_free", lang=lang
-                    )
+                    cal_text = t("email_cal_free", lang=lang)
 
         # Build notification text
         if analysis.event_request and analysis.needs_reply:
@@ -588,12 +530,8 @@ class EmailPollingService(BaseService):
                 sender=sender,
                 subject=subject,
                 summary=summary,
-                proposed_datetime=(
-                    analysis.proposed_datetime or "?"
-                ),
-                urgency=self._urgency_emoji(
-                    analysis.urgency
-                ),
+                proposed_datetime=(analysis.proposed_datetime or "?"),
+                urgency=self._urgency_emoji(analysis.urgency),
                 suggested_reply=analysis.suggested_reply,
             )
         elif analysis.needs_reply:
@@ -603,9 +541,7 @@ class EmailPollingService(BaseService):
                 sender=sender,
                 subject=subject,
                 summary=summary,
-                urgency=self._urgency_emoji(
-                    analysis.urgency
-                ),
+                urgency=self._urgency_emoji(analysis.urgency),
                 suggested_reply=analysis.suggested_reply,
             )
         else:
@@ -647,9 +583,7 @@ class EmailPollingService(BaseService):
         if not ai:
             return analysis
 
-        free = ", ".join(
-            cal_info.get("free_slots_today", [])
-        ) or "—"
+        free = ", ".join(cal_info.get("free_slots_today", [])) or "—"
         try:
             prompt = t(
                 "email_poll_conflict_reprompt",
@@ -657,12 +591,8 @@ class EmailPollingService(BaseService):
                 sender=email.get("from_name", ""),
                 subject=email.get("subject", ""),
                 summary=summary,
-                conflict_event=cal_info.get(
-                    "conflicting_event", ""
-                ),
-                conflict_time=cal_info.get(
-                    "conflict_time", ""
-                ),
+                conflict_event=cal_info.get("conflicting_event", ""),
+                conflict_time=cal_info.get("conflict_time", ""),
                 free_slots=free,
             )
 
@@ -679,24 +609,17 @@ class EmailPollingService(BaseService):
             if response:
                 clean = response.strip()
                 if clean.startswith("```"):
-                    clean = clean.split("\n", 1)[
-                        -1
-                    ].rsplit("```", 1)[0]
+                    clean = clean.split("\n", 1)[-1].rsplit("```", 1)[0]
                 data = json.loads(clean)
-                new_reply = str(
-                    data.get("suggested_reply", "")
-                )
+                new_reply = str(data.get("suggested_reply", ""))
                 if new_reply:
                     analysis.suggested_reply = new_reply
                     logger.info(
-                        "Re-prompted reply with conflict "
-                        "info for %s",
+                        "Re-prompted reply with conflict info for %s",
                         email.get("from_name", "?"),
                     )
         except Exception as e:
-            logger.debug(
-                "Conflict re-prompt failed: %s", e
-            )
+            logger.debug("Conflict re-prompt failed: %s", e)
 
         return analysis
 
@@ -710,15 +633,11 @@ class EmailPollingService(BaseService):
 
         Kept for backward compatibility — prefer _format_single_rich.
         """
-        sender = email.get("from_name") or email.get(
-            "from_email", "Unknown"
-        )
+        sender = email.get("from_name") or email.get("from_email", "Unknown")
         subject = email.get("subject", "")
         snippet = email.get("snippet", "")
 
-        summary = await self._get_llm_summary(
-            email, user_id, lang
-        )
+        summary = await self._get_llm_summary(email, user_id, lang)
         if not summary:
             summary = snippet[:120] if snippet else subject
 
@@ -731,15 +650,11 @@ class EmailPollingService(BaseService):
         )
 
     @staticmethod
-    def _format_multiple(
-        emails: List[Dict[str, Any]], lang: str
-    ) -> str:
+    def _format_multiple(emails: List[Dict[str, Any]], lang: str) -> str:
         """Format grouped notification for multiple emails."""
         lines = []
         for email in emails:
-            sender = email.get("from_name") or email.get(
-                "from_email", "Unknown"
-            )
+            sender = email.get("from_name") or email.get("from_email", "Unknown")
             subject = email.get("subject", "")
             lines.append(f"  \u2022 {sender} \u2014 {subject}")
 
@@ -769,9 +684,7 @@ class EmailPollingService(BaseService):
             return ""
 
         try:
-            body = await gmail.get_email_body(
-                user_id, email["id"]
-            )
+            body = await gmail.get_email_body(user_id, email["id"])
             if not body:
                 return ""
 
@@ -814,8 +727,7 @@ class EmailPollingService(BaseService):
         ai = self._get_ai()
         if not ai:
             logger.warning(
-                "AI service unavailable, skipping analysis "
-                "for: %s",
+                "AI service unavailable, skipping analysis for: %s",
                 email.get("subject", "?"),
             )
             return EmailAnalysis()
@@ -827,17 +739,14 @@ class EmailPollingService(BaseService):
                 sender=email.get("from_name", ""),
                 subject=email.get("subject", ""),
                 summary=summary,
-                today=datetime.now(timezone.utc).strftime(
-                    "%Y-%m-%d"
-                ),
+                today=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             )
 
             if not ai.is_initialized():
                 await ai.initialize()
 
             logger.info(
-                "Calling AI for email analysis: %s "
-                "(sender=%s)",
+                "Calling AI for email analysis: %s (sender=%s)",
                 email.get("subject", "?"),
                 email.get("from_name", "?"),
             )
@@ -884,30 +793,20 @@ class EmailPollingService(BaseService):
         try:
             clean = response.strip()
             if clean.startswith("```"):
-                clean = clean.split("\n", 1)[-1].rsplit(
-                    "```", 1
-                )[0]
+                clean = clean.split("\n", 1)[-1].rsplit("```", 1)[0]
             data = json.loads(clean)
             return EmailAnalysis(
                 needs_reply=bool(data.get("needs_reply", False)),
-                suggested_reply=str(
-                    data.get("suggested_reply", "")
-                ),
-                urgency=str(
-                    data.get("urgency", "low")
-                ).lower(),
+                suggested_reply=str(data.get("suggested_reply", "")),
+                urgency=str(data.get("urgency", "low")).lower(),
                 event_request=bool(
                     data.get(
                         "event_request",
                         data.get("meeting_request", False),
                     )
                 ),
-                proposed_datetime=data.get(
-                    "proposed_datetime"
-                ),
-                proposed_location=str(
-                    data.get("proposed_location", "")
-                ),
+                proposed_datetime=data.get("proposed_datetime"),
+                proposed_location=str(data.get("proposed_location", "")),
             )
         except (
             json.JSONDecodeError,
@@ -915,8 +814,7 @@ class EmailPollingService(BaseService):
             KeyError,
         ) as exc:
             logger.warning(
-                "Failed to parse email analysis JSON: "
-                "%s — raw=%r",
+                "Failed to parse email analysis JSON: %s — raw=%r",
                 exc,
                 response[:200],
             )
@@ -954,9 +852,7 @@ class EmailPollingService(BaseService):
             ).execute()
             return True
         except Exception as e:
-            logger.error(
-                "enable_polling failed for %s: %s", user_id, e
-            )
+            logger.error("enable_polling failed for %s: %s", user_id, e)
             return False
 
     async def disable_polling(self, user_id: str) -> bool:
@@ -970,14 +866,12 @@ class EmailPollingService(BaseService):
             if not sb:
                 return False
 
-            sb.table("email_poll_state").update(
-                {"notify_enabled": False}
-            ).eq("user_id", user_id).execute()
+            sb.table("email_poll_state").update({"notify_enabled": False}).eq(
+                "user_id", user_id
+            ).execute()
             return True
         except Exception as e:
-            logger.error(
-                "disable_polling failed for %s: %s", user_id, e
-            )
+            logger.error("disable_polling failed for %s: %s", user_id, e)
             return False
 
     async def is_polling_enabled(self, user_id: str) -> bool:
@@ -1024,16 +918,12 @@ class EmailPollingService(BaseService):
                     "notify_enabled": True,
                     "check_interval_minutes": 5,
                     "last_message_ids": [],
-                    "last_checked_at": datetime.now(
-                        timezone.utc
-                    ).isoformat(),
+                    "last_checked_at": datetime.now(timezone.utc).isoformat(),
                 },
                 on_conflict="user_id",
             ).execute()
 
-            logger.info(
-                "Email poll state created for user %s", user_id
-            )
+            logger.info("Email poll state created for user %s", user_id)
         except Exception as e:
             logger.warning(
                 "Failed to create poll state for %s: %s",
@@ -1066,9 +956,7 @@ class EmailPollingService(BaseService):
                 return set(ids)
             return set()
         except Exception as e:
-            logger.debug(
-                "Could not fetch known IDs for %s: %s", user_id, e
-            )
+            logger.debug("Could not fetch known IDs for %s: %s", user_id, e)
             return set()
 
     async def _handle_token_expiry(self, user_id: str) -> None:

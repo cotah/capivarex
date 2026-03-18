@@ -64,10 +64,12 @@ ISO_FMT = "%Y-%m-%dT%H:%M:%S"
 # SUPABASE HELPER
 # ============================================================
 
+
 def _get_supabase_client():
     """Get the Supabase client for ticket persistence. Returns None on failure."""
     try:
         from services import get_service
+
         db = get_service("database")
         if db and db.is_initialized():
             return db.get_client()
@@ -79,6 +81,7 @@ def _get_supabase_client():
 # ============================================================
 # UTILITY FUNCTIONS
 # ============================================================
+
 
 def _ensure_autofix_dir():
     """Ensures workspace/autofix/ exists."""
@@ -226,6 +229,7 @@ def _generate_ticket_id(fingerprint: str) -> str:
 # TICKET MANAGEMENT
 # ============================================================
 
+
 def _load_tickets_from_jsonl() -> dict:
     """Loads tickets from local JSONL file (fallback source)."""
     tickets = {}
@@ -320,9 +324,7 @@ def save_tickets(tickets: dict):
                     "frame_source": ticket.get("frame_source", "unknown"),
                     "updated_at": now,
                 }
-                client.table("autofix_tickets").upsert(
-                    row, on_conflict="id"
-                ).execute()
+                client.table("autofix_tickets").upsert(row, on_conflict="id").execute()
     except Exception as e:
         logger.warning(f"AutoFix: failed to persist tickets to Supabase: {e}")
 
@@ -353,8 +355,15 @@ _NOTIFICATION_DEFAULTS = {
 
 
 def _update_existing_ticket(
-    ticket: dict, now: str, chat_id: str, error_msg: str,
-    text: str, is_test: bool, repo_frame, lib_frame, frame_source: str,
+    ticket: dict,
+    now: str,
+    chat_id: str,
+    error_msg: str,
+    text: str,
+    is_test: bool,
+    repo_frame,
+    lib_frame,
+    frame_source: str,
 ) -> None:
     """Updates an existing ticket in-place with new occurrence data."""
     for key, default in _NOTIFICATION_DEFAULTS.items():
@@ -371,10 +380,21 @@ def _update_existing_ticket(
 
 
 def _create_new_ticket(
-    ticket_id: str, fingerprint: str, error_type: str, top_frame: str,
-    repo_frame, lib_frame, frame_source: str, now: str,
-    tenant_id: str, user_id: str, sample_text: str,
-    chat_id: str, error_msg: str, text: str, is_test: bool,
+    ticket_id: str,
+    fingerprint: str,
+    error_type: str,
+    top_frame: str,
+    repo_frame,
+    lib_frame,
+    frame_source: str,
+    now: str,
+    tenant_id: str,
+    user_id: str,
+    sample_text: str,
+    chat_id: str,
+    error_msg: str,
+    text: str,
+    is_test: bool,
 ) -> dict:
     """Creates a new ticket dict with all required fields."""
     return {
@@ -407,7 +427,7 @@ def upsert_ticket(
     error_msg: str,
     tenant_id: str = None,
     user_id: str = None,
-    is_test: bool = False
+    is_test: bool = False,
 ) -> Tuple[Optional[dict], bool]:
     """
     Creates or updates ticket based on fingerprint.
@@ -424,29 +444,49 @@ def upsert_ticket(
         fingerprint = _generate_fingerprint(error_type, top_frame)
         ticket_id = _generate_ticket_id(fingerprint)
         now = datetime.now().isoformat(timespec="seconds")
-        sample_text = (text[:80] if text else "")
+        sample_text = text[:80] if text else ""
 
         tickets = load_tickets()
 
         if fingerprint in tickets:
             ticket = tickets[fingerprint]
             _update_existing_ticket(
-                ticket, now, chat_id, error_msg, text, is_test,
-                repo_frame, lib_frame, frame_source,
+                ticket,
+                now,
+                chat_id,
+                error_msg,
+                text,
+                is_test,
+                repo_frame,
+                lib_frame,
+                frame_source,
             )
             is_new = False
         else:
             ticket = _create_new_ticket(
-                ticket_id, fingerprint, error_type, top_frame,
-                repo_frame, lib_frame, frame_source, now,
-                tenant_id, user_id, sample_text,
-                chat_id, error_msg, text, is_test,
+                ticket_id,
+                fingerprint,
+                error_type,
+                top_frame,
+                repo_frame,
+                lib_frame,
+                frame_source,
+                now,
+                tenant_id,
+                user_id,
+                sample_text,
+                chat_id,
+                error_msg,
+                text,
+                is_test,
             )
             tickets[fingerprint] = ticket
             is_new = True
 
         save_tickets(tickets)
-        logger.info(f"Ticket upsert: {ticket_id} frame_source={frame_source} (count={tickets[fingerprint]['count']})")
+        logger.info(
+            f"Ticket upsert: {ticket_id} frame_source={frame_source} (count={tickets[fingerprint]['count']})"
+        )
         return ticket, is_new
 
     except Exception as e:
@@ -487,13 +527,14 @@ def update_ticket_status(ticket_id: str, status: str) -> bool:
                     }
                     if status == "fixed":
                         update_data["resolved_ts"] = _utc_now().isoformat()
-                    client.table("autofix_tickets").update(
-                        update_data
-                    ).eq("id", ticket_id).execute()
+                    client.table("autofix_tickets").update(update_data).eq(
+                        "id", ticket_id
+                    ).execute()
             except Exception as e:
                 logger.warning(
                     "AutoFix: failed to update ticket %s in Supabase: %s",
-                    ticket_id, e,
+                    ticket_id,
+                    e,
                 )
 
             return True
@@ -504,14 +545,14 @@ def get_last_tickets(n: int = 5) -> list:
     """Returns last N tickets ordered by last_seen."""
     tickets = load_tickets()
     sorted_tickets = sorted(
-        tickets.values(),
-        key=lambda t: t.get("last_seen", ""),
-        reverse=True
+        tickets.values(), key=lambda t: t.get("last_seen", ""), reverse=True
     )
     return sorted_tickets[:n]
 
 
-def mark_ticket_fixed(ticket_id: str, reason: str = None, by: str = None) -> dict | None:
+def mark_ticket_fixed(
+    ticket_id: str, reason: str = None, by: str = None
+) -> dict | None:
     """Marks ticket as fixed. Returns updated ticket or None."""
     if not update_ticket_status(ticket_id, "fixed"):
         return None
@@ -528,6 +569,7 @@ def mark_ticket_new(ticket_id: str) -> dict | None:
 # ============================================================
 # NOTIFICATION FLAGS (state tracking only)
 # ============================================================
+
 
 def should_notify_repeat(ticket: dict, kind: str) -> bool:
     """
@@ -556,9 +598,7 @@ def should_notify_repeat(ticket: dict, kind: str) -> bool:
 
 
 def update_ticket_notification_flags(
-    ticket_id: str,
-    admin_sent: bool = False,
-    user_sent: bool = False
+    ticket_id: str, admin_sent: bool = False, user_sent: bool = False
 ) -> dict | None:
     """Updates notification flags for a ticket."""
     tickets = load_tickets()
@@ -570,14 +610,18 @@ def update_ticket_notification_flags(
                 if not ticket.get("notified_admin"):
                     ticket["notified_admin"] = True
                     ticket["notified_admin_ts"] = now
-                ticket["notified_admin_count"] = int(ticket.get("notified_admin_count") or 0) + 1
+                ticket["notified_admin_count"] = (
+                    int(ticket.get("notified_admin_count") or 0) + 1
+                )
                 ticket["notified_admin_last_ts"] = now
                 changed = True
             if user_sent:
                 if not ticket.get("notified_user"):
                     ticket["notified_user"] = True
                     ticket["notified_user_ts"] = now
-                ticket["notified_user_count"] = int(ticket.get("notified_user_count") or 0) + 1
+                ticket["notified_user_count"] = (
+                    int(ticket.get("notified_user_count") or 0) + 1
+                )
                 ticket["notified_user_last_ts"] = now
                 changed = True
             if changed:
@@ -587,9 +631,7 @@ def update_ticket_notification_flags(
 
 
 def update_ticket_resolution_flags(
-    ticket_id: str,
-    admin_sent: bool = False,
-    user_sent: bool = False
+    ticket_id: str, admin_sent: bool = False, user_sent: bool = False
 ) -> dict | None:
     """Updates resolution notification flags."""
     tickets = load_tickets()
@@ -615,6 +657,7 @@ def update_ticket_resolution_flags(
 # ============================================================
 # BUG LOGGING
 # ============================================================
+
 
 def _load_bugs() -> list:
     """Loads all bugs from bugs.jsonl."""
@@ -650,7 +693,7 @@ def record_exception(
     error: Exception,
     tenant_id: str = "default",
     user_id: str = "unknown",
-    is_test: bool = False
+    is_test: bool = False,
 ) -> Tuple[Optional[dict], bool]:
     """
     Records an exception/bug to bugs.jsonl and upserts a ticket.
@@ -687,7 +730,7 @@ def record_exception(
             "text": text_preview,
             "error_type": error_type,
             "error_msg": error_msg,
-            "traceback": tb
+            "traceback": tb,
         }
 
         with open(BUGS_FILE, "a", encoding=DEFAULT_ENCODING) as f:
@@ -703,7 +746,7 @@ def record_exception(
             error_msg=error_msg,
             tenant_id=tenant_id,
             user_id=user_id,
-            is_test=is_test
+            is_test=is_test,
         )
         return ticket, is_new
     except Exception as log_err:
@@ -714,6 +757,7 @@ def record_exception(
 # ============================================================
 # TICKET REINDEX
 # ============================================================
+
 
 def _find_bug_for_ticket(ticket: dict, bugs: list) -> dict | None:
     """
@@ -792,8 +836,7 @@ def _reindex_single_ticket(ticket: dict, old_fp: str, bugs: list, stats: dict) -
 
     stats["updated"] += 1
     stats["details"].append(
-        f"{ticket_id}: updated repo_frame={repo_frame} "
-        f"(was top_frame={old_top_frame})"
+        f"{ticket_id}: updated repo_frame={repo_frame} (was top_frame={old_top_frame})"
     )
     return new_fingerprint
 
@@ -809,7 +852,9 @@ def _save_reindexed_tickets(reindexed_tickets: dict, stats: dict) -> None:
                 f.write(json.dumps(ticket, ensure_ascii=False) + "\n")
 
         tmp_path.replace(TICKETS_FILE)
-        logger.info(f"Tickets reindexed: {stats['updated']} updated, {stats['unknown']} unknown")
+        logger.info(
+            f"Tickets reindexed: {stats['updated']} updated, {stats['unknown']} unknown"
+        )
 
     except Exception as e:
         logger.error(f"Error saving reindexed tickets: {e}")
@@ -834,13 +879,7 @@ def reindex_tickets() -> dict:
     - unchanged: tickets that already had repo_frame
     - unknown: tickets without available traceback
     """
-    stats = {
-        "total": 0,
-        "updated": 0,
-        "unchanged": 0,
-        "unknown": 0,
-        "details": []
-    }
+    stats = {"total": 0, "updated": 0, "unchanged": 0, "unknown": 0, "details": []}
 
     tickets = load_tickets()
     bugs = _load_bugs()
@@ -868,11 +907,15 @@ def reindex_tickets() -> dict:
 # STATUS CALCULATION
 # ============================================================
 
+
 def _is_test_ticket(ticket: dict) -> bool:
     """Return True if *ticket* was generated by test input."""
     if ticket.get("is_test") is True:
         return True
-    return ticket.get("sample_text") == "/bug_test" or ticket.get("last_error_msg") == "bug_test"
+    return (
+        ticket.get("sample_text") == "/bug_test"
+        or ticket.get("last_error_msg") == "bug_test"
+    )
 
 
 def _is_test_patch(patch: dict) -> bool:
@@ -891,7 +934,10 @@ def _has_active_tickets() -> bool:
         status = str(ticket.get("status", "")).lower()
         if status in ("new", "resolving"):
             last_seen = _parse_iso_ts(ticket.get("last_seen"))
-            if last_seen and (now - last_seen).total_seconds() <= ACTIVE_WINDOW_MINUTES * 60:
+            if (
+                last_seen
+                and (now - last_seen).total_seconds() <= ACTIVE_WINDOW_MINUTES * 60
+            ):
                 return True
     return False
 
@@ -902,7 +948,10 @@ def _has_recent_errors() -> bool:
     now = _utc_now()
     for ticket in tickets.values():
         last_seen = _parse_iso_ts(ticket.get("last_seen"))
-        if last_seen and (now - last_seen).total_seconds() <= STABLE_TO_GREEN_MINUTES * 60:
+        if (
+            last_seen
+            and (now - last_seen).total_seconds() <= STABLE_TO_GREEN_MINUTES * 60
+        ):
             return True
     return False
 
@@ -928,11 +977,16 @@ def _compute_ticket_counts(tickets: dict) -> Tuple[int, int, Optional[datetime]]
     return number_new, number_fixed, newest_dt
 
 
-def _determine_state(number_new: int, seconds_since_newest: float | None) -> Tuple[str, str]:
+def _determine_state(
+    number_new: int, seconds_since_newest: float | None
+) -> Tuple[str, str]:
     """Determines system state (red/yellow/green) and reason."""
     if number_new > 0:
         return "red", "Active unresolved tickets"
-    if seconds_since_newest is not None and seconds_since_newest <= STABILITY_WINDOW_SECONDS:
+    if (
+        seconds_since_newest is not None
+        and seconds_since_newest <= STABILITY_WINDOW_SECONDS
+    ):
         return "yellow", "Monitoring stability"
     return "green", "All systems operational"
 
@@ -956,18 +1010,15 @@ def get_status() -> dict:
     return {
         "state": state,
         "reason": reason,
-        "counts": {
-            "total": len(tickets),
-            "new": number_new,
-            "fixed": number_fixed
-        },
-        "newest_ts": newest_dt.isoformat() if newest_dt else None
+        "counts": {"total": len(tickets), "new": number_new, "fixed": number_fixed},
+        "newest_ts": newest_dt.isoformat() if newest_dt else None,
     }
 
 
 # ============================================================
 # CLEANUP
 # ============================================================
+
 
 def cleanup_test_data() -> dict:
     """
@@ -985,7 +1036,7 @@ def cleanup_test_data() -> dict:
         "tickets_removed": 0,
         "patches_removed": 0,
         "tickets_backup": None,
-        "patches_backup": None
+        "patches_backup": None,
     }
 
     if not ticket_keys and patch_removed == 0:
@@ -1018,8 +1069,8 @@ _ERROR_HEURISTICS = {
             "Check for unescaped special characters (_*[]`)",
             "Check message size (max 4096 chars)",
             "Test sending without parse_mode first",
-            "Use _reply_markdown_safe() if available"
-        ]
+            "Use _reply_markdown_safe() if available",
+        ],
     },
     "RuntimeError": {
         "cause": "Logic error or invalid state during execution",
@@ -1028,8 +1079,8 @@ _ERROR_HEURISTICS = {
             "Verify all variables are initialized",
             "Check race conditions (async)",
             "Add specific try/except",
-            "Log state before error"
-        ]
+            "Log state before error",
+        ],
     },
     "KeyError": {
         "cause": "Attempted to access non-existent key in dict",
@@ -1038,8 +1089,8 @@ _ERROR_HEURISTICS = {
             "Replace dict[key] with dict.get(key, default)",
             "Add 'if key in dict:' before access",
             "Verify JSON/dict is in expected format",
-            "Log dict contents for debug"
-        ]
+            "Log dict contents for debug",
+        ],
     },
     "TypeError": {
         "cause": "Operation with incompatible type (None, wrong type, missing argument)",
@@ -1048,8 +1099,8 @@ _ERROR_HEURISTICS = {
             "Add 'if value is not None:' before use",
             "Verify called function signature",
             "Check if type conversion is needed",
-            "Use isinstance() to validate type"
-        ]
+            "Use isinstance() to validate type",
+        ],
     },
     "AttributeError": {
         "cause": "Attempted to access attribute/method on object that doesn't have it (possibly None)",
@@ -1058,8 +1109,8 @@ _ERROR_HEURISTICS = {
             "Add guard 'if obj is not None:'",
             "Verify import was done correctly",
             "Check if object is expected type",
-            "Use getattr(obj, 'attr', default) if appropriate"
-        ]
+            "Use getattr(obj, 'attr', default) if appropriate",
+        ],
     },
     "ValueError": {
         "cause": "Invalid value passed to function (wrong format, out of range)",
@@ -1068,8 +1119,8 @@ _ERROR_HEURISTICS = {
             "Add format/range validation",
             "Sanitize user input",
             "Use try/except for conversions",
-            "Return friendly error if invalid"
-        ]
+            "Return friendly error if invalid",
+        ],
     },
     "JSONDecodeError": {
         "cause": "Attempted to parse invalid or corrupted JSON",
@@ -1078,8 +1129,8 @@ _ERROR_HEURISTICS = {
             "Verify string is not empty",
             "Check file/string encoding",
             "Add try/except JSONDecodeError",
-            "Log raw content for debug"
-        ]
+            "Log raw content for debug",
+        ],
     },
     "FileNotFoundError": {
         "cause": "File or directory doesn't exist at specified path",
@@ -1088,8 +1139,8 @@ _ERROR_HEURISTICS = {
             "Add 'if path.exists():' before opening",
             "Use mkdir(parents=True, exist_ok=True) for directories",
             "Verify if path is absolute or relative",
-            "Check access permissions"
-        ]
+            "Check access permissions",
+        ],
     },
     "PermissionError": {
         "cause": "No permission to access file/resource",
@@ -1098,8 +1149,8 @@ _ERROR_HEURISTICS = {
             "Check file owner/permissions",
             "Verify file is not in use",
             "Test in directory with write permission",
-            "Use temporary directory if appropriate"
-        ]
+            "Use temporary directory if appropriate",
+        ],
     },
     "ConnectionError": {
         "cause": "Connection failure with external service (network, API, database)",
@@ -1108,8 +1159,8 @@ _ERROR_HEURISTICS = {
             "Add timeout to requests",
             "Implement retry with exponential backoff",
             "Verify URL/endpoint is correct",
-            "Check firewall/proxy"
-        ]
+            "Check firewall/proxy",
+        ],
     },
     "TimeoutError": {
         "cause": "Operation exceeded time limit",
@@ -1118,9 +1169,9 @@ _ERROR_HEURISTICS = {
             "Verify timeout is configured adequately",
             "Optimize slow query/operation",
             "Add async/threading if blocking",
-            "Implement circuit breaker"
-        ]
-    }
+            "Implement circuit breaker",
+        ],
+    },
 }
 
 _LOCATION_HEURISTICS = {
@@ -1156,7 +1207,7 @@ def _get_checklist(error_type: str) -> list:
         "Check logs for more context",
         "Reproduce the error locally",
         "Add specific try/except",
-        "Test after fix"
+        "Test after fix",
     ]
 
 
@@ -1265,7 +1316,7 @@ def build_suggestion_for_ticket(ticket_id: str) -> Tuple[Optional[str], Optional
         "top_frame": ticket.get("top_frame"),
         "status": ticket.get("status"),
         "count": ticket.get("count"),
-        "suggestion_text": suggestion_text
+        "suggestion_text": suggestion_text,
     }
 
     append_suggestion(record)
@@ -1319,8 +1370,8 @@ _PATCH_TEMPLATES = {
             "Replace with _reply_markdown_safe() or send without parse_mode",
             "Test with special characters (_*[]`)",
             "Verify message size (max 4096)",
-            "Run /bug_test and confirm it doesn't break"
-        ]
+            "Run /bug_test and confirm it doesn't break",
+        ],
     },
     "RuntimeError": {
         "patch_type": "generic_guard",
@@ -1331,8 +1382,8 @@ _PATCH_TEMPLATES = {
             "If production, add specific try/except",
             "Log context before error",
             "Test scenario that caused the error",
-            "Verify state is consistent after error"
-        ]
+            "Verify state is consistent after error",
+        ],
     },
     "KeyError": {
         "patch_type": "dict_safe_access",
@@ -1342,8 +1393,8 @@ _PATCH_TEMPLATES = {
             "Replace dict[key] with dict.get(key, default)",
             "Verify if key is optional or required",
             "Add schema validation if needed",
-            "Test with incomplete data"
-        ]
+            "Test with incomplete data",
+        ],
     },
     "TypeError": {
         "patch_type": "none_guard",
@@ -1353,8 +1404,8 @@ _PATCH_TEMPLATES = {
             "Add 'if value is not None:' before use",
             "Verify expected type vs received",
             "Use isinstance() for validation",
-            "Test with None/empty values"
-        ]
+            "Test with None/empty values",
+        ],
     },
     "AttributeError": {
         "patch_type": "none_guard",
@@ -1364,8 +1415,8 @@ _PATCH_TEMPLATES = {
             "Identify object that can be None",
             "Add verification before access",
             "Use getattr(obj, 'attr', default) if appropriate",
-            "Test scenario where object is None"
-        ]
+            "Test scenario where object is None",
+        ],
     },
     "ValueError": {
         "patch_type": "input_validation",
@@ -1375,8 +1426,8 @@ _PATCH_TEMPLATES = {
             "Identify source of invalid value",
             "Add validation before processing",
             "Return friendly error to user",
-            "Test with edge-case values"
-        ]
+            "Test with edge-case values",
+        ],
     },
     "JSONDecodeError": {
         "patch_type": "json_safe_parse",
@@ -1386,8 +1437,8 @@ _PATCH_TEMPLATES = {
             "Wrap json.loads() in try/except",
             "Verify string is not empty",
             "Log raw content for debug",
-            "Return default value if fails"
-        ]
+            "Return default value if fails",
+        ],
     },
     "FileNotFoundError": {
         "patch_type": "file_exists_check",
@@ -1397,9 +1448,9 @@ _PATCH_TEMPLATES = {
             "Add Path.exists() before opening",
             "Create parent directory if needed",
             "Use default value if file doesn't exist",
-            "Test with missing file"
-        ]
-    }
+            "Test with missing file",
+        ],
+    },
 }
 
 
@@ -1437,7 +1488,7 @@ def _parse_frame(top_frame: str) -> tuple:
 # Diff template bodies keyed by error type.  Each value is a format string
 # that receives ``module``, ``line``, and ``func`` as named placeholders.
 _DIFF_TEMPLATES: Dict[str, str] = {
-    "BadRequest": '''--- a/{module}.py
+    "BadRequest": """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},6 +{line},12 @@
  # BEFORE: Direct send with Markdown that may fail
@@ -1452,8 +1503,8 @@ _DIFF_TEMPLATES: Dict[str, str] = {
 # OR use existing helper:
 -    await update.message.reply_text(formatted_text, parse_mode="Markdown")
 +    await _reply_markdown_safe(update, formatted_text)
-''',
-    "KeyError": '''--- a/{module}.py
+""",
+    "KeyError": """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},3 +{line},5 @@
  # BEFORE: Direct access that may fail
@@ -1462,8 +1513,8 @@ _DIFF_TEMPLATES: Dict[str, str] = {
 +value = data.get("key", None)
 +if value is None:
 +    logger.warning("Key 'key' not found in data")
-''',
-    "TypeError": '''--- a/{module}.py
+""",
+    "TypeError": """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},3 +{line},6 @@
  # BEFORE: Direct use that may fail with None
@@ -1474,8 +1525,8 @@ _DIFF_TEMPLATES: Dict[str, str] = {
 +else:
 +    result = None  # or appropriate default
 +    logger.warning("Object was None in {func}()")
-''',
-    "ValueError": '''--- a/{module}.py
+""",
+    "ValueError": """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},3 +{line},8 @@
  # BEFORE: Direct conversion
@@ -1486,8 +1537,8 @@ _DIFF_TEMPLATES: Dict[str, str] = {
 +except ValueError:
 +    logger.warning(f"Invalid value: {{user_input}}")
 +    value = 0  # or raise with friendly message
-''',
-    "JSONDecodeError": '''--- a/{module}.py
+""",
+    "JSONDecodeError": """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},3 +{line},9 @@
  # BEFORE: Direct parse
@@ -1498,8 +1549,8 @@ _DIFF_TEMPLATES: Dict[str, str] = {
 +except json.JSONDecodeError as e:
 +    logger.error(f"Invalid JSON: {{e}}")
 +    data = {{}}  # or re-raise with context
-''',
-    "FileNotFoundError": '''--- a/{module}.py
+""",
+    "FileNotFoundError": """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},3 +{line},7 @@
  # BEFORE: Direct open
@@ -1511,14 +1562,14 @@ _DIFF_TEMPLATES: Dict[str, str] = {
 +else:
 +    logger.warning(f"File not found: {{filepath}}")
 +    content = ""  # or default value
-''',
+""",
 }
 
 # AttributeError reuses the TypeError template
 _DIFF_TEMPLATES["AttributeError"] = _DIFF_TEMPLATES["TypeError"]
 
 # RuntimeError (bug_test variant) handled separately via key
-_DIFF_TEMPLATES["RuntimeError:bug_test"] = '''--- a/{module}.py
+_DIFF_TEMPLATES["RuntimeError:bug_test"] = """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},4 +{line},6 @@
  # This is an intentional test error
@@ -1530,9 +1581,9 @@ _DIFF_TEMPLATES["RuntimeError:bug_test"] = '''--- a/{module}.py
 +# if os.environ.get("DEBUG_MODE") != "1":
 +#     await update.message.reply_text("Command disabled.")
 +#     return
-'''
+"""
 
-_DIFF_GENERIC = '''--- a/{module}.py
+_DIFF_GENERIC = """--- a/{module}.py
 +++ b/{module}.py
 @@ -{line},3 +{line},8 @@
  # Error: {error_type}
@@ -1545,7 +1596,7 @@ _DIFF_GENERIC = '''--- a/{module}.py
 +except {error_type} as e:
 +    logger.error(f"Error in {func}: {{e}}")
 +    # appropriate handling
-'''
+"""
 
 
 def _generate_diff_for_error(error_type: str, top_frame: str, error_msg: str) -> str:
@@ -1623,7 +1674,7 @@ def build_patch(ticket: dict) -> dict:
         "notes": template["notes"],
         "validation_checklist": template["checklist"],
         "status": "proposed",
-        "decision": None
+        "decision": None,
     }
 
 
@@ -1647,7 +1698,9 @@ def append_patch(record: dict):
     try:
         with open(PATCHES_FILE, "a", encoding=DEFAULT_ENCODING) as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        logger.info(f"Patch saved: ticket_id={record.get('ticket_id')} type={record.get('patch_type')}")
+        logger.info(
+            f"Patch saved: ticket_id={record.get('ticket_id')} type={record.get('patch_type')}"
+        )
     except Exception as e:
         logger.error(f"Error saving patch: {e}")
 
@@ -1709,11 +1762,7 @@ def get_patch_by_index(n: int) -> dict | None:
 
 def get_patch_status_emoji(status: str) -> str:
     """Returns emoji based on patch status."""
-    status_emojis = {
-        "proposed": "Y",
-        "approved": "V",
-        "rejected": "X"
-    }
+    status_emojis = {"proposed": "Y", "approved": "V", "rejected": "X"}
     return status_emojis.get(status, "?")
 
 
@@ -1748,10 +1797,7 @@ def reject_patch(index: int, by: str, reason: str = None) -> dict | None:
 
 
 def _update_patch_status(
-    index: int,
-    new_status: str,
-    admin_id: str,
-    reason: str = None
+    index: int, new_status: str, admin_id: str, reason: str = None
 ) -> dict | None:
     """
     Updates governance status of a patch.
@@ -1772,7 +1818,7 @@ def _update_patch_status(
     patch["decision"] = {
         "by": admin_id,
         "ts": datetime.now().isoformat(timespec="seconds"),
-        "reason": reason
+        "reason": reason,
     }
 
     _save_all_patches(patches)
@@ -1785,6 +1831,7 @@ def _update_patch_status(
 # ============================================================
 # SANDBOX APPLY
 # ============================================================
+
 
 def _ensure_sandbox_dir():
     """Create the sandbox directory tree if it does not exist."""
@@ -1855,7 +1902,9 @@ def _parse_patch_diff(diff_text: str) -> dict:
 
 
 def _apply_single_hunk(
-    content: str, hunk: dict, mode: str,
+    content: str,
+    hunk: dict,
+    mode: str,
 ) -> tuple[str, dict, bool]:
     """Apply a single hunk to *content*.
 
@@ -1870,19 +1919,37 @@ def _apply_single_hunk(
     n_added = len(added)
 
     if not removed:
-        return content, {"status": "not_supported", "removed_lines": n_removed, "added_lines": n_added}, False
+        return (
+            content,
+            {
+                "status": "not_supported",
+                "removed_lines": n_removed,
+                "added_lines": n_added,
+            },
+            False,
+        )
 
     removed_block = "\n".join(removed)
     if removed_block not in content:
-        return content, {"status": "not_found", "removed_lines": n_removed, "added_lines": n_added}, False
+        return (
+            content,
+            {"status": "not_found", "removed_lines": n_removed, "added_lines": n_added},
+            False,
+        )
 
     added_block = "\n".join(added)
     if mode == "apply":
         content = content.replace(removed_block, added_block, 1)
-    return content, {"status": "applied", "removed_lines": n_removed, "added_lines": n_added}, True
+    return (
+        content,
+        {"status": "applied", "removed_lines": n_removed, "added_lines": n_added},
+        True,
+    )
 
 
-def _apply_hunks_to_content(content: str, hunks: list, mode: str) -> tuple[str, list, bool]:
+def _apply_hunks_to_content(
+    content: str, hunks: list, mode: str
+) -> tuple[str, list, bool]:
     """Apply a list of hunks to *content*, delegating each to ``_apply_single_hunk``."""
     hunk_results = []
     applied_any = False
@@ -1921,7 +1988,9 @@ def _validate_diff_targets(diff_hunks: dict) -> list:
         try:
             p = _safe_repo_path(df)
             if not p.exists():
-                results.append(_make_fail_result(df, "", "diff target not found in repo"))
+                results.append(
+                    _make_fail_result(df, "", "diff target not found in repo")
+                )
         except Exception as e:
             results.append(_make_fail_result(df, "", f"invalid diff target: {e}"))
     return results
@@ -1964,7 +2033,9 @@ def _process_target_file(tf: str, diff_hunks: dict, run_dir: Path, mode: str) ->
         }
 
     content = sandbox_path.read_text(encoding=DEFAULT_ENCODING)
-    new_content, hunk_results, applied_any = _apply_hunks_to_content(content, hunks, mode)
+    new_content, hunk_results, applied_any = _apply_hunks_to_content(
+        content, hunks, mode
+    )
 
     status = _determine_hunk_status(hunk_results)
 
@@ -2003,11 +2074,13 @@ def apply_patch_sandbox(patch: dict, patch_index: int, mode: str) -> tuple[dict,
         "patch_status": patch.get("status", "proposed"),
         "mode": "apply" if mode == "apply" else "dry_run",
         "target_files": target_files,
-        "results": results
+        "results": results,
     }
 
     report_path = run_dir / "apply_report.json"
-    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding=DEFAULT_ENCODING)
+    report_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding=DEFAULT_ENCODING
+    )
     return report, run_dir
 
 

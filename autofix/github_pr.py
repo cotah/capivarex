@@ -19,6 +19,7 @@ Environment variables required (already in Railway):
   GITHUB_REPO_OWNER     — e.g. "cotah"  (auto-detected from remote URL)
   GITHUB_REPO_NAME      — e.g. "capivarex" (auto-detected from remote URL)
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,6 +35,7 @@ logger = logging.getLogger("capivarex.autofix.github_pr")
 # ---------------------------------------------------------------------------
 # Config helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_token() -> str:
     token = os.environ.get("GITHUB_TOKEN", "")
@@ -67,6 +69,7 @@ def _get_repo_owner_name() -> tuple[str, str]:
 # Core PR creation
 # ---------------------------------------------------------------------------
 
+
 def create_pr_for_patch(patch: dict) -> dict:
     """
     Given an *approved* patch dict, clones the repo, applies the diff,
@@ -86,8 +89,12 @@ def create_pr_for_patch(patch: dict) -> dict:
     target_files: list = patch.get("target_files", [])
 
     if not diff_text and not target_files:
-        return {"success": False, "pr_url": None, "branch": None,
-                "error": "Patch has no diff or target_files — nothing to apply"}
+        return {
+            "success": False,
+            "pr_url": None,
+            "branch": None,
+            "error": "Patch has no diff or target_files — nothing to apply",
+        }
 
     token = _get_token()
     owner, repo_name = _get_repo_owner_name()
@@ -100,24 +107,40 @@ def create_pr_for_patch(patch: dict) -> dict:
             _create_branch(workspace, branch_name)
             applied = _apply_diff(workspace, diff_text, target_files)
             if not applied:
-                return {"success": False, "pr_url": None, "branch": branch_name,
-                        "error": "Diff could not be applied cleanly — manual review needed"}
-            _commit_and_push(workspace, branch_name, ticket_id, error_type, token,
-                             owner, repo_name)
-            pr_url = _open_pull_request(owner, repo_name, token, branch_name,
-                                        ticket_id, error_type, patch)
+                return {
+                    "success": False,
+                    "pr_url": None,
+                    "branch": branch_name,
+                    "error": "Diff could not be applied cleanly — manual review needed",
+                }
+            _commit_and_push(
+                workspace, branch_name, ticket_id, error_type, token, owner, repo_name
+            )
+            pr_url = _open_pull_request(
+                owner, repo_name, token, branch_name, ticket_id, error_type, patch
+            )
             logger.info("AutoFix PR created: %s", pr_url)
-            return {"success": True, "pr_url": pr_url, "branch": branch_name, "error": None}
+            return {
+                "success": True,
+                "pr_url": pr_url,
+                "branch": branch_name,
+                "error": None,
+            }
 
         except Exception as exc:
             logger.exception("create_pr_for_patch failed for ticket %s", ticket_id)
-            return {"success": False, "pr_url": None, "branch": branch_name,
-                    "error": str(exc)}
+            return {
+                "success": False,
+                "pr_url": None,
+                "branch": branch_name,
+                "error": str(exc),
+            }
 
 
 # ---------------------------------------------------------------------------
 # Git helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(cmd: list[str], cwd: Path, check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(
@@ -200,6 +223,7 @@ def _commit_and_push(
 # GitHub REST API — open PR
 # ---------------------------------------------------------------------------
 
+
 def _open_pull_request(
     owner: str,
     repo: str,
@@ -212,7 +236,11 @@ def _open_pull_request(
     """Opens a PR via GitHub REST API and returns the PR HTML URL."""
     notes = patch.get("notes", "")
     checklist = patch.get("validation_checklist", [])
-    checklist_md = "\n".join(f"- [ ] {item}" for item in checklist) if checklist else "- [ ] Review diff carefully"
+    checklist_md = (
+        "\n".join(f"- [ ] {item}" for item in checklist)
+        if checklist
+        else "- [ ] Review diff carefully"
+    )
 
     body = (
         f"## AutoFix — {error_type}\n\n"
@@ -245,8 +273,6 @@ def _open_pull_request(
     )
 
     if resp.status_code not in (200, 201):
-        raise RuntimeError(
-            f"GitHub API returned {resp.status_code}: {resp.text[:300]}"
-        )
+        raise RuntimeError(f"GitHub API returned {resp.status_code}: {resp.text[:300]}")
 
     return resp.json()["html_url"]

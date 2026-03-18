@@ -15,6 +15,7 @@ from services.core.base_service import (
 
 # -- Concrete service for testing --
 
+
 class _StubService(BaseService):
     """Minimal concrete service for testing BaseService behaviour."""
 
@@ -33,6 +34,7 @@ class _StubService(BaseService):
 
 # -- ServiceStatus --
 
+
 class TestServiceStatus:
     def test_values(self):
         assert ServiceStatus.HEALTHY.value == "healthy"
@@ -42,6 +44,7 @@ class TestServiceStatus:
 
 
 # -- BaseService lifecycle --
+
 
 class TestBaseServiceLifecycle:
     @pytest.mark.asyncio
@@ -90,6 +93,7 @@ class TestBaseServiceLifecycle:
 
 # -- BaseService utilities --
 
+
 class TestBaseServiceUtilities:
     def test_get_metrics_default(self):
         svc = _StubService()
@@ -126,6 +130,7 @@ class TestBaseServiceUtilities:
 
 # -- _is_retryable --
 
+
 class TestIsRetryable:
     def test_timeout_error_retryable(self):
         assert _is_retryable(asyncio.TimeoutError()) is True
@@ -138,6 +143,7 @@ class TestIsRetryable:
 
 
 # -- retry_on_failure --
+
 
 class TestRetryOnFailure:
     @pytest.mark.asyncio

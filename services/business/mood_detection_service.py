@@ -37,45 +37,136 @@ MOODS = {
 # Keywords per mood (PT + EN)
 MOOD_KEYWORDS: Dict[str, List[str]] = {
     "excited": [
-        "incrível", "maravilhoso", "fantástico", "consegui", "passei",
-        "amazing", "incredible", "awesome", "fantastic", "yesss", "woohoo",
-        "ganhei", "aprovado", "promoted", "aceite", "accepted",
+        "incrível",
+        "maravilhoso",
+        "fantástico",
+        "consegui",
+        "passei",
+        "amazing",
+        "incredible",
+        "awesome",
+        "fantastic",
+        "yesss",
+        "woohoo",
+        "ganhei",
+        "aprovado",
+        "promoted",
+        "aceite",
+        "accepted",
     ],
     "happy": [
-        "feliz", "contente", "bem", "ótimo", "legal", "bom dia",
-        "happy", "great", "good", "wonderful", "love", "nice",
-        "obrigado", "thanks", "adoro", "gosto",
+        "feliz",
+        "contente",
+        "bem",
+        "ótimo",
+        "legal",
+        "bom dia",
+        "happy",
+        "great",
+        "good",
+        "wonderful",
+        "love",
+        "nice",
+        "obrigado",
+        "thanks",
+        "adoro",
+        "gosto",
     ],
     "anxious": [
-        "nervoso", "ansioso", "preocupado", "medo", "receio",
-        "anxious", "nervous", "worried", "scared", "afraid", "uneasy",
-        "e se", "what if", "será que",
+        "nervoso",
+        "ansioso",
+        "preocupado",
+        "medo",
+        "receio",
+        "anxious",
+        "nervous",
+        "worried",
+        "scared",
+        "afraid",
+        "uneasy",
+        "e se",
+        "what if",
+        "será que",
     ],
     "stressed": [
-        "estressado", "cansado", "exausto", "sobrecarregado", "pressão",
-        "stressed", "tired", "exhausted", "overwhelmed", "pressure",
-        "não aguento", "can't take", "demais", "too much",
+        "estressado",
+        "cansado",
+        "exausto",
+        "sobrecarregado",
+        "pressão",
+        "stressed",
+        "tired",
+        "exhausted",
+        "overwhelmed",
+        "pressure",
+        "não aguento",
+        "can't take",
+        "demais",
+        "too much",
     ],
     "sad": [
-        "triste", "mal", "horrível", "péssimo", "chorar", "solidão",
-        "sad", "terrible", "awful", "cry", "lonely", "depressed",
-        "difícil", "difficult", "hard day", "dia ruim",
+        "triste",
+        "mal",
+        "horrível",
+        "péssimo",
+        "chorar",
+        "solidão",
+        "sad",
+        "terrible",
+        "awful",
+        "cry",
+        "lonely",
+        "depressed",
+        "difícil",
+        "difficult",
+        "hard day",
+        "dia ruim",
     ],
     "angry": [
-        "raiva", "irritado", "furioso", "ódio", "inacreditável",
-        "angry", "furious", "hate", "pissed", "unbelievable",
-        "absurdo", "ridiculo", "ridiculous", "unfair", "injusto",
+        "raiva",
+        "irritado",
+        "furioso",
+        "ódio",
+        "inacreditável",
+        "angry",
+        "furious",
+        "hate",
+        "pissed",
+        "unbelievable",
+        "absurdo",
+        "ridiculo",
+        "ridiculous",
+        "unfair",
+        "injusto",
     ],
 }
 
 # Emoji mood indicators
 EMOJI_MOODS: Dict[str, str] = {
-    "😊": "happy", "😁": "happy", "🥰": "happy", "❤️": "happy", "💪": "happy",
-    "🎉": "excited", "🥳": "excited", "🏆": "excited", "✨": "excited", "🔥": "excited",
-    "😢": "sad", "😭": "sad", "💔": "sad", "🥺": "sad",
-    "😤": "angry", "🤬": "angry", "😡": "angry",
-    "😰": "anxious", "😨": "anxious", "😬": "anxious",
-    "😓": "stressed", "😩": "stressed", "🤯": "stressed", "😫": "stressed",
+    "😊": "happy",
+    "😁": "happy",
+    "🥰": "happy",
+    "❤️": "happy",
+    "💪": "happy",
+    "🎉": "excited",
+    "🥳": "excited",
+    "🏆": "excited",
+    "✨": "excited",
+    "🔥": "excited",
+    "😢": "sad",
+    "😭": "sad",
+    "💔": "sad",
+    "🥺": "sad",
+    "😤": "angry",
+    "🤬": "angry",
+    "😡": "angry",
+    "😰": "anxious",
+    "😨": "anxious",
+    "😬": "anxious",
+    "😓": "stressed",
+    "😩": "stressed",
+    "🤯": "stressed",
+    "😫": "stressed",
 }
 
 
@@ -230,6 +321,7 @@ async def save_mood(user_id: str, mood_result: Dict[str, Any]) -> None:
     """Save mood to history for trend tracking."""
     try:
         import json
+
         db = get_service("database")
         if not db or not db.is_initialized():
             return
@@ -252,21 +344,25 @@ async def save_mood(user_id: str, mood_result: Dict[str, Any]) -> None:
             history = json.loads(val) if isinstance(val, str) else val
 
         # Add new entry
-        history.append({
-            "mood": mood_result["mood"],
-            "score": mood_result["score"],
-            "confidence": mood_result["confidence"],
-            "timestamp": time.time(),
-        })
+        history.append(
+            {
+                "mood": mood_result["mood"],
+                "score": mood_result["score"],
+                "confidence": mood_result["confidence"],
+                "timestamp": time.time(),
+            }
+        )
 
         # Keep last 10
         history = history[-10:]
 
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": "mood_history",
-            "value": json.dumps(history),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": "mood_history",
+                "value": json.dumps(history),
+            }
+        ).execute()
 
     except Exception as e:
         logger.warning("Save mood failed: %s", e)
@@ -276,6 +372,7 @@ async def get_mood_trend(user_id: str) -> Optional[str]:
     """Get mood trend (improving, declining, stable)."""
     try:
         import json
+
         db = get_service("database")
         if not db or not db.is_initialized():
             return None
@@ -300,7 +397,11 @@ async def get_mood_trend(user_id: str) -> Optional[str]:
             return None
 
         recent = [h["score"] for h in history[-3:]]
-        older = [h["score"] for h in history[-6:-3]] if len(history) >= 6 else [h["score"] for h in history[:3]]
+        older = (
+            [h["score"] for h in history[-6:-3]]
+            if len(history) >= 6
+            else [h["score"] for h in history[:3]]
+        )
 
         avg_recent = sum(recent) / len(recent)
         avg_older = sum(older) / len(older)

@@ -46,9 +46,9 @@ class ConfigManager:
                 "local-dev": {
                     "credits_total": 100000,
                     "credits_used": 0,
-                    "soft_threshold": 0.85
+                    "soft_threshold": 0.85,
                 }
-            }
+            },
         }
 
     def load(self) -> Dict:
@@ -58,7 +58,7 @@ class ConfigManager:
             return self.default_config.copy()
 
         try:
-            with open(self.config_file, 'r', encoding=DEFAULT_ENCODING) as f:
+            with open(self.config_file, "r", encoding=DEFAULT_ENCODING) as f:
                 cfg = json.load(f)
 
             # Merge with defaults
@@ -74,7 +74,7 @@ class ConfigManager:
     def save(self, config: Dict):
         """Save configuration to file."""
         try:
-            with open(self.config_file, 'w', encoding=DEFAULT_ENCODING) as f:
+            with open(self.config_file, "w", encoding=DEFAULT_ENCODING) as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"Failed to save config: {e}")
@@ -88,7 +88,7 @@ class ConfigManager:
             tenants[tenant_id] = {
                 "credits_total": 100000,
                 "credits_used": 0,
-                "soft_threshold": 0.85
+                "soft_threshold": 0.85,
             }
             cfg["tenants"] = tenants
             self.save(cfg)
@@ -103,7 +103,7 @@ class ConfigManager:
         model: Optional[str] = None,
         tokens_in: Optional[int] = None,
         tokens_out: Optional[int] = None,
-        meta: Optional[Dict] = None
+        meta: Optional[Dict] = None,
     ):
         """Log API usage event to ledger."""
         event = {
@@ -116,7 +116,7 @@ class ConfigManager:
             "model": model,
             "tokens_in": tokens_in,
             "tokens_out": tokens_out,
-            "meta": meta or {}
+            "meta": meta or {},
         }
 
         # Sanitize meta (remove secrets)
@@ -154,9 +154,7 @@ class ConfigManager:
             "credits_total", 0
         )
 
-    def log_billing_event(
-        self, tenant_id: str, event_type: str, details: Dict
-    ) -> None:
+    def log_billing_event(self, tenant_id: str, event_type: str, details: Dict) -> None:
         """Log a billing event for future integration (e.g. Stripe webhooks).
 
         This is a placeholder that currently only writes a structured log
@@ -179,7 +177,7 @@ class ConfigManager:
         self,
         tenant_id: str,
         tokens_in: Optional[int] = None,
-        tokens_out: Optional[int] = None
+        tokens_out: Optional[int] = None,
     ):
         """Increment credits used for tenant."""
         global _SESSION_CREDITS_DELTA, _SESSION_CREDITS_BASE, _CREDIT_WARNING_SHOWN
@@ -198,9 +196,7 @@ class ConfigManager:
 
         # Check quota before allowing the operation
         if not self.check_quota(tenant_id, cost):
-            self.log_billing_event(
-                tenant_id, "quota_exceeded", {"cost": cost}
-            )
+            self.log_billing_event(tenant_id, "quota_exceeded", {"cost": cost})
             raise ValueError(f"Quota exceeded for tenant {tenant_id}")
 
         # Update in-memory delta
@@ -254,5 +250,5 @@ class ConfigManager:
             "total": total,
             "used": used,
             "remaining": remaining,
-            "percentage": round(percentage, 2)
+            "percentage": round(percentage, 2),
         }

@@ -1,6 +1,7 @@
 """
 RAG Service — Retrieval-Augmented Generation for user memory.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _get_db():
     from services import get_service
+
     return get_service("database")
 
 
@@ -114,8 +116,7 @@ def format_memories_for_prompt(memories: List[dict]) -> str:
     lines = [f"- {m['key']}: {m['value']}" for m in memories]
     return (
         "\n\n## Relevant Memories (retrieved from long-term memory"
-        " \u2014 use these naturally in conversation):\n"
-        + "\n".join(lines)
+        " \u2014 use these naturally in conversation):\n" + "\n".join(lines)
     )
 
 
@@ -173,6 +174,7 @@ async def extract_and_save_memory(user_id: str, message: str) -> None:
         embedding = None
         try:
             from services.ai.embedding_service import embed_text
+
             embedding = await embed_text(fact)
         except Exception as emb_err:
             logger.warning("Memory: embedding failed (will save without): %s", emb_err)
@@ -192,7 +194,9 @@ async def extract_and_save_memory(user_id: str, message: str) -> None:
                     logger.debug("Memory: duplicate found, skipping")
                     return  # já existe memória similar
         except Exception as dup_err:
-            logger.warning("Memory: duplicate check failed (will save anyway): %s", dup_err)
+            logger.warning(
+                "Memory: duplicate check failed (will save anyway): %s", dup_err
+            )
 
         # Passo 4: Salvar no banco
         # Table requires key (NOT NULL) and value (NOT NULL)

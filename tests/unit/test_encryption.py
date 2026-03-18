@@ -16,6 +16,7 @@ class TestEncryptionService:
             # Re-import to pick up the new key
             import importlib
             import utils.encryption as enc_mod
+
             importlib.reload(enc_mod)
             self.enc = enc_mod
             yield

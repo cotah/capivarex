@@ -11,14 +11,22 @@ from cybersecurity.engine.orchestrator import CyberSecurityOrchestrator, _dedupl
 class TestDeduplication:
     def test_removes_duplicates(self):
         f1 = SecurityFinding(
-            scanner="test", finding_type="xss", severity="high",
-            confidence=0.8, title="XSS",
-            file_path="a.py", line_number=10,
+            scanner="test",
+            finding_type="xss",
+            severity="high",
+            confidence=0.8,
+            title="XSS",
+            file_path="a.py",
+            line_number=10,
         )
         f2 = SecurityFinding(
-            scanner="test", finding_type="xss", severity="high",
-            confidence=0.9, title="XSS duplicate",
-            file_path="a.py", line_number=10,
+            scanner="test",
+            finding_type="xss",
+            severity="high",
+            confidence=0.9,
+            title="XSS duplicate",
+            file_path="a.py",
+            line_number=10,
         )
         result = _deduplicate([f1, f2])
         assert len(result) == 1
@@ -27,14 +35,22 @@ class TestDeduplication:
 
     def test_keeps_different_findings(self):
         f1 = SecurityFinding(
-            scanner="test", finding_type="xss", severity="high",
-            confidence=0.8, title="XSS",
-            file_path="a.py", line_number=10,
+            scanner="test",
+            finding_type="xss",
+            severity="high",
+            confidence=0.8,
+            title="XSS",
+            file_path="a.py",
+            line_number=10,
         )
         f2 = SecurityFinding(
-            scanner="test", finding_type="sqli", severity="critical",
-            confidence=0.9, title="SQLi",
-            file_path="b.py", line_number=20,
+            scanner="test",
+            finding_type="sqli",
+            severity="critical",
+            confidence=0.9,
+            title="SQLi",
+            file_path="b.py",
+            line_number=20,
         )
         result = _deduplicate([f1, f2])
         assert len(result) == 2

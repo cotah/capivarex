@@ -21,11 +21,9 @@ from .core import (
     ACTIVE_WINDOW_MINUTES,
     STABLE_TO_GREEN_MINUTES,
     STABILITY_WINDOW_SECONDS,
-
     # Bug/Exception Recording
     record_exception,
     get_last_bugs,
-
     # Ticket Management
     load_tickets,
     save_tickets,
@@ -36,21 +34,17 @@ from .core import (
     mark_ticket_fixed,
     mark_ticket_new,
     reindex_tickets,
-
     # Notification Flags
     should_notify_repeat,
     update_ticket_notification_flags,
     update_ticket_resolution_flags,
-
     # Status
     get_status,
-
     # Suggestions
     build_suggestion,
     build_suggestion_for_ticket,
     append_suggestion,
     get_last_suggestions,
-
     # Patches
     build_patch,
     build_patch_for_ticket,
@@ -60,11 +54,9 @@ from .core import (
     get_patch_status_emoji,
     approve_patch,
     reject_patch,
-
     # Sandbox
     apply_patch_sandbox,
     get_last_apply_report,
-
     # Cleanup
     cleanup_test_data,
 )
@@ -84,11 +76,9 @@ __all__ = [
     "ACTIVE_WINDOW_MINUTES",
     "STABLE_TO_GREEN_MINUTES",
     "STABILITY_WINDOW_SECONDS",
-
     # Bug/Exception Recording
     "record_exception",
     "get_last_bugs",
-
     # Ticket Management
     "load_tickets",
     "save_tickets",
@@ -99,21 +89,17 @@ __all__ = [
     "mark_ticket_fixed",
     "mark_ticket_new",
     "reindex_tickets",
-
     # Notification Flags
     "should_notify_repeat",
     "update_ticket_notification_flags",
     "update_ticket_resolution_flags",
-
     # Status
     "get_status",
-
     # Suggestions
     "build_suggestion",
     "build_suggestion_for_ticket",
     "append_suggestion",
     "get_last_suggestions",
-
     # Patches
     "build_patch",
     "build_patch_for_ticket",
@@ -123,11 +109,9 @@ __all__ = [
     "get_patch_status_emoji",
     "approve_patch",
     "reject_patch",
-
     # Sandbox
     "apply_patch_sandbox",
     "get_last_apply_report",
-
     # Cleanup
     "cleanup_test_data",
 ]

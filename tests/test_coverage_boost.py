@@ -828,6 +828,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_clean_car(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         result = await svc._clean_car("lock my car", {})
         assert result["action"] == "car"
@@ -835,6 +836,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_location_no_client(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         svc._openai_client = None
         result = await svc._extract_location("Dublin weather")
@@ -843,6 +845,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_location_exception(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         svc._openai_client = AsyncMock()
         svc._openai_client.chat.completions.create = AsyncMock(
@@ -854,6 +857,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_location_empty_response(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         resp = MagicMock()
         resp.choices = [MagicMock()]
@@ -866,6 +870,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_stock_symbol_no_client(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         svc._openai_client = None
         result = await svc._extract_stock_symbol("AAPL price")
@@ -874,6 +879,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_stock_symbol_invalid(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         resp = MagicMock()
         resp.choices = [MagicMock()]
@@ -886,6 +892,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_stock_symbol_exception(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         svc._openai_client = AsyncMock()
         svc._openai_client.chat.completions.create = AsyncMock(
@@ -897,6 +904,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_traffic_no_client(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         svc._openai_client = None
         result = await svc._extract_traffic_locations("Dublin to Cork")
@@ -906,6 +914,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_traffic_bad_format(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         resp = MagicMock()
         resp.choices = [MagicMock()]
@@ -918,6 +927,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_traffic_empty_parts(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         resp = MagicMock()
         resp.choices = [MagicMock()]
@@ -930,6 +940,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_extract_traffic_exception(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         svc._openai_client = AsyncMock()
         svc._openai_client.chat.completions.create = AsyncMock(
@@ -941,6 +952,7 @@ class TestPromptCleanerExtraction:
     @pytest.mark.asyncio
     async def test_clean_default(self):
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         result = await svc._clean_default("hello world", {})
         assert result["action"] == "chat"
@@ -950,6 +962,7 @@ class TestPromptCleanerExtraction:
     async def test_clean_with_error_fallback(self):
         """Covers lines 137-146: cleaner raises exception."""
         from services.business.prompt_cleaner import PromptCleanerService
+
         svc = PromptCleanerService()
         svc._initialized = True
         svc._cleaners = {"bad": AsyncMock(side_effect=RuntimeError("boom"))}
@@ -1000,12 +1013,15 @@ class TestCryptoServiceErrors:
     async def test_get_price_rate_limit(self):
         """Covers lines 170-171: 429 rate limit."""
         import httpx
+
         svc = CryptoService()
         svc._initialized = True
         svc._cache = {}
         mock_resp = MagicMock()
         mock_resp.status_code = 429
-        error = httpx.HTTPStatusError("rate limited", request=MagicMock(), response=mock_resp)
+        error = httpx.HTTPStatusError(
+            "rate limited", request=MagicMock(), response=mock_resp
+        )
         svc._http = AsyncMock()
         svc._http.get = AsyncMock(side_effect=error)
         with pytest.raises(RuntimeError, match="Rate limit"):
@@ -1015,6 +1031,7 @@ class TestCryptoServiceErrors:
     async def test_get_price_connection_error(self):
         """Covers line 173: connection error."""
         import httpx
+
         svc = CryptoService()
         svc._initialized = True
         svc._cache = {}
@@ -1035,6 +1052,7 @@ class TestSearchServicePaths:
     @pytest.mark.asyncio
     async def test_health_check_no_client(self):
         from services.business.search_service import SearchService
+
         svc = SearchService()
         svc._client = None
         svc._api_key = None
@@ -1044,6 +1062,7 @@ class TestSearchServicePaths:
     @pytest.mark.asyncio
     async def test_health_check_exception(self):
         from services.business.search_service import SearchService
+
         svc = SearchService()
         svc._api_key = "fake"
         svc._client = AsyncMock()
@@ -1054,6 +1073,7 @@ class TestSearchServicePaths:
     @pytest.mark.asyncio
     async def test_cleanup(self):
         from services.business.search_service import SearchService
+
         svc = SearchService()
         svc._client = AsyncMock()
         await svc._cleanup()
@@ -1062,6 +1082,7 @@ class TestSearchServicePaths:
     @pytest.mark.asyncio
     async def test_init_missing_key(self):
         from services.business.search_service import SearchService
+
         svc = SearchService()
         with patch.dict("os.environ", {}, clear=False):
             if "SERPER_API_KEY" in os.environ:

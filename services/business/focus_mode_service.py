@@ -28,22 +28,51 @@ MAX_FOCUS_DURATION = 8 * 3600  # 8 hours max
 
 # Keywords for intent detection
 FOCUS_KEYWORDS_PT = [
-    "focar", "foco", "focus", "concentrar", "deep work", "não perturbe",
-    "nao perturbe", "silêncio", "silencio", "modo foco", "focus mode",
-    "preciso trabalhar", "vou trabalhar", "sem interrupção",
-    "sem interrupcao", "pomodoro",
+    "focar",
+    "foco",
+    "focus",
+    "concentrar",
+    "deep work",
+    "não perturbe",
+    "nao perturbe",
+    "silêncio",
+    "silencio",
+    "modo foco",
+    "focus mode",
+    "preciso trabalhar",
+    "vou trabalhar",
+    "sem interrupção",
+    "sem interrupcao",
+    "pomodoro",
 ]
 
 FOCUS_KEYWORDS_EN = [
-    "focus", "focus mode", "do not disturb", "dnd", "deep work",
-    "concentrate", "need to work", "silence", "pomodoro", "quiet mode",
-    "no interruptions", "busy mode",
+    "focus",
+    "focus mode",
+    "do not disturb",
+    "dnd",
+    "deep work",
+    "concentrate",
+    "need to work",
+    "silence",
+    "pomodoro",
+    "quiet mode",
+    "no interruptions",
+    "busy mode",
 ]
 
 DEACTIVATE_KEYWORDS = [
-    "parar foco", "sair do foco", "desativar foco", "stop focus",
-    "end focus", "focus off", "voltar", "terminei", "pode falar",
-    "desligar focus", "sair do modo foco",
+    "parar foco",
+    "sair do foco",
+    "desativar foco",
+    "stop focus",
+    "end focus",
+    "focus off",
+    "voltar",
+    "terminei",
+    "pode falar",
+    "desligar focus",
+    "sair do modo foco",
 ]
 
 
@@ -153,7 +182,12 @@ async def activate_focus(
     except Exception:
         pass
 
-    logger.info("Focus mode activated: user=%s duration=%dmin pomodoro=%s", user_id[:8], duration_minutes, pomodoro)
+    logger.info(
+        "Focus mode activated: user=%s duration=%dmin pomodoro=%s",
+        user_id[:8],
+        duration_minutes,
+        pomodoro,
+    )
     return session
 
 
@@ -184,7 +218,12 @@ async def deactivate_focus(user_id: str) -> Dict[str, Any]:
     except Exception:
         pass
 
-    logger.info("Focus mode deactivated: user=%s actual=%dmin missed=%d", user_id[:8], actual_minutes, len(missed))
+    logger.info(
+        "Focus mode deactivated: user=%s actual=%dmin missed=%d",
+        user_id[:8],
+        actual_minutes,
+        len(missed),
+    )
 
     return {
         "was_active": True,
@@ -233,10 +272,12 @@ async def add_missed_notification(user_id: str, notification: str) -> None:
         return
 
     missed = session.get("missed_notifications", [])
-    missed.append({
-        "text": notification[:200],
-        "time": time.time(),
-    })
+    missed.append(
+        {
+            "text": notification[:200],
+            "time": time.time(),
+        }
+    )
     # Keep max 20 missed notifications
     session["missed_notifications"] = missed[-20:]
     await _save_focus_state(user_id, session)
@@ -260,6 +301,7 @@ async def get_focus_state(user_id: str) -> Optional[Dict[str, Any]]:
         )
         if result.data:
             import json
+
             val = result.data[0].get("value", "{}")
             return json.loads(val) if isinstance(val, str) else val
     except Exception as e:
@@ -275,12 +317,15 @@ async def _save_focus_state(user_id: str, session: Dict[str, Any]) -> None:
             return
 
         import json
+
         client = db.get_client()
-        client.table("user_context").upsert({
-            "user_id": user_id,
-            "key": "focus_mode",
-            "value": json.dumps(session),
-        }).execute()
+        client.table("user_context").upsert(
+            {
+                "user_id": user_id,
+                "key": "focus_mode",
+                "value": json.dumps(session),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Failed to save focus state: %s", e)
 
@@ -289,6 +334,7 @@ async def _save_focus_state(user_id: str, session: Dict[str, Any]) -> None:
 # Response formatting
 # ---------------------------------------------------------------------------
 
+
 def format_activate_response(session: Dict[str, Any]) -> str:
     """Format the activation message."""
     duration = session["duration_minutes"]
@@ -296,6 +342,7 @@ def format_activate_response(session: Dict[str, Any]) -> str:
     ends_at = session["ends_at"]
 
     from datetime import datetime
+
     end_time = datetime.fromtimestamp(ends_at).strftime("%H:%M")
 
     hours = duration // 60
@@ -321,7 +368,7 @@ def format_activate_response(session: Dict[str, Any]) -> str:
         )
 
     msg += (
-        "\nQuando terminar, diga **\"terminei\"** ou espere o tempo acabar.\n"
+        '\nQuando terminar, diga **"terminei"** ou espere o tempo acabar.\n'
         "Bom trabalho! 💪"
     )
 

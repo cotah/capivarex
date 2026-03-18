@@ -208,9 +208,7 @@ class CallBrain:
             logger.info("CallBrain.extract_call_plan: %.2fs", latency)
 
             # Parse JSON response — clean potential markdown code fences
-            cleaned = (
-                raw.replace("```json", "").replace("```", "").strip()
-            )
+            cleaned = raw.replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned)
 
             return CallPlan(
@@ -331,8 +329,7 @@ class CallBrain:
                 should_end = True
 
             logger.info(
-                "CallBrain.generate_response: %.2fs | complete=%s "
-                "end=%s | %s",
+                "CallBrain.generate_response: %.2fs | complete=%s end=%s | %s",
                 latency,
                 objective_complete,
                 should_end,
@@ -357,9 +354,7 @@ class CallBrain:
                 e,
                 exc_info=True,
             )
-            fallback_text = _FALLBACK_RESPONSES.get(
-                language, _FALLBACK_RESPONSES["en"]
-            )
+            fallback_text = _FALLBACK_RESPONSES.get(language, _FALLBACK_RESPONSES["en"])
             return BrainResponse(
                 text=fallback_text,
                 objective_complete=False,
@@ -470,9 +465,7 @@ class CallBrain:
             )
 
         except Exception as e:
-            logger.error(
-                "CallBrain.generate_greeting failed: %s", e
-            )
+            logger.error("CallBrain.generate_greeting failed: %s", e)
             fallback = _GREETING_FALLBACKS.get(
                 language, _GREETING_FALLBACKS["en"]
             ).format(user_name=user_name)
@@ -538,12 +531,8 @@ class CallBrain:
             )
 
         except Exception as e:
-            logger.error(
-                "CallBrain.generate_goodbye failed: %s", e
-            )
-            fallback = _GOODBYE_FALLBACKS.get(
-                language, _GOODBYE_FALLBACKS["en"]
-            )
+            logger.error("CallBrain.generate_goodbye failed: %s", e)
+            fallback = _GOODBYE_FALLBACKS.get(language, _GOODBYE_FALLBACKS["en"])
             return BrainResponse(
                 text=fallback,
                 objective_complete=False,
@@ -582,13 +571,29 @@ def _detect_language_simple(text: str) -> str:
     lower = text.lower()
 
     pt_indicators = [
-        "liga", "ligar", "chama", "reserva", "diz que", "faz",
-        "pra", "pro", "restaurante", "por favor", "obrigado",
-        "boa noite", "pessoas",
+        "liga",
+        "ligar",
+        "chama",
+        "reserva",
+        "diz que",
+        "faz",
+        "pra",
+        "pro",
+        "restaurante",
+        "por favor",
+        "obrigado",
+        "boa noite",
+        "pessoas",
     ]
     es_indicators = [
-        "llama", "reserva", "dice que", "personas", "por favor",
-        "gracias", "buenas noches", "restaurante",
+        "llama",
+        "reserva",
+        "dice que",
+        "personas",
+        "por favor",
+        "gracias",
+        "buenas noches",
+        "restaurante",
     ]
 
     pt_score = sum(1 for kw in pt_indicators if kw in lower)

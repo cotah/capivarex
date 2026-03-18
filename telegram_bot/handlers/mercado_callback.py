@@ -282,24 +282,26 @@ def build_months_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
 
 def build_shopping_reminder_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
     """Build inline keyboard for shopping reminder notification."""
-    return InlineKeyboardMarkup([
+    return InlineKeyboardMarkup(
         [
-            InlineKeyboardButton(
-                t("mercado_btn_view_list", lang=lang),
-                callback_data="mr:view_list",
-            ),
-            InlineKeyboardButton(
-                t("mercado_btn_clear_done", lang=lang),
-                callback_data="mr:clear_done",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                t("mercado_btn_snooze", lang=lang),
-                callback_data="mr:snooze",
-            ),
-        ],
-    ])
+            [
+                InlineKeyboardButton(
+                    t("mercado_btn_view_list", lang=lang),
+                    callback_data="mr:view_list",
+                ),
+                InlineKeyboardButton(
+                    t("mercado_btn_clear_done", lang=lang),
+                    callback_data="mr:clear_done",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    t("mercado_btn_snooze", lang=lang),
+                    callback_data="mr:snooze",
+                ),
+            ],
+        ]
+    )
 
 
 async def _show_list(query, chat_id: str, lang: str) -> None:

@@ -1,6 +1,7 @@
 """
 Tests for CallBrain — GPT-powered phone call intelligence.
 """
+
 import json
 from unittest.mock import AsyncMock, MagicMock
 
@@ -46,16 +47,18 @@ class TestExtractCallPlan:
         """Parses a valid JSON plan from GPT response."""
         brain = CallBrain()
 
-        plan_json = json.dumps({
-            "objective": "Reserve a table for 2 people at 8pm",
-            "language": "pt",
-            "greeting": (
-                "Boa noite! Estou ligando em nome de Henrique "
-                "para fazer uma reserva."
-            ),
-            "key_details": "2 people, 8pm, name Henrique",
-            "extra_context": "Restaurant might be busy on weekends",
-        })
+        plan_json = json.dumps(
+            {
+                "objective": "Reserve a table for 2 people at 8pm",
+                "language": "pt",
+                "greeting": (
+                    "Boa noite! Estou ligando em nome de Henrique "
+                    "para fazer uma reserva."
+                ),
+                "key_details": "2 people, 8pm, name Henrique",
+                "extra_context": "Restaurant might be busy on weekends",
+            }
+        )
 
         brain._client = _mock_client(plan_json)
 
@@ -74,13 +77,15 @@ class TestExtractCallPlan:
     async def test_extracts_plan_from_english(self):
         brain = CallBrain()
 
-        plan_json = json.dumps({
-            "objective": "Tell them Henrique will be 15 minutes late",
-            "language": "en",
-            "greeting": "Hello! I'm calling on behalf of Henrique.",
-            "key_details": "15 minutes late",
-            "extra_context": "",
-        })
+        plan_json = json.dumps(
+            {
+                "objective": "Tell them Henrique will be 15 minutes late",
+                "language": "en",
+                "greeting": "Hello! I'm calling on behalf of Henrique.",
+                "key_details": "15 minutes late",
+                "extra_context": "",
+            }
+        )
 
         brain._client = _mock_client(plan_json)
 
@@ -127,14 +132,10 @@ class TestExtractCallPlan:
         """Exception falls back gracefully."""
         brain = CallBrain()
         mock = AsyncMock()
-        mock.chat.completions.create = AsyncMock(
-            side_effect=RuntimeError("API down")
-        )
+        mock.chat.completions.create = AsyncMock(side_effect=RuntimeError("API down"))
         brain._client = mock
 
-        plan = await brain.extract_call_plan(
-            "call the restaurant", "Henrique"
-        )
+        plan = await brain.extract_call_plan("call the restaurant", "Henrique")
 
         assert plan.objective == "call the restaurant"
         assert plan.language == "en"
@@ -148,9 +149,7 @@ class TestGenerateResponse:
     async def test_normal_response(self):
         """Normal conversational response."""
         brain = CallBrain()
-        brain._client = _mock_client(
-            "Claro, para quantas pessoas seria a reserva?"
-        )
+        brain._client = _mock_client("Claro, para quantas pessoas seria a reserva?")
 
         resp = await brain.generate_response(
             objective="Reserve table",
@@ -218,8 +217,7 @@ class TestGenerateResponse:
         """Detects [OBJECTIVE_FAILED] and sets should_end."""
         brain = CallBrain()
         brain._client = _mock_client(
-            "I understand, thank you for letting me know. "
-            "[OBJECTIVE_FAILED][END_CALL]"
+            "I understand, thank you for letting me know. [OBJECTIVE_FAILED][END_CALL]"
         )
 
         resp = await brain.generate_response(
@@ -240,9 +238,7 @@ class TestGenerateResponse:
         """GPT error returns polite fallback."""
         brain = CallBrain()
         mock = AsyncMock()
-        mock.chat.completions.create = AsyncMock(
-            side_effect=RuntimeError("timeout")
-        )
+        mock.chat.completions.create = AsyncMock(side_effect=RuntimeError("timeout"))
         brain._client = mock
 
         resp = await brain.generate_response(
@@ -263,9 +259,7 @@ class TestGenerateResponse:
         """English fallback when language is en."""
         brain = CallBrain()
         mock = AsyncMock()
-        mock.chat.completions.create = AsyncMock(
-            side_effect=RuntimeError("err")
-        )
+        mock.chat.completions.create = AsyncMock(side_effect=RuntimeError("err"))
         brain._client = mock
 
         resp = await brain.generate_response(
@@ -293,23 +287,17 @@ class TestGenerateGreeting:
             objective="Test",
             user_name="Henrique",
             language="pt",
-            custom_greeting=(
-                "Boa noite! Estou ligando em nome de Henrique."
-            ),
+            custom_greeting=("Boa noite! Estou ligando em nome de Henrique."),
         )
 
-        assert resp.text == (
-            "Boa noite! Estou ligando em nome de Henrique."
-        )
+        assert resp.text == ("Boa noite! Estou ligando em nome de Henrique.")
         assert resp.latency_s == 0.0
 
     @pytest.mark.asyncio
     async def test_generates_greeting_via_gpt(self):
         """No custom greeting -> generates via GPT."""
         brain = CallBrain()
-        brain._client = _mock_client(
-            "Good evening! I'm calling on behalf of Henrique."
-        )
+        brain._client = _mock_client("Good evening! I'm calling on behalf of Henrique.")
 
         resp = await brain.generate_greeting(
             objective="Reserve table",
@@ -325,9 +313,7 @@ class TestGenerateGreeting:
         """GPT error returns fallback greeting."""
         brain = CallBrain()
         mock = AsyncMock()
-        mock.chat.completions.create = AsyncMock(
-            side_effect=RuntimeError("err")
-        )
+        mock.chat.completions.create = AsyncMock(side_effect=RuntimeError("err"))
         brain._client = mock
 
         resp = await brain.generate_greeting(
@@ -346,13 +332,9 @@ class TestGenerateGoodbye:
     @pytest.mark.asyncio
     async def test_generates_goodbye(self):
         brain = CallBrain()
-        brain._client = _mock_client(
-            "Muito obrigado pela ajuda! Boa noite!"
-        )
+        brain._client = _mock_client("Muito obrigado pela ajuda! Boa noite!")
 
-        resp = await brain.generate_goodbye(
-            language="pt", result="success"
-        )
+        resp = await brain.generate_goodbye(language="pt", result="success")
 
         assert resp.text != ""
         assert resp.should_end_call is True
@@ -361,9 +343,7 @@ class TestGenerateGoodbye:
     async def test_fallback_goodbye_on_error(self):
         brain = CallBrain()
         mock = AsyncMock()
-        mock.chat.completions.create = AsyncMock(
-            side_effect=RuntimeError("err")
-        )
+        mock.chat.completions.create = AsyncMock(side_effect=RuntimeError("err"))
         brain._client = mock
 
         resp = await brain.generate_goodbye(language="es")
@@ -377,26 +357,14 @@ class TestGenerateGoodbye:
 
 class TestLanguageDetection:
     def test_portuguese(self):
-        assert (
-            _detect_language_simple(
-                "liga pro restaurante e reserva para 2"
-            )
-            == "pt"
-        )
+        assert _detect_language_simple("liga pro restaurante e reserva para 2") == "pt"
 
     def test_english(self):
-        assert (
-            _detect_language_simple(
-                "call the restaurant and book a table"
-            )
-            == "en"
-        )
+        assert _detect_language_simple("call the restaurant and book a table") == "en"
 
     def test_spanish(self):
         assert (
-            _detect_language_simple(
-                "llama al restaurante y reserva para 2 personas"
-            )
+            _detect_language_simple("llama al restaurante y reserva para 2 personas")
             == "es"
         )
 
@@ -412,9 +380,7 @@ class TestRespondToSession:
     async def test_respond_to_session(self):
         """Convenience method uses session state."""
         brain = CallBrain()
-        brain._client = _mock_client(
-            "Sure, for 2 people at 8pm?"
-        )
+        brain._client = _mock_client("Sure, for 2 people at 8pm?")
 
         mock_session = MagicMock()
         mock_session.objective = "Reserve table"
@@ -422,9 +388,7 @@ class TestRespondToSession:
         mock_session.language = "en"
         mock_session.extra_context = "2 people, 8pm"
         mock_session.get_conversation_history.return_value = []
-        mock_session.get_last_user_message.return_value = (
-            "Hi, I'd like to book"
-        )
+        mock_session.get_last_user_message.return_value = "Hi, I'd like to book"
 
         resp = await brain.respond_to_session(mock_session)
 

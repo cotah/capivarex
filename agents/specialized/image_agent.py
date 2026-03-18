@@ -84,7 +84,7 @@ class ImageAgent(BaseAgent):
         """Generate an image from a text prompt."""
         lang = get_user_lang(context)
         image_prompt = str(context.get("prompt") or prompt).strip()
-        user_plan = str(context.get("user_plan") or "basic")
+        user_plan = str(context.get("user_plan") or "professional")
         aspect_ratio = str(context.get("aspect_ratio") or "1:1")
         user_id = str(context.get("user_id", "unknown"))
         use_queue = context.get("use_queue", False)

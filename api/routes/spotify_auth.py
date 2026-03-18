@@ -90,9 +90,7 @@ async def spotify_callback(
             email,
         )
 
-        return HTMLResponse(
-            content=_success_page(display_name or email, email)
-        )
+        return HTMLResponse(content=_success_page(display_name or email, email))
 
     except ValueError as e:
         logger.error("Spotify OAuth callback ValueError: {}", e)
@@ -101,9 +99,7 @@ async def spotify_callback(
             status_code=400,
         )
     except Exception as e:
-        logger.error(
-            "Spotify OAuth callback failed: %s", e, exc_info=True
-        )
+        logger.error("Spotify OAuth callback failed: %s", e, exc_info=True)
         return HTMLResponse(
             content=_error_page(str(e)),
             status_code=500,
@@ -121,9 +117,7 @@ async def spotify_status(
 
     return {
         "connected": connected,
-        "services": ["spotify_playback", "spotify_playlists"]
-        if connected
-        else [],
+        "services": ["spotify_playback", "spotify_playlists"] if connected else [],
     }
 
 
@@ -140,9 +134,7 @@ async def spotify_disconnect(
         logger.info("Spotify disconnected: user=%s", user_id)
         return {"success": True, "message": t("oauth_disconnected")}
     else:
-        raise HTTPException(
-            status_code=500, detail=t("oauth_disconnect_failed")
-        )
+        raise HTTPException(status_code=500, detail=t("oauth_disconnect_failed"))
 
 
 # -- HTML Pages ----------------------------------------------------------------

@@ -25,4 +25,5 @@ def create_app():
     # The app object in api.main is already fully configured
     # (routers, middleware, Prometheus, etc.)
     from api.main import app
+
     return app

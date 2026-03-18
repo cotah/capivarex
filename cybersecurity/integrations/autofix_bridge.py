@@ -42,7 +42,8 @@ async def create_ticket_from_finding(finding: SecurityFinding) -> dict | None:
         if ticket and is_new:
             logger.info(
                 "Autofix ticket created: %s for finding: %s",
-                ticket.get("id", "?"), finding.title[:60],
+                ticket.get("id", "?"),
+                finding.title[:60],
             )
 
             # Build a suggestion
@@ -64,6 +65,7 @@ async def notify_patch_ready(ticket: dict) -> None:
     """Notify admin that a patch is ready for approval."""
     try:
         from autofix.notifier import notify_patch_ready as _notify
+
         await _notify(ticket)
     except ImportError:
         logger.debug("Autofix notifier not available")

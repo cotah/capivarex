@@ -6,6 +6,7 @@ Provides common utilities to reduce duplication across route modules:
 - ``_get_service_or_503()`` → fetch any service or raise 503
 - ``temp_upload()`` → async context manager for temp file uploads
 """
+
 from __future__ import annotations
 
 import os
@@ -20,6 +21,7 @@ from services.core import get_service
 # ---------------------------------------------------------------------------
 # Service resolution helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_db():
     """Get the Supabase client from the database service.
@@ -52,6 +54,7 @@ def _get_service_or_503(name: str, label: str | None = None):
 # ---------------------------------------------------------------------------
 # Temp file upload context manager
 # ---------------------------------------------------------------------------
+
 
 @asynccontextmanager
 async def temp_upload(upload_file: UploadFile, prefix: str = "ref"):

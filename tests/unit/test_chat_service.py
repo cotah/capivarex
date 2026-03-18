@@ -13,7 +13,7 @@ def _make_ws():
     return ws
 
 
-def _make_service(ws=None, user_id="u1", user_plan="basic"):
+def _make_service(ws=None, user_id="u1", user_plan="professional"):
     """Build a ChatService with a mocked WebSocket and no real services."""
     ws = ws or _make_ws()
     with patch("services.business.chat_service.get_service", return_value=None):
@@ -89,9 +89,7 @@ class TestHandleSearch:
             )
         )
 
-        with patch(
-            "services.business.chat_service.get_agent", return_value=mock_agent
-        ):
+        with patch("services.business.chat_service.get_agent", return_value=mock_agent):
             result = await svc._handle_search("what is AI", {"query": "AI"}, [])
 
         assert "Serper result text" in result
@@ -101,9 +99,7 @@ class TestHandleSearch:
         """When SearchAgent is not available, returns config message."""
         svc, ws = _make_service()
 
-        with patch(
-            "services.business.chat_service.get_agent", return_value=None
-        ):
+        with patch("services.business.chat_service.get_agent", return_value=None):
             result = await svc._handle_search("query", {}, [])
 
         assert "SERPER_API_KEY" in result
@@ -123,9 +119,7 @@ class TestHandleSearch:
             )
         )
 
-        with patch(
-            "services.business.chat_service.get_agent", return_value=mock_agent
-        ):
+        with patch("services.business.chat_service.get_agent", return_value=mock_agent):
             result = await svc._handle_search("query", {}, [])
 
         assert "resultados" in result.lower() or "busca" in result.lower()
@@ -138,9 +132,7 @@ class TestHandleSearch:
         mock_agent = AsyncMock()
         mock_agent.execute = AsyncMock(side_effect=RuntimeError("Serper down"))
 
-        with patch(
-            "services.business.chat_service.get_agent", return_value=mock_agent
-        ):
+        with patch("services.business.chat_service.get_agent", return_value=mock_agent):
             result = await svc._handle_search("query", {}, [])
 
         assert "Erro" in result

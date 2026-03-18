@@ -1,4 +1,5 @@
 """Tests for Discovery Engine service."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -56,7 +57,11 @@ class TestFallbackDiscovery:
 
 class TestFallbackMessage:
     def test_with_name(self):
-        discovery = {"title": "Sushi Place", "description": "Amazing sushi", "why": "You love Japanese food"}
+        discovery = {
+            "title": "Sushi Place",
+            "description": "Amazing sushi",
+            "why": "You love Japanese food",
+        }
         msg = _generate_fallback_discovery("João", "restaurant", discovery)
         assert "Achei algo" in msg
         assert "Sushi Place" in msg
@@ -69,7 +74,11 @@ class TestFallbackMessage:
         assert "Tech Article" in msg
 
     def test_with_why(self):
-        discovery = {"title": "Event", "description": "Music fest", "why": "You love music"}
+        discovery = {
+            "title": "Event",
+            "description": "Music fest",
+            "why": "You love music",
+        }
         msg = _generate_fallback_discovery("Ana", "event", discovery)
         assert "music" in msg.lower()
 
@@ -77,7 +86,9 @@ class TestFallbackMessage:
 class TestGetInterests:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.discovery_engine_service.get_service", return_value=None):
+        with patch(
+            "services.business.discovery_engine_service.get_service", return_value=None
+        ):
             result = await _get_user_interests("u1")
         assert len(result) > 0  # Returns defaults
 
@@ -88,7 +99,10 @@ class TestGetInterests:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": '["music", "tech", "food"]'}]
         )
-        with patch("services.business.discovery_engine_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.discovery_engine_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _get_user_interests("u1")
         assert "music" in result
 
@@ -97,7 +111,10 @@ class TestGetInterests:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.discovery_engine_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.discovery_engine_service.get_service",
+            return_value=mock_db,
+        ):
             result = await _get_user_interests("u1")
         assert len(result) > 0  # Falls back to defaults
 
@@ -105,42 +122,81 @@ class TestGetInterests:
 class TestCooldown:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.discovery_engine_service.get_service", return_value=None):
+        with patch(
+            "services.business.discovery_engine_service.get_service", return_value=None
+        ):
             assert await _is_on_cooldown("u1") is False
 
     @pytest.mark.asyncio
     async def test_on_cooldown(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = MagicMock(count=3)
-        with patch("services.business.discovery_engine_service.get_service", return_value=mock_db):
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = MagicMock(
+            count=3
+        )
+        with patch(
+            "services.business.discovery_engine_service.get_service",
+            return_value=mock_db,
+        ):
             assert await _is_on_cooldown("u1") is True
 
     @pytest.mark.asyncio
     async def test_not_on_cooldown(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = MagicMock(count=0)
-        with patch("services.business.discovery_engine_service.get_service", return_value=mock_db):
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = MagicMock(
+            count=0
+        )
+        with patch(
+            "services.business.discovery_engine_service.get_service",
+            return_value=mock_db,
+        ):
             assert await _is_on_cooldown("u1") is False
 
 
 class TestGenerateDiscovery:
     @pytest.mark.asyncio
     async def test_on_cooldown(self):
-        with patch("services.business.discovery_engine_service._is_on_cooldown", new_callable=AsyncMock, return_value=True):
+        with patch(
+            "services.business.discovery_engine_service._is_on_cooldown",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
             result = await generate_discovery("u1")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_full_flow(self):
-        discovery = {"title": "Cool Place", "description": "Nice spot", "why": "Matches your taste"}
+        discovery = {
+            "title": "Cool Place",
+            "description": "Nice spot",
+            "why": "Matches your taste",
+        }
         with (
-            patch("services.business.discovery_engine_service._is_on_cooldown", new_callable=AsyncMock, return_value=False),
-            patch("services.business.discovery_engine_service._get_user_interests", new_callable=AsyncMock, return_value=["food", "tech"]),
-            patch("services.business.discovery_engine_service._generate_by_category", new_callable=AsyncMock, return_value=discovery),
-            patch("services.business.discovery_engine_service._generate_ai_discovery", new_callable=AsyncMock, return_value=None),
-            patch("services.business.discovery_engine_service._store_discovery", new_callable=AsyncMock),
+            patch(
+                "services.business.discovery_engine_service._is_on_cooldown",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.business.discovery_engine_service._get_user_interests",
+                new_callable=AsyncMock,
+                return_value=["food", "tech"],
+            ),
+            patch(
+                "services.business.discovery_engine_service._generate_by_category",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            patch(
+                "services.business.discovery_engine_service._generate_ai_discovery",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "services.business.discovery_engine_service._store_discovery",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_discovery("u1", "João", "Dublin")
         assert result is not None
@@ -150,9 +206,21 @@ class TestGenerateDiscovery:
     @pytest.mark.asyncio
     async def test_no_discovery_generated(self):
         with (
-            patch("services.business.discovery_engine_service._is_on_cooldown", new_callable=AsyncMock, return_value=False),
-            patch("services.business.discovery_engine_service._get_user_interests", new_callable=AsyncMock, return_value=[]),
-            patch("services.business.discovery_engine_service._generate_by_category", new_callable=AsyncMock, return_value=None),
+            patch(
+                "services.business.discovery_engine_service._is_on_cooldown",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.business.discovery_engine_service._get_user_interests",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "services.business.discovery_engine_service._generate_by_category",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
             result = await generate_discovery("u1")
         assert result is None
@@ -161,11 +229,30 @@ class TestGenerateDiscovery:
     async def test_forced_category(self):
         discovery = {"title": "Event X", "description": "Fun event"}
         with (
-            patch("services.business.discovery_engine_service._is_on_cooldown", new_callable=AsyncMock, return_value=False),
-            patch("services.business.discovery_engine_service._get_user_interests", new_callable=AsyncMock, return_value=["music"]),
-            patch("services.business.discovery_engine_service._generate_by_category", new_callable=AsyncMock, return_value=discovery),
-            patch("services.business.discovery_engine_service._generate_ai_discovery", new_callable=AsyncMock, return_value="💡 AI discovery!"),
-            patch("services.business.discovery_engine_service._store_discovery", new_callable=AsyncMock),
+            patch(
+                "services.business.discovery_engine_service._is_on_cooldown",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.business.discovery_engine_service._get_user_interests",
+                new_callable=AsyncMock,
+                return_value=["music"],
+            ),
+            patch(
+                "services.business.discovery_engine_service._generate_by_category",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            patch(
+                "services.business.discovery_engine_service._generate_ai_discovery",
+                new_callable=AsyncMock,
+                return_value="💡 AI discovery!",
+            ),
+            patch(
+                "services.business.discovery_engine_service._store_discovery",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await generate_discovery("u1", "Ana", "Dublin", category="event")
         assert result["text"] == "💡 AI discovery!"
@@ -176,14 +263,21 @@ class TestStoreDiscovery:
     @pytest.mark.asyncio
     async def test_store_no_db(self):
         from services.business.discovery_engine_service import _store_discovery
-        with patch("services.business.discovery_engine_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.discovery_engine_service.get_service", return_value=None
+        ):
             await _store_discovery("u1", "text", {})
 
     @pytest.mark.asyncio
     async def test_store_exception(self):
         from services.business.discovery_engine_service import _store_discovery
+
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.discovery_engine_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.discovery_engine_service.get_service",
+            return_value=mock_db,
+        ):
             await _store_discovery("u1", "text", {})

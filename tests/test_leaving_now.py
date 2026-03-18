@@ -42,6 +42,7 @@ import pytest
 # FACTORIES
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _make_event(
     title: str = "Reunião",
     location: str = "Grand Canal Dock, Dublin",
@@ -92,7 +93,11 @@ def _make_transit_route(
                     "color": "",
                 },
             },
-            {"mode": "WALK", "instruction": "Walk to destination", "duration_minutes": 5.0},
+            {
+                "mode": "WALK",
+                "instruction": "Walk to destination",
+                "duration_minutes": 5.0,
+            },
         ],
         "lines": lines or [{"short_name": "46A", "long_name": "Dublin Bus 46A"}],
         "walking_minutes": 10.0,
@@ -104,7 +109,9 @@ def _make_transit_route(
             now + timedelta(minutes=duration_min + delay_min)
         ).isoformat(),
         "has_disruption": delay_min >= 3,
-        "disruption_message": f"⚠️ Atraso de {delay_min:.0f} min." if delay_min >= 3 else "",
+        "disruption_message": f"⚠️ Atraso de {delay_min:.0f} min."
+        if delay_min >= 3
+        else "",
         "recommendation": "on_time" if delay_min < 3 else "slight_delay",
         "service_alerts": [],
         "gtfs_realtime_available": True,
@@ -128,9 +135,11 @@ def _make_weather(condition: str = "Clear", temp_c: float = 15.0) -> Dict:
 # FIXTURES
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def leaving_now_svc():
     from services.business.leaving_now_service import LeavingNowService
+
     svc = LeavingNowService()
     svc._initialized = True
     return svc
@@ -139,6 +148,7 @@ def leaving_now_svc():
 @pytest.fixture
 def leaving_now_agent():
     from agents.specialized.leaving_now_agent import LeavingNowAgent
+
     return LeavingNowAgent()
 
 
@@ -155,6 +165,7 @@ def mock_svc():
 def mock_result_soon():
     """LeavingNowResult com urgência SOON (12 min para sair)."""
     from services.business.leaving_now_service import LeavingNowResult
+
     now = datetime.now()
     return LeavingNowResult(
         event_title="Reunião com cliente",
@@ -178,6 +189,7 @@ def mock_result_soon():
 def mock_result_relaxed():
     """LeavingNowResult com urgência RELAXED (60 min para sair)."""
     from services.business.leaving_now_service import LeavingNowResult
+
     now = datetime.now()
     return LeavingNowResult(
         event_title="Dentista",
@@ -202,43 +214,36 @@ def mock_result_relaxed():
 # 1. LeavingNowService — weather buffer
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestWeatherBuffer:
     """Testa o cálculo do buffer de clima."""
 
     def test_clear_no_buffer(self, leaving_now_svc):
-        assert leaving_now_svc._calculate_weather_buffer(
-            _make_weather("Clear")
-        ) == 0.0
+        assert leaving_now_svc._calculate_weather_buffer(_make_weather("Clear")) == 0.0
 
     def test_sunny_no_buffer(self, leaving_now_svc):
-        assert leaving_now_svc._calculate_weather_buffer(
-            _make_weather("Sunny")
-        ) == 0.0
+        assert leaving_now_svc._calculate_weather_buffer(_make_weather("Sunny")) == 0.0
 
     def test_rain_adds_10min(self, leaving_now_svc):
-        assert leaving_now_svc._calculate_weather_buffer(
-            _make_weather("Rain")
-        ) == 10.0
+        assert leaving_now_svc._calculate_weather_buffer(_make_weather("Rain")) == 10.0
 
     def test_light_rain_adds_5min(self, leaving_now_svc):
-        assert leaving_now_svc._calculate_weather_buffer(
-            _make_weather("light_rain")
-        ) == 5.0
+        assert (
+            leaving_now_svc._calculate_weather_buffer(_make_weather("light_rain"))
+            == 5.0
+        )
 
     def test_heavy_rain_adds_15min(self, leaving_now_svc):
-        assert leaving_now_svc._calculate_weather_buffer(
-            _make_weather("heavy_rain")
-        ) == 15.0
+        assert (
+            leaving_now_svc._calculate_weather_buffer(_make_weather("heavy_rain"))
+            == 15.0
+        )
 
     def test_storm_adds_20min(self, leaving_now_svc):
-        assert leaving_now_svc._calculate_weather_buffer(
-            _make_weather("storm")
-        ) == 20.0
+        assert leaving_now_svc._calculate_weather_buffer(_make_weather("storm")) == 20.0
 
     def test_snow_adds_25min(self, leaving_now_svc):
-        assert leaving_now_svc._calculate_weather_buffer(
-            _make_weather("snow")
-        ) == 25.0
+        assert leaving_now_svc._calculate_weather_buffer(_make_weather("snow")) == 25.0
 
     def test_empty_weather_no_buffer(self, leaving_now_svc):
         assert leaving_now_svc._calculate_weather_buffer({}) == 0.0
@@ -261,8 +266,8 @@ class TestWeatherBuffer:
 # 2. LeavingNowService — parse event time
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestParseEventTime:
 
+class TestParseEventTime:
     def test_iso_datetime(self, leaving_now_svc):
         event = {"start": "2026-02-25T14:00:00"}
         dt = leaving_now_svc._parse_event_time(event)
@@ -294,10 +299,11 @@ class TestParseEventTime:
 # 3. LeavingNowService — urgência e mensagens
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestUrgencyMessages:
 
+class TestUrgencyMessages:
     def _build(self, minutes_until: float, mode: str = "driving") -> tuple:
         from services.business.leaving_now_service import LeavingNowService
+
         now = datetime.now()
         return LeavingNowService._build_urgency_messages(
             event_title="Reunião",
@@ -342,6 +348,7 @@ class TestUrgencyMessages:
 
     def test_weather_buffer_in_message(self):
         from services.business.leaving_now_service import LeavingNowService
+
         now = datetime.now()
         urgency, msg, _ = LeavingNowService._build_urgency_messages(
             event_title="Reunião",
@@ -355,23 +362,27 @@ class TestUrgencyMessages:
             weather_condition="Rain",
             transport_mode="driving",
         )
-        assert "10" in msg or "chuva" in msg.lower() or "rain" in msg.lower() or "🌧" in msg
+        assert (
+            "10" in msg or "chuva" in msg.lower() or "rain" in msg.lower() or "🌧" in msg
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. LeavingNowService — calculate_for_event
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestCalculateForEvent:
 
+class TestCalculateForEvent:
     def _mock_services(self, travel_minutes=30.0, weather_cond="Clear", delay_min=0.0):
         """Helper para mockar CalendarService, TrafficService e WeatherService."""
         mock_traffic = AsyncMock()
         mock_traffic.is_initialized.return_value = True
-        mock_traffic.get_route_with_traffic = AsyncMock(return_value={
-            "success": True,
-            "route": {"duration_minutes": travel_minutes, "distance_km": 5.2}
-        })
+        mock_traffic.get_route_with_traffic = AsyncMock(
+            return_value={
+                "success": True,
+                "route": {"duration_minutes": travel_minutes, "distance_km": 5.2},
+            }
+        )
 
         mock_weather = AsyncMock()
         mock_weather.is_initialized.return_value = True
@@ -389,8 +400,10 @@ class TestCalculateForEvent:
 
         with patch("services.business.leaving_now_service.get_service") as mock_get:
             mock_get.side_effect = lambda name: {
-                "traffic": mock_traffic, "weather": mock_weather,
-                "transit": None, "calendar": MagicMock(),
+                "traffic": mock_traffic,
+                "weather": mock_weather,
+                "transit": None,
+                "calendar": MagicMock(),
             }.get(name)
 
             result = await leaving_now_svc.calculate_for_event(
@@ -417,8 +430,10 @@ class TestCalculateForEvent:
 
         with patch("services.business.leaving_now_service.get_service") as mock_get:
             mock_get.side_effect = lambda name: {
-                "traffic": mock_traffic, "weather": mock_weather,
-                "transit": None, "calendar": MagicMock(),
+                "traffic": mock_traffic,
+                "weather": mock_weather,
+                "transit": None,
+                "calendar": MagicMock(),
             }.get(name)
 
             result = await leaving_now_svc.calculate_for_event(
@@ -457,7 +472,8 @@ class TestCalculateForEvent:
 
         with patch("services.business.leaving_now_service.get_service") as mock_get:
             mock_get.side_effect = lambda name: {
-                "traffic": mock_traffic, "weather": mock_weather,
+                "traffic": mock_traffic,
+                "weather": mock_weather,
                 "transit": None,
             }.get(name)
 
@@ -505,35 +521,43 @@ class TestCalculateForEvent:
 # 5. LeavingNowAgent — detecção de intent
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestAgentDetection:
 
+class TestAgentDetection:
     def test_detect_transit_mode(self):
         from agents.specialized.leaving_now_agent import _detect_transport_mode
+
         assert _detect_transport_mode("vou de autocarro", {}) == "transit"
         assert _detect_transport_mode("quero ir de Luas", {}) == "transit"
         assert _detect_transport_mode("public transport", {}) == "transit"
 
     def test_detect_driving_mode(self):
         from agents.specialized.leaving_now_agent import _detect_transport_mode
+
         assert _detect_transport_mode("vou de carro", {}) == "driving"
 
     def test_detect_driving_default(self):
         from agents.specialized.leaving_now_agent import _detect_transport_mode
+
         assert _detect_transport_mode("quando devo sair?", {}) == "driving"
 
     def test_detect_all_today(self):
         from agents.specialized.leaving_now_agent import _detect_all_today
+
         assert _detect_all_today("eventos de hoje com hora de saída") is True
         assert _detect_all_today("agenda de hoje") is True
         assert _detect_all_today("quando devo sair?") is False
 
     def test_extract_prep_minutes(self):
         from agents.specialized.leaving_now_agent import _extract_prep_minutes
-        assert _extract_prep_minutes("preciso de 15 minutos para me preparar", {}) == 15.0
+
+        assert (
+            _extract_prep_minutes("preciso de 15 minutos para me preparar", {}) == 15.0
+        )
         assert _extract_prep_minutes("", {}) == 10.0  # default
 
     def test_prep_from_context(self):
         from agents.specialized.leaving_now_agent import _extract_prep_minutes
+
         assert _extract_prep_minutes("", {"prep_minutes": "20"}) == 20.0
 
 
@@ -541,12 +565,16 @@ class TestAgentDetection:
 # 6. LeavingNowAgent — respostas
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestLeavingNowAgentResponses:
 
+class TestLeavingNowAgentResponses:
     @pytest.mark.asyncio
-    async def test_next_event_success(self, leaving_now_agent, mock_svc, mock_result_soon):
+    async def test_next_event_success(
+        self, leaving_now_agent, mock_svc, mock_result_soon
+    ):
         mock_svc.calculate_for_next_event = AsyncMock(return_value=mock_result_soon)
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("quando devo sair?", {})
         assert r.is_success()
         assert r.data is not None
@@ -554,40 +582,62 @@ class TestLeavingNowAgentResponses:
     @pytest.mark.asyncio
     async def test_no_events_returns_helpful_message(self, leaving_now_agent, mock_svc):
         mock_svc.calculate_for_next_event = AsyncMock(return_value=None)
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("quando devo sair?", {})
         assert r.is_success()
-        assert "calendário" in r.response.lower() or "calendar" in r.response.lower() or "local" in r.response.lower()
+        assert (
+            "calendário" in r.response.lower()
+            or "calendar" in r.response.lower()
+            or "local" in r.response.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_service_unavailable(self, leaving_now_agent):
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=None):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=None
+        ):
             r = await leaving_now_agent.execute("quando devo sair?", {})
         assert not r.is_success()
         assert "leaving_now" in r.response.lower() or "disponível" in r.response.lower()
 
     @pytest.mark.asyncio
-    async def test_proactive_triggers_when_soon(self, leaving_now_agent, mock_svc, mock_result_soon):
+    async def test_proactive_triggers_when_soon(
+        self, leaving_now_agent, mock_svc, mock_result_soon
+    ):
         mock_svc.calculate_for_next_event = AsyncMock(return_value=mock_result_soon)
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("", {"action": "check_departure"})
         assert r.is_success()
         assert r.data.get("triggered") is True
         assert r.response != ""  # deve notificar
 
     @pytest.mark.asyncio
-    async def test_proactive_silent_when_relaxed(self, leaving_now_agent, mock_svc, mock_result_relaxed):
+    async def test_proactive_silent_when_relaxed(
+        self, leaving_now_agent, mock_svc, mock_result_relaxed
+    ):
         mock_svc.calculate_for_next_event = AsyncMock(return_value=mock_result_relaxed)
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("", {"action": "check_departure"})
         assert r.is_success()
         assert r.data.get("triggered") is False
         assert r.response == ""  # silêncio proactivo
 
     @pytest.mark.asyncio
-    async def test_all_today_multiple_events(self, leaving_now_agent, mock_svc, mock_result_soon):
-        mock_svc.get_all_events_today = AsyncMock(return_value=[mock_result_soon, mock_result_soon])
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+    async def test_all_today_multiple_events(
+        self, leaving_now_agent, mock_svc, mock_result_soon
+    ):
+        mock_svc.get_all_events_today = AsyncMock(
+            return_value=[mock_result_soon, mock_result_soon]
+        )
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("eventos de hoje", {})
         assert r.is_success()
         assert r.data.get("events") is not None
@@ -596,16 +646,22 @@ class TestLeavingNowAgentResponses:
     @pytest.mark.asyncio
     async def test_all_today_no_events(self, leaving_now_agent, mock_svc):
         mock_svc.get_all_events_today = AsyncMock(return_value=[])
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("agenda de hoje", {})
         assert r.is_success()
         assert "eventos" in r.response.lower() or "agenda" in r.response.lower()
 
     @pytest.mark.asyncio
-    async def test_specific_event_from_context(self, leaving_now_agent, mock_svc, mock_result_soon):
+    async def test_specific_event_from_context(
+        self, leaving_now_agent, mock_svc, mock_result_soon
+    ):
         mock_svc.calculate_for_event = AsyncMock(return_value=mock_result_soon)
         event = _make_event()
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("", {"event": event})
         assert r.is_success()
         mock_svc.calculate_for_event.assert_called_once()
@@ -615,22 +671,34 @@ class TestLeavingNowAgentResponses:
 # 7. Formato da resposta
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestResponseFormat:
 
+class TestResponseFormat:
     @pytest.mark.asyncio
-    async def test_response_has_urgency_emoji(self, leaving_now_agent, mock_svc, mock_result_soon):
+    async def test_response_has_urgency_emoji(
+        self, leaving_now_agent, mock_svc, mock_result_soon
+    ):
         mock_svc.calculate_for_next_event = AsyncMock(return_value=mock_result_soon)
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("quando sair?", {})
         # SOON → 🟡
         assert "🟡" in r.response or "SOON" in r.response or "Prepara" in r.response
 
     @pytest.mark.asyncio
-    async def test_response_has_breakdown(self, leaving_now_agent, mock_svc, mock_result_soon):
+    async def test_response_has_breakdown(
+        self, leaving_now_agent, mock_svc, mock_result_soon
+    ):
         mock_svc.calculate_for_next_event = AsyncMock(return_value=mock_result_soon)
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("quando sair?", {})
-        assert "Cálculo" in r.response or "breakdown" in r.response.lower() or "📊" in r.response
+        assert (
+            "Cálculo" in r.response
+            or "breakdown" in r.response.lower()
+            or "📊" in r.response
+        )
 
     @pytest.mark.asyncio
     async def test_result_to_dict_complete(self, mock_result_soon):
@@ -642,9 +710,13 @@ class TestResponseFormat:
         assert "minutes_until_departure" in d
 
     @pytest.mark.asyncio
-    async def test_rain_buffer_visible_in_response(self, leaving_now_agent, mock_svc, mock_result_relaxed):
+    async def test_rain_buffer_visible_in_response(
+        self, leaving_now_agent, mock_svc, mock_result_relaxed
+    ):
         mock_svc.calculate_for_next_event = AsyncMock(return_value=mock_result_relaxed)
-        with patch("agents.specialized.leaving_now_agent.get_service", return_value=mock_svc):
+        with patch(
+            "agents.specialized.leaving_now_agent.get_service", return_value=mock_svc
+        ):
             r = await leaving_now_agent.execute("quando sair?", {})
         assert "10" in r.response or "chuva" in r.response.lower() or "🌧" in r.response
 
@@ -660,11 +732,12 @@ class TestResponseFormat:
 # 8. TransitService — unit tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestTransitService:
 
+class TestTransitService:
     @pytest.fixture
     def transit_svc(self):
         from services.integrations.transit_service import TransitService
+
         svc = TransitService()
         svc._gmaps_key = "test_gmaps_key"
         svc._nta_key = None  # sem NTA por default
@@ -690,6 +763,7 @@ class TestTransitService:
     def test_parse_trip_updates_json_with_delays(self, transit_svc):
         """Testa parsing JSON de TripUpdates com atrasos."""
         from services.integrations.transit_service import TransitService
+
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "entity": [
@@ -717,6 +791,7 @@ class TestTransitService:
     def test_parse_trip_updates_json_filters_by_route(self, transit_svc):
         """Filtra por nome de linha."""
         from services.integrations.transit_service import TransitService
+
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "entity": [
@@ -746,6 +821,7 @@ class TestTransitService:
     def test_parse_cancelled_trip(self, transit_svc):
         """Viagem cancelada (scheduleRelationship=SKIPPED) deve ser marcada."""
         from services.integrations.transit_service import TransitService
+
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "entity": [
@@ -770,6 +846,7 @@ class TestTransitService:
     def test_parse_alerts_json(self, transit_svc):
         """Testa parsing de alertas de serviço."""
         from services.integrations.transit_service import TransitService
+
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "entity": [
@@ -779,10 +856,17 @@ class TestTransitService:
                         "cause": "STRIKE",
                         "effect": "REDUCED_SERVICE",
                         "headerText": {
-                            "translation": [{"text": "Dublin Bus Strike Today", "language": "en"}]
+                            "translation": [
+                                {"text": "Dublin Bus Strike Today", "language": "en"}
+                            ]
                         },
                         "descriptionText": {
-                            "translation": [{"text": "Service reduced on all routes.", "language": "en"}]
+                            "translation": [
+                                {
+                                    "text": "Service reduced on all routes.",
+                                    "language": "en",
+                                }
+                            ]
                         },
                     },
                 }
@@ -801,18 +885,20 @@ class TestTransitService:
         geocode_resp.status_code = 200
         geocode_resp.json.return_value = {
             "status": "OK",
-            "results": [{"geometry": {"location": {"lat": 53.33, "lng": -6.26}}}]
+            "results": [{"geometry": {"location": {"lat": 53.33, "lng": -6.26}}}],
         }
 
         routes_resp = MagicMock()
         routes_resp.status_code = 200
         routes_resp.raise_for_status = MagicMock()
         routes_resp.json.return_value = {
-            "routes": [{
-                "duration": "2100s",  # 35 min
-                "distanceMeters": 5200,
-                "legs": [],
-            }]
+            "routes": [
+                {
+                    "duration": "2100s",  # 35 min
+                    "distanceMeters": 5200,
+                    "legs": [],
+                }
+            ]
         }
 
         transit_svc._client.get = AsyncMock(return_value=geocode_resp)

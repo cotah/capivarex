@@ -1,4 +1,5 @@
 """Tests for Smart Follow-up service."""
+
 import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -87,19 +88,39 @@ class TestDetectFollowableEvent:
 class TestStoreFollowup:
     @pytest.mark.asyncio
     async def test_store_no_db(self):
-        with patch("services.business.smart_followup_service.get_service", return_value=None):
-            result = await store_followup("u1", {"category": "health", "days_until_followup": 1, "original_message": "test"})
+        with patch(
+            "services.business.smart_followup_service.get_service", return_value=None
+        ):
+            result = await store_followup(
+                "u1",
+                {
+                    "category": "health",
+                    "days_until_followup": 1,
+                    "original_message": "test",
+                },
+            )
         assert result is False
 
     @pytest.mark.asyncio
     async def test_store_success(self):
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{"value": "[]"}])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[{"value": "[]"}]
+        )
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
-        with patch("services.business.smart_followup_service.get_service", return_value=mock_db):
-            result = await store_followup("u1", {"category": "health", "days_until_followup": 1, "original_message": "test"})
+        with patch(
+            "services.business.smart_followup_service.get_service", return_value=mock_db
+        ):
+            result = await store_followup(
+                "u1",
+                {
+                    "category": "health",
+                    "days_until_followup": 1,
+                    "original_message": "test",
+                },
+            )
         assert result is True
 
     @pytest.mark.asyncio
@@ -107,7 +128,9 @@ class TestStoreFollowup:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("DB error")
-        with patch("services.business.smart_followup_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.smart_followup_service.get_service", return_value=mock_db
+        ):
             result = await store_followup("u1", {"category": "test"})
         assert result is False
 
@@ -115,18 +138,41 @@ class TestStoreFollowup:
 class TestCheckPending:
     @pytest.mark.asyncio
     async def test_no_followups(self):
-        with patch("services.business.smart_followup_service._load_followups", new_callable=AsyncMock, return_value=[]):
+        with patch(
+            "services.business.smart_followup_service._load_followups",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
             result = await check_pending_followups("u1")
         assert result == []
 
     @pytest.mark.asyncio
     async def test_pending_found(self):
         followups = [
-            {"id": "fu_1", "followup_at": time.time() - 100, "done": False, "category": "health"},
-            {"id": "fu_2", "followup_at": time.time() + 86400, "done": False, "category": "travel"},
-            {"id": "fu_3", "followup_at": time.time() - 200, "done": True, "category": "career"},
+            {
+                "id": "fu_1",
+                "followup_at": time.time() - 100,
+                "done": False,
+                "category": "health",
+            },
+            {
+                "id": "fu_2",
+                "followup_at": time.time() + 86400,
+                "done": False,
+                "category": "travel",
+            },
+            {
+                "id": "fu_3",
+                "followup_at": time.time() - 200,
+                "done": True,
+                "category": "career",
+            },
         ]
-        with patch("services.business.smart_followup_service._load_followups", new_callable=AsyncMock, return_value=followups):
+        with patch(
+            "services.business.smart_followup_service._load_followups",
+            new_callable=AsyncMock,
+            return_value=followups,
+        ):
             result = await check_pending_followups("u1")
         assert len(result) == 1
         assert result[0]["id"] == "fu_1"
@@ -141,8 +187,15 @@ class TestMarkDone:
         mock_db.get_client.return_value.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
         with (
-            patch("services.business.smart_followup_service._load_followups", new_callable=AsyncMock, return_value=followups),
-            patch("services.business.smart_followup_service.get_service", return_value=mock_db),
+            patch(
+                "services.business.smart_followup_service._load_followups",
+                new_callable=AsyncMock,
+                return_value=followups,
+            ),
+            patch(
+                "services.business.smart_followup_service.get_service",
+                return_value=mock_db,
+            ),
         ):
             await mark_followup_done("u1", "fu_1")
         assert followups[0]["done"] is True
@@ -150,7 +203,11 @@ class TestMarkDone:
     @pytest.mark.asyncio
     async def test_mark_done_exception(self):
         with (
-            patch("services.business.smart_followup_service._load_followups", new_callable=AsyncMock, side_effect=Exception("err")),
+            patch(
+                "services.business.smart_followup_service._load_followups",
+                new_callable=AsyncMock,
+                side_effect=Exception("err"),
+            ),
         ):
             await mark_followup_done("u1", "fu_1")  # Should not raise
 
@@ -188,8 +245,12 @@ class TestFallbackFollowup:
 class TestGenerateFollowupMessage:
     @pytest.mark.asyncio
     async def test_fallback(self):
-        with patch("services.business.smart_followup_service.get_service", return_value=None):
-            msg = await generate_followup_message("João", {"category": "health", "original_message": "médico"})
+        with patch(
+            "services.business.smart_followup_service.get_service", return_value=None
+        ):
+            msg = await generate_followup_message(
+                "João", {"category": "health", "original_message": "médico"}
+            )
         assert len(msg) > 10
 
     @pytest.mark.asyncio
@@ -197,15 +258,22 @@ class TestGenerateFollowupMessage:
         mock_openai = MagicMock()
         mock_openai.is_initialized.return_value = True
         mock_openai.chat_completion.return_value = "Oi João! Como foi no médico? 🏥"
-        with patch("services.business.smart_followup_service.get_service", return_value=mock_openai):
-            msg = await generate_followup_message("João", {"category": "health", "original_message": "médico"})
+        with patch(
+            "services.business.smart_followup_service.get_service",
+            return_value=mock_openai,
+        ):
+            msg = await generate_followup_message(
+                "João", {"category": "health", "original_message": "médico"}
+            )
         assert "médico" in msg.lower()
 
 
 class TestLoadFollowups:
     @pytest.mark.asyncio
     async def test_no_db(self):
-        with patch("services.business.smart_followup_service.get_service", return_value=None):
+        with patch(
+            "services.business.smart_followup_service.get_service", return_value=None
+        ):
             assert await _load_followups("u1") == []
 
     @pytest.mark.asyncio
@@ -215,7 +283,9 @@ class TestLoadFollowups:
         mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"value": '[{"id": "fu_1", "category": "health"}]'}]
         )
-        with patch("services.business.smart_followup_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.smart_followup_service.get_service", return_value=mock_db
+        ):
             result = await _load_followups("u1")
         assert len(result) == 1
 
@@ -224,5 +294,7 @@ class TestLoadFollowups:
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
         mock_db.get_client.side_effect = Exception("err")
-        with patch("services.business.smart_followup_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.smart_followup_service.get_service", return_value=mock_db
+        ):
             assert await _load_followups("u1") == []

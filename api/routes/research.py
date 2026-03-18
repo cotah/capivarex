@@ -4,6 +4,7 @@ Research Routes - Refactored to use services.
 Endpoints for web search, deep research, and text summarization via
 the registered ``perplexity`` service from the refactored service registry.
 """
+
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -23,8 +24,10 @@ router = APIRouter()
 # SCHEMAS
 # ============================================
 
+
 class DeepResearchRequest(BaseModel):
     """Request body for the deep research endpoint."""
+
     topic: str
     queries: List[str]
     model: Optional[str] = "sonar-pro"
@@ -32,6 +35,7 @@ class DeepResearchRequest(BaseModel):
 
 class SummarizeRequest(BaseModel):
     """Request body for the summarize endpoint."""
+
     texts: List[str]
     max_length: Optional[int] = 500
 
@@ -40,11 +44,13 @@ class SummarizeRequest(BaseModel):
 # HELPERS
 # ============================================
 
+
 async def _get_perplexity_service():
     """Resolve and lazily initialise the perplexity service."""
     service = get_service("perplexity")
     if service is None:
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=503,
             detail="Perplexity service is not available",
@@ -57,6 +63,7 @@ async def _get_perplexity_service():
 # ============================================
 # ENDPOINTS
 # ============================================
+
 
 @router.get("/search")
 @limiter.limit("10/minute")

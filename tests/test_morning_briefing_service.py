@@ -1,4 +1,5 @@
 """Tests for morning briefing and meeting briefing services."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -32,20 +33,25 @@ class TestMorningBriefing:
         """Test briefing generation with mocked services."""
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
 
         mock_weather = MagicMock()
         mock_weather.is_initialized.return_value = True
         mock_weather.get_current_weather.return_value = {
-            "temperature": 12, "description": "partly cloudy"
+            "temperature": 12,
+            "description": "partly cloudy",
         }
 
         mock_calendar = MagicMock()
         mock_calendar.is_initialized.return_value = True
-        mock_calendar.async_get_today_events = AsyncMock(return_value=[
-            {"time": "09:00", "summary": "Team standup"},
-            {"time": "14:00", "summary": "Client call"},
-        ])
+        mock_calendar.async_get_today_events = AsyncMock(
+            return_value=[
+                {"time": "09:00", "summary": "Team standup"},
+                {"time": "14:00", "summary": "Client call"},
+            ]
+        )
 
         mock_finance = MagicMock()
         mock_finance.is_initialized.return_value = True
@@ -64,7 +70,9 @@ class TestMorningBriefing:
                 "notification": None,
             }.get(name)
 
-        with patch("services.business.morning_briefing_service.get_service", fake_get_service):
+        with patch(
+            "services.business.morning_briefing_service.get_service", fake_get_service
+        ):
             result = await generate_morning_briefing(
                 user_id="test-user-123",
                 user_name="Marcos Silva",
@@ -86,7 +94,10 @@ class TestMorningBriefing:
             data=[{"id": "already-sent"}]
         )
 
-        with patch("services.business.morning_briefing_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.morning_briefing_service.get_service",
+            return_value=mock_db,
+        ):
             result = await generate_morning_briefing(
                 user_id="test-user-123",
                 user_name="Marcos",
@@ -99,7 +110,9 @@ class TestMorningBriefing:
         """Test briefing with empty calendar."""
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
 
         mock_calendar = MagicMock()
         mock_calendar.is_initialized.return_value = True
@@ -115,7 +128,9 @@ class TestMorningBriefing:
                 "notification": None,
             }.get(name)
 
-        with patch("services.business.morning_briefing_service.get_service", fake_get_service):
+        with patch(
+            "services.business.morning_briefing_service.get_service", fake_get_service
+        ):
             result = await generate_morning_briefing(
                 user_id="test-user-456",
                 user_name="Ana",
@@ -132,34 +147,49 @@ class TestMorningBriefingHelpers:
     @pytest.mark.asyncio
     async def test_get_weather_no_service(self):
         from services.business.morning_briefing_service import _get_weather
-        with patch("services.business.morning_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.morning_briefing_service.get_service", return_value=None
+        ):
             result = await _get_weather("Dublin")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_get_today_events_no_service(self):
         from services.business.morning_briefing_service import _get_today_events
-        with patch("services.business.morning_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.morning_briefing_service.get_service", return_value=None
+        ):
             result = await _get_today_events("user-123")
         assert result == []
 
     @pytest.mark.asyncio
     async def test_get_finance_no_service(self):
         from services.business.morning_briefing_service import _get_finance_summary
-        with patch("services.business.morning_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.morning_briefing_service.get_service", return_value=None
+        ):
             result = await _get_finance_summary("user-123")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_store_briefing_no_db(self):
         from services.business.morning_briefing_service import _store_briefing
-        with patch("services.business.morning_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.morning_briefing_service.get_service", return_value=None
+        ):
             await _store_briefing("user-123", "title", "msg")  # Should not crash
 
     @pytest.mark.asyncio
     async def test_briefing_sent_today_no_db(self):
         from services.business.morning_briefing_service import _briefing_sent_today
-        with patch("services.business.morning_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.morning_briefing_service.get_service", return_value=None
+        ):
             result = await _briefing_sent_today("user-123")
         assert result is False
 
@@ -168,8 +198,12 @@ class TestMorningBriefingHelpers:
         """Test briefing includes crypto data."""
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
-        mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+        mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
 
         mock_crypto = MagicMock()
         mock_crypto.is_initialized.return_value = True

@@ -15,8 +15,10 @@ def requires_permission(permission: str):
     Decorator que verifica se o contexto do usuario (e seu device ativo)
     possui a permissao necessaria para executar a funcao.
     """
+
     def decorator(func):
         """Wrap *func* with a permission check before execution."""
+
         @wraps(func)
         async def wrapper(*args, **kwargs):
             """Execute *func* only if the active device holds the required permission."""
@@ -28,7 +30,9 @@ def requires_permission(permission: str):
                     break
 
             if not user_context:
-                raise ValueError("Funcao protegida por permissao chamada sem UserContext")
+                raise ValueError(
+                    "Funcao protegida por permissao chamada sem UserContext"
+                )
 
             # Assume que o device ativo e o primeiro da lista (simplificacao)
             active_device = user_context.devices[0] if user_context.devices else None
@@ -45,5 +49,7 @@ def requires_permission(permission: str):
                 raise PermissionDeniedError(
                     f"Permissao '{permission}' necessaria, mas nao encontrada."
                 )
+
         return wrapper
+
     return decorator

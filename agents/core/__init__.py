@@ -14,7 +14,7 @@ from .agent_registry import (
     registry,
     register_agent,
     get_agent,
-    list_agents
+    list_agents,
 )
 
 __all__ = [

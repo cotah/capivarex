@@ -1,4 +1,5 @@
 """Tests for meeting briefing service."""
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -23,7 +24,9 @@ class TestMeetingBriefing:
             "description": "Weekly sync on project status",
         }
 
-        with patch("services.business.meeting_briefing_service.get_service", return_value=None):
+        with patch(
+            "services.business.meeting_briefing_service.get_service", return_value=None
+        ):
             result = await _generate_meeting_briefing("user-123", event, 2.0)
 
         assert result is not None
@@ -38,7 +41,9 @@ class TestMeetingBriefing:
             "start": (datetime.now(timezone.utc) + timedelta(hours=1.5)).isoformat(),
         }
 
-        with patch("services.business.meeting_briefing_service.get_service", return_value=None):
+        with patch(
+            "services.business.meeting_briefing_service.get_service", return_value=None
+        ):
             result = await _generate_meeting_briefing("user-123", event, 1.5)
 
         assert result is not None
@@ -47,7 +52,9 @@ class TestMeetingBriefing:
     @pytest.mark.asyncio
     async def test_check_upcoming_no_calendar(self):
         """Test with no calendar service."""
-        with patch("services.business.meeting_briefing_service.get_service", return_value=None):
+        with patch(
+            "services.business.meeting_briefing_service.get_service", return_value=None
+        ):
             result = await check_upcoming_meetings("user-123")
         assert result == []
 
@@ -58,7 +65,10 @@ class TestMeetingBriefing:
         mock_cal.is_initialized.return_value = True
         mock_cal.async_get_today_events = AsyncMock(return_value=[])
 
-        with patch("services.business.meeting_briefing_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.meeting_briefing_service.get_service",
+            return_value=mock_cal,
+        ):
             result = await check_upcoming_meetings("user-123")
         assert result == []
 
@@ -68,19 +78,25 @@ class TestMeetingBriefing:
         meeting_time = datetime.now(timezone.utc) + timedelta(hours=2)
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_today_events = AsyncMock(return_value=[
-            {
-                "id": "evt-123",
-                "summary": "Client call",
-                "start": meeting_time.isoformat(),
-            },
-        ])
+        mock_cal.async_get_today_events = AsyncMock(
+            return_value=[
+                {
+                    "id": "evt-123",
+                    "summary": "Client call",
+                    "start": meeting_time.isoformat(),
+                },
+            ]
+        )
 
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
         # For insert
-        mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.get_client.return_value.table.return_value.insert.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
 
         def fake_svc(name):
             if name == "calendar":
@@ -101,11 +117,16 @@ class TestMeetingBriefing:
         meeting_time = datetime.now(timezone.utc) + timedelta(hours=5)
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_today_events = AsyncMock(return_value=[
-            {"summary": "Later meeting", "start": meeting_time.isoformat()},
-        ])
+        mock_cal.async_get_today_events = AsyncMock(
+            return_value=[
+                {"summary": "Later meeting", "start": meeting_time.isoformat()},
+            ]
+        )
 
-        with patch("services.business.meeting_briefing_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.meeting_briefing_service.get_service",
+            return_value=mock_cal,
+        ):
             result = await check_upcoming_meetings("user-123")
         assert result == []
 
@@ -120,9 +141,11 @@ class TestMeetingBriefing:
 
         mock_rag = MagicMock()
         mock_rag.is_initialized.return_value = True
-        mock_rag.search = AsyncMock(return_value=[
-            {"content": "Last budget meeting: agreed to cut Q3 spending by 10%"},
-        ])
+        mock_rag.search = AsyncMock(
+            return_value=[
+                {"content": "Last budget meeting: agreed to cut Q3 spending by 10%"},
+            ]
+        )
 
         def fake_svc(name):
             return mock_rag if name == "rag" else None
@@ -142,11 +165,16 @@ class TestMeetingBriefingEdgeCases:
         """All-day events (no time) are skipped."""
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_today_events = AsyncMock(return_value=[
-            {"summary": "Holiday", "start": "2026-03-16"},  # No T = all-day
-        ])
+        mock_cal.async_get_today_events = AsyncMock(
+            return_value=[
+                {"summary": "Holiday", "start": "2026-03-16"},  # No T = all-day
+            ]
+        )
 
-        with patch("services.business.meeting_briefing_service.get_service", return_value=mock_cal):
+        with patch(
+            "services.business.meeting_briefing_service.get_service",
+            return_value=mock_cal,
+        ):
             result = await check_upcoming_meetings("user-123")
         assert result == []
 
@@ -156,9 +184,15 @@ class TestMeetingBriefingEdgeCases:
         meeting_time = datetime.now(timezone.utc) + timedelta(hours=2)
         mock_cal = MagicMock()
         mock_cal.is_initialized.return_value = True
-        mock_cal.async_get_today_events = AsyncMock(return_value=[
-            {"id": "evt-456", "summary": "Repeat meeting", "start": meeting_time.isoformat()},
-        ])
+        mock_cal.async_get_today_events = AsyncMock(
+            return_value=[
+                {
+                    "id": "evt-456",
+                    "summary": "Repeat meeting",
+                    "start": meeting_time.isoformat(),
+                },
+            ]
+        )
 
         mock_db = MagicMock()
         mock_db.is_initialized.return_value = True
@@ -185,19 +219,28 @@ class TestMeetingBriefingHelpers:
     @pytest.mark.asyncio
     async def test_briefing_sent_no_db(self):
         from services.business.meeting_briefing_service import _briefing_sent_for_event
-        with patch("services.business.meeting_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.meeting_briefing_service.get_service", return_value=None
+        ):
             result = await _briefing_sent_for_event("u1", "evt-1")
         assert result is False
 
     @pytest.mark.asyncio
     async def test_store_briefing_no_db(self):
         from services.business.meeting_briefing_service import _store_briefing
-        with patch("services.business.meeting_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.meeting_briefing_service.get_service", return_value=None
+        ):
             await _store_briefing("u1", "evt-1", {"title": "t", "message": "m"})
 
     @pytest.mark.asyncio
     async def test_get_context_no_rag(self):
         from services.business.meeting_briefing_service import _get_meeting_context
-        with patch("services.business.meeting_briefing_service.get_service", return_value=None):
+
+        with patch(
+            "services.business.meeting_briefing_service.get_service", return_value=None
+        ):
             result = await _get_meeting_context("u1", "Budget review", [])
         assert result is None

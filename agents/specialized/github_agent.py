@@ -225,9 +225,9 @@ class GitHubAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.ERROR,
             response=(
-                f"📂 Nenhum repositório Git encontrado em `{path}`.\n\n"
-                "Para começar, usa um destes comandos:\n"
-                '• "crie um repositório chamado meu-projeto"\n'
+                f"📂 No Git repository found at `{path}`.\n\n"
+                "To get started, use one of these commands:\n"
+                '• "create a repository named my-project"\n'
                 '• "clone https://github.com/user/repo"'
             ),
             error="No git repository at path",
@@ -247,7 +247,7 @@ class GitHubAgent(BaseAgent):
             if not git_svc:
                 return AgentResponse(
                     status=AgentStatus.ERROR,
-                    response="Serviço Git não disponível no momento.",
+                    response="Git service is not currently available.",
                     error="Git service not available",
                 )
 
@@ -274,7 +274,7 @@ class GitHubAgent(BaseAgent):
             self.logger.error("GitHub agent failed: %s", e, exc_info=True)
             return AgentResponse(
                 status=AgentStatus.ERROR,
-                response=f"Erro ao executar operação Git: {str(e)}",
+                response=f"Error executing Git operation: {str(e)}",
                 error=str(e),
             )
 
@@ -291,8 +291,8 @@ class GitHubAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "Por favor, especifique o nome do repositório.\n"
-                    "Exemplo: 'crie um repositório chamado meu-projeto'"
+                    "Please specify the repository name.\n"
+                    "Example: 'create a repository named my-project'"
                 ),
             )
 
@@ -341,14 +341,14 @@ class GitHubAgent(BaseAgent):
                                 return AgentResponse(
                                     status=AgentStatus.ERROR,
                                     response=(
-                                        f"⚠️ O repositório **{repo_name}** já existe na sua conta GitHub.\n"
-                                        "Escolha outro nome ou use 'clone' para clonar o existente."
+                                        f"⚠️ Repository **{repo_name}** already exists on your GitHub account.\n"
+                                        "Choose another name or use 'clone' to clone the existing one."
                                     ),
                                 )
                             msg = data.get("message", "")
                             return AgentResponse(
                                 status=AgentStatus.ERROR,
-                                response=f"⚠️ GitHub recusou: {msg}",
+                                response=f"⚠️ GitHub refused: {msg}",
                             )
                         else:
                             self.logger.warning("GitHub API %d: %s", resp.status, data)
@@ -366,10 +366,10 @@ class GitHubAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=(
-                        f"✅ Repositório **{repo_name}** criado com sucesso!\n\n"
+                        f"✅ Repository **{repo_name}** created successfully!\n\n"
                         f"🐙 GitHub: {github_url}\n"
                         f"📂 Local: `{result['path']}`\n\n"
-                        "O repositório já está pronto para uso com push/pull."
+                        "The repository is ready for push/pull."
                     ),
                     data={"github_url": github_url, "path": result["path"]},
                 )
@@ -378,9 +378,9 @@ class GitHubAgent(BaseAgent):
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=(
-                        f"✅ Repositório **{repo_name}** criado no GitHub!\n\n"
+                        f"✅ Repository **{repo_name}** created on GitHub!\n\n"
                         f"🐙 GitHub: {github_url}\n\n"
-                        f"⚠️ Clone local falhou ({e}), mas o repo está no GitHub."
+                        f"⚠️ Local clone failed ({e}), but the repo is on GitHub."
                     ),
                     data={"github_url": github_url},
                 )
@@ -388,13 +388,13 @@ class GitHubAgent(BaseAgent):
         # ── 3. Fallback: só local (se não tem token) ─────────────────
         result = git_svc.init_repo(local_path)
         response_text = (
-            f"✅ Repositório **{repo_name}** criado localmente!\n"
-            f"📂 Caminho: `{result['path']}`"
+            f"✅ Repository **{repo_name}** created locally!\n"
+            f"📂 Path: `{result['path']}`"
         )
         if not github_token:
             response_text += (
-                "\n\n⚠️ GITHUB_TOKEN não configurado — repo criado apenas localmente."
-                "\nPara criar no GitHub.com, configure a variável GITHUB_TOKEN."
+                "\n\n⚠️ GITHUB_TOKEN not configured — repository created locally only."
+                "\nTo create on GitHub.com, set the GITHUB_TOKEN environment variable."
             )
 
         return AgentResponse(
@@ -412,8 +412,8 @@ class GitHubAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "Por favor, especifique a mensagem do commit.\n"
-                    "Exemplo: 'faça um commit com a mensagem \"fix: bug corrigido\"'"
+                    "Please specify the commit message.\n"
+                    "Example: 'make a commit with message \"fix: bug fixed\"'"
                 ),
             )
 
@@ -427,9 +427,9 @@ class GitHubAgent(BaseAgent):
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=(
-                f"✅ Commit criado com sucesso!\n\n"
+                f"✅ Commit created successfully!\n\n"
                 f"🔑 SHA: `{result['commit'][:8]}`\n"
-                f"💬 Mensagem: {commit_message}"
+                f"💬 Message: {commit_message}"
             ),
             data=result,
         )
@@ -454,30 +454,30 @@ class GitHubAgent(BaseAgent):
         modified = result.get("modified", [])
         staged = result.get("staged", [])
 
-        lines = ["📊 **Status do Repositório**\n", f"🌿 Branch: `{branch}`\n"]
+        lines = ["📊 **Repository Status**\n", f"🌿 Branch: `{branch}`\n"]
 
         if not is_dirty and not untracked:
-            lines.append("✅ Working tree limpa — nada para commitar.")
+            lines.append("✅ Clean working tree — nothing to commit.")
         else:
             if staged:
-                lines.append("**Staged (prontos para commit):**")
+                lines.append("**Staged (ready to commit):**")
                 for f in staged[:15]:
                     lines.append(f"  ✅ `{f}`")
                 lines.append("")
 
             if modified:
-                lines.append("**Modificados (não staged):**")
+                lines.append("**Modified (not staged):**")
                 for f in modified[:15]:
                     lines.append(f"  📝 `{f}`")
                 lines.append("")
 
             if untracked:
-                lines.append("**Não rastreados:**")
+                lines.append("**Untracked:**")
                 for f in untracked[:15]:
                     lines.append(f"  ❓ `{f}`")
 
             total = len(staged) + len(modified) + len(untracked)
-            lines.append(f"\n📈 Total: {total} arquivo(s) com mudanças")
+            lines.append(f"\n📈 Total: {total} file(s) with changes")
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -501,10 +501,10 @@ class GitHubAgent(BaseAgent):
         if not commits:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response="Nenhum commit encontrado.",
+                response="No commits found.",
             )
 
-        log_text = "📜 **Últimos Commits:**\n\n"
+        log_text = "📜 **Recent Commits:**\n\n"
         for commit in commits:
             # FIX: Service usa 'sha' não 'hash'
             sha = commit.get("sha", "?")
@@ -528,8 +528,8 @@ class GitHubAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "Por favor, especifique o nome da branch.\n"
-                    "Exemplo: 'crie uma branch feature/nova-funcionalidade'"
+                    "Please specify the branch name.\n"
+                    "Example: 'create a branch feature/new-feature'"
                 ),
             )
 
@@ -542,7 +542,7 @@ class GitHubAgent(BaseAgent):
         result = git_svc.create_branch(project_path, branch_name)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=f"✅ Branch **{branch_name}** criada com sucesso!",
+            response=f"✅ Branch **{branch_name}** created successfully!",
             data=result,
         )
 
@@ -555,8 +555,8 @@ class GitHubAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "Por favor, especifique o nome da branch.\n"
-                    "Exemplo: 'mude para a branch develop'"
+                    "Please specify the branch name.\n"
+                    "Example: 'switch to the develop branch'"
                 ),
             )
 
@@ -569,7 +569,7 @@ class GitHubAgent(BaseAgent):
         result = git_svc.checkout(project_path, branch_name)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=f"✅ Branch **{branch_name}** ativada!",
+            response=f"✅ Branch **{branch_name}** activated!",
             data=result,
         )
 
@@ -587,7 +587,7 @@ class GitHubAgent(BaseAgent):
         result = git_svc.push(project_path, "origin", branch_name)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response="✅ Push realizado com sucesso para o GitHub!",
+            response="✅ Push completed successfully to GitHub!",
             data=result,
         )
 
@@ -604,7 +604,7 @@ class GitHubAgent(BaseAgent):
         result = git_svc.pull(project_path)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response="✅ Pull realizado com sucesso!",
+            response="✅ Pull completed successfully!",
             data=result,
         )
 
@@ -617,8 +617,8 @@ class GitHubAgent(BaseAgent):
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=(
-                    "Por favor, especifique a URL do repositório.\n"
-                    "Exemplo: 'clone https://github.com/user/repo'"
+                    "Please specify the repository URL.\n"
+                    "Example: 'clone https://github.com/user/repo'"
                 ),
             )
 
@@ -633,7 +633,7 @@ class GitHubAgent(BaseAgent):
         result = git_svc.clone(repo_url, target_path)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=f"✅ Repositório clonado com sucesso em `{result['path']}`!",
+            response=f"✅ Repository cloned successfully to `{result['path']}`!",
             data=result,
         )
 
@@ -642,25 +642,25 @@ class GitHubAgent(BaseAgent):
     ) -> AgentResponse:
         """Show help message."""
         help_text = (
-            "🐙 **GitHub Agent — Comandos Disponíveis**\n\n"
-            "**Repositórios:**\n"
-            '• "crie um repositório chamado [nome]"\n'
+            "🐙 **GitHub Agent — Available Commands**\n\n"
+            "**Repositories:**\n"
+            '• "create a repository named [name]"\n'
             '• "clone [url]"\n\n'
             "**Commits:**\n"
-            "• \"faça um commit com a mensagem '[msg]'\"\n"
-            '• "mostre o status"\n'
-            '• "liste os últimos commits"\n\n'
+            "• \"make a commit with message '[msg]'\"\n"
+            '• "show status"\n'
+            '• "list recent commits"\n\n'
             "**Branches:**\n"
-            '• "crie uma branch [nome]"\n'
-            '• "mude para a branch [nome]"\n\n'
-            "**Sincronização:**\n"
-            '• "faça push para o GitHub"\n'
-            '• "faça pull do GitHub"\n\n'
-            "**Exemplos:**\n"
-            '• "crie um repositório chamado meu-app"\n'
-            "• \"faça um commit com a mensagem 'feat: nova funcionalidade'\"\n"
-            '• "crie uma branch feature/login"\n'
-            '• "faça push para o GitHub"'
+            '• "create a branch [name]"\n'
+            '• "switch to the [name] branch"\n\n'
+            "**Sync:**\n"
+            '• "push to GitHub"\n'
+            '• "pull from GitHub"\n\n'
+            "**Examples:**\n"
+            '• "create a repository named my-app"\n'
+            "• \"make a commit with message 'feat: new feature'\"\n"
+            '• "create a branch feature/login"\n'
+            '• "push to GitHub"'
         )
         return AgentResponse(
             status=AgentStatus.SUCCESS,

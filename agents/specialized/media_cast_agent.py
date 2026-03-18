@@ -56,14 +56,11 @@ class MediaCastAgent(BaseAgent):
         super().__init__(
             name="media_cast",
             description=(
-                "Play content on TV, cast YouTube videos, "
-                "turn on/off TV, media control"
+                "Play content on TV, cast YouTube videos, turn on/off TV, media control"
             ),
         )
 
-    async def execute(
-        self, prompt: str, context: Dict[str, Any]
-    ) -> AgentResponse:
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> AgentResponse:
         lang = get_user_lang(context)
         texto = prompt.strip()
 
@@ -93,9 +90,7 @@ class MediaCastAgent(BaseAgent):
         if search_query:
             videos = await self._search_youtube(search_query, lang)
             if videos:
-                msg = self._build_cast_response(
-                    videos, search_query, tv_result, lang
-                )
+                msg = self._build_cast_response(videos, search_query, tv_result, lang)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=msg,
@@ -107,9 +102,7 @@ class MediaCastAgent(BaseAgent):
             else:
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
-                    response=t(
-                        "media_no_results", lang=lang, query=search_query
-                    ),
+                    response=t("media_no_results", lang=lang, query=search_query),
                 )
 
         # ── 3. Just turn on TV (no content) ───────────────────
@@ -125,18 +118,14 @@ class MediaCastAgent(BaseAgent):
             response=t("media_cast_help", lang=lang),
         )
 
-    async def _turn_on_tv(
-        self, context: Dict[str, Any], lang: str
-    ) -> Optional[str]:
+    async def _turn_on_tv(self, context: Dict[str, Any], lang: str) -> Optional[str]:
         """Turn on TV via smart home agent if available."""
         try:
             from agents.core import get_agent
 
             smarthome = get_agent("smarthome")
             if smarthome:
-                result = await smarthome.process(
-                    "turn on the TV", context
-                )
+                result = await smarthome.process("turn on the TV", context)
                 if result.status == AgentStatus.SUCCESS:
                     return t("media_tv_turned_on", lang=lang)
         except Exception as e:
@@ -209,9 +198,7 @@ class MediaCastAgent(BaseAgent):
                 line += f" | 👁 {views}"
 
             url = video_url or (
-                f"https://www.youtube.com/watch?v={video_id}"
-                if video_id
-                else ""
+                f"https://www.youtube.com/watch?v={video_id}" if video_id else ""
             )
             if url:
                 line += f"\n   [▶️ {t('media_watch', lang=lang)}]({url})"

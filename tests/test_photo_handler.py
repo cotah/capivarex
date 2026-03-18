@@ -420,26 +420,13 @@ class TestClassifyPhoto:
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "candidates": [
-                {
-                    "content": {
-                        "parts": [
-                            {
-                                "text": (
-                                    "This is a supermarket"
-                                    " receipt"
-                                )
-                            }
-                        ]
-                    }
-                }
+                {"content": {"parts": [{"text": ("This is a supermarket receipt")}]}}
             ]
         }
 
         mock_http = AsyncMock()
         mock_http.post = AsyncMock(return_value=mock_resp)
-        mock_http.__aenter__ = AsyncMock(
-            return_value=mock_http
-        )
+        mock_http.__aenter__ = AsyncMock(return_value=mock_http)
         mock_http.__aexit__ = AsyncMock(return_value=False)
 
         with (
@@ -477,9 +464,7 @@ class TestClassifyPhoto:
 
         mock_http = AsyncMock()
         mock_http.post = AsyncMock(return_value=mock_resp)
-        mock_http.__aenter__ = AsyncMock(
-            return_value=mock_http
-        )
+        mock_http.__aenter__ = AsyncMock(return_value=mock_http)
         mock_http.__aexit__ = AsyncMock(return_value=False)
 
         with (
@@ -522,16 +507,12 @@ class TestClassifyPhoto:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "candidates": [
-                {"content": {"parts": [{"text": ""}]}}
-            ]
+            "candidates": [{"content": {"parts": [{"text": ""}]}}]
         }
 
         mock_http = AsyncMock()
         mock_http.post = AsyncMock(return_value=mock_resp)
-        mock_http.__aenter__ = AsyncMock(
-            return_value=mock_http
-        )
+        mock_http.__aenter__ = AsyncMock(return_value=mock_http)
         mock_http.__aexit__ = AsyncMock(return_value=False)
 
         with (
@@ -556,20 +537,15 @@ class TestClassifyPhoto:
         from telegram_bot.handlers.photo import handle_photo
 
         bot_mock = AsyncMock()
-        bot_mock.process_message = AsyncMock(
-            return_value=MagicMock()
-        )
+        bot_mock.process_message = AsyncMock(return_value=MagicMock())
 
         update = _make_update(caption="nota fiscal")
         ctx = _make_context(bot_instance=bot_mock)
 
         with (
+            patch("telegram_bot.handlers.photo.RequestProcessor") as MockRP,
             patch(
-                "telegram_bot.handlers.photo.RequestProcessor"
-            ) as MockRP,
-            patch(
-                "telegram_bot.handlers.photo"
-                ".send_agent_response",
+                "telegram_bot.handlers.photo.send_agent_response",
                 new_callable=AsyncMock,
             ),
             patch(
@@ -577,9 +553,7 @@ class TestClassifyPhoto:
                 new_callable=AsyncMock,
             ) as mock_classify,
         ):
-            MockRP.return_value.process = AsyncMock(
-                return_value=True
-            )
+            MockRP.return_value.process = AsyncMock(return_value=True)
             await handle_photo(update, ctx)
 
         mock_classify.assert_not_called()
@@ -594,25 +568,18 @@ class TestClassifyPhoto:
         from telegram_bot.handlers.photo import handle_photo
 
         bot_mock = AsyncMock()
-        bot_mock.process_message = AsyncMock(
-            return_value=MagicMock()
-        )
+        bot_mock.process_message = AsyncMock(return_value=MagicMock())
 
         update = _make_update(caption=None)
         ctx = _make_context(bot_instance=bot_mock)
 
         classify_result = (
-            "The user sent a photo. "
-            "This is a photo of food. "
-            "Process it accordingly."
+            "The user sent a photo. This is a photo of food. Process it accordingly."
         )
         with (
+            patch("telegram_bot.handlers.photo.RequestProcessor") as MockRP,
             patch(
-                "telegram_bot.handlers.photo.RequestProcessor"
-            ) as MockRP,
-            patch(
-                "telegram_bot.handlers.photo"
-                ".send_agent_response",
+                "telegram_bot.handlers.photo.send_agent_response",
                 new_callable=AsyncMock,
             ),
             patch(
@@ -621,9 +588,7 @@ class TestClassifyPhoto:
                 return_value=classify_result,
             ) as mock_classify,
         ):
-            MockRP.return_value.process = AsyncMock(
-                return_value=True
-            )
+            MockRP.return_value.process = AsyncMock(return_value=True)
             await handle_photo(update, ctx)
 
         mock_classify.assert_awaited_once()

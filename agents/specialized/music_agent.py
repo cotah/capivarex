@@ -146,9 +146,7 @@ def _format_number(n: int) -> str:
     return str(n)
 
 
-def _format_tracks_response(
-    tracks: List[Dict], lang: str = "en"
-) -> str:
+def _format_tracks_response(tracks: List[Dict], lang: str = "en") -> str:
     """Format a list of tracks for Telegram."""
     if not tracks:
         return t("music_no_results", lang=lang)
@@ -156,19 +154,12 @@ def _format_tracks_response(
     listen = t("music_listen_on_spotify", lang=lang)
     lines = []
     for i, tr in enumerate(tracks, 1):
-        lines.append(
-            f"{i}. *{tr['name']}* — {tr['artists']} "
-            f"({tr['duration']})"
-        )
-        lines.append(
-            f"   [{listen}]({tr['spotify_url']})"
-        )
+        lines.append(f"{i}. *{tr['name']}* — {tr['artists']} ({tr['duration']})")
+        lines.append(f"   [{listen}]({tr['spotify_url']})")
     return "\n".join(lines)
 
 
-def _format_single_track(
-    track: Dict, lang: str = "en"
-) -> str:
+def _format_single_track(track: Dict, lang: str = "en") -> str:
     """Format a single track for Telegram."""
     listen = t("music_listen_on_spotify", lang=lang)
     popularity = t("music_popularity", lang=lang)
@@ -183,45 +174,24 @@ def _format_single_track(
     return "\n".join(lines)
 
 
-def _format_artist_response(
-    artist: Dict, lang: str = "en"
-) -> str:
+def _format_artist_response(artist: Dict, lang: str = "en") -> str:
     """Format artist info for Telegram."""
     lines = [f"🎤 *{artist['name']}*"]
     if artist.get("genres"):
         lines.append(f"🎸 {artist['genres']}")
-    if (
-        artist.get("followers")
-        and artist["followers"] > 0
-    ):
+    if artist.get("followers") and artist["followers"] > 0:
         followers = _format_number(artist["followers"])
-        followers_label = t(
-            "music_followers", lang=lang
-        )
-        lines.append(
-            f"👥 {followers} {followers_label}"
-        )
-    if (
-        artist.get("popularity")
-        and artist["popularity"] > 0
-    ):
-        popularity_label = t(
-            "music_popularity", lang=lang
-        )
-        lines.append(
-            f"⭐ {popularity_label}: "
-            f"{artist['popularity']}/100"
-        )
+        followers_label = t("music_followers", lang=lang)
+        lines.append(f"👥 {followers} {followers_label}")
+    if artist.get("popularity") and artist["popularity"] > 0:
+        popularity_label = t("music_popularity", lang=lang)
+        lines.append(f"⭐ {popularity_label}: {artist['popularity']}/100")
     view = t("music_view_on_spotify", lang=lang)
-    lines.append(
-        f"🔗 [{view}]({artist['spotify_url']})"
-    )
+    lines.append(f"🔗 [{view}]({artist['spotify_url']})")
     return "\n".join(lines)
 
 
-def _format_album_response(
-    album: Dict, lang: str = "en"
-) -> str:
+def _format_album_response(album: Dict, lang: str = "en") -> str:
     """Format album info for Telegram."""
     tracks_label = t("music_tracks_count", lang=lang)
     view = t("music_view_on_spotify", lang=lang)
@@ -289,35 +259,35 @@ class MusicAgent(BaseAgent):
 
             # ── Playback control (requires OAuth) ──────
             if action in (
-                "play_track", "pause", "next", "previous",
-                "volume", "now_playing", "add_to_playlist",
+                "play_track",
+                "pause",
+                "next",
+                "previous",
+                "volume",
+                "now_playing",
+                "add_to_playlist",
             ):
                 return await self._handle_playback(
-                    action, query, artist_name,
-                    context, lang,
+                    action,
+                    query,
+                    artist_name,
+                    context,
+                    lang,
                 )
 
             # ── Connect Spotify ───────────────────────
             if action == "connect_spotify":
-                return await self._handle_connect(
-                    context, lang
-                )
+                return await self._handle_connect(context, lang)
 
             # ── Dispatch (search/discovery) ───────────
             if action == "search_track":
-                return await self._search_tracks(
-                    spotify, query, lang, market
-                )
+                return await self._search_tracks(spotify, query, lang, market)
 
             if action == "search_artist":
-                return await self._search_artist(
-                    spotify, query, lang, market
-                )
+                return await self._search_artist(spotify, query, lang, market)
 
             if action == "search_album":
-                return await self._search_album(
-                    spotify, query, lang, market
-                )
+                return await self._search_album(spotify, query, lang, market)
 
             if action == "artist_top_tracks":
                 return await self._artist_top_tracks(
@@ -328,17 +298,13 @@ class MusicAgent(BaseAgent):
                 )
 
             if action == "recommendations":
-                return await self._recommendations(
-                    spotify, genre, lang, market
-                )
+                return await self._recommendations(spotify, genre, lang, market)
 
             if action == "genres":
                 return await self._list_genres(lang)
 
             # general_info fallback: search track
-            return await self._search_tracks(
-                spotify, query, lang, market
-            )
+            return await self._search_tracks(spotify, query, lang, market)
 
         except Exception as e:
             self.logger.error(
@@ -375,9 +341,7 @@ class MusicAgent(BaseAgent):
     # INTENT CLASSIFICATION
     # ──────────────────────────────────────────────────
 
-    async def _classify_intent(
-        self, message: str
-    ) -> Dict[str, Any]:
+    async def _classify_intent(self, message: str) -> Dict[str, Any]:
         """Use GPT to classify the music intent."""
         openai = get_service("openai")
         if not openai or not openai.is_initialized():
@@ -388,33 +352,24 @@ class MusicAgent(BaseAgent):
             }
 
         try:
-            filled_prompt = MUSIC_INTENT_PROMPT.replace(
-                "{message}", message
-            )
-            response = (
-                await openai.client.chat.completions.create(
-                    model=INTENT_MODEL,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": filled_prompt,
-                        },
-                    ],
-                    response_format={
-                        "type": "json_object"
+            filled_prompt = MUSIC_INTENT_PROMPT.replace("{message}", message)
+            response = await openai.client.chat.completions.create(
+                model=INTENT_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": filled_prompt,
                     },
-                    max_completion_tokens=200,
-                    temperature=0.0,
-                )
+                ],
+                response_format={"type": "json_object"},
+                max_completion_tokens=200,
+                temperature=0.0,
             )
-            text = (
-                response.choices[0].message.content or ""
-            )
+            text = response.choices[0].message.content or ""
             return json.loads(text)
         except Exception as e:
             self.logger.warning(
-                "Intent classification failed: %s — "
-                "defaulting to search_track",
+                "Intent classification failed: %s — defaulting to search_track",
                 e,
             )
             return {
@@ -433,9 +388,7 @@ class MusicAgent(BaseAgent):
         lang: str,
         market: str,
     ) -> AgentResponse:
-        tracks = await spotify.search_tracks(
-            query, limit=5
-        )
+        tracks = await spotify.search_tracks(query, limit=5)
         if not tracks:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
@@ -460,9 +413,7 @@ class MusicAgent(BaseAgent):
         lang: str,
         market: str,
     ) -> AgentResponse:
-        artists = await spotify.search_artists(
-            query, limit=1
-        )
+        artists = await spotify.search_artists(query, limit=1)
         if not artists:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
@@ -484,16 +435,11 @@ class MusicAgent(BaseAgent):
         artist_id = artist.get("id")
         if artist_id:
             try:
-                artist = await spotify.get_artist(
-                    artist_id
-                )
-                self.logger.debug(
-                    "Full artist profile: %s", artist
-                )
+                artist = await spotify.get_artist(artist_id)
+                self.logger.debug("Full artist profile: %s", artist)
             except Exception as exc:
                 self.logger.warning(
-                    "get_artist(%s) failed, using "
-                    "search data: %s",
+                    "get_artist(%s) failed, using search data: %s",
                     artist_id,
                     exc,
                 )
@@ -511,9 +457,7 @@ class MusicAgent(BaseAgent):
         lang: str,
         market: str,
     ) -> AgentResponse:
-        albums = await spotify.search_albums(
-            query, limit=3
-        )
+        albums = await spotify.search_albums(query, limit=3)
         if not albums:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
@@ -526,9 +470,7 @@ class MusicAgent(BaseAgent):
             )
         lines = []
         for a in albums:
-            lines.append(
-                _format_album_response(a, lang)
-            )
+            lines.append(_format_album_response(a, lang))
         text = "\n\n".join(lines)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
@@ -543,9 +485,7 @@ class MusicAgent(BaseAgent):
         lang: str,
         market: str,
     ) -> AgentResponse:
-        tracks = await spotify.get_artist_top_tracks(
-            artist_name, market=market
-        )
+        tracks = await spotify.get_artist_top_tracks(artist_name, market=market)
         if not tracks:
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
@@ -561,9 +501,7 @@ class MusicAgent(BaseAgent):
             lang=lang,
             artist=artist_name,
         )
-        text = header + _format_tracks_response(
-            tracks, lang
-        )
+        text = header + _format_tracks_response(tracks, lang)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
@@ -577,9 +515,7 @@ class MusicAgent(BaseAgent):
         lang: str,
         market: str,
     ) -> AgentResponse:
-        seed_genres = (
-            [genre] if genre else None
-        )
+        seed_genres = [genre] if genre else None
         tracks = await spotify.get_recommendations(
             seed_genres=seed_genres,
             limit=5,
@@ -594,47 +530,103 @@ class MusicAgent(BaseAgent):
                 ),
                 data={"tracks": []},
             )
-        header = t(
-            "music_recommendations_header", lang=lang
-        )
-        text = header + _format_tracks_response(
-            tracks, lang
-        )
+        header = t("music_recommendations_header", lang=lang)
+        text = header + _format_tracks_response(tracks, lang)
         return AgentResponse(
             status=AgentStatus.SUCCESS,
             response=text,
             data={"tracks": tracks},
         )
 
-    async def _list_genres(
-        self, lang: str
-    ) -> AgentResponse:
+    async def _list_genres(self, lang: str) -> AgentResponse:
         # Static list — /recommendations/available-genre-seeds
         # returns 404 with Client Credentials flow.
         genres = [
-            "acoustic", "afrobeat", "alt-rock",
-            "alternative", "ambient", "anime", "blues",
-            "bossa-nova", "brazil", "breakbeat",
-            "british", "chill", "classical", "club",
-            "comedy", "country", "dance", "deep-house",
-            "disco", "drum-and-bass", "dub", "dubstep",
-            "edm", "electro", "electronic", "emo",
-            "folk", "funk", "garage", "gospel",
-            "goth", "grindcore", "groove", "grunge",
-            "guitar", "happy", "hard-rock", "hardcore",
-            "hardstyle", "heavy-metal", "hip-hop",
-            "house", "indie", "indie-pop", "industrial",
-            "j-pop", "j-rock", "jazz", "k-pop",
-            "latin", "latino", "metal", "mpb",
-            "new-age", "opera", "pagode", "party",
-            "piano", "pop", "pop-film", "punk",
-            "punk-rock", "r-n-b", "rainy-day", "reggae",
-            "reggaeton", "rock", "rock-n-roll",
-            "romance", "sad", "samba", "sertanejo",
-            "show-tunes", "ska", "sleep", "soul",
-            "soundtracks", "spanish", "study",
-            "synth-pop", "tango", "techno", "trance",
-            "trip-hop", "world-music",
+            "acoustic",
+            "afrobeat",
+            "alt-rock",
+            "alternative",
+            "ambient",
+            "anime",
+            "blues",
+            "bossa-nova",
+            "brazil",
+            "breakbeat",
+            "british",
+            "chill",
+            "classical",
+            "club",
+            "comedy",
+            "country",
+            "dance",
+            "deep-house",
+            "disco",
+            "drum-and-bass",
+            "dub",
+            "dubstep",
+            "edm",
+            "electro",
+            "electronic",
+            "emo",
+            "folk",
+            "funk",
+            "garage",
+            "gospel",
+            "goth",
+            "grindcore",
+            "groove",
+            "grunge",
+            "guitar",
+            "happy",
+            "hard-rock",
+            "hardcore",
+            "hardstyle",
+            "heavy-metal",
+            "hip-hop",
+            "house",
+            "indie",
+            "indie-pop",
+            "industrial",
+            "j-pop",
+            "j-rock",
+            "jazz",
+            "k-pop",
+            "latin",
+            "latino",
+            "metal",
+            "mpb",
+            "new-age",
+            "opera",
+            "pagode",
+            "party",
+            "piano",
+            "pop",
+            "pop-film",
+            "punk",
+            "punk-rock",
+            "r-n-b",
+            "rainy-day",
+            "reggae",
+            "reggaeton",
+            "rock",
+            "rock-n-roll",
+            "romance",
+            "sad",
+            "samba",
+            "sertanejo",
+            "show-tunes",
+            "ska",
+            "sleep",
+            "soul",
+            "soundtracks",
+            "spanish",
+            "study",
+            "synth-pop",
+            "tango",
+            "techno",
+            "trance",
+            "trip-hop",
+            "world-music",
         ]
         header = t("music_genres_header", lang=lang)
         text = header + ", ".join(genres)
@@ -668,9 +660,7 @@ class MusicAgent(BaseAgent):
         token = await oauth.get_valid_token(user_id)
         if not token:
             # User not connected — prompt to connect
-            return await self._handle_connect(
-                context, lang
-            )
+            return await self._handle_connect(context, lang)
 
         from services.integrations.spotify_user_service import (
             SpotifyUserService,
@@ -681,9 +671,7 @@ class MusicAgent(BaseAgent):
         if action == "play_track":
             spotify = get_service("spotify")
             if spotify and spotify.is_initialized():
-                results = await spotify.search_tracks(
-                    query, limit=1
-                )
+                results = await spotify.search_tracks(query, limit=1)
                 if results:
                     track = results[0]
                     uri = track.get("uri", "")
@@ -725,48 +713,32 @@ class MusicAgent(BaseAgent):
             success = await player.pause()
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t(
-                    "music_paused", lang=lang
-                )
+                response=t("music_paused", lang=lang)
                 if success
-                else t(
-                    "music_pause_failed", lang=lang
-                ),
+                else t("music_pause_failed", lang=lang),
             )
 
         elif action == "next":
             success = await player.next_track()
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t(
-                    "music_next", lang=lang
-                )
+                response=t("music_next", lang=lang)
                 if success
-                else t(
-                    "music_next_failed", lang=lang
-                ),
+                else t("music_next_failed", lang=lang),
             )
 
         elif action == "previous":
             success = await player.previous_track()
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t(
-                    "music_previous", lang=lang
-                )
+                response=t("music_previous", lang=lang)
                 if success
-                else t(
-                    "music_previous_failed", lang=lang
-                ),
+                else t("music_previous_failed", lang=lang),
             )
 
         elif action == "volume":
             vol_match = re.search(r"(\d+)", query)
-            vol = (
-                int(vol_match.group(1))
-                if vol_match
-                else 50
-            )
+            vol = int(vol_match.group(1)) if vol_match else 50
             success = await player.set_volume(vol)
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
@@ -776,19 +748,14 @@ class MusicAgent(BaseAgent):
                     volume=vol,
                 )
                 if success
-                else t(
-                    "music_volume_failed", lang=lang
-                ),
+                else t("music_volume_failed", lang=lang),
             )
 
         elif action == "now_playing":
             info = await player.get_currently_playing()
             if info and info.get("item"):
                 item = info["item"]
-                artists = ", ".join(
-                    a["name"]
-                    for a in item.get("artists", [])
-                )
+                artists = ", ".join(a["name"] for a in item.get("artists", []))
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=t(
@@ -806,9 +773,7 @@ class MusicAgent(BaseAgent):
                 )
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t(
-                    "music_nothing_playing", lang=lang
-                ),
+                response=t("music_nothing_playing", lang=lang),
             )
 
         elif action == "add_to_playlist":
@@ -822,42 +787,28 @@ class MusicAgent(BaseAgent):
                     ),
                 )
             track_uri = info["item"].get("uri", "")
-            playlists = await player.get_playlists(
-                limit=1
-            )
+            playlists = await player.get_playlists(limit=1)
             if playlists:
-                success = await player.add_to_playlist(
-                    playlists[0]["id"], track_uri
-                )
+                success = await player.add_to_playlist(playlists[0]["id"], track_uri)
                 return AgentResponse(
                     status=AgentStatus.SUCCESS,
                     response=t(
                         "music_added_to_playlist",
                         lang=lang,
-                        track=info["item"].get(
-                            "name", ""
-                        ),
-                        playlist=playlists[0].get(
-                            "name", ""
-                        ),
+                        track=info["item"].get("name", ""),
+                        playlist=playlists[0].get("name", ""),
                     )
                     if success
-                    else t(
-                        "music_add_failed", lang=lang
-                    ),
+                    else t("music_add_failed", lang=lang),
                 )
             return AgentResponse(
                 status=AgentStatus.SUCCESS,
-                response=t(
-                    "music_no_playlists", lang=lang
-                ),
+                response=t("music_no_playlists", lang=lang),
             )
 
         return AgentResponse(
             status=AgentStatus.SUCCESS,
-            response=t(
-                "music_unknown_action", lang=lang
-            ),
+            response=t("music_unknown_action", lang=lang),
         )
 
     async def _handle_connect(

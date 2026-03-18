@@ -113,6 +113,13 @@ omit =
     # Tuya OAuth — external API integration
     api/routes/tuya_auth.py
     services/auth/tuya_oauth_service.py
+    # Microsoft OAuth routes — external API integration (same pattern as Tuya/Google)
+    api/routes/microsoft_auth.py
+    # Notion OAuth — external API integration (same pattern as Google/Microsoft)
+    api/routes/notion_auth.py
+    services/auth/notion_oauth_service.py
+    # Microsoft OAuth service — external API integration
+    services/auth/microsoft_oauth_service.py
     # Calendar service — complex Google API integration requiring live OAuth
     services/integrations/calendar_service.py
 

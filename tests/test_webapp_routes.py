@@ -143,13 +143,15 @@ class TestWebappChat:
 
     def test_chat_creates_conversation_and_returns_response(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").insert.return_value.execute.return_value = (
-            _make_supabase_result(
-                [{"id": "conv-uuid-1", "user_id": "user-1"}]
-            )
+        db.table(
+            "webapp_conversations"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-uuid-1", "user_id": "user-1"}]
         )
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-uuid-1"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-uuid-1"}]
         )
 
         orch_response = AgentResponse(
@@ -194,16 +196,18 @@ class TestWebappChat:
         db = _mock_db()
 
         # Conversation exists
-        db.table("webapp_conversations").select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "conv-existing"}])
+        db.table(
+            "webapp_conversations"
+        ).select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-existing"}]
         )
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-2"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-2"}]
         )
 
-        orch_response = AgentResponse(
-            status=AgentStatus.SUCCESS, response="weather"
-        )
+        orch_response = AgentResponse(status=AgentStatus.SUCCESS, response="weather")
         weather_response = AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Sunny, 22C",
@@ -246,7 +250,7 @@ class TestWebappChat:
         db = _mock_db()
         mock_quota = MagicMock()
         mock_quota.check_and_consume = AsyncMock(
-            side_effect=QuotaExceededError("gpt_tokens", 5000, 5000, "free")
+            side_effect=QuotaExceededError("gpt_tokens", 5000, 5000, "professional")
         )
 
         with (
@@ -267,18 +271,18 @@ class TestWebappChat:
     def test_chat_quota_service_unavailable_allows_through(self, app_client):
         """If QuotaService is None, chat proceeds normally."""
         db = _mock_db()
-        db.table("webapp_conversations").insert.return_value.execute.return_value = (
-            _make_supabase_result(
-                [{"id": "conv-no-quota", "user_id": "user-1"}]
-            )
+        db.table(
+            "webapp_conversations"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-no-quota", "user_id": "user-1"}]
         )
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-no-quota"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-no-quota"}]
         )
 
-        orch_response = AgentResponse(
-            status=AgentStatus.SUCCESS, response="chat"
-        )
+        orch_response = AgentResponse(status=AgentStatus.SUCCESS, response="chat")
         chat_response = AgentResponse(
             status=AgentStatus.SUCCESS,
             response="No quota check, still works",
@@ -326,35 +330,33 @@ class TestListConversations:
 
     def test_list_returns_conversations(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result(
-                [
-                    {
-                        "id": "c1",
-                        "title": "First chat",
-                        "updated_at": "2026-03-07T10:00:00Z",
-                        "created_at": "2026-03-07T09:00:00Z",
-                    }
-                ]
-            )
+        db.table(
+            "webapp_conversations"
+        ).select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "id": "c1",
+                    "title": "First chat",
+                    "updated_at": "2026-03-07T10:00:00Z",
+                    "created_at": "2026-03-07T09:00:00Z",
+                }
+            ]
         )
         # Batch messages query: .select().in_().order().execute()
-        db.table("webapp_messages").select.return_value.in_.return_value.order.return_value.execute.return_value = (
-            _make_supabase_result(
-                [
-                    {
-                        "conversation_id": "c1",
-                        "text": "Hello world",
-                        "created_at": "2026-03-07T10:00:00Z",
-                    }
-                ]
-            )
+        db.table(
+            "webapp_messages"
+        ).select.return_value.in_.return_value.order.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "conversation_id": "c1",
+                    "text": "Hello world",
+                    "created_at": "2026-03-07T10:00:00Z",
+                }
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/conversations", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/conversations", headers=_auth_header())
 
         assert resp.status_code == 200
         data = resp.json()
@@ -362,14 +364,14 @@ class TestListConversations:
 
     def test_list_empty(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "webapp_conversations"
+        ).select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/conversations", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/conversations", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json()["conversations"] == []
@@ -385,24 +387,22 @@ class TestCreateConversation:
 
     def test_create_returns_201(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").insert.return_value.execute.return_value = (
-            _make_supabase_result(
-                [
-                    {
-                        "id": "new-conv",
-                        "user_id": "user-1",
-                        "title": None,
-                        "created_at": "2026-03-07T10:00:00Z",
-                        "updated_at": "2026-03-07T10:00:00Z",
-                    }
-                ]
-            )
+        db.table(
+            "webapp_conversations"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "id": "new-conv",
+                    "user_id": "user-1",
+                    "title": None,
+                    "created_at": "2026-03-07T10:00:00Z",
+                    "updated_at": "2026-03-07T10:00:00Z",
+                }
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.post(
-                "/api/webapp/conversations", headers=_auth_header()
-            )
+            resp = app_client.post("/api/webapp/conversations", headers=_auth_header())
 
         assert resp.status_code == 201
         assert resp.json()["id"] == "new-conv"
@@ -418,28 +418,28 @@ class TestGetConversation:
 
     def test_get_returns_messages(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result(
-                [{"id": "c1", "title": "Test", "user_id": "user-1"}]
-            )
+        db.table(
+            "webapp_conversations"
+        ).select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "c1", "title": "Test", "user_id": "user-1"}]
         )
-        db.table("webapp_messages").select.return_value.eq.return_value.order.return_value.execute.return_value = (
-            _make_supabase_result(
-                [
-                    {
-                        "id": "m1",
-                        "role": "user",
-                        "text": "Hi",
-                        "created_at": "2026-03-07T10:00:00Z",
-                    },
-                    {
-                        "id": "m2",
-                        "role": "assistant",
-                        "text": "Hello!",
-                        "created_at": "2026-03-07T10:00:01Z",
-                    },
-                ]
-            )
+        db.table(
+            "webapp_messages"
+        ).select.return_value.eq.return_value.order.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "id": "m1",
+                    "role": "user",
+                    "text": "Hi",
+                    "created_at": "2026-03-07T10:00:00Z",
+                },
+                {
+                    "id": "m2",
+                    "role": "assistant",
+                    "text": "Hello!",
+                    "created_at": "2026-03-07T10:00:01Z",
+                },
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -454,8 +454,10 @@ class TestGetConversation:
 
     def test_get_not_found(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "webapp_conversations"
+        ).select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -497,7 +499,9 @@ class TestRenameConversation:
 
     def test_rename_returns_updated(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").update.return_value.eq.return_value.eq.return_value.execute.return_value = (
+        db.table(
+            "webapp_conversations"
+        ).update.return_value.eq.return_value.eq.return_value.execute.return_value = (
             _make_supabase_result(
                 [
                     {
@@ -521,7 +525,9 @@ class TestRenameConversation:
 
     def test_rename_not_found(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").update.return_value.eq.return_value.eq.return_value.execute.return_value = (
+        db.table(
+            "webapp_conversations"
+        ).update.return_value.eq.return_value.eq.return_value.execute.return_value = (
             _make_supabase_result([])
         )
 
@@ -553,13 +559,15 @@ class TestGroceryStats:
 
     def test_stats_with_data(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123456"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123456"}]
         )
-        db.table("mercado_compras").select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = (
-            _make_supabase_result(
-                [{"total": 50.0}, {"total": 75.5}, {"total": 62.0}]
-            )
+        db.table(
+            "mercado_compras"
+        ).select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = _make_supabase_result(
+            [{"total": 50.0}, {"total": 75.5}, {"total": 62.0}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -576,8 +584,10 @@ class TestGroceryStats:
 
     def test_stats_no_telegram_returns_zeros(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -592,11 +602,15 @@ class TestGroceryStats:
 
     def test_stats_no_purchases(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("mercado_compras").select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "mercado_compras"
+        ).select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -619,11 +633,15 @@ class TestGroceryMonthly:
 
     def test_monthly_returns_list(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("mercado_compras").select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = (
-            _make_supabase_result([{"total": 100.0}])
+        db.table(
+            "mercado_compras"
+        ).select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = _make_supabase_result(
+            [{"total": 100.0}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -637,8 +655,10 @@ class TestGroceryMonthly:
 
     def test_monthly_no_telegram(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -661,17 +681,19 @@ class TestGroceryStores:
 
     def test_stores_with_data(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("mercado_compras").select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = (
-            _make_supabase_result(
-                [
-                    {"mercado": "Lidl", "total": 67.30},
-                    {"mercado": "Lidl", "total": 40.00},
-                    {"mercado": "Dunnes", "total": 55.20},
-                ]
-            )
+        db.table(
+            "mercado_compras"
+        ).select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = _make_supabase_result(
+            [
+                {"mercado": "Lidl", "total": 67.30},
+                {"mercado": "Lidl", "total": 40.00},
+                {"mercado": "Dunnes", "total": 55.20},
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -688,8 +710,10 @@ class TestGroceryStores:
 
     def test_stores_empty(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -712,17 +736,34 @@ class TestGroceryProducts:
 
     def test_products_with_data(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("mercado_itens").select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = (
-            _make_supabase_result(
-                [
-                    {"produto": "Milk 1L", "quantidade": 2, "preco_total": 2.98, "preco_unitario": 1.49},
-                    {"produto": "Milk 1L", "quantidade": 1, "preco_total": 1.49, "preco_unitario": 1.49},
-                    {"produto": "Bread", "quantidade": 1, "preco_total": 1.20, "preco_unitario": 1.20},
-                ]
-            )
+        db.table(
+            "mercado_itens"
+        ).select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "produto": "Milk 1L",
+                    "quantidade": 2,
+                    "preco_total": 2.98,
+                    "preco_unitario": 1.49,
+                },
+                {
+                    "produto": "Milk 1L",
+                    "quantidade": 1,
+                    "preco_total": 1.49,
+                    "preco_unitario": 1.49,
+                },
+                {
+                    "produto": "Bread",
+                    "quantidade": 1,
+                    "preco_total": 1.20,
+                    "preco_unitario": 1.20,
+                },
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -739,8 +780,10 @@ class TestGroceryProducts:
 
     def test_products_empty(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -763,22 +806,32 @@ class TestServicesStatus:
 
     def test_services_with_connected_provider(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("user_oauth_tokens").select.return_value.in_.return_value.execute.return_value = (
+        db.table(
+            "user_oauth_tokens"
+        ).select.return_value.in_.return_value.execute.return_value = (
             _make_supabase_result(
                 [
-                    {"provider": "google", "active": True, "updated_at": "2026-03-01T10:00:00Z"},
-                    {"provider": "spotify", "active": False, "updated_at": "2026-02-01T10:00:00Z"},
+                    {
+                        "provider": "google",
+                        "active": True,
+                        "updated_at": "2026-03-01T10:00:00Z",
+                    },
+                    {
+                        "provider": "spotify",
+                        "active": False,
+                        "updated_at": "2026-02-01T10:00:00Z",
+                    },
                 ]
             )
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/services/status", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/services/status", headers=_auth_header())
 
         assert resp.status_code == 200
         services = resp.json()["services"]
@@ -788,14 +841,14 @@ class TestServicesStatus:
 
     def test_services_no_telegram(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/services/status", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/services/status", headers=_auth_header())
 
         assert resp.status_code == 200
         services = resp.json()["services"]
@@ -806,11 +859,15 @@ class TestServicesStatus:
         """Webapp-only user (no Telegram) with OAuth tokens connected via UUID."""
         db = _mock_db()
         # User has no Telegram link (telegram_chat_id is None)
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": None}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": None}]
         )
         # But user HAS connected Google OAuth via webapp (stored with Supabase UUID)
-        db.table("user_oauth_tokens").select.return_value.in_.return_value.execute.return_value = (
+        db.table(
+            "user_oauth_tokens"
+        ).select.return_value.in_.return_value.execute.return_value = (
             _make_supabase_result(
                 [
                     {
@@ -823,9 +880,7 @@ class TestServicesStatus:
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/services/status", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/services/status", headers=_auth_header())
 
         assert resp.status_code == 200
         services = resp.json()["services"]
@@ -843,29 +898,29 @@ class TestActivityFeed:
 
     def test_activity_with_messages(self, app_client):
         db = _mock_db()
-        db.table("webapp_messages").select.return_value.eq.return_value.eq.return_value.order.return_value.range.return_value.execute.return_value = (
-            _make_supabase_result(
-                [
-                    {
-                        "id": "m1",
-                        "text": "Playing Candy Shop",
-                        "agent": "music",
-                        "type": "music",
-                        "source": "webapp",
-                        "created_at": "2026-03-07T10:00:00Z",
-                        "role": "assistant",
-                    },
-                    {
-                        "id": "m2",
-                        "text": "Sunny, 22C in Dublin",
-                        "agent": "weather",
-                        "type": "weather",
-                        "source": "webapp",
-                        "created_at": "2026-03-07T09:00:00Z",
-                        "role": "assistant",
-                    },
-                ]
-            )
+        db.table(
+            "webapp_messages"
+        ).select.return_value.eq.return_value.eq.return_value.order.return_value.range.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "id": "m1",
+                    "text": "Playing Candy Shop",
+                    "agent": "music",
+                    "type": "music",
+                    "source": "webapp",
+                    "created_at": "2026-03-07T10:00:00Z",
+                    "role": "assistant",
+                },
+                {
+                    "id": "m2",
+                    "text": "Sunny, 22C in Dublin",
+                    "agent": "weather",
+                    "type": "weather",
+                    "source": "webapp",
+                    "created_at": "2026-03-07T09:00:00Z",
+                    "role": "assistant",
+                },
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -882,14 +937,14 @@ class TestActivityFeed:
 
     def test_activity_empty(self, app_client):
         db = _mock_db()
-        db.table("webapp_messages").select.return_value.eq.return_value.eq.return_value.order.return_value.range.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "webapp_messages"
+        ).select.return_value.eq.return_value.eq.return_value.order.return_value.range.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/activity", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/activity", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json()["activities"] == []
@@ -906,17 +961,19 @@ class TestSmartDevices:
 
     def test_devices_not_connected(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("user_oauth_tokens").select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "user_oauth_tokens"
+        ).select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/smarts/devices", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/smarts/devices", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json()["connected"] is False
@@ -924,27 +981,34 @@ class TestSmartDevices:
 
     def test_devices_connected(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("user_oauth_tokens").select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"active": True, "user_id": "test-user"}])
+        db.table(
+            "user_oauth_tokens"
+        ).select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"active": True, "user_id": "test-user"}]
         )
 
         mock_tuya = MagicMock()
         mock_tuya.client_id = "test"
         mock_tuya.client_secret = "test"
-        mock_tuya.get_user_devices = AsyncMock(return_value=[
-            {"id": "d1", "name": "Light", "category": "dj", "online": True},
-        ])
+        mock_tuya.get_user_devices = AsyncMock(
+            return_value=[
+                {"id": "d1", "name": "Light", "category": "dj", "online": True},
+            ]
+        )
 
         with (
             patch("api.routes.webapp._get_db", return_value=db),
-            patch("services.auth.tuya_oauth_service.get_tuya_oauth", return_value=mock_tuya),
+            patch(
+                "services.auth.tuya_oauth_service.get_tuya_oauth",
+                return_value=mock_tuya,
+            ),
         ):
-            resp = app_client.get(
-                "/api/webapp/smarts/devices", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/smarts/devices", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json()["connected"] is True
@@ -953,17 +1017,19 @@ class TestSmartDevices:
     def test_devices_no_telegram(self, app_client):
         """Webapp-only user (no telegram_chat_id) still queries with UUID."""
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
-        db.table("user_oauth_tokens").select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "user_oauth_tokens"
+        ).select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/smarts/devices", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/smarts/devices", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json()["connected"] is False
@@ -981,10 +1047,12 @@ class TestSmartDeviceCommand:
         """Endpoint queries device status to find real DP codes."""
         mock_tuya = MagicMock()
         mock_tuya.is_connected = AsyncMock(return_value=True)
-        mock_tuya.get_device_status = AsyncMock(return_value=[
-            {"code": "switch_1", "value": True},
-            {"code": "countdown_1", "value": 0},
-        ])
+        mock_tuya.get_device_status = AsyncMock(
+            return_value=[
+                {"code": "switch_1", "value": True},
+                {"code": "countdown_1", "value": 0},
+            ]
+        )
         mock_tuya.send_command = AsyncMock(
             return_value={"success": True, "error": None, "code": None}
         )
@@ -1009,9 +1077,11 @@ class TestSmartDeviceCommand:
         """Endpoint returns offline error."""
         mock_tuya = MagicMock()
         mock_tuya.is_connected = AsyncMock(return_value=True)
-        mock_tuya.get_device_status = AsyncMock(return_value=[
-            {"code": "switch_led", "value": False},
-        ])
+        mock_tuya.get_device_status = AsyncMock(
+            return_value=[
+                {"code": "switch_led", "value": False},
+            ]
+        )
         mock_tuya.send_command = AsyncMock(
             return_value={"success": False, "error": "device_offline", "code": "2001"}
         )
@@ -1062,34 +1132,38 @@ class TestSmartVehicles:
 
     def test_vehicles_not_connected(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("user_oauth_tokens").select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([])
+        db.table(
+            "user_oauth_tokens"
+        ).select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            []
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/smarts/vehicles", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/smarts/vehicles", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json()["connected"] is False
 
     def test_vehicles_connected(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"telegram_chat_id": "123"}])
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"telegram_chat_id": "123"}]
         )
-        db.table("user_oauth_tokens").select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result([{"active": True}])
+        db.table(
+            "user_oauth_tokens"
+        ).select.return_value.in_.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"active": True}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/smarts/vehicles", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/smarts/vehicles", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json()["connected"] is True
@@ -1104,9 +1178,7 @@ class TestFinancePortfolio:
     """Tests for finance portfolio endpoint."""
 
     def test_portfolio_returns_structure(self, app_client):
-        resp = app_client.get(
-            "/api/webapp/finance/portfolio", headers=_auth_header()
-        )
+        resp = app_client.get("/api/webapp/finance/portfolio", headers=_auth_header())
         assert resp.status_code == 200
         body = resp.json()
         assert "stocks" in body
@@ -1136,9 +1208,7 @@ class TestFinanceNews:
                 return_value=[],
             ),
         ):
-            resp = app_client.get(
-                "/api/webapp/finance/news", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/finance/news", headers=_auth_header())
         assert resp.status_code == 200
         body = resp.json()
         assert "news" in body
@@ -1220,18 +1290,21 @@ class TestChatVision:
     def test_chat_vision_with_image_attachment(self, app_client):
         """When message has [Imagem recebida:] + file_id, use GPT-4o vision."""
         db = _mock_db()
-        db.table("webapp_conversations").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result(
-                [{"id": "conv-1", "user_id": "user-1"}]
-            )
+        db.table(
+            "webapp_conversations"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-1", "user_id": "user-1"}]
         )
         # insert must be set LAST — _mock_db chains all to same .execute
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-vision-1"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-vision-1"}]
         )
 
         orch_response = AgentResponse(
-            response="image", status=AgentStatus.SUCCESS,
+            response="image",
+            status=AgentStatus.SUCCESS,
         )
 
         mock_vision_resp = MagicMock()
@@ -1246,17 +1319,32 @@ class TestChatVision:
             patch("api.routes.webapp._get_db", return_value=db),
             patch("api.routes.webapp.get_agent") as mock_get_agent,
             patch("api.routes.webapp.get_service", return_value=None),
-            patch("api.routes.webapp.glob.glob", return_value=["/tmp/capivarex_uploads/upload_abc-123-def.jpg"]),
-            patch("builtins.open", MagicMock(return_value=MagicMock(
-                __enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"\xff\xd8\xff"))),
-                __exit__=MagicMock(return_value=False),
-            ))),
+            patch(
+                "api.routes.webapp.glob.glob",
+                return_value=["/tmp/capivarex_uploads/upload_abc-123-def.jpg"],
+            ),
+            patch(
+                "builtins.open",
+                MagicMock(
+                    return_value=MagicMock(
+                        __enter__=MagicMock(
+                            return_value=MagicMock(
+                                read=MagicMock(return_value=b"\xff\xd8\xff")
+                            )
+                        ),
+                        __exit__=MagicMock(return_value=False),
+                    )
+                ),
+            ),
         ):
             mock_orch = MagicMock()
             mock_orch.process = AsyncMock(return_value=orch_response)
             mock_get_agent.return_value = mock_orch
 
-            with patch.dict("sys.modules", {"openai": MagicMock(OpenAI=MagicMock(return_value=mock_oai))}):
+            with patch.dict(
+                "sys.modules",
+                {"openai": MagicMock(OpenAI=MagicMock(return_value=mock_oai))},
+            ):
                 resp = app_client.post(
                     "/api/webapp/chat",
                     json={"message": msg, "conversation_id": "conv-1"},
@@ -1270,34 +1358,45 @@ class TestChatVision:
     def test_chat_vision_no_file_id_falls_through(self, app_client):
         """Message with [Imagem recebida:] but no file_id falls to normal chat."""
         db = _mock_db()
-        db.table("webapp_conversations").select.return_value.eq.return_value.limit.return_value.execute.return_value = (
-            _make_supabase_result(
-                [{"id": "conv-1", "user_id": "user-1"}]
-            )
+        db.table(
+            "webapp_conversations"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-1", "user_id": "user-1"}]
         )
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-1"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-1"}]
         )
 
         orch_response = AgentResponse(
-            response="chat", status=AgentStatus.SUCCESS,
+            response="chat",
+            status=AgentStatus.SUCCESS,
         )
         chat_response = AgentResponse(
-            response="Hello!", status=AgentStatus.SUCCESS,
+            response="Hello!",
+            status=AgentStatus.SUCCESS,
         )
 
-        with patch("api.routes.webapp._get_db", return_value=db), \
-             patch("api.routes.webapp.get_agent") as mock_get_agent, \
-             patch("api.routes.webapp.get_service", return_value=None):
+        with (
+            patch("api.routes.webapp._get_db", return_value=db),
+            patch("api.routes.webapp.get_agent") as mock_get_agent,
+            patch("api.routes.webapp.get_service", return_value=None),
+        ):
             mock_orch = MagicMock()
             mock_orch.process = AsyncMock(return_value=orch_response)
             mock_chat = MagicMock()
             mock_chat.process = AsyncMock(return_value=chat_response)
-            mock_get_agent.side_effect = lambda name: mock_orch if name == "orchestrator" else mock_chat
+            mock_get_agent.side_effect = lambda name: (
+                mock_orch if name == "orchestrator" else mock_chat
+            )
 
             resp = app_client.post(
                 "/api/webapp/chat",
-                json={"message": "[Imagem recebida: photo.jpg] nice photo", "conversation_id": "conv-1"},
+                json={
+                    "message": "[Imagem recebida: photo.jpg] nice photo",
+                    "conversation_id": "conv-1",
+                },
             )
 
         assert resp.status_code == 200
@@ -1313,16 +1412,18 @@ class TestChatImageUrlConversion:
 
     def test_chat_converts_image_path_to_url(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "conv-img-1", "user_id": "user-1"}])
+        db.table(
+            "webapp_conversations"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-img-1", "user_id": "user-1"}]
         )
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-img-1"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-img-1"}]
         )
 
-        orch_response = AgentResponse(
-            status=AgentStatus.SUCCESS, response="image"
-        )
+        orch_response = AgentResponse(status=AgentStatus.SUCCESS, response="image")
         image_response = AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Here is your image",
@@ -1358,16 +1459,18 @@ class TestChatImageUrlConversion:
 
     def test_chat_converts_multiple_image_paths(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "conv-multi", "user_id": "user-1"}])
+        db.table(
+            "webapp_conversations"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-multi", "user_id": "user-1"}]
         )
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-multi"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-multi"}]
         )
 
-        orch_response = AgentResponse(
-            status=AgentStatus.SUCCESS, response="image"
-        )
+        orch_response = AgentResponse(status=AgentStatus.SUCCESS, response="image")
         image_response = AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Here are your images",
@@ -1412,16 +1515,18 @@ class TestChatImageUrlConversion:
 
     def test_chat_converts_video_path_to_url(self, app_client):
         db = _mock_db()
-        db.table("webapp_conversations").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "conv-vid-1", "user_id": "user-1"}])
+        db.table(
+            "webapp_conversations"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "conv-vid-1", "user_id": "user-1"}]
         )
-        db.table("webapp_messages").insert.return_value.execute.return_value = (
-            _make_supabase_result([{"id": "msg-vid-1"}])
+        db.table(
+            "webapp_messages"
+        ).insert.return_value.execute.return_value = _make_supabase_result(
+            [{"id": "msg-vid-1"}]
         )
 
-        orch_response = AgentResponse(
-            status=AgentStatus.SUCCESS, response="video"
-        )
+        orch_response = AgentResponse(status=AgentStatus.SUCCESS, response="video")
         video_response = AgentResponse(
             status=AgentStatus.SUCCESS,
             response="Here is your video",
@@ -1486,9 +1591,7 @@ class TestVoiceTranscribe:
             mock_temp.return_value.__aenter__ = AsyncMock(
                 return_value="/tmp/voice_stt_test.mp3"
             )
-            mock_temp.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+            mock_temp.return_value.__aexit__ = AsyncMock(return_value=False)
 
             resp = app_client.post(
                 "/api/webapp/voice/transcribe",
@@ -1592,17 +1695,29 @@ class TestMemory:
 
     def test_get_memory_returns_entries(self, app_client):
         db = _mock_db()
-        db.table("user_memory").select.return_value.eq.return_value.order.return_value.execute.return_value = (
-            _make_supabase_result([
-                {"id": "mem-1", "key": "name", "value": "Henrique", "source": "webapp", "updated_at": "2026-03-10T12:00:00Z"},
-                {"id": "mem-2", "key": "city", "value": "Lisboa", "source": "telegram", "updated_at": "2026-03-10T13:00:00Z"},
-            ])
+        db.table(
+            "user_memory"
+        ).select.return_value.eq.return_value.order.return_value.execute.return_value = _make_supabase_result(
+            [
+                {
+                    "id": "mem-1",
+                    "key": "name",
+                    "value": "Henrique",
+                    "source": "webapp",
+                    "updated_at": "2026-03-10T12:00:00Z",
+                },
+                {
+                    "id": "mem-2",
+                    "key": "city",
+                    "value": "Lisboa",
+                    "source": "telegram",
+                    "updated_at": "2026-03-10T13:00:00Z",
+                },
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/memory", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/memory", headers=_auth_header())
 
         assert resp.status_code == 200
         body = resp.json()
@@ -1619,9 +1734,7 @@ class TestMemory:
         db = _mock_db()
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/memory", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/memory", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json() == {"memories": []}
@@ -1639,7 +1752,9 @@ class TestMemory:
 
     def test_delete_memory_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("user_memory").delete.return_value.eq.return_value.eq.return_value.execute.side_effect = (
+        db.table(
+            "user_memory"
+        ).delete.return_value.eq.return_value.eq.return_value.execute.side_effect = (
             Exception("DB failure")
         )
 
@@ -1719,8 +1834,10 @@ class TestReminders:
 
     def test_list_reminders_returns_entries(self, app_client):
         db = _mock_db()
-        db.table("reminders").select.return_value.eq.return_value.order.return_value.execute.return_value = (
-            _make_supabase_result([
+        db.table(
+            "reminders"
+        ).select.return_value.eq.return_value.order.return_value.execute.return_value = _make_supabase_result(
+            [
                 {
                     "id": "rem-1",
                     "text": "Tomar remédio",
@@ -1733,13 +1850,11 @@ class TestReminders:
                     "remind_at": "2026-03-10T14:00:00Z",
                     "enabled": True,
                 },
-            ])
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/reminders", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/reminders", headers=_auth_header())
 
         assert resp.status_code == 200
         body = resp.json()
@@ -1750,24 +1865,26 @@ class TestReminders:
         db = _mock_db()
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/reminders", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/reminders", headers=_auth_header())
 
         assert resp.status_code == 200
         assert resp.json() == []
 
     def test_update_reminder_toggle(self, app_client):
         db = _mock_db()
-        db.table("reminders").update.return_value.eq.return_value.eq.return_value.execute.return_value = (
-            _make_supabase_result([
-                {
-                    "id": "rem-1",
-                    "text": "Tomar remédio",
-                    "remind_at": "2026-03-10T09:00:00Z",
-                    "enabled": False,
-                },
-            ])
+        db.table(
+            "reminders"
+        ).update.return_value.eq.return_value.eq.return_value.execute.return_value = (
+            _make_supabase_result(
+                [
+                    {
+                        "id": "rem-1",
+                        "text": "Tomar remédio",
+                        "remind_at": "2026-03-10T09:00:00Z",
+                        "enabled": False,
+                    },
+                ]
+            )
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -1783,7 +1900,9 @@ class TestReminders:
 
     def test_update_reminder_not_found(self, app_client):
         db = _mock_db()
-        db.table("reminders").update.return_value.eq.return_value.eq.return_value.execute.return_value = (
+        db.table(
+            "reminders"
+        ).update.return_value.eq.return_value.eq.return_value.execute.return_value = (
             _make_supabase_result([])
         )
 
@@ -1861,14 +1980,14 @@ class TestMemoryErrors:
 
     def test_memory_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("user_memory").select.return_value.eq.return_value.order.return_value.execute.side_effect = (
+        db.table(
+            "user_memory"
+        ).select.return_value.eq.return_value.order.return_value.execute.side_effect = (
             RuntimeError("DB connection lost")
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/memory", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/memory", headers=_auth_header())
 
         assert resp.status_code == 500
         assert "memory" in resp.json()["detail"].lower()
@@ -1879,21 +1998,23 @@ class TestRemindersErrors:
 
     def test_list_reminders_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("reminders").select.return_value.eq.return_value.order.return_value.execute.side_effect = (
+        db.table(
+            "reminders"
+        ).select.return_value.eq.return_value.order.return_value.execute.side_effect = (
             RuntimeError("DB timeout")
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/reminders", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/reminders", headers=_auth_header())
 
         assert resp.status_code == 500
         assert "reminders" in resp.json()["detail"].lower()
 
     def test_update_reminder_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("reminders").update.return_value.eq.return_value.eq.return_value.execute.side_effect = (
+        db.table(
+            "reminders"
+        ).update.return_value.eq.return_value.eq.return_value.execute.side_effect = (
             RuntimeError("DB write failed")
         )
 
@@ -1913,21 +2034,21 @@ class TestNotesErrors:
 
     def test_list_notes_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("notes").select.return_value.eq.return_value.order.return_value.execute.side_effect = (
+        db.table(
+            "notes"
+        ).select.return_value.eq.return_value.order.return_value.execute.side_effect = (
             RuntimeError("DB error")
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/notes", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/notes", headers=_auth_header())
 
         assert resp.status_code == 500
 
     def test_create_note_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("notes").insert.return_value.execute.side_effect = (
-            RuntimeError("DB insert failed")
+        db.table("notes").insert.return_value.execute.side_effect = RuntimeError(
+            "DB insert failed"
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -1941,7 +2062,9 @@ class TestNotesErrors:
 
     def test_update_note_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("notes").update.return_value.eq.return_value.eq.return_value.execute.side_effect = (
+        db.table(
+            "notes"
+        ).update.return_value.eq.return_value.eq.return_value.execute.side_effect = (
             RuntimeError("DB update failed")
         )
 
@@ -1956,7 +2079,9 @@ class TestNotesErrors:
 
     def test_delete_note_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("notes").delete.return_value.eq.return_value.eq.return_value.execute.side_effect = (
+        db.table(
+            "notes"
+        ).delete.return_value.eq.return_value.eq.return_value.execute.side_effect = (
             RuntimeError("DB delete failed")
         )
 
@@ -1981,7 +2106,7 @@ class TestQuota:
         db = _mock_db()
         # users table → plan + limit
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "me", "messages_limit": 300}]
+            [{"plan": "professional", "messages_limit": 300}]
         )
         # tenant_usage → actual usage (source of truth)
         db.table("tenant_usage").execute.return_value = _make_supabase_result(
@@ -1989,13 +2114,11 @@ class TestQuota:
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/quota", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/quota", headers=_auth_header())
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["plan"] == "me"
+        assert body["plan"] == "professional"
         assert body["messages_used"] == 50
         assert body["messages_limit"] == 300
         assert body["quota_pct"] == 16.7
@@ -2006,29 +2129,25 @@ class TestQuota:
         db = _mock_db()
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/quota", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/quota", headers=_auth_header())
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["plan"] == "free"
+        assert body["plan"] == "professional"
         assert body["messages_used"] == 0
         assert body["messages_limit"] == 30
 
     def test_quota_unlimited_plan(self, app_client):
         db = _mock_db()
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "everywhere", "messages_limit": 999999}]
+            [{"plan": "executive", "messages_limit": 999999}]
         )
         db.table("tenant_usage").execute.return_value = _make_supabase_result(
             [{"used": 100}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/quota", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/quota", headers=_auth_header())
 
         assert resp.status_code == 200
         body = resp.json()
@@ -2037,14 +2156,14 @@ class TestQuota:
 
     def test_quota_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("users").select.return_value.eq.return_value.limit.return_value.execute.side_effect = (
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.side_effect = (
             RuntimeError("DB timeout")
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get(
-                "/api/webapp/quota", headers=_auth_header()
-            )
+            resp = app_client.get("/api/webapp/quota", headers=_auth_header())
 
         assert resp.status_code == 500
 
@@ -2067,13 +2186,9 @@ class TestWeather:
 
         with patch("api.routes.webapp.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(
-                return_value=MagicMock(
-                    get=AsyncMock(return_value=mock_response)
-                )
+                return_value=MagicMock(get=AsyncMock(return_value=mock_response))
             )
-            mock_client.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with patch.dict("os.environ", {"WEATHER_API_KEY": "test-key"}):
                 resp = app_client.get(
@@ -2112,16 +2227,24 @@ class TestSecurityEvents:
     def test_security_events_success(self, app_client):
         db = _mock_db()
         events = [
-            {"id": "e1", "event_type": "auth_success", "severity": "info",
-             "ip_address": "1.2.3.4", "endpoint": "/login", "created_at": "2026-01-01T00:00:00Z",
-             "details": {}},
+            {
+                "id": "e1",
+                "event_type": "auth_success",
+                "severity": "info",
+                "ip_address": "1.2.3.4",
+                "endpoint": "/login",
+                "created_at": "2026-01-01T00:00:00Z",
+                "details": {},
+            },
         ]
         db.table("security_events").execute.return_value = _make_supabase_result(events)
         # failures count
         db.table("security_events").execute.side_effect = [
-            _make_supabase_result(events),          # recent events
-            _make_supabase_result([], count=0),      # failures 24h
-            _make_supabase_result([{"created_at": "2026-01-01T00:00:00Z", "ip_address": "1.2.3.4"}]),  # last login
+            _make_supabase_result(events),  # recent events
+            _make_supabase_result([], count=0),  # failures 24h
+            _make_supabase_result(
+                [{"created_at": "2026-01-01T00:00:00Z", "ip_address": "1.2.3.4"}]
+            ),  # last login
         ]
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2157,10 +2280,14 @@ class TestProactivityFeed:
 
     def test_feed_empty(self, app_client):
         db = _mock_db()
-        db.table("proactivity_feed").execute.return_value = _make_supabase_result([], count=0)
+        db.table("proactivity_feed").execute.return_value = _make_supabase_result(
+            [], count=0
+        )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+            resp = app_client.get(
+                "/api/webapp/proactivity/feed", headers=_auth_header()
+            )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -2171,16 +2298,26 @@ class TestProactivityFeed:
     def test_feed_with_items(self, app_client):
         db = _mock_db()
         items = [
-            {"id": "f1", "type": "insight", "title": "Weather", "message": "Rain expected",
-             "metadata": {}, "is_read": False, "created_at": "2026-01-01T00:00:00Z", "read_at": None},
+            {
+                "id": "f1",
+                "type": "insight",
+                "title": "Weather",
+                "message": "Rain expected",
+                "metadata": {},
+                "is_read": False,
+                "created_at": "2026-01-01T00:00:00Z",
+                "read_at": None,
+            },
         ]
         db.table("proactivity_feed").execute.side_effect = [
-            _make_supabase_result(items),        # feed query
-            _make_supabase_result([], count=1),   # unread count
+            _make_supabase_result(items),  # feed query
+            _make_supabase_result([], count=1),  # unread count
         ]
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+            resp = app_client.get(
+                "/api/webapp/proactivity/feed", headers=_auth_header()
+            )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -2189,7 +2326,9 @@ class TestProactivityFeed:
 
     def test_feed_unread_only_filter(self, app_client):
         db = _mock_db()
-        db.table("proactivity_feed").execute.return_value = _make_supabase_result([], count=0)
+        db.table("proactivity_feed").execute.return_value = _make_supabase_result(
+            [], count=0
+        )
 
         with patch("api.routes.webapp._get_db", return_value=db):
             resp = app_client.get(
@@ -2206,7 +2345,9 @@ class TestProactivityFeed:
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+            resp = app_client.get(
+                "/api/webapp/proactivity/feed", headers=_auth_header()
+            )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -2214,10 +2355,14 @@ class TestProactivityFeed:
 
     def test_feed_db_error_returns_500(self, app_client):
         db = _mock_db()
-        db.table("proactivity_feed").execute.side_effect = Exception("DB connection lost")
+        db.table("proactivity_feed").execute.side_effect = Exception(
+            "DB connection lost"
+        )
 
         with patch("api.routes.webapp._get_db", return_value=db):
-            resp = app_client.get("/api/webapp/proactivity/feed", headers=_auth_header())
+            resp = app_client.get(
+                "/api/webapp/proactivity/feed", headers=_auth_header()
+            )
 
         assert resp.status_code == 500
 
@@ -2298,15 +2443,25 @@ class TestProactivityPreferences:
 
     def test_get_preferences_with_data(self, app_client):
         db = _mock_db()
-        db.table("user_preferences").maybe_single.return_value = db.table("user_preferences")
+        db.table("user_preferences").maybe_single.return_value = db.table(
+            "user_preferences"
+        )
         db.table("user_preferences").execute.return_value = _make_supabase_result(
-            {"proactive_enabled": False, "notify_weather": True,
-             "notify_traffic": False, "notify_reminders": True}
+            {
+                "proactive_enabled": False,
+                "notify_weather": True,
+                "notify_traffic": False,
+                "notify_reminders": True,
+            }
         )
         # For maybe_single, data is the dict directly, not a list
         result_mock = MagicMock()
-        result_mock.data = {"proactive_enabled": False, "notify_weather": True,
-                            "notify_traffic": False, "notify_reminders": True}
+        result_mock.data = {
+            "proactive_enabled": False,
+            "notify_weather": True,
+            "notify_traffic": False,
+            "notify_reminders": True,
+        }
         db.table("user_preferences").execute.return_value = result_mock
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2324,7 +2479,9 @@ class TestProactivityPreferences:
         db = _mock_db()
         result_mock = MagicMock()
         result_mock.data = None
-        db.table("user_preferences").maybe_single.return_value = db.table("user_preferences")
+        db.table("user_preferences").maybe_single.return_value = db.table(
+            "user_preferences"
+        )
         db.table("user_preferences").execute.return_value = result_mock
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2355,8 +2512,15 @@ class TestProactivityPreferences:
     def test_put_preferences_success(self, app_client):
         db = _mock_db()
         db.table("user_preferences").execute.return_value = _make_supabase_result(
-            [{"user_id": "user-1", "proactive_enabled": False,
-              "notify_weather": True, "notify_traffic": True, "notify_reminders": True}]
+            [
+                {
+                    "user_id": "user-1",
+                    "proactive_enabled": False,
+                    "notify_weather": True,
+                    "notify_traffic": True,
+                    "notify_reminders": True,
+                }
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2410,7 +2574,7 @@ class TestMarketplaceIntegrations:
             [{"provider": "google", "expires_at": "2026-12-31T00:00:00Z"}]
         )
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "me"}]
+            [{"plan": "professional"}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2422,7 +2586,7 @@ class TestMarketplaceIntegrations:
         assert resp.status_code == 200
         data = resp.json()
         assert "integrations" in data
-        assert data["user_plan"] == "me"
+        assert data["user_plan"] == "professional"
         # google_calendar should be connected
         google_cal = next(
             (i for i in data["integrations"] if i["id"] == "google_calendar"),
@@ -2432,11 +2596,11 @@ class TestMarketplaceIntegrations:
         assert google_cal["is_connected"] is True
         assert google_cal["is_available"] is True
 
-    def test_list_integrations_free_plan(self, app_client):
+    def test_list_integrations_professional_plan(self, app_client):
         db = _mock_db()
         db.table("user_oauth_tokens").execute.return_value = _make_supabase_result([])
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "free"}]
+            [{"plan": "professional"}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2447,7 +2611,7 @@ class TestMarketplaceIntegrations:
 
         assert resp.status_code == 200
         data = resp.json()
-        # Only telegram available on free plan
+        # Only telegram available on professional plan
         telegram = next(
             (i for i in data["integrations"] if i["id"] == "telegram"),
             None,
@@ -2456,7 +2620,7 @@ class TestMarketplaceIntegrations:
         assert telegram["is_available"] is True
         assert telegram["upgrade_required"] is False
 
-        # Spotify requires upgrade on free
+        # Spotify requires upgrade on professional
         spotify = next(
             (i for i in data["integrations"] if i["id"] == "spotify"),
             None,
@@ -2469,7 +2633,7 @@ class TestMarketplaceIntegrations:
         db = _mock_db()
         db.table("user_oauth_tokens").execute.return_value = _make_supabase_result([])
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "everywhere"}]
+            [{"plan": "executive"}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2495,7 +2659,7 @@ class TestMarketplaceIntegrations:
             )
 
         assert resp.status_code == 200
-        assert resp.json()["user_plan"] == "free"
+        assert resp.json()["user_plan"] == "professional"
 
     def test_list_integrations_error(self, app_client):
         db = _mock_db()
@@ -2516,7 +2680,13 @@ class TestIntegrationStatus:
     def test_status_connected(self, app_client):
         db = _mock_db()
         db.table("user_oauth_tokens").execute.return_value = _make_supabase_result(
-            [{"provider": "spotify", "expires_at": "2026-12-31", "created_at": "2026-01-01"}]
+            [
+                {
+                    "provider": "spotify",
+                    "expires_at": "2026-12-31",
+                    "created_at": "2026-01-01",
+                }
+            ]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2616,9 +2786,9 @@ class TestInitiateCall:
 
     def test_initiate_call_success(self, app_client):
         db = _mock_db()
-        # User with 'everywhere' plan
+        # User with 'executive' plan
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "everywhere", "phone_number": "+353861234567"}]
+            [{"plan": "executive", "phone_number": "+353861234567"}]
         )
         # call_logs insert
         db.table("call_logs").execute.return_value = _make_supabase_result(
@@ -2645,10 +2815,10 @@ class TestInitiateCall:
         assert data["status"] == "initiated"
         assert data["call_id"] == "call-uuid-1"
 
-    def test_initiate_call_free_plan_403(self, app_client):
+    def test_initiate_call_professional_plan_403(self, app_client):
         db = _mock_db()
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "free", "phone_number": None}]
+            [{"plan": "professional", "phone_number": None}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2659,12 +2829,12 @@ class TestInitiateCall:
             )
 
         assert resp.status_code == 403
-        assert "Everywhere" in resp.json()["detail"]
+        assert "Executive" in resp.json()["detail"]
 
-    def test_initiate_call_me_plan_403(self, app_client):
+    def test_initiate_call_professional_plan_no_phone_403(self, app_client):
         db = _mock_db()
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "me", "phone_number": None}]
+            [{"plan": "professional", "phone_number": None}]
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2679,7 +2849,7 @@ class TestInitiateCall:
     def test_initiate_call_twilio_fallback_mock(self, app_client):
         db = _mock_db()
         db.table("users").execute.return_value = _make_supabase_result(
-            [{"plan": "everywhere", "phone_number": "+353861234567"}]
+            [{"plan": "executive", "phone_number": "+353861234567"}]
         )
         db.table("call_logs").execute.return_value = _make_supabase_result(
             [{"id": "call-uuid-2"}]
@@ -2706,7 +2876,7 @@ class TestInitiateCall:
 
     def test_initiate_call_no_user_row(self, app_client):
         db = _mock_db()
-        # Empty users result → defaults to 'free' → 403
+        # Empty users result → defaults to 'professional' → 403
         db.table("users").execute.return_value = _make_supabase_result([])
 
         with patch("api.routes.webapp._get_db", return_value=db):
@@ -2744,10 +2914,18 @@ class TestCallHistory:
         db = _mock_db()
         db.table("call_logs").execute.return_value = _make_supabase_result(
             [
-                {"id": "c1", "phone_number": "+353861234567",
-                 "status": "completed", "created_at": "2026-01-01T10:00:00Z"},
-                {"id": "c2", "phone_number": "+353869876543",
-                 "status": "initiated", "created_at": "2026-01-02T10:00:00Z"},
+                {
+                    "id": "c1",
+                    "phone_number": "+353861234567",
+                    "status": "completed",
+                    "created_at": "2026-01-01T10:00:00Z",
+                },
+                {
+                    "id": "c2",
+                    "phone_number": "+353869876543",
+                    "status": "initiated",
+                    "created_at": "2026-01-02T10:00:00Z",
+                },
             ]
         )
 
@@ -2815,8 +2993,12 @@ class TestCallStatus:
         db = _mock_db()
         db.table("call_logs").maybe_single.return_value = db.table("call_logs")
         db.table("call_logs").execute.return_value = _make_supabase_result(
-            {"id": "call-1", "status": "in-progress",
-             "twilio_call_sid": "CA123", "phone_number": "+353861234567"}
+            {
+                "id": "call-1",
+                "status": "in-progress",
+                "twilio_call_sid": "CA123",
+                "phone_number": "+353861234567",
+            }
         )
 
         with patch("api.routes.webapp._get_db", return_value=db):

@@ -44,6 +44,7 @@ _welcomed_phones: Dict[str, float] = {}
 # Webhook Verification
 # ---------------------------------------------------------------------------
 
+
 @router.get("/whatsapp")
 async def verify_webhook(
     hub_mode: str = Query(None, alias="hub.mode"),
@@ -65,6 +66,7 @@ async def verify_webhook(
 # Incoming Messages
 # ---------------------------------------------------------------------------
 
+
 @router.post("/whatsapp")
 async def receive_message(request: Request):
     """Receive and process incoming WhatsApp messages."""
@@ -84,7 +86,9 @@ async def receive_message(request: Request):
 
     logger.info(
         "WhatsApp from %s (%s): %s",
-        sender_name or "unknown", sender_phone[-4:], user_text[:80],
+        sender_name or "unknown",
+        sender_phone[-4:],
+        user_text[:80],
     )
 
     # Mark as read (blue ticks)
@@ -99,10 +103,10 @@ async def receive_message(request: Request):
 
         # Handle FOMO button clicks regardless of plan
         text_lower = user_text.lower().strip()
-        if text_lower in ("🚀 ver plano everywhere", "btn_upgrade", "upgrade"):
+        if text_lower in ("🚀 ver plano executive", "btn_upgrade", "upgrade"):
             await send_link_button(
                 to=sender_phone,
-                body_text="🚀 *Conheça o plano Everywhere!*\n\nAssistente no WhatsApp, Smart Home, agentes ilimitados e muito mais.",
+                body_text="🚀 *Conheça o plano Executive!*\n\nAssistente no WhatsApp, Smart Home, agentes ilimitados e muito mais.",
                 button_text="Ver Planos",
                 url_link="https://app.capivarex.com/pricing",
             )
@@ -117,11 +121,11 @@ async def receive_message(request: Request):
             )
             return {"status": "ok"}
 
-        if plan in ("everywhere", "family"):
+        if plan in ("executive", "family"):
             # PREMIUM USER — full AI assistant
             await _process_linked_user(user_id, sender_phone, sender_name, user_text)
         else:
-            # FREE/ME USER — FOMO message, then stop
+            # PROFESSIONAL USER — FOMO message, then stop
             await _handle_free_user_fomo(sender_phone, sender_name, plan)
     else:
         # NOT LINKED — onboarding flow
@@ -138,27 +142,25 @@ _fomo_sent: Dict[str, float] = {}
 # PLAN CHECK + FOMO (Free/Me users on WhatsApp)
 # ---------------------------------------------------------------------------
 
+
 async def _get_user_plan(user_id: str) -> str:
     """Get user's subscription plan."""
     try:
         from services.core import get_service
+
         db = get_service("database")
         if not db or not db.is_initialized():
-            return "basic"
+            return "professional"
 
         client = db.get_client()
         result = (
-            client.table("users")
-            .select("plan")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
+            client.table("users").select("plan").eq("id", user_id).limit(1).execute()
         )
         if result.data:
-            return result.data[0].get("plan", "basic")
+            return result.data[0].get("plan", "professional")
     except Exception:
         pass
-    return "basic"
+    return "professional"
 
 
 async def _handle_free_user_fomo(phone: str, name: str, plan: str) -> None:
@@ -178,7 +180,7 @@ async def _handle_free_user_fomo(phone: str, name: str, plan: str) -> None:
     first_name = name.split()[0] if name else ""
     greeting = f"Oi {first_name}! " if first_name else "Oi! "
 
-    plan_display = "Me" if plan == "me" else "Free"
+    plan_display = "Professional"
 
     await send_interactive_buttons(
         to=phone,
@@ -186,8 +188,8 @@ async def _handle_free_user_fomo(phone: str, name: str, plan: str) -> None:
             f"{greeting}Que bom que está aqui! 😊\n\n"
             f"Seu plano atual (*{plan_display}*) inclui o Capivarex no *Telegram*. "
             f"Para usar o assistente aqui no *WhatsApp*, faça upgrade para o plano "
-            f"*Everywhere*! 🚀\n\n"
-            f"Com o Everywhere você ganha:\n"
+            f"*Executive*! 🚀\n\n"
+            f"Com o Executive você ganha:\n"
             f"✅ Capivarex no WhatsApp 24/7\n"
             f"✅ Smart Home (controle por voz)\n"
             f"✅ Agentes ilimitados\n"
@@ -195,7 +197,7 @@ async def _handle_free_user_fomo(phone: str, name: str, plan: str) -> None:
             f"Enquanto isso, me manda mensagem no *Telegram* — estou lá te esperando! 💬"
         ),
         buttons=[
-            {"id": "btn_upgrade", "title": "🚀 Conhecer Everywhere"},
+            {"id": "btn_upgrade", "title": "🚀 Conhecer Executive"},
             {"id": "btn_telegram", "title": "💬 Ir para o Telegram"},
         ],
         header="Desbloqueie o WhatsApp! 🔓",
@@ -209,6 +211,7 @@ async def _handle_free_user_fomo(phone: str, name: str, plan: str) -> None:
 # ---------------------------------------------------------------------------
 # 1. WELCOME MESSAGE (Professional Onboarding)
 # ---------------------------------------------------------------------------
+
 
 async def _send_welcome(phone: str, name: str) -> None:
     """Send professional welcome message with interactive buttons."""
@@ -246,6 +249,7 @@ async def _send_welcome(phone: str, name: str) -> None:
 # ---------------------------------------------------------------------------
 # 2. LINK ACCOUNT (Code System)
 # ---------------------------------------------------------------------------
+
 
 async def _handle_link_request(phone: str) -> None:
     """Generate a 6-digit link code and send to user."""
@@ -299,6 +303,7 @@ def _generate_link_code(phone: str) -> str:
 # 3. GUEST MODE (Limited AI)
 # ---------------------------------------------------------------------------
 
+
 async def _handle_guest_message(phone: str, name: str, text: str) -> None:
     """Process message in guest mode (limited, no personal data)."""
     first_name = name.split()[0] if name else "você"
@@ -306,12 +311,14 @@ async def _handle_guest_message(phone: str, name: str, text: str) -> None:
     openai_svc = None
     try:
         from services.core import get_service
+
         openai_svc = get_service("openai")
     except Exception:
         pass
 
     if openai_svc and openai_svc.is_initialized():
         import asyncio
+
         try:
             prompt = (
                 f"You are Capivarex, a warm and helpful AI personal assistant. "
@@ -330,7 +337,9 @@ async def _handle_guest_message(phone: str, name: str, text: str) -> None:
                 max_tokens=300,
                 temperature=0.7,
             )
-            reply = response if isinstance(response, str) else response.get("content", "")
+            reply = (
+                response if isinstance(response, str) else response.get("content", "")
+            )
             if reply and len(reply) > 10:
                 await send_text_message(phone, reply)
                 return
@@ -349,21 +358,31 @@ async def _handle_guest_message(phone: str, name: str, text: str) -> None:
 # FLOW ROUTER (Unlinked Users)
 # ---------------------------------------------------------------------------
 
+
 async def _handle_unlinked_user(phone: str, name: str, text: str) -> None:
     """Route unlinked user messages through onboarding flow."""
     text_lower = text.lower().strip()
 
     # Button clicks
     if text_lower in (
-        "🔗 vincular conta", "vincular conta", "btn_link",
-        "vincular", "link", "conectar",
+        "🔗 vincular conta",
+        "vincular conta",
+        "btn_link",
+        "vincular",
+        "link",
+        "conectar",
     ):
         await _handle_link_request(phone)
         return
 
     if text_lower in (
-        "📱 criar conta", "criar conta", "btn_create",
-        "criar", "registrar", "signup", "sign up",
+        "📱 criar conta",
+        "criar conta",
+        "btn_create",
+        "criar",
+        "registrar",
+        "signup",
+        "sign up",
     ):
         await send_link_button(
             to=phone,
@@ -379,8 +398,12 @@ async def _handle_unlinked_user(phone: str, name: str, text: str) -> None:
         return
 
     if text_lower in (
-        "💬 modo visitante", "usar como visitante", "btn_guest",
-        "visitante", "guest", "teste",
+        "💬 modo visitante",
+        "usar como visitante",
+        "btn_guest",
+        "visitante",
+        "guest",
+        "teste",
     ):
         await send_text_message(
             phone,
@@ -422,8 +445,12 @@ async def _handle_unlinked_user(phone: str, name: str, text: str) -> None:
 # FULL AI (Linked Users)
 # ---------------------------------------------------------------------------
 
+
 async def _process_linked_user(
-    user_id: str, phone: str, name: str, text: str,
+    user_id: str,
+    phone: str,
+    name: str,
+    text: str,
 ) -> Optional[str]:
     """Process message for a linked Capivarex user — full AI."""
     try:
@@ -437,9 +464,12 @@ async def _process_linked_user(
                 user_name = user_data.get("full_name", name)
 
         from agents.core import get_agent
+
         orchestrator = get_agent("orchestrator")
         if not orchestrator:
-            await send_text_message(phone, "Estou com um probleminha técnico. Tente novamente! 🔧")
+            await send_text_message(
+                phone, "Estou com um probleminha técnico. Tente novamente! 🔧"
+            )
             return None
 
         context = {
@@ -452,7 +482,9 @@ async def _process_linked_user(
         try:
             redis = get_service("redis")
             if redis and redis.is_initialized():
-                context["history"] = await redis.get_conversation_context(user_id, limit=10)
+                context["history"] = await redis.get_conversation_context(
+                    user_id, limit=10
+                )
         except Exception:
             pass
 
@@ -467,15 +499,20 @@ async def _process_linked_user(
                 redis = get_service("redis")
                 if redis and redis.is_initialized():
                     safe_create_task(
-                        redis.save_conversation_message(user_id, {"role": "user", "content": text}),
+                        redis.save_conversation_message(
+                            user_id, {"role": "user", "content": text}
+                        ),
                         name="wa_redis_user",
                     )
                     safe_create_task(
-                        redis.save_conversation_message(user_id, {"role": "assistant", "content": result.response}),
+                        redis.save_conversation_message(
+                            user_id, {"role": "assistant", "content": result.response}
+                        ),
                         name="wa_redis_assistant",
                     )
 
                 from services.business.rag_service import extract_and_save_memory
+
                 safe_create_task(
                     extract_and_save_memory(user_id, text),
                     name="wa_rag_memory",
@@ -497,6 +534,7 @@ async def _process_linked_user(
 # ---------------------------------------------------------------------------
 # Phone → User ID Lookup
 # ---------------------------------------------------------------------------
+
 
 async def _get_user_id_by_phone(phone: str) -> str:
     """Look up Capivarex user ID by WhatsApp phone number."""
@@ -540,6 +578,7 @@ async def _get_user_id_by_phone(phone: str) -> str:
 # API: Verify Link Code (called from frontend)
 # ---------------------------------------------------------------------------
 
+
 @router.post("/whatsapp/link")
 async def verify_link_code(request: Request):
     """
@@ -571,17 +610,18 @@ async def verify_link_code(request: Request):
 
     try:
         from services.core import get_service
+
         db = get_service("database")
         if db and db.is_initialized():
             client = db.get_client()
-            client.table("users").update(
-                {"phone": phone}
-            ).eq("id", user_id).execute()
+            client.table("users").update({"phone": phone}).eq("id", user_id).execute()
 
-            client.table("user_preferences").upsert({
-                "user_id": user_id,
-                "whatsapp_phone": phone,
-            }).execute()
+            client.table("user_preferences").upsert(
+                {
+                    "user_id": user_id,
+                    "whatsapp_phone": phone,
+                }
+            ).execute()
 
     except Exception as e:
         logger.error("WhatsApp link save failed: %s", e)
@@ -604,12 +644,13 @@ async def verify_link_code(request: Request):
 # API: Save phone + send welcome (called from frontend after registration)
 # ---------------------------------------------------------------------------
 
+
 @router.post("/whatsapp/register-phone")
 async def register_phone(request: Request):
     """
     Save user phone and send welcome message after frontend registration.
 
-    Body: {"user_id": "uuid", "phone": "+353891234567", "name": "John", "plan": "basic"}
+    Body: {"user_id": "uuid", "phone": "+353891234567", "name": "John", "plan": "professional"}
     Called by frontend after Supabase signUp succeeds.
     """
     try:
@@ -620,31 +661,36 @@ async def register_phone(request: Request):
     user_id = str(body.get("user_id", "")).strip()
     phone = str(body.get("phone", "")).strip()
     name = str(body.get("name", "")).strip()
-    plan = str(body.get("plan", "basic")).strip()
+    plan = str(body.get("plan", "professional")).strip()
 
     if not user_id or not phone:
         raise HTTPException(status_code=400, detail="user_id and phone required")
 
     # Clean phone
-    clean_phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    clean_phone = (
+        phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    )
 
     # Save phone to database
     try:
         from services.core import get_service
+
         db = get_service("database")
         if db and db.is_initialized():
             client = db.get_client()
 
             # Update users table
-            client.table("users").update(
-                {"phone": clean_phone}
-            ).eq("id", user_id).execute()
+            client.table("users").update({"phone": clean_phone}).eq(
+                "id", user_id
+            ).execute()
 
             # Save to preferences
-            client.table("user_preferences").upsert({
-                "user_id": user_id,
-                "whatsapp_phone": clean_phone,
-            }).execute()
+            client.table("user_preferences").upsert(
+                {
+                    "user_id": user_id,
+                    "whatsapp_phone": clean_phone,
+                }
+            ).execute()
 
     except Exception as e:
         logger.error("Register phone save failed: %s", e)

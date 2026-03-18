@@ -12,6 +12,7 @@ who happens to be great at finance.
 
 Watchlist stored in user_context table (context_type='finance_watchlist').
 """
+
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -124,6 +125,7 @@ async def _save_watchlist(user_id: str, watchlist: Dict[str, List[str]]) -> None
 # Weekly Recap Generation
 # ---------------------------------------------------------------------------
 
+
 async def generate_weekly_recap(
     user_id: str,
     user_name: str = "",
@@ -155,13 +157,20 @@ async def generate_weekly_recap(
     crypto_top_task = _get_top_crypto()
 
     user_stocks, market_movers, user_crypto, crypto_top = await asyncio.gather(
-        user_stocks_task, market_movers_task, user_crypto_task, crypto_top_task,
+        user_stocks_task,
+        market_movers_task,
+        user_crypto_task,
+        crypto_top_task,
         return_exceptions=True,
     )
 
     # Handle exceptions
-    for name, val in [("user_stocks", user_stocks), ("market_movers", market_movers),
-                      ("user_crypto", user_crypto), ("crypto_top", crypto_top)]:
+    for name, val in [
+        ("user_stocks", user_stocks),
+        ("market_movers", market_movers),
+        ("user_crypto", user_crypto),
+        ("crypto_top", crypto_top),
+    ]:
         if isinstance(val, Exception):
             logger.warning("Weekly recap: {} failed: {}", name, val)
 
@@ -193,13 +202,16 @@ async def generate_weekly_recap(
         except Exception as e:
             logger.warning("Weekly recap: Telegram failed: {}", e)
 
-    logger.info("Weekly recap: generated for user={} ({} chars)", user_id[:8], len(message))
+    logger.info(
+        "Weekly recap: generated for user={} ({} chars)", user_id[:8], len(message)
+    )
     return {"title": title, "message": message}
 
 
 # ---------------------------------------------------------------------------
 # Data Fetchers
 # ---------------------------------------------------------------------------
+
 
 async def _get_stock_data(symbols: List[str]) -> Dict[str, Any]:
     """Get stock data for user's watchlist."""
@@ -208,6 +220,7 @@ async def _get_stock_data(symbols: List[str]) -> Dict[str, Any]:
         return {}
 
     import asyncio
+
     try:
         result = await asyncio.to_thread(finance_svc.get_watchlist_summary, symbols)
         return result if isinstance(result, dict) else {}
@@ -218,13 +231,29 @@ async def _get_stock_data(symbols: List[str]) -> Dict[str, Any]:
 async def _get_market_movers() -> List[Dict[str, Any]]:
     """Get top market movers of the week (biggest gainers/losers)."""
     # Use a broad set of popular stocks to find movers
-    popular = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META",
-               "NFLX", "AMD", "INTC", "BA", "DIS", "JPM", "V", "COIN"]
+    popular = [
+        "AAPL",
+        "MSFT",
+        "GOOGL",
+        "AMZN",
+        "TSLA",
+        "NVDA",
+        "META",
+        "NFLX",
+        "AMD",
+        "INTC",
+        "BA",
+        "DIS",
+        "JPM",
+        "V",
+        "COIN",
+    ]
     finance_svc = get_service("finance")
     if not finance_svc or not finance_svc.is_initialized():
         return []
 
     import asyncio
+
     try:
         result = await asyncio.to_thread(finance_svc.get_watchlist_summary, popular)
         if not isinstance(result, dict):
@@ -233,8 +262,11 @@ async def _get_market_movers() -> List[Dict[str, Any]]:
         items = result.get("watchlist", [])
         if not items and isinstance(result, dict):
             # Try alternative format
-            items = [{"symbol": k, **v} for k, v in result.items()
-                     if isinstance(v, dict) and "change_pct" in v]
+            items = [
+                {"symbol": k, **v}
+                for k, v in result.items()
+                if isinstance(v, dict) and "change_pct" in v
+            ]
 
         # Sort by absolute change to find biggest movers
         items.sort(key=lambda x: abs(x.get("change_pct", 0)), reverse=True)
@@ -250,12 +282,17 @@ async def _get_crypto_data(coins: List[str]) -> List[Dict[str, Any]]:
         return []
 
     import asyncio
+
     try:
         all_coins = await asyncio.to_thread(crypto_svc.get_top_coins, 20)
         if not isinstance(all_coins, list):
             return []
         # Filter to user's watchlist
-        return [c for c in all_coins if c.get("id", "").lower() in [x.lower() for x in coins]]
+        return [
+            c
+            for c in all_coins
+            if c.get("id", "").lower() in [x.lower() for x in coins]
+        ]
     except Exception:
         return []
 
@@ -267,12 +304,15 @@ async def _get_top_crypto() -> List[Dict[str, Any]]:
         return []
 
     import asyncio
+
     try:
         all_coins = await asyncio.to_thread(crypto_svc.get_top_coins, 10)
         if not isinstance(all_coins, list):
             return []
         # Sort by 24h change
-        all_coins.sort(key=lambda x: abs(x.get("price_change_percentage_24h", 0)), reverse=True)
+        all_coins.sort(
+            key=lambda x: abs(x.get("price_change_percentage_24h", 0)), reverse=True
+        )
         return all_coins[:5]
     except Exception:
         return []
@@ -281,6 +321,7 @@ async def _get_top_crypto() -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Humanization — Pass through GPT for natural language
 # ---------------------------------------------------------------------------
+
 
 def _build_raw_data(
     user_name: str,
@@ -295,8 +336,9 @@ def _build_raw_data(
     # User's stocks
     stocks_list = user_stocks.get("watchlist", [])
     if not stocks_list and isinstance(user_stocks, dict):
-        stocks_list = [{"symbol": k, **v} for k, v in user_stocks.items()
-                       if isinstance(v, dict)]
+        stocks_list = [
+            {"symbol": k, **v} for k, v in user_stocks.items() if isinstance(v, dict)
+        ]
 
     if stocks_list:
         parts.append("\nUSER'S STOCKS (their personal watchlist):")
@@ -366,6 +408,7 @@ Generate the weekly recap message:"""
     if openai_svc and openai_svc.is_initialized():
         try:
             import asyncio
+
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
@@ -411,13 +454,16 @@ def _fallback_recap(raw_data: str, name: str) -> str:
             else:
                 parts.append(f"  • {clean}")
 
-    parts.append("\n💬 Want me to dive deeper into any of these, or adjust your watchlist?")
+    parts.append(
+        "\n💬 Want me to dive deeper into any of these, or adjust your watchlist?"
+    )
     return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
 # Storage
 # ---------------------------------------------------------------------------
+
 
 async def _recap_sent_this_week(user_id: str) -> bool:
     """Check if recap was already sent this week (since last Monday)."""
@@ -430,7 +476,9 @@ async def _recap_sent_this_week(user_id: str) -> bool:
         # Find last Monday
         now = datetime.now(timezone.utc)
         days_since_monday = now.weekday()  # 0=Monday
-        last_monday = now.replace(hour=0, minute=0, second=0) - __import__("datetime").timedelta(days=days_since_monday)
+        last_monday = now.replace(hour=0, minute=0, second=0) - __import__(
+            "datetime"
+        ).timedelta(days=days_since_monday)
 
         result = (
             client.table("proactivity_feed")
@@ -454,14 +502,16 @@ async def _store_recap(user_id: str, title: str, message: str) -> None:
 
     try:
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": "weekly_finance_recap",
-            "title": title,
-            "message": message,
-            "metadata": json.dumps({"version": "1.0"}),
-            "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": "weekly_finance_recap",
+                "title": title,
+                "message": message,
+                "metadata": json.dumps({"version": "1.0"}),
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Weekly recap: failed to store: {}", e)

@@ -1,9 +1,15 @@
 """Dependencies for API."""
+
 from typing import Any, Dict
 
 from fastapi import Depends
 
-from .auth import get_current_user, get_current_user_from_bearer, get_optional_user, get_admin_user
+from .auth import (
+    get_current_user,
+    get_current_user_from_bearer,
+    get_optional_user,
+    get_admin_user,
+)
 from utils.request_processor import RequestProcessor, get_request_processor
 
 

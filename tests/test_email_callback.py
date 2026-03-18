@@ -298,9 +298,7 @@ class TestEmailCallbackHandler:
         mock_redis.delete = AsyncMock()
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -329,9 +327,7 @@ class TestEmailCallbackHandler:
         mock_redis.get = AsyncMock(return_value=None)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -357,9 +353,7 @@ class TestEmailCallbackHandler:
         mock_redis.get = AsyncMock(return_value=_DRAFT)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -390,9 +384,7 @@ class TestEmailCallbackHandler:
         mock_redis.delete = AsyncMock()
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -421,9 +413,7 @@ class TestEmailCallbackHandler:
         mock_redis.delete = AsyncMock()
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -449,9 +439,7 @@ class TestEmailCallbackHandler:
         mock_redis.get = AsyncMock(return_value=_DRAFT)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -525,8 +513,18 @@ class TestCalendarCallbacks:
         mock_cal = AsyncMock()
         mock_cal.async_get_today_events = AsyncMock(
             return_value=[
-                {"summary": "Standup", "start": "2026-03-03T09:00:00+00:00", "end": "2026-03-03T09:30:00+00:00", "location": ""},
-                {"summary": "Lunch", "start": "2026-03-03T12:00:00+00:00", "end": "2026-03-03T13:00:00+00:00", "location": ""},
+                {
+                    "summary": "Standup",
+                    "start": "2026-03-03T09:00:00+00:00",
+                    "end": "2026-03-03T09:30:00+00:00",
+                    "location": "",
+                },
+                {
+                    "summary": "Lunch",
+                    "start": "2026-03-03T12:00:00+00:00",
+                    "end": "2026-03-03T13:00:00+00:00",
+                    "location": "",
+                },
             ]
         )
         mock_cal.format_event_for_briefing = MagicMock(
@@ -536,9 +534,7 @@ class TestCalendarCallbacks:
         mock_redis.get = AsyncMock(return_value=_DRAFT)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -568,9 +564,7 @@ class TestCalendarCallbacks:
         mock_redis.get = AsyncMock(return_value=_DRAFT)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -604,9 +598,7 @@ class TestCalendarCallbacks:
         mock_redis.get = AsyncMock(return_value=_DRAFT)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -620,7 +612,11 @@ class TestCalendarCallbacks:
 
         query.edit_message_text.assert_called_once()
         text = query.edit_message_text.call_args[0][0]
-        assert "not connected" in text.lower() or "não conectado" in text.lower() or "Calendar" in text
+        assert (
+            "not connected" in text.lower()
+            or "não conectado" in text.lower()
+            or "Calendar" in text
+        )
 
     @pytest.mark.asyncio
     async def test_cal_add_creates_event(self):
@@ -635,16 +631,12 @@ class TestCalendarCallbacks:
             "proposed_location": "office",
         }
         mock_cal = AsyncMock()
-        mock_cal.async_create_event = AsyncMock(
-            return_value={"id": "event1"}
-        )
+        mock_cal.async_create_event = AsyncMock(return_value={"id": "event1"})
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=draft_with_meeting)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -676,9 +668,7 @@ class TestCalendarCallbacks:
         mock_redis.get = AsyncMock(return_value=draft_no_dt)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -704,9 +694,7 @@ class TestCalendarCallbacks:
         mock_redis.get = AsyncMock(return_value=None)
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -745,17 +733,13 @@ class TestHandleSendAutoEvent:
         mock_gmail = AsyncMock()
         mock_gmail.is_initialized.return_value = True
         mock_cal = AsyncMock()
-        mock_cal.async_create_event = AsyncMock(
-            return_value={"id": "ev1"}
-        )
+        mock_cal.async_create_event = AsyncMock(return_value={"id": "ev1"})
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=draft_with_event)
         mock_redis.delete = AsyncMock()
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -789,9 +773,7 @@ class TestHandleSendAutoEvent:
         mock_redis.delete = AsyncMock()
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",
@@ -824,17 +806,13 @@ class TestHandleSendAutoEvent:
         mock_gmail = AsyncMock()
         mock_gmail.is_initialized.return_value = True
         mock_cal = AsyncMock()
-        mock_cal.async_create_event = AsyncMock(
-            side_effect=Exception("Calendar error")
-        )
+        mock_cal.async_create_event = AsyncMock(side_effect=Exception("Calendar error"))
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=draft_with_event)
         mock_redis.delete = AsyncMock()
         mock_db = AsyncMock()
         mock_db.is_initialized.return_value = True
-        mock_db.get_user_by_telegram_id = AsyncMock(
-            return_value={"id": "uuid-1"}
-        )
+        mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-1"})
 
         with patch(
             "telegram_bot.handlers.email_callback.get_service",

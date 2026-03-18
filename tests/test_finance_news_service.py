@@ -81,18 +81,21 @@ class TestTimeAgo:
 
     def test_just_now(self):
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc).isoformat()
         result = _time_ago(now)
         assert result in ("just now", "1m ago")
 
     def test_hours_ago(self):
         from datetime import datetime, timezone, timedelta
+
         dt = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
         result = _time_ago(dt)
         assert "3h ago" == result
 
     def test_days_ago(self):
         from datetime import datetime, timezone, timedelta
+
         dt = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
         result = _time_ago(dt)
         assert "2d ago" == result
@@ -114,7 +117,9 @@ class TestGetCachedNews:
 
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_db(self):
-        with patch("services.business.finance_news_service.get_service", return_value=None):
+        with patch(
+            "services.business.finance_news_service.get_service", return_value=None
+        ):
             result = await get_cached_news("user-123")
         assert result == []
 
@@ -139,7 +144,9 @@ class TestGetCachedNews:
         ]
         mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
 
-        with patch("services.business.finance_news_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_news_service.get_service", return_value=mock_db
+        ):
             result = await get_cached_news("user-123", limit=5)
 
         assert len(result) == 1
@@ -167,7 +174,9 @@ class TestGetCachedNews:
         ]
         mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
 
-        with patch("services.business.finance_news_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_news_service.get_service", return_value=mock_db
+        ):
             result = await get_cached_news("user-123")
 
         assert len(result) == 1
@@ -184,7 +193,9 @@ class TestFetchAndStoreNews:
 
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_perplexity(self):
-        with patch("services.business.finance_news_service.get_service", return_value=None):
+        with patch(
+            "services.business.finance_news_service.get_service", return_value=None
+        ):
             result = await fetch_and_store_news()
         assert result == []
 
@@ -192,14 +203,19 @@ class TestFetchAndStoreNews:
     async def test_returns_empty_when_no_db(self):
         mock_perplexity = MagicMock()
         mock_perplexity.initialize = AsyncMock()
-        mock_perplexity.search = AsyncMock(return_value={"answer": "1. News. Details.", "sources": []})
+        mock_perplexity.search = AsyncMock(
+            return_value={"answer": "1. News. Details.", "sources": []}
+        )
 
         def side_effect(name):
             if name == "perplexity":
                 return mock_perplexity
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
         assert result == []
 
@@ -207,10 +223,12 @@ class TestFetchAndStoreNews:
     async def test_fetches_and_stores(self):
         mock_perplexity = MagicMock()
         mock_perplexity.initialize = AsyncMock()
-        mock_perplexity.search = AsyncMock(return_value={
-            "answer": "1. Market rises. Stocks gained today.",
-            "sources": ["https://example.com"],
-        })
+        mock_perplexity.search = AsyncMock(
+            return_value={
+                "answer": "1. Market rises. Stocks gained today.",
+                "sources": ["https://example.com"],
+            }
+        )
 
         mock_db = MagicMock()
         mock_db.initialize = AsyncMock()
@@ -224,7 +242,9 @@ class TestFetchAndStoreNews:
         mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
 
         # Mock insert
-        mock_client.table.return_value.insert.return_value.execute.return_value = MagicMock()
+        mock_client.table.return_value.insert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         def side_effect(name):
             if name == "perplexity":
@@ -233,7 +253,10 @@ class TestFetchAndStoreNews:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
 
         assert len(result) >= 1
@@ -253,7 +276,10 @@ class TestFetchAndStoreNewsEdgeCases:
         mock_perplexity = MagicMock()
         mock_perplexity.initialize = AsyncMock(side_effect=RuntimeError("init fail"))
 
-        with patch("services.business.finance_news_service.get_service", return_value=mock_perplexity):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            return_value=mock_perplexity,
+        ):
             result = await fetch_and_store_news()
         assert result == []
 
@@ -261,17 +287,21 @@ class TestFetchAndStoreNewsEdgeCases:
     async def test_fetch_for_specific_user(self):
         mock_perplexity = MagicMock()
         mock_perplexity.initialize = AsyncMock()
-        mock_perplexity.search = AsyncMock(return_value={
-            "answer": "1. Tech stocks rally. Markets are up today.",
-            "sources": [],
-        })
+        mock_perplexity.search = AsyncMock(
+            return_value={
+                "answer": "1. Tech stocks rally. Markets are up today.",
+                "sources": [],
+            }
+        )
 
         mock_db = MagicMock()
         mock_db.initialize = AsyncMock()
         mock_db.is_initialized.return_value = True
         mock_client = MagicMock()
         mock_db.get_client.return_value = mock_client
-        mock_client.table.return_value.insert.return_value.execute.return_value = MagicMock()
+        mock_client.table.return_value.insert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         def side_effect(name):
             if name == "perplexity":
@@ -280,7 +310,10 @@ class TestFetchAndStoreNewsEdgeCases:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news(user_id="specific-user-123")
 
         assert len(result) >= 1
@@ -291,10 +324,12 @@ class TestFetchAndStoreNewsEdgeCases:
     async def test_no_users_found(self):
         mock_perplexity = MagicMock()
         mock_perplexity.initialize = AsyncMock()
-        mock_perplexity.search = AsyncMock(return_value={
-            "answer": "1. Some news. Details here.",
-            "sources": [],
-        })
+        mock_perplexity.search = AsyncMock(
+            return_value={
+                "answer": "1. Some news. Details here.",
+                "sources": [],
+            }
+        )
 
         mock_db = MagicMock()
         mock_db.initialize = AsyncMock()
@@ -316,7 +351,10 @@ class TestFetchAndStoreNewsEdgeCases:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
 
         # New personalized code: no users = no fetches (each user gets unique query)
@@ -340,7 +378,10 @@ class TestFetchAndStoreNewsEdgeCases:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
 
         assert result == []
@@ -349,10 +390,12 @@ class TestFetchAndStoreNewsEdgeCases:
     async def test_insert_failure_doesnt_crash(self):
         mock_perplexity = MagicMock()
         mock_perplexity.initialize = AsyncMock()
-        mock_perplexity.search = AsyncMock(return_value={
-            "answer": "1. News item. Details.",
-            "sources": [],
-        })
+        mock_perplexity.search = AsyncMock(
+            return_value={
+                "answer": "1. News item. Details.",
+                "sources": [],
+            }
+        )
 
         mock_db = MagicMock()
         mock_db.initialize = AsyncMock()
@@ -364,7 +407,9 @@ class TestFetchAndStoreNewsEdgeCases:
         mock_result.data = [{"user_id": "user-1"}]
         mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
         # Insert fails
-        mock_client.table.return_value.insert.return_value.execute.side_effect = Exception("DB error")
+        mock_client.table.return_value.insert.return_value.execute.side_effect = (
+            Exception("DB error")
+        )
 
         def side_effect(name):
             if name == "perplexity":
@@ -373,14 +418,16 @@ class TestFetchAndStoreNewsEdgeCases:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
 
         assert len(result) >= 1  # articles were fetched even if storage failed
 
 
 class TestGetCachedNewsEdgeCases:
-
     @pytest.mark.asyncio
     async def test_db_exception(self):
         mock_db = MagicMock()
@@ -390,7 +437,9 @@ class TestGetCachedNewsEdgeCases:
         mock_db.get_client.return_value = mock_client
         mock_client.table.return_value.select.side_effect = Exception("DB crash")
 
-        with patch("services.business.finance_news_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_news_service.get_service", return_value=mock_db
+        ):
             result = await get_cached_news("user-123")
 
         assert result == []
@@ -402,7 +451,9 @@ class TestGetCachedNewsEdgeCases:
         mock_db.is_initialized.return_value = True
         mock_db.get_client.return_value = None
 
-        with patch("services.business.finance_news_service.get_service", return_value=mock_db):
+        with patch(
+            "services.business.finance_news_service.get_service", return_value=mock_db
+        ):
             result = await get_cached_news("user-123")
 
         assert result == []
@@ -418,12 +469,16 @@ class TestTimeAgoEdgeCases:
 
     def test_z_suffix_timestamp(self):
         from datetime import datetime, timezone, timedelta
-        dt = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        dt = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         result = _time_ago(dt)
         assert "30m ago" == result
 
     def test_minutes_boundary(self):
         from datetime import datetime, timezone, timedelta
+
         dt = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat()
         result = _time_ago(dt)
         assert result == "just now"
@@ -471,7 +526,10 @@ class TestFetchAndStoreNewsFallbacks:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
         assert result == []
 
@@ -494,7 +552,10 @@ class TestFetchAndStoreNewsFallbacks:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
         assert result == []
 
@@ -503,10 +564,12 @@ class TestFetchAndStoreNewsFallbacks:
         """Lines 97-111: proactivity_preferences fails, falls back to webapp_messages."""
         mock_perplexity = MagicMock()
         mock_perplexity.initialize = AsyncMock()
-        mock_perplexity.search = AsyncMock(return_value={
-            "answer": "1. Big news. Some details here.",
-            "sources": [],
-        })
+        mock_perplexity.search = AsyncMock(
+            return_value={
+                "answer": "1. Big news. Some details here.",
+                "sources": [],
+            }
+        )
 
         mock_db = MagicMock()
         mock_db.initialize = AsyncMock()
@@ -518,11 +581,17 @@ class TestFetchAndStoreNewsFallbacks:
             mock_table = MagicMock()
             if table_name == "proactivity_preferences":
                 # First call fails
-                mock_table.select.return_value.eq.return_value.execute.side_effect = Exception("table error")
+                mock_table.select.return_value.eq.return_value.execute.side_effect = (
+                    Exception("table error")
+                )
             elif table_name == "webapp_messages":
                 # Fallback succeeds
                 result = MagicMock()
-                result.data = [{"user_id": "user-a"}, {"user_id": "user-b"}, {"user_id": "user-a"}]
+                result.data = [
+                    {"user_id": "user-a"},
+                    {"user_id": "user-b"},
+                    {"user_id": "user-a"},
+                ]
                 mock_table.select.return_value.eq.return_value.gte.return_value.execute.return_value = result
             elif table_name == "proactivity_feed":
                 mock_table.insert.return_value.execute.return_value = MagicMock()
@@ -537,7 +606,10 @@ class TestFetchAndStoreNewsFallbacks:
                 return mock_db
             return None
 
-        with patch("services.business.finance_news_service.get_service", side_effect=side_effect):
+        with patch(
+            "services.business.finance_news_service.get_service",
+            side_effect=side_effect,
+        ):
             result = await fetch_and_store_news()
 
         assert len(result) >= 1

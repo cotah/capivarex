@@ -110,9 +110,7 @@ def test_callback_success():
         return_value=mock_oauth,
     ):
         client = TestClient(_build_app())
-        resp = client.get(
-            "/api/auth/google/callback?code=auth_code&state=valid_state"
-        )
+        resp = client.get("/api/auth/google/callback?code=auth_code&state=valid_state")
 
     assert resp.status_code == 200
     assert "Connected" in resp.text or "Conectado" in resp.text
@@ -130,9 +128,7 @@ def test_callback_google_error():
         return_value=MagicMock(),
     ):
         client = TestClient(_build_app())
-        resp = client.get(
-            "/api/auth/google/callback?error=access_denied"
-        )
+        resp = client.get("/api/auth/google/callback?error=access_denied")
 
     assert resp.status_code == 400
     assert "access_denied" in resp.text
@@ -167,18 +163,14 @@ def test_callback_missing_params():
 def test_callback_value_error():
     """/callback returns 400 on ValueError (invalid state)."""
     mock_oauth = AsyncMock()
-    mock_oauth.handle_callback = AsyncMock(
-        side_effect=ValueError("State inválido")
-    )
+    mock_oauth.handle_callback = AsyncMock(side_effect=ValueError("State inválido"))
 
     with patch(
         "api.routes.google_auth.get_google_oauth",
         return_value=mock_oauth,
     ):
         client = TestClient(_build_app())
-        resp = client.get(
-            "/api/auth/google/callback?code=code&state=bad_state"
-        )
+        resp = client.get("/api/auth/google/callback?code=code&state=bad_state")
 
     assert resp.status_code == 400
     assert (
@@ -205,9 +197,7 @@ def test_callback_generic_exception():
         return_value=mock_oauth,
     ):
         client = TestClient(_build_app())
-        resp = client.get(
-            "/api/auth/google/callback?code=code&state=state"
-        )
+        resp = client.get("/api/auth/google/callback?code=code&state=state")
 
     assert resp.status_code == 500
     assert "Erro" in resp.text or "Error" in resp.text

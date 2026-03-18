@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from urllib.request import urlopen, Request
 
+
 def load_env(path: Path) -> dict:
     """Parse a ``.env`` file into a plain dictionary.
 
@@ -23,7 +24,7 @@ def load_env(path: Path) -> dict:
             continue
         key, val = line.split("=", 1)
         key = key.strip()
-        val = val.strip().strip("\"").strip("'")
+        val = val.strip().strip('"').strip("'")
         data[key] = val
     return data
 

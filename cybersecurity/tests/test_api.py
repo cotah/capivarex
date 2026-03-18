@@ -28,11 +28,13 @@ class TestScoreGrade:
 class TestSettingsValidation:
     def test_settings_update_model(self):
         from cybersecurity.api.settings import SettingsUpdate
+
         update = SettingsUpdate(fast_scan_interval=120)
         assert update.fast_scan_interval == 120
         assert update.medium_scan_interval is None
 
     def test_finding_update_model(self):
         from cybersecurity.api.findings import FindingUpdate
+
         update = FindingUpdate(status="fixed")
         assert update.status == "fixed"

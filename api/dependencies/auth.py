@@ -4,6 +4,7 @@ Authentication dependencies for the refactored API.
 Uses services (get_service) for database access
 instead of direct imports from services/.
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +13,11 @@ from typing import Annotated, Any, Dict, Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+    OAuth2PasswordBearer,
+)
 import jwt
 from jwt.exceptions import PyJWTError
 
@@ -33,7 +38,7 @@ if not SECRET_KEY and _env not in ("test", "development", "dev", "ci"):
     raise RuntimeError(
         "CRITICAL: JWT_SECRET_KEY is empty. "
         "Set a strong random secret in your environment variables. "
-        "Generate one with: python -c \"import secrets; print(secrets.token_hex(64))\""
+        'Generate one with: python -c "import secrets; print(secrets.token_hex(64))"'
     )
 
 # OAuth2 scheme -- tokenUrl points at the real auth endpoint (with prefix)
@@ -132,9 +137,9 @@ async def get_admin_user(
     Raises:
         HTTPException 403: If the user does not have sufficient privileges.
     """
-    plan = current_user.get("plan", "free")
+    plan = current_user.get("plan", "professional")
     role = current_user.get("role", "user")
-    if role not in ("admin", "superuser") and plan != "everywhere":
+    if role not in ("admin", "superuser") and plan != "executive":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This endpoint requires an elevated plan or admin role.",

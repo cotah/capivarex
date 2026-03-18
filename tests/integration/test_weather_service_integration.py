@@ -89,7 +89,10 @@ class TestGetCurrentWeather:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.integrations.weather_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.weather_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             result = await svc.get_current_weather("São Paulo")
 
         assert result["location"]["name"] == "São Paulo"
@@ -110,7 +113,10 @@ class TestGetCurrentWeather:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.integrations.weather_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.weather_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             with pytest.raises(RuntimeError, match="Erro ao buscar clima"):
                 await svc.get_current_weather("InvalidCity")
 
@@ -131,7 +137,10 @@ class TestGetCurrentWeather:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.integrations.weather_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.weather_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             await svc.get_current_weather("SP")
 
         svc.initialize.assert_called_once()
@@ -152,7 +161,10 @@ class TestGetForecast:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.integrations.weather_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.weather_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             result = await svc.get_forecast("São Paulo", days=2)
 
         assert result["location"]["name"] == "São Paulo"
@@ -174,7 +186,10 @@ class TestGetForecast:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.integrations.weather_service.aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "services.integrations.weather_service.aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             with pytest.raises(RuntimeError, match="Erro ao buscar previsão"):
                 await svc.get_forecast("InvalidCity")
 

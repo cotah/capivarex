@@ -23,6 +23,7 @@ async def enrich_cve(cve_id: str) -> dict | None:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
                 "https://services.nvd.nist.gov/rest/json/cves/2.0",
@@ -63,7 +64,8 @@ async def enrich_cve(cve_id: str) -> dict | None:
 
             # Extract references
             references = [
-                ref.get("url") for ref in cve_data.get("references", [])
+                ref.get("url")
+                for ref in cve_data.get("references", [])
                 if ref.get("url")
             ][:5]
 
@@ -106,6 +108,7 @@ async def get_advisories_for_package(
 
     try:
         import httpx
+
         query = """
         query($package: String!, $ecosystem: SecurityAdvisoryEcosystem!) {
             securityVulnerabilities(
@@ -151,9 +154,7 @@ async def get_advisories_for_package(
 
             data = resp.json()
             nodes = (
-                data.get("data", {})
-                .get("securityVulnerabilities", {})
-                .get("nodes", [])
+                data.get("data", {}).get("securityVulnerabilities", {}).get("nodes", [])
             )
 
             advisories = []
@@ -166,17 +167,19 @@ async def get_advisories_for_package(
                         cve_id = ident.get("value")
                         break
 
-                advisories.append({
-                    "ghsa_id": advisory.get("ghsaId"),
-                    "cve_id": cve_id,
-                    "summary": advisory.get("summary", ""),
-                    "severity": (advisory.get("severity") or "moderate").lower(),
-                    "published": advisory.get("publishedAt"),
-                    "vulnerable_range": node.get("vulnerableVersionRange"),
-                    "first_patched": (
-                        node.get("firstPatchedVersion", {}) or {}
-                    ).get("identifier"),
-                })
+                advisories.append(
+                    {
+                        "ghsa_id": advisory.get("ghsaId"),
+                        "cve_id": cve_id,
+                        "summary": advisory.get("summary", ""),
+                        "severity": (advisory.get("severity") or "moderate").lower(),
+                        "published": advisory.get("publishedAt"),
+                        "vulnerable_range": node.get("vulnerableVersionRange"),
+                        "first_patched": (
+                            node.get("firstPatchedVersion", {}) or {}
+                        ).get("identifier"),
+                    }
+                )
 
             return advisories
     except ImportError:

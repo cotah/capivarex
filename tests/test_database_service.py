@@ -1,6 +1,7 @@
 """
 Unit tests for DatabaseService — Supabase client wrapper.
 """
+
 from unittest.mock import Mock, patch, MagicMock
 
 import pytest
@@ -37,7 +38,9 @@ async def test_db_init_missing_url():
     from services.core import ServiceConfigurationError
 
     svc = DatabaseService()
-    with patch.dict("os.environ", {"SUPABASE_URL": "", "SUPABASE_SERVICE_KEY": "key"}, clear=False):
+    with patch.dict(
+        "os.environ", {"SUPABASE_URL": "", "SUPABASE_SERVICE_KEY": "key"}, clear=False
+    ):
         with pytest.raises(ServiceConfigurationError, match="SUPABASE_URL"):
             await svc._initialize()
 
@@ -48,13 +51,21 @@ async def test_db_get_all_users():
     svc = _make_service()
 
     users = [
-        {"id": "1", "proactivity_preferences": {"enabled": True}, "telegram_chat_id": "123"},
-        {"id": "2", "proactivity_preferences": {"enabled": False}, "telegram_chat_id": "456"},
+        {
+            "id": "1",
+            "proactivity_preferences": {"enabled": True},
+            "telegram_chat_id": "123",
+        },
+        {
+            "id": "2",
+            "proactivity_preferences": {"enabled": False},
+            "telegram_chat_id": "456",
+        },
         {"id": "3", "proactivity_preferences": {}, "telegram_chat_id": "789"},
     ]
 
-    svc.client.table.return_value.select.return_value.neq.return_value.execute.return_value = (
-        _chain_result(users)
+    svc.client.table.return_value.select.return_value.neq.return_value.execute.return_value = _chain_result(
+        users
     )
 
     result = await svc.get_all_users_with_preferences()
@@ -68,8 +79,8 @@ async def test_db_get_user_by_telegram_id():
     svc = _make_service()
 
     user = {"id": "1", "telegram_chat_id": "123", "full_name": "Test"}
-    svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-        _chain_result([user])
+    svc.client.table.return_value.select.return_value.eq.return_value.execute.return_value = _chain_result(
+        [user]
     )
 
     result = await svc.get_user_by_telegram_id("123")
@@ -81,8 +92,8 @@ async def test_db_get_user_by_telegram_id():
 async def test_db_health_check():
     """Health check returns True with valid client."""
     svc = _make_service()
-    svc.client.table.return_value.select.return_value.limit.return_value.execute.return_value = (
-        _chain_result([{"id": "1"}])
+    svc.client.table.return_value.select.return_value.limit.return_value.execute.return_value = _chain_result(
+        [{"id": "1"}]
     )
 
     result = await svc._health_check()

@@ -66,7 +66,9 @@ async def generate_night_routine(
         "suggested_wake": schedule["wake_time"],
         "sleep_hours": schedule["sleep_hours"],
         "first_event": tomorrow_events[0].get("title", "") if tomorrow_events else None,
-        "first_event_time": first_event_time.strftime("%H:%M") if first_event_time else None,
+        "first_event_time": first_event_time.strftime("%H:%M")
+        if first_event_time
+        else None,
         "events_tomorrow": len(tomorrow_events),
         "weather": weather_summary,
     }
@@ -232,6 +234,7 @@ async def _generate_ai_night_message(name: str, data: Dict[str, Any]) -> Optiona
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -247,7 +250,9 @@ async def _generate_ai_night_message(name: str, data: Dict[str, Any]) -> Optiona
     return None
 
 
-async def _generate_ai_morning_message(name: str, data: Dict[str, Any]) -> Optional[str]:
+async def _generate_ai_morning_message(
+    name: str, data: Dict[str, Any]
+) -> Optional[str]:
     """Generate morning routine via GPT."""
     openai_svc = get_service("openai")
     if not openai_svc or not openai_svc.is_initialized():
@@ -264,6 +269,7 @@ async def _generate_ai_morning_message(name: str, data: Dict[str, Any]) -> Optio
 
     try:
         import asyncio
+
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
@@ -330,7 +336,9 @@ def _generate_fallback_morning_message(name: str, data: Dict[str, Any]) -> str:
     return msg
 
 
-async def _store_routine(user_id: str, routine_type: str, text: str, data: Dict[str, Any]) -> None:
+async def _store_routine(
+    user_id: str, routine_type: str, text: str, data: Dict[str, Any]
+) -> None:
     """Store routine in proactivity feed."""
     try:
         db = get_service("database")
@@ -338,11 +346,13 @@ async def _store_routine(user_id: str, routine_type: str, text: str, data: Dict[
             return
 
         client = db.get_client()
-        client.table("proactivity_feed").insert({
-            "user_id": user_id,
-            "type": routine_type,
-            "content": text[:2000],
-            "metadata": json.dumps(data),
-        }).execute()
+        client.table("proactivity_feed").insert(
+            {
+                "user_id": user_id,
+                "type": routine_type,
+                "content": text[:2000],
+                "metadata": json.dumps(data),
+            }
+        ).execute()
     except Exception as e:
         logger.warning("Store %s failed: %s", routine_type, e)

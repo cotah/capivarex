@@ -54,9 +54,7 @@ class TestMercadoCallbackDispatch:
         with patch("telegram_bot.handlers.mercado_callback.get_service") as mock_svc:
             mock_db = MagicMock()
             mock_db.is_initialized.return_value = True
-            mock_db.get_user_by_telegram_id = AsyncMock(
-                return_value={"id": "uuid-123"}
-            )
+            mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-123"})
             mock_db.client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[{"preferred_language": "en"}]
             )
@@ -90,9 +88,7 @@ class TestMercadoCallbackDispatch:
 
             mock_db = MagicMock()
             mock_db.is_initialized.return_value = True
-            mock_db.get_user_by_telegram_id = AsyncMock(
-                return_value={"id": "uuid-123"}
-            )
+            mock_db.get_user_by_telegram_id = AsyncMock(return_value={"id": "uuid-123"})
             mock_db.client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[{"preferred_language": "en"}]
             )
