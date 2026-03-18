@@ -33,7 +33,6 @@ jobs:
 
     - name: Run ruff linter
       run: ruff check . --output-format=github
-      working-directory: capivarex-backend
 
   test:
     name: Tests & Coverage
@@ -53,7 +52,7 @@ jobs:
       uses: actions/cache@v5
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('capivarex-backend/requirements.txt') }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
 
@@ -62,7 +61,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-asyncio pytest-cov
-      working-directory: capivarex-backend
 
     - name: Run tests with coverage
       env:
@@ -75,7 +73,6 @@ jobs:
           --cov=. \
           --cov-report=term-missing \
           -q
-      working-directory: capivarex-backend
 
   security:
     name: Security Audit
@@ -95,7 +92,6 @@ jobs:
 
     - name: Audit dependencies
       run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2022-43012
-      working-directory: capivarex-backend
 
   docker:
     name: Docker Build
@@ -108,4 +104,3 @@ jobs:
 
     - name: Build production Docker image
       run: docker build -f Dockerfile.prod -t capivarax:${{ github.sha }} .
-      working-directory: capivarex-backend
