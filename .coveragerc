@@ -1,6 +1,9 @@
 [run]
 source = .
 omit =
+    # CyberSecurity bot — separate test suite, not part of backend coverage
+    cybersecurity/*
+    ../cybersecurity/*
     # Tests themselves
     tests/*
     # Telegram bot — pure I/O, requires live Telegram connection
