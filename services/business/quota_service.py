@@ -350,6 +350,10 @@ class QuotaService(BaseService):
         """
         Verifica e consome quota atomicamente.
 
+        Uses Redis INCRBY (atomic) to prevent race conditions (TOCTOU).
+        If the increment exceeds the limit, it rolls back with DECRBY.
+        Falls back to non-atomic check if Redis is unavailable.
+
         Raises:
             QuotaExceededError: se sem quota suficiente
         """
@@ -359,6 +363,41 @@ class QuotaService(BaseService):
         limit = PLANS.get(plan, PLANS["professional"])["quotas"].get(resource, 0)
         if limit == 0:
             raise QuotaExceededError(resource, 0, 0, plan)
+
+        # Atomic path: Redis INCRBY → check → rollback if over limit
+        if self._redis:
+            key = f"quota:{tenant_id}:{resource}"
+            try:
+                new_val = await self._redis._execute_command(
+                    ["INCRBY", key, amount]
+                )
+                new_val = int(new_val)
+                if new_val > limit:
+                    # Over limit — rollback atomically
+                    await self._redis._execute_command(
+                        ["DECRBY", key, amount]
+                    )
+                    raise QuotaExceededError(resource, new_val - amount, limit, plan)
+                # Set TTL to prevent stale keys (1 hour)
+                await self._redis._execute_command(["EXPIRE", key, 3600])
+                # Sync to DB in background (non-blocking)
+                await self._increment_usage(tenant_id, resource, amount)
+                await self._log_usage(tenant_id, resource, amount, plan)
+                self.logger.info(
+                    "Consumed (atomic): tenant=%s resource=%s amount=%d used=%d/%d",
+                    tenant_id, resource, amount, new_val, limit,
+                )
+                return self._usage_dict(resource, new_val, limit, plan)
+            except QuotaExceededError:
+                raise
+            except Exception as e:
+                self.logger.warning(
+                    "Redis atomic quota failed for %s/%s, falling back: %s",
+                    tenant_id, resource, e,
+                )
+                # Fall through to non-atomic path
+
+        # Fallback: non-atomic check (when Redis is unavailable)
         used = await self._get_used(tenant_id, resource)
         if (used + amount) > limit:
             raise QuotaExceededError(resource, used, limit, plan)
