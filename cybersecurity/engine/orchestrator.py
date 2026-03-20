@@ -180,12 +180,28 @@ class CyberSecurityOrchestrator:
     # ------------------------------------------------------------------
 
     async def _process_findings(self, findings: list[SecurityFinding]) -> None:
-        """Persist findings, send alerts, create autofix tickets."""
+        """Persist findings, run AI triage, send alerts, attempt auto-remediation."""
         for finding in findings:
-            # 1. Persist to database
+            # 1. AI Triage — adjust confidence using RAG + LLM (if enabled)
+            try:
+                from cybersecurity.intelligence.confidence_scorer import score_finding
+
+                original_confidence = finding.confidence
+                finding.confidence = await score_finding(finding)
+                if abs(finding.confidence - original_confidence) > 0.01:
+                    logger.info(
+                        "AI triage: '%s' confidence %.2f → %.2f",
+                        finding.title[:50],
+                        original_confidence,
+                        finding.confidence,
+                    )
+            except Exception:
+                logger.debug("AI triage skipped for '%s'", finding.title[:50])
+
+            # 2. Persist to database (with AI-adjusted confidence)
             _db_id = await self._upsert_finding(finding)
 
-            # 2. Alert on high/critical
+            # 3. Alert on high/critical
             if finding.severity in ALERT_SEVERITIES:
                 try:
                     from cybersecurity.integrations.notification_bridge import (
@@ -196,7 +212,7 @@ class CyberSecurityOrchestrator:
                 except Exception:
                     logger.debug("Failed to send alert for finding")
 
-            # 3. Create autofix ticket for high-confidence findings
+            # 4. Create autofix ticket for high-confidence findings
             if finding.confidence >= AUTOFIX_SUGGEST_THRESHOLD and finding.severity in {
                 "high",
                 "critical",
@@ -209,6 +225,14 @@ class CyberSecurityOrchestrator:
                     await create_ticket_from_finding(finding)
                 except Exception:
                     logger.debug("Failed to create autofix ticket")
+
+            # 5. Auto-remediate if confidence is very high (and AUTO_FIX_ENABLED)
+            try:
+                from cybersecurity.intelligence.remediation_engine import auto_remediate
+
+                await auto_remediate(finding)
+            except Exception:
+                logger.debug("Auto-remediation skipped for '%s'", finding.title[:50])
 
     async def _upsert_finding(self, finding: SecurityFinding) -> str | None:
         """Insert or update finding in cyber_findings table."""
