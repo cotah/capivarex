@@ -188,7 +188,7 @@ async def voice_websocket(
 
         # ── Services ─────────────────────────────────────────────────────
         stt_service = get_service("whisper")
-        tts_service = get_service("elevenlabs")
+        tts_service = get_service("openai_tts")  # OpenAI TTS — cheaper than ElevenLabs
         redis_svc = get_service("redis")
         orchestrator = get_agent("orchestrator")
 
@@ -362,9 +362,13 @@ async def voice_websocket(
 
             # ── TTS ──────────────────────────────────────────────────────────
             try:
-                if tts_service and tts_service.is_initialized():
+                if tts_service:
+                    # Auto-initialize if needed (e.g. lazy startup)
+                    if not tts_service.is_initialized():
+                        await tts_service.initialize()
+
                     audio_bytes = await tts_service.text_to_speech(
-                        text=response_text[:1000],
+                        text=response_text[:4096],
                     )
                     if audio_bytes:
                         audio_b64 = base64.b64encode(audio_bytes).decode()
@@ -375,8 +379,12 @@ async def voice_websocket(
                                 "content_type": "audio/mpeg",
                             }
                         )
+                    else:
+                        logger.warning("VoiceWS TTS returned empty audio for user=%s", user_id[:8])
+                else:
+                    logger.warning("VoiceWS: no TTS service available — voice disabled")
             except Exception as e:
-                logger.warning("VoiceWS TTS failed for user={}: {}", user_id[:8], e)
+                logger.error("VoiceWS TTS failed for user=%s: %s", user_id[:8], e)
                 # TTS failure is non-fatal — text response already sent
 
             # ── Background: memory + personal info extraction ────────────

@@ -2162,7 +2162,7 @@ async def voice_transcribe(
 
 class SynthesizeRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000)
-    voice_id: str = Field(default="21m00Tcm4TlvDq8ikWAM")
+    voice: str = Field(default="nova")
 
 
 @router.post("/voice/synthesize")
@@ -2170,14 +2170,14 @@ async def voice_synthesize(
     body: SynthesizeRequest,
     user_id: str = Depends(verify_webapp_user),
 ):
-    """Synthesize text to speech using ElevenLabs (TTS).
+    """Synthesize text to speech using OpenAI TTS.
 
     Returns the audio as a base64-encoded MP3 string.
     """
-    tts = _get_service_or_503("elevenlabs", "ElevenLabs TTS")
+    tts = _get_service_or_503("openai_tts", "OpenAI TTS")
 
     try:
-        audio_bytes = await tts.text_to_speech(body.text, voice_id=body.voice_id)
+        audio_bytes = await tts.text_to_speech(body.text, voice=body.voice)
         audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         logger.info(

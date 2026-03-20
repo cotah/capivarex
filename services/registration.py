@@ -21,6 +21,7 @@ def register_all_services() -> None:
     from .ai.anthropic_service import AnthropicService  # noqa: F401
     from .ai.elevenlabs_service import ElevenLabsService  # noqa: F401
     from .ai.openai_service import OpenAIService  # noqa: F401
+    from .ai.openai_tts_service import OpenAITTSService  # noqa: F401
     from .ai.perplexity_service import PerplexityService  # noqa: F401
 
     # Serviços de Negócio
