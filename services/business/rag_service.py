@@ -155,7 +155,7 @@ async def extract_and_save_memory(user_id: str, message: str) -> None:
                 {"role": "user", "content": message},
             ],
             response_format={"type": "json_object"},
-            max_tokens=150,
+            max_completion_tokens=150,
         )
 
         result = json.loads(classification.choices[0].message.content)

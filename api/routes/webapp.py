@@ -203,7 +203,7 @@ async def webapp_chat(
                                     ],
                                 }
                             ],
-                            max_tokens=800,
+                            max_completion_tokens=800,
                         )
                         vision_description = vision_resp.choices[0].message.content
                         logger.info(
