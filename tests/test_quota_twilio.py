@@ -120,7 +120,10 @@ class TestPlansStructure:
     def test_two_plans_exist(self):
         from services.business.quota_service import PLANS
 
-        assert set(PLANS.keys()) == {"professional", "executive"}
+        assert set(PLANS.keys()) == {
+            "professional", "executive",
+            "ara", "ara_plus_1", "capivarex_pro", "capivarex_ultimate",
+        }
 
     def test_all_18_resources_in_every_plan(self):
         from services.business.quota_service import PLANS

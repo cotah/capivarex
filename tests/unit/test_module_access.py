@@ -47,7 +47,7 @@ class TestModuleConfig:
         assert AGENT_TO_MODULE["image"] == "pora"
 
     def test_all_8_modules_exist(self):
-        expected = {"ara", "ivi", "oka", "yara", "ayvu", "mbae", "pora", "tupa"}
+        expected = {"ara", "ivi", "oka", "yara", "ayvu", "mbae", "pora"}
         assert set(CAPIVARA_MODULES.keys()) == expected
 
     def test_each_module_has_required_fields(self):
