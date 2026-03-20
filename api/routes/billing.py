@@ -77,6 +77,14 @@ MODULE_STRIPE_PRICES: dict[str, str | None] = {
     "pora": STRIPE_PRICE_PORA,
 }
 
+# Bundle plans → modules that get unlocked automatically
+# For capivarex_ultimate: all modules unlocked immediately
+# For ara_plus_1 / capivarex_pro: modules stored in checkout metadata
+#   (frontend shows a module picker after checkout success)
+BUNDLE_MODULE_MAP: dict[str, list[str]] = {
+    "capivarex_ultimate": ["ara", "ivi", "oka", "yara", "ayvu", "mbae", "pora"],
+}
+
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
 
 
@@ -283,6 +291,28 @@ async def stripe_webhook(request: Request):
                 module_name, uid[:8],
             )
 
+        # If this checkout was for a bundle plan, unlock all bundle modules
+        if uid and plan and plan in BUNDLE_MODULE_MAP:
+            access_svc = get_module_access_service()
+            for _mod in BUNDLE_MODULE_MAP[plan]:
+                await access_svc.unlock_module(uid, _mod)
+            logger.info(
+                "Bundle %s: unlocked %d modules for user %s",
+                plan, len(BUNDLE_MODULE_MAP[plan]), uid[:8],
+            )
+
+        # If checkout metadata contains explicit module list (ara_plus_1 / capivarex_pro)
+        modules_csv = meta.get("modules")
+        if modules_csv and uid:
+            access_svc = get_module_access_service()
+            for _mod in modules_csv.split(","):
+                _mod = _mod.strip()
+                if _mod:
+                    await access_svc.unlock_module(uid, _mod)
+            logger.info(
+                "Metadata modules unlocked for user %s: %s", uid[:8], modules_csv,
+            )
+
     elif event_type == "customer.subscription.deleted":
         subscription = event["data"]["object"]
         customer_id = subscription.get("customer")
@@ -298,6 +328,45 @@ async def stripe_webhook(request: Request):
                 f"Billing: customer={customer_id[:16]}"
                 f" subscription deleted, reset to professional"
             )
+
+            # Lock all modules tied to this subscription's item IDs
+            items = subscription.get("items", {}).get("data", [])
+            if items:
+                sub_item_ids = [
+                    item.get("id") for item in items if item.get("id")
+                ]
+                if sub_item_ids:
+                    try:
+                        # Find user_id from customer_id
+                        user_row = (
+                            db.table("users")
+                            .select("id")
+                            .eq("stripe_customer_id", customer_id)
+                            .limit(1)
+                            .execute()
+                        )
+                        if user_row.data:
+                            _uid = user_row.data[0]["id"]
+                            access_svc = get_module_access_service()
+                            # Lock modules matching these subscription item IDs
+                            module_rows = (
+                                db.table("user_modules")
+                                .select("module_name, stripe_subscription_item_id")
+                                .eq("user_id", _uid)
+                                .in_("stripe_subscription_item_id", sub_item_ids)
+                                .execute()
+                            )
+                            for row in (module_rows.data or []):
+                                await access_svc.lock_module(_uid, row["module_name"])
+                            if module_rows.data:
+                                logger.info(
+                                    "Locked %d modules for user %s on subscription cancel",
+                                    len(module_rows.data), _uid[:8],
+                                )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to lock modules on subscription cancel: %s", e
+                        )
 
     elif event_type == "customer.subscription.updated":
         subscription = event["data"]["object"]
@@ -581,3 +650,53 @@ async def create_module_checkout(
             status_code=500,
             detail="Failed to create module checkout session",
         )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/billing/activate-bundle-modules — post-purchase module selection
+# ---------------------------------------------------------------------------
+# For ARA + 1 and CAPIVAREX Pro bundles, the frontend shows a module picker
+# after checkout success. The selected modules are sent here to be unlocked.
+# ---------------------------------------------------------------------------
+
+class ActivateBundleModulesRequest(BaseModel):
+    modules: list[str] = Field(
+        ...,
+        description="List of module names to activate (e.g. ['ivi', 'yara'])",
+    )
+
+
+@router.post("/activate-bundle-modules")
+async def activate_bundle_modules(
+    body: ActivateBundleModulesRequest,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Activate selected modules after a bundle purchase (ara_plus_1 / capivarex_pro).
+
+    Called by the frontend after the user picks which capivaras to unlock.
+    """
+    valid_modules = {"ivi", "oka", "yara", "ayvu", "mbae", "pora"}
+    invalid = [m for m in body.modules if m not in valid_modules]
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid module names: {invalid}. Valid: {sorted(valid_modules)}",
+        )
+
+    if not body.modules:
+        raise HTTPException(status_code=400, detail="No modules specified")
+
+    access_svc = get_module_access_service()
+    unlocked = []
+    for module_name in body.modules:
+        success = await access_svc.unlock_module(user_id, module_name)
+        if success:
+            unlocked.append(module_name)
+
+    logger.info(
+        "Bundle activation: user=%s unlocked=%s",
+        user_id[:8],
+        ",".join(unlocked),
+    )
+    return {"status": "ok", "unlocked": unlocked}
+
