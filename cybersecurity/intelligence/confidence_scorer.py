@@ -108,7 +108,7 @@ async def _llm_triage(finding: SecurityFinding) -> dict | None:
                 {"role": "user", "content": user_msg},
             ],
             temperature=0.1,
-            max_tokens=200,
+            max_completion_tokens=200,
             response_format={"type": "json_object"},
         )
 

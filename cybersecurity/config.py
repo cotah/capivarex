@@ -57,7 +57,7 @@ CYBER_OPENAI_API_KEY = os.getenv("CYBER_OPENAI_API_KEY", "")
 CYBER_ANTHROPIC_API_KEY = os.getenv("CYBER_ANTHROPIC_API_KEY", "")
 
 # LLM Models
-CYBER_TRIAGE_MODEL = "gpt-4o-mini"  # Fast + cheap for triaging findings
+CYBER_TRIAGE_MODEL = "gpt-5.4-nano"  # Fast + cheapest — only classifies findings
 CYBER_PATCH_MODEL = "claude-sonnet-4-5-20250514"  # Best for code analysis + patches
 
 # LLM feature toggle — graceful degradation if no keys
