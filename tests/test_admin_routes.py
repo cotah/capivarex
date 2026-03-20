@@ -553,7 +553,10 @@ class TestBillingWebhookNewEvents(unittest.TestCase):
         return _mock_db()
 
     def _webhook_call(self, client, event_payload):
-        with patch("stripe.Webhook.construct_event", return_value=event_payload):
+        with (
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch("stripe.Webhook.construct_event", return_value=event_payload),
+        ):
             return client.post(
                 "/api/billing/webhook",
                 content=b"raw_body",
@@ -769,6 +772,7 @@ class TestSubscriptionUpdatedWebhook(unittest.TestCase):
 
         with (
             patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
             patch("stripe.Webhook.construct_event", return_value=event),
             patch("api.routes.billing._notify_admin"),
         ):
@@ -803,6 +807,7 @@ class TestSubscriptionUpdatedWebhook(unittest.TestCase):
 
         with (
             patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
             patch("stripe.Webhook.construct_event", return_value=event),
             patch("api.routes.billing._notify_admin"),
         ):

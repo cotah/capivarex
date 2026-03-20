@@ -16,12 +16,15 @@ from services.business.devgit_bridge import (
     _code_previews,
 )
 from api.routes.devgit import router
+from api.dependencies import get_current_user
 
 
 @pytest.fixture
 def app():
     app = FastAPI()
     app.include_router(router)
+    # Override auth — devgit routes now require authentication
+    app.dependency_overrides[get_current_user] = lambda: {"id": "test-user", "plan": "professional"}
     return app
 
 

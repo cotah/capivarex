@@ -145,6 +145,7 @@ class TestStripeWebhook:
 
         with (
             patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
             patch(
                 "stripe.Webhook.construct_event",
                 return_value=event_payload,
@@ -167,9 +168,12 @@ class TestStripeWebhook:
         assert update_args["stripe_customer_id"] == "cus_abc123"
 
     def test_webhook_invalid_signature_returns_400(self, app_client):
-        with patch(
-            "stripe.Webhook.construct_event",
-            side_effect=ValueError("Invalid payload"),
+        with (
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch(
+                "stripe.Webhook.construct_event",
+                side_effect=ValueError("Invalid payload"),
+            ),
         ):
             resp = app_client.post(
                 "/api/billing/webhook",
