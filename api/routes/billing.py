@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from api.middleware.webapp_auth import verify_webapp_user
 from api.routes._helpers import _get_db
+from capivarex_modules.access_service import get_module_access_service
 
 router = APIRouter(tags=["Billing"])
 
@@ -53,6 +54,29 @@ PLAN_LIMITS: dict[str, int] = {
 PLAN_PRICES: dict[str, str | None] = {
     "professional": STRIPE_PRICE_PROFESSIONAL,
     "executive": STRIPE_PRICE_EXECUTIVE,
+}
+
+# ---------------------------------------------------------------------------
+# Capivara Module Stripe Price IDs (added March 2026)
+# ---------------------------------------------------------------------------
+STRIPE_PRICE_ARA = os.getenv("STRIPE_PRICE_ARA")
+STRIPE_PRICE_IVI = os.getenv("STRIPE_PRICE_IVI")
+STRIPE_PRICE_OKA = os.getenv("STRIPE_PRICE_OKA")
+STRIPE_PRICE_YARA = os.getenv("STRIPE_PRICE_YARA")
+STRIPE_PRICE_AYVU = os.getenv("STRIPE_PRICE_AYVU")
+STRIPE_PRICE_MBAE = os.getenv("STRIPE_PRICE_MBAE")
+STRIPE_PRICE_PORA = os.getenv("STRIPE_PRICE_PORA")
+STRIPE_PRICE_TUPA = os.getenv("STRIPE_PRICE_TUPA")
+
+MODULE_STRIPE_PRICES: dict[str, str | None] = {
+    "ara": STRIPE_PRICE_ARA,
+    "ivi": STRIPE_PRICE_IVI,
+    "oka": STRIPE_PRICE_OKA,
+    "yara": STRIPE_PRICE_YARA,
+    "ayvu": STRIPE_PRICE_AYVU,
+    "mbae": STRIPE_PRICE_MBAE,
+    "pora": STRIPE_PRICE_PORA,
+    "tupa": STRIPE_PRICE_TUPA,
 }
 
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
@@ -249,6 +273,16 @@ async def stripe_webhook(request: Request):
             ).eq("id", uid).execute()
             logger.info(
                 f"Billing: user={uid[:8]} upgraded to plan={plan} limit={limit}"
+            )
+
+        # If this checkout was for a module add-on, unlock it
+        module_name = meta.get("module_name")
+        if module_name and uid:
+            access_svc = get_module_access_service()
+            await access_svc.unlock_module(uid, module_name)
+            logger.info(
+                "Module {} unlocked for user {} via Stripe webhook",
+                module_name, uid[:8],
             )
 
     elif event_type == "customer.subscription.deleted":
@@ -459,3 +493,93 @@ async def reset_daily_usage(request: Request):
     except Exception as e:
         logger.opt(exception=True).error("Cron reset-daily error: {}", e)
         raise HTTPException(status_code=500, detail="Failed to reset daily usage")
+
+
+# ===========================================================================
+# CAPIVARA MODULE BILLING (added March 2026)
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# GET /api/billing/modules — list all modules with user's access status
+# ---------------------------------------------------------------------------
+@router.get("/modules")
+async def get_user_modules(
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Returns all capivara modules with the user's access status."""
+    access_svc = get_module_access_service()
+    modules = await access_svc.get_user_modules(user_id)
+    return {"modules": modules}
+
+
+# ---------------------------------------------------------------------------
+# POST /api/billing/create-module-checkout — checkout for a module add-on
+# ---------------------------------------------------------------------------
+class CreateModuleCheckoutRequest(BaseModel):
+    module_name: str = Field(..., pattern=r"^(ivi|oka|yara|ayvu|mbae|pora|tupa)$")
+
+
+@router.post("/create-module-checkout")
+async def create_module_checkout(
+    body: CreateModuleCheckoutRequest,
+    request: Request,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Create a Stripe Checkout session for a capivara module add-on."""
+    stripe.api_key = STRIPE_SECRET_KEY
+    db = _get_db()
+
+    price_id = MODULE_STRIPE_PRICES.get(body.module_name)
+    if not price_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Module '{body.module_name}' is not yet available for purchase or price not configured.",
+        )
+
+    try:
+        user_row = (
+            db.table("users")
+            .select("email, stripe_customer_id")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not user_row.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user = user_row.data[0]
+        customer_id = user.get("stripe_customer_id")
+
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=user.get("email"),
+                metadata={"user_id": user_id},
+            )
+            customer_id = customer.id
+            db.table("users").update(
+                {"stripe_customer_id": customer_id}
+            ).eq("id", user_id).execute()
+
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            metadata={"user_id": user_id, "module_name": body.module_name},
+            success_url=f"{FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{FRONTEND_URL}/billing/cancel",
+        )
+        logger.info(
+            "Module checkout: user={} module={} session={}",
+            user_id[:8],
+            body.module_name,
+            session.id[:16],
+        )
+        return {"checkout_url": session.url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.opt(exception=True).error("Module checkout error: {}", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create module checkout session",
+        )
