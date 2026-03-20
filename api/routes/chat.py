@@ -41,6 +41,9 @@ from models.schemas import Conversation, ConversationCreate, Message
 from services.business.chat_service import ChatService
 from services.core import get_service
 
+# Module access control — added for capivara subscription system
+from capivarex_modules.access_service import get_module_access_service
+
 load_dotenv()
 
 # JWT config (same env vars used by the original auth module)
@@ -316,6 +319,27 @@ async def chat_stream(
             agent_result = await _execute_car_agent(body.message, context)
         else:
             agent_name, method = _AGENT_MAP.get(intent, ("chat", "execute"))
+
+            # --- Module access check (capivara subscription system) ---
+            _user_id = context.get("user", {}).get("id") if context.get("user") else None
+            if _user_id and agent_name not in ("chat", "orchestrator"):
+                _access_svc = get_module_access_service()
+                _access_result = await _access_svc.check_agent_access(_user_id, agent_name)
+                if not _access_result.allowed:
+                    payload = {
+                        "intent": "module_locked",
+                        "type": "module_locked",
+                        "text": _access_result.upgrade_message or "This feature requires an upgrade.",
+                        "module_name": _access_result.module_name,
+                        "reason": _access_result.reason,
+                    }
+
+                    async def event_generator():
+                        yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+                    return StreamingResponse(event_generator(), media_type="text/event-stream")
+            # --- End module access check ---
+
             agent = get_agent(agent_name)
             handler = getattr(agent, method) if agent else None
             if handler:
@@ -525,6 +549,20 @@ async def chat_websocket(
             else:
                 decision = {"action": action}
             decision.setdefault("action", action)
+
+            # --- Module access check (capivara subscription system) ---
+            if action not in ("chat", "orchestrator"):
+                _ws_access_svc = get_module_access_service()
+                _ws_access = await _ws_access_svc.check_agent_access(str(user_id), action)
+                if not _ws_access.allowed:
+                    await websocket.send_json({
+                        "type": "module_locked",
+                        "content": _ws_access.upgrade_message or "This feature requires an upgrade.",
+                        "module_name": _ws_access.module_name,
+                        "reason": _ws_access.reason,
+                    })
+                    continue
+            # --- End module access check ---
 
             full_response = await chat_service.dispatch(
                 action, user_message, decision, history
