@@ -444,7 +444,7 @@ Generate the trip detection message:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=300,
                 temperature=0.85,
             )
@@ -866,7 +866,7 @@ Generate the personalized itinerary:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=2000,
                 temperature=0.85,
             )
@@ -1003,7 +1003,7 @@ Generate the teaser summary:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=400,
                 temperature=0.85,
             )
@@ -1071,7 +1071,7 @@ Generate the adjusted itinerary:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=2000,
                 temperature=0.8,
             )
@@ -1140,7 +1140,7 @@ Generate the final travel document:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=2500,
                 temperature=0.7,
             )
@@ -1242,7 +1242,7 @@ Generate:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=200,
                 temperature=0.85,
             )
@@ -1585,7 +1585,7 @@ Rewrite:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=100,
                 temperature=0.8,
             )

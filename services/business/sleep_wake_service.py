@@ -238,7 +238,7 @@ async def _generate_ai_night_message(name: str, data: Dict[str, Any]) -> Optiona
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-5-mini",
+            model="gpt-5.4-mini",
             max_tokens=200,
             temperature=0.7,
         )
@@ -273,7 +273,7 @@ async def _generate_ai_morning_message(
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-5-mini",
+            model="gpt-5.4-mini",
             max_tokens=150,
             temperature=0.7,
         )

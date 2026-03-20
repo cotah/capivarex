@@ -209,7 +209,7 @@ async def _generate_by_category(
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-5-mini",
+            model="gpt-5.4-mini",
             max_tokens=200,
             temperature=0.9,
         )
@@ -282,7 +282,7 @@ async def _generate_ai_discovery(
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-5-mini",
+            model="gpt-5.4-mini",
             max_tokens=200,
             temperature=0.8,
         )

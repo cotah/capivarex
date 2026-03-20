@@ -196,7 +196,7 @@ Generate:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=200,
                 temperature=0.8,
             )

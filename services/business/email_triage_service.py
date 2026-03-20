@@ -153,7 +153,7 @@ JSON array:"""
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-5-mini",
+            model="gpt-5.4-mini",
             max_tokens=1000,
             temperature=0.2,
         )
@@ -296,7 +296,7 @@ Generate the triage summary:"""
             response = await asyncio.to_thread(
                 openai_svc.chat_completion,
                 [{"role": "user", "content": prompt}],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 max_tokens=500,
                 temperature=0.8,
             )
@@ -423,7 +423,7 @@ Draft the reply:"""
         response = await asyncio.to_thread(
             openai_svc.chat_completion,
             [{"role": "user", "content": prompt}],
-            model="gpt-5-mini",
+            model="gpt-5.4-mini",
             max_tokens=400,
             temperature=0.7,
         )
