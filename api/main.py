@@ -61,6 +61,7 @@ from api.routes import github_auth
 from api.routes import microsoft_auth
 from api.routes import notion_auth
 from api.routes import devgit
+from api.routes import modules as modules_routes
 from api.routes.voice_pipeline_routes import router_pipeline as voice_pipeline_router
 from api.routes.voice_ws import router_voice_ws
 from api.routes.twilio_stream import router as twilio_stream_router
@@ -884,4 +885,5 @@ app.include_router(
 )
 app.include_router(twilio_stream_router, tags=["Twilio Stream"])
 app.include_router(health.router, tags=["Monitoring"])
+app.include_router(modules_routes.router, tags=["Modules"])
 app.include_router(cybersecurity_router, tags=["CyberSecurity"])
