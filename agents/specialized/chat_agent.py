@@ -12,7 +12,7 @@ from services import get_service
 from services.ai.model_config import CHAT_MODEL
 from services.business.user_profile_service import build_user_profile_prompt
 from services.i18n import t, get_user_lang
-from services.i18n.prompts import get_chat_prompt
+from services.i18n.prompts import get_chat_prompt, get_voice_chat_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -143,8 +143,12 @@ class ChatAgent(BaseAgent):
         # Get history via cache-aside pattern
         history = await self._get_history_with_cache(conversation_id, context)
 
-        # Build system prompt with user profile injected
-        base_prompt = get_chat_prompt(lang=lang)
+        # Build system prompt — voice mode uses a dedicated conversational prompt
+        is_voice = context.get("source") == "voice"
+        if is_voice:
+            base_prompt = get_voice_chat_prompt(lang=lang)
+        else:
+            base_prompt = get_chat_prompt(lang=lang)
         user_profile = ""
         if user_id:
             try:

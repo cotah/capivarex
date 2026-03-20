@@ -317,11 +317,20 @@ async def voice_websocket(
                     else str(orchestrator_resp)
                 )
 
+                # Build voice-aware context for the agent
+                # The "source": "voice" flag triggers the dedicated voice prompt
+                # in chat_agent.py (get_voice_chat_prompt instead of get_chat_prompt)
+                voice_context = {
+                    "history": history,
+                    "user_plan": user_plan,
+                    "source": "voice",
+                }
+
                 # Call target agent directly (not ChatService — it sends
                 # "token" messages that break the voice WebSocket protocol)
                 target_agent = get_agent(action) or get_agent("chat")
                 agent_result = await target_agent.execute(
-                    transcript, {"history": history, "user_plan": user_plan}
+                    transcript, voice_context
                 )
                 response_text = (
                     agent_result.response
