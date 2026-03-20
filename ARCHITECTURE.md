@@ -50,7 +50,7 @@ CAPIVAREX is an AI-powered personal life assistant. Users interact via **WebApp 
 
 | Layer | Technology | Details |
 |-------|-----------|---------|
-| **Backend Framework** | Python 3.12 + FastAPI 0.129 | Async, high-performance REST API |
+| **Backend Framework** | Python 3.11 + FastAPI 0.129 | Async, high-performance REST API |
 | **Frontend** | Next.js 14 (TypeScript) | React, Tailwind CSS, on Vercel |
 | **Database** | Supabase (PostgreSQL) | 33 tables, Row Level Security |
 | **Cache / Queue** | Redis (Upstash) | Timers, rate limiting, conversation cache, sessions |

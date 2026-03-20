@@ -527,11 +527,23 @@ async def lifespan(app: FastAPI):
                 f"Missing required environment variables: {', '.join(_missing)}"
             )
 
-        _optional_warnings = ["OPENAI_API_KEY", "ENCRYPTION_KEY", "SENTRY_DSN"]
+        _optional_warnings = ["OPENAI_API_KEY", "SENTRY_DSN"]
         for _var in _optional_warnings:
             if not _os.environ.get(_var):
                 _startup_logger.warning(
                     "ENV WARNING: %s not set (some features will be limited)", _var
+                )
+
+        # ENCRYPTION_KEY is critical in production (encrypts OAuth tokens at rest)
+        if not _os.environ.get("ENCRYPTION_KEY"):
+            _env = _os.environ.get("ENVIRONMENT", "development")
+            if _env in ("production", "staging"):
+                _startup_logger.critical(
+                    "ENCRYPTION_KEY not set in %s — OAuth tokens will NOT be encrypted!", _env
+                )
+            else:
+                _startup_logger.warning(
+                    "ENCRYPTION_KEY not set — OK for dev/test (temporary key will be generated)"
                 )
 
     from services import get_service
@@ -678,7 +690,15 @@ app.add_middleware(
     allow_origin_regex=r"https://(app\.)?capivarex\.(com|vercel\.app).*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Request-ID",
+        "X-Requested-With",
+        "Cache-Control",
+    ],
 )
 
 # ====================================================================

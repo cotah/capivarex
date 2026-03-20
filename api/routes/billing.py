@@ -66,7 +66,6 @@ STRIPE_PRICE_YARA = os.getenv("STRIPE_PRICE_YARA")
 STRIPE_PRICE_AYVU = os.getenv("STRIPE_PRICE_AYVU")
 STRIPE_PRICE_MBAE = os.getenv("STRIPE_PRICE_MBAE")
 STRIPE_PRICE_PORA = os.getenv("STRIPE_PRICE_PORA")
-STRIPE_PRICE_TUPA = os.getenv("STRIPE_PRICE_TUPA")
 
 MODULE_STRIPE_PRICES: dict[str, str | None] = {
     "ara": STRIPE_PRICE_ARA,
@@ -76,7 +75,6 @@ MODULE_STRIPE_PRICES: dict[str, str | None] = {
     "ayvu": STRIPE_PRICE_AYVU,
     "mbae": STRIPE_PRICE_MBAE,
     "pora": STRIPE_PRICE_PORA,
-    "tupa": STRIPE_PRICE_TUPA,
 }
 
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
@@ -517,7 +515,7 @@ async def get_user_modules(
 # POST /api/billing/create-module-checkout — checkout for a module add-on
 # ---------------------------------------------------------------------------
 class CreateModuleCheckoutRequest(BaseModel):
-    module_name: str = Field(..., pattern=r"^(ivi|oka|yara|ayvu|mbae|pora|tupa)$")
+    module_name: str = Field(..., pattern=r"^(ivi|oka|yara|ayvu|mbae|pora)$")
 
 
 @router.post("/create-module-checkout")

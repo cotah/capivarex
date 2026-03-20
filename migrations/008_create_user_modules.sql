@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS user_modules (
     id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    module_name     TEXT NOT NULL CHECK (module_name IN ('ara', 'ivi', 'oka', 'yara', 'ayvu', 'mbae', 'pora', 'tupa')),
+    module_name     TEXT NOT NULL CHECK (module_name IN ('ara', 'ivi', 'oka', 'yara', 'ayvu', 'mbae', 'pora')),
     status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'early_access', 'trial')),
     stripe_subscription_item_id TEXT,  -- Stripe subscription item ID for this module add-on
     unlocked_at     TIMESTAMPTZ DEFAULT NOW(),
@@ -50,5 +50,5 @@ CREATE TRIGGER trigger_user_modules_updated_at
 
 -- Comment for documentation
 COMMENT ON TABLE user_modules IS 'Tracks which CAPIVAREX capivara modules each user has unlocked via subscription. ARA is always active and not stored here.';
-COMMENT ON COLUMN user_modules.module_name IS 'One of: ara, ivi, oka, yara, ayvu, mbae, pora, tupa';
+COMMENT ON COLUMN user_modules.module_name IS 'One of: ara, ivi, oka, yara, ayvu, mbae, pora';
 COMMENT ON COLUMN user_modules.status IS 'active=paying, cancelled=churned, early_access=paid but module not launched yet, trial=7-day trial';
