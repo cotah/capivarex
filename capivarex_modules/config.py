@@ -11,6 +11,9 @@ MODULE_STATUS_ACTIVE = "active"
 MODULE_STATUS_COMING_SOON = "coming_soon"
 MODULE_STATUS_DISABLED = "disabled"
 
+# Internal modules — not sold as subscriptions, always active for all users
+INTERNAL_MODULES: Set[str] = {"tupa"}
+
 # Complete module definition
 CAPIVARA_MODULES: Dict[str, Dict] = {
     "ara": {
@@ -101,18 +104,9 @@ CAPIVARA_MODULES: Dict[str, Dict] = {
         "stripe_price_env": "STRIPE_PRICE_PORA",
         "price_eur": 9.99,
     },
-    "tupa": {
-        "name": "TUPA",
-        "full_name": "TUPA — Security",
-        "description": "Your digital guardian. Cybersecurity monitoring, threat detection.",
-        "color": "#E74C3C",
-        "emoji": "🔴",
-        "status": MODULE_STATUS_COMING_SOON,
-        "always_included": False,
-        "agents": [],  # No dedicated agents yet — uses cybersecurity/ system
-        "stripe_price_env": "STRIPE_PRICE_TUPA",
-        "price_eur": 9.99,
-    },
+    # TUPA — Security é uma camada de infraestrutura interna.
+    # Não é vendida como módulo. Está ativa em todos os planos automaticamente.
+    # Gerenciada em cybersecurity/ e autofix/ — não requer controle de acesso por subscription.
 }
 
 # Reverse lookup: agent_name → module_name
