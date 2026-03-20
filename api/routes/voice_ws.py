@@ -235,7 +235,7 @@ async def voice_websocket(
                 await _safe_send({"type": "error", "message": "Audio too short"})
                 continue
 
-            logger.info("VoiceWS [%s]: received %d bytes of audio", user_id[:8], len(audio_bytes))
+            logger.info("VoiceWS [{}]: received {} bytes of audio", user_id[:8], len(audio_bytes))
 
             # ── STT ──────────────────────────────────────────────────────────
             tmp_path = _AUDIO_TEMP_DIR / f"{uuid.uuid4()}.webm"
@@ -250,13 +250,13 @@ async def voice_websocket(
                 tmp_path.unlink(missing_ok=True)
 
             if not transcript:
-                logger.warning("VoiceWS [%s]: STT returned empty transcript", user_id[:8])
+                logger.warning("VoiceWS [{}]: STT returned empty transcript", user_id[:8])
                 await _safe_send(
                     {"type": "error", "message": "Could not transcribe audio"}
                 )
                 continue
 
-            logger.info("VoiceWS [%s]: STT → '%s'", user_id[:8], transcript[:80])
+            logger.info("VoiceWS [{}]: STT → '{}'", user_id[:8], transcript[:80])
             await _safe_send({"type": "transcription", "text": transcript})
 
             # ── Context ──────────────────────────────────────────────────────
@@ -337,7 +337,7 @@ async def voice_websocket(
                 continue
 
             logger.info(
-                "VoiceWS [%s]: LLM → %d chars",
+                "VoiceWS [{}]: LLM → {} chars",
                 user_id[:8], len(response_text),
             )
 
@@ -374,17 +374,17 @@ async def voice_websocket(
                 if tts_service:
                     # Auto-initialize if needed (e.g. lazy startup)
                     if not tts_service.is_initialized():
-                        logger.info("VoiceWS [%s]: initializing TTS service...", user_id[:8])
+                        logger.info("VoiceWS [{}]: initializing TTS service...", user_id[:8])
                         await tts_service.initialize()
 
-                    logger.info("VoiceWS [%s]: calling TTS for %d chars...", user_id[:8], len(response_text[:4096]))
+                    logger.info("VoiceWS [{}]: calling TTS for {} chars...", user_id[:8], len(response_text[:4096]))
                     tts_audio = await tts_service.text_to_speech(
                         text=response_text[:4096],
                     )
                     if tts_audio:
                         audio_b64 = base64.b64encode(tts_audio).decode()
                         logger.info(
-                            "VoiceWS [%s]: TTS OK → %d bytes audio, sending to client",
+                            "VoiceWS [{}]: TTS OK → {} bytes audio, sending to client",
                             user_id[:8], len(tts_audio),
                         )
                         await _safe_send(
@@ -395,11 +395,11 @@ async def voice_websocket(
                             }
                         )
                     else:
-                        logger.warning("VoiceWS [%s]: TTS returned empty audio!", user_id[:8])
+                        logger.warning("VoiceWS [{}]: TTS returned empty audio!", user_id[:8])
                 else:
-                    logger.warning("VoiceWS [%s]: no TTS service available — voice disabled", user_id[:8])
+                    logger.warning("VoiceWS [{}]: no TTS service available — voice disabled", user_id[:8])
             except Exception as e:
-                logger.error("VoiceWS [%s]: TTS FAILED: %s", user_id[:8], e, exc_info=True)
+                logger.error("VoiceWS [{}]: TTS FAILED: {}", user_id[:8], e, exc_info=True)
 
             # ── Background: memory + personal info extraction ────────────
             from utils.safe_task import safe_create_task as _safe_task
