@@ -14,12 +14,12 @@ Entry point for the CAPIVAREX Bot API with:
 import asyncio
 import contextlib
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.middleware.autofix import autofix_exception_middleware
@@ -643,63 +643,74 @@ app.add_middleware(SecurityHeadersMiddleware)
 setup_rate_limiting(app)
 setup_error_handlers(app)
 
-_cors_origins = []
+# ====================================================================
+# CORS — Manual handler (Starlette CORSMiddleware doesn't work on Railway)
+# ====================================================================
 
-# Always allow localhost for development
-if os.getenv("ENVIRONMENT") == "development":
-    _cors_origins.extend(
-        [
-            os.getenv("CORS_ORIGIN_LOCALHOST", "http://localhost:3000"),
-            os.getenv("CORS_ORIGIN_VITE", "http://localhost:5173"),
-            "https://*.replit.dev",
-        ]
-    )
+_cors_allowed_origins: set[str] = {
+    "https://app.capivarex.com",
+    "https://capivarex.com",
+}
 
-# WebApp production origins
-_cors_origins.extend(
-    [
-        "https://app.capivarex.com",
-        "https://capivarex.com",
-    ]
-)
-
-# Add configured frontend URL (production or staging)
+# Add configured frontend/admin URLs
 _frontend_url = os.getenv("FRONTEND_URL")
 if _frontend_url:
-    _cors_origins.append(_frontend_url)
-
-# Admin dashboard origin
+    _cors_allowed_origins.add(_frontend_url.rstrip("/"))
 _admin_url = os.getenv("ADMIN_URL")
 if _admin_url:
-    _cors_origins.append(_admin_url)
+    _cors_allowed_origins.add(_admin_url.rstrip("/"))
 
-# Safety: if no origins configured, block all cross-origin requests
-if not _cors_origins:
-    import logging
+# Vercel preview deploys
+_cors_origin_regex = re.compile(r"https://.*capivarex.*\.vercel\.app")
 
-    logging.getLogger("capivarex.api").error(
-        "SECURITY: No CORS origins configured! "
-        "Blocking all cross-origin requests. "
-        "Set FRONTEND_URL or CORS_ORIGIN_* variables."
-    )
-    _cors_origins = []  # Block everything instead of allowing everything
+# Development
+if os.getenv("ENVIRONMENT") == "development":
+    _cors_allowed_origins.update({
+        "http://localhost:3000",
+        "http://localhost:5173",
+    })
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_origin_regex=r"https://(app\.)?capivarex\.(com|vercel\.app).*",
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=[
-        "Authorization",
-        "Content-Type",
-        "Accept",
-        "Origin",
-        "X-Request-ID",
-        "X-Requested-With",
-        "Cache-Control",
-    ],
-)
+
+def _is_allowed_origin(origin: str) -> bool:
+    """Check if origin is allowed for CORS."""
+    if not origin:
+        return False
+    if origin in _cors_allowed_origins:
+        return True
+    if _cors_origin_regex.fullmatch(origin):
+        return True
+    return False
+
+
+@app.middleware("http")
+async def cors_middleware(request: Request, call_next):
+    """Manual CORS middleware — handles preflight and adds headers to all responses."""
+    origin = request.headers.get("origin", "")
+
+    # Handle preflight OPTIONS
+    if request.method == "OPTIONS" and _is_allowed_origin(origin):
+        from starlette.responses import Response as StarletteResponse
+
+        return StarletteResponse(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Origin, X-Request-ID, X-Requested-With, Cache-Control",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "86400",
+            },
+        )
+
+    # Process request normally
+    response = await call_next(request)
+
+    # Add CORS headers to ALL responses for allowed origins
+    if _is_allowed_origin(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
 
 # ====================================================================
 # HEALTH CHECKS
