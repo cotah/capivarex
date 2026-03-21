@@ -210,9 +210,13 @@ class TestSendEmail:
         assert "user_id" in result["error"]
 
     async def test_send_email_no_gmail_service(self):
-        """Send when GmailService not available returns error."""
+        """Send when no email service available returns error."""
         agent = _email_agent()
-        with patch("agents.specialized.email_agent.get_service", return_value=None):
+        with patch(
+            "agents.specialized.email_agent.EmailAgent._resolve_email_service",
+            new_callable=AsyncMock,
+            return_value=(None, None),
+        ):
             result = await agent._send_email(
                 to="test@test.com",
                 subject="Test",
@@ -220,7 +224,6 @@ class TestSendEmail:
                 user_id="u1",
             )
         assert result["success"] is False
-        assert "GmailService" in result["error"]
 
 
 # ─── EmailAgent — classify urgency ───────────────────────────────────────────

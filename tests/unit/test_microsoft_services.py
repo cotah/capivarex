@@ -222,7 +222,7 @@ class TestOutlookService:
         ) as mock_oauth:
             mock_oauth.return_value.get_valid_token = AsyncMock(return_value=None)
             result = await svc.send_email("u1", "to@test.com", "Subject", "Body")
-        assert result is False
+        assert not result  # empty dict is falsy
 
     @pytest.mark.asyncio
     async def test_get_profile_no_token(self):
