@@ -188,7 +188,44 @@ class CalendarAgent(BaseAgent):
             return await handler()
 
         except ServiceUnavailableError as e:
-            # OAuth2 not connected — return the connect message
+            # OAuth2 not connected — try reading from local cache before giving up
+            try:
+                from services.business.calendar_sync_service import get_cached_events
+
+                cached_events = await get_cached_events(user_id, days_ahead=7, limit=10)
+                if cached_events:
+                    self.logger.info(
+                        "calendar_agent: OAuth not connected but cache has %d events for user=%s",
+                        len(cached_events), user_id[:8],
+                    )
+                    response_lines = [t("cal_events_from_cache", lang=lang, count=len(cached_events))]
+                    for ev in cached_events[:5]:
+                        start = ev.get("start_time", "")
+                        try:
+                            if "T" in start:
+                                from datetime import datetime as _dt
+
+                                start_dt = _dt.fromisoformat(start.replace("Z", "+00:00"))
+                                time_str = start_dt.strftime("%d/%m/%Y às %H:%M")
+                            else:
+                                time_str = start
+                        except (ValueError, TypeError):
+                            time_str = start
+                        title = ev.get("title", t("cal_no_title", lang=lang))
+                        loc = ev.get("location", "")
+                        line = f"• {title} — {time_str}"
+                        if loc:
+                            line += f" ({loc})"
+                        response_lines.append(line)
+                    return AgentResponse(
+                        status=AgentStatus.SUCCESS,
+                        response="\n".join(response_lines),
+                        data={"events": cached_events, "source": "cache"},
+                    )
+            except Exception as cache_err:
+                self.logger.debug("calendar_agent: cache fallback failed: %s", cache_err)
+
+            # No cache available — return the original connect message
             return AgentResponse(
                 status=AgentStatus.ERROR,
                 response=str(e),

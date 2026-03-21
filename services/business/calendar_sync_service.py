@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("capivarex.calendar_sync")
 
@@ -282,3 +282,49 @@ async def sync_all_calendars() -> Dict[str, Any]:
         "total_events": total_events,
         "errors": errors,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Cache read API — used by proactivity_service and calendar_agent
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def get_cached_events(
+    user_id: str,
+    days_ahead: int = 7,
+    limit: int = 50,
+) -> List[Dict[str, Any]]:
+    """Read upcoming events from the local calendar_events cache (Supabase).
+
+    Returns events from now until `days_ahead` days ahead, ordered by start_time.
+    Returns empty list if the cache is empty or unavailable.
+    """
+    db = await _get_db()
+    if not db:
+        return []
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        future = (datetime.now(timezone.utc) + timedelta(days=days_ahead)).isoformat()
+        result = (
+            db.table("calendar_events")
+            .select("title, description, start_time, end_time, location, source, all_day, status")
+            .eq("user_id", user_id)
+            .gte("start_time", now)
+            .lte("start_time", future)
+            .order("start_time", desc=False)
+            .limit(limit)
+            .execute()
+        )
+        return result.data or []
+    except Exception as e:
+        logger.debug("calendar_sync: get_cached_events failed for user=%s: %s", user_id[:8], e)
+        return []
+
+
+async def get_next_cached_event(user_id: str) -> Optional[Dict[str, Any]]:
+    """Return the next upcoming event from the local cache.
+
+    Returns None if no events are cached.
+    """
+    events = await get_cached_events(user_id, days_ahead=7, limit=1)
+    return events[0] if events else None

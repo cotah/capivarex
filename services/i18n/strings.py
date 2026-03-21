@@ -953,6 +953,11 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "pt": "Sem título",
         "es": "Sin título",
     },
+    "cal_events_from_cache": {
+        "en": "I found {count} upcoming event(s) in your last sync:",
+        "pt": "Encontrei {count} evento(s) no teu último sync:",
+        "es": "Encontré {count} evento(s) en tu última sincronización:",
+    },
     "cal_next_meeting": {
         "en": "Your next meeting is '{summary}' on {time}",
         "pt": "A tua próxima reunião é '{summary}' em {time}",

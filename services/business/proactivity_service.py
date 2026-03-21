@@ -165,7 +165,12 @@ class ProactivityService(BaseService):
         active_device = user_context.devices[0] if user_context.devices else None
         device_permissions = active_device.permissions if active_device else []
 
-        # Calendar (requires calendar:read permission if device is present)
+        # Calendar — cache-first strategy
+        # 1. Try local cache (calendar_events table) — fast, no external call
+        # 2. Fallback to live API if cache is empty (circuit-breaker protected)
+        # 3. Return error if both fail
+        from services.business.calendar_sync_service import get_next_cached_event
+
         calendar_service = get_service("calendar")
         calendar_breaker = self._service_breakers["calendar"]
         if active_device and "calendar:read" not in device_permissions:
@@ -173,23 +178,49 @@ class ProactivityService(BaseService):
                 f"Calendar access denied for user {user_id}: missing calendar:read permission"
             )
             tasks["calendar"] = self._immediate({"error": "Permission denied"})
-        elif (
-            calendar_service
-            and calendar_service.is_initialized()
-            and not calendar_breaker.current_state == "open"
-        ):
-
-            @calendar_breaker
-            async def protected_calendar_call():
-                """Fetch the next meeting via the calendar service (circuit-protected)."""
-                return await calendar_service.async_get_next_meeting(user_id=user_id)
-
-            tasks["calendar"] = protected_calendar_call()
         else:
-            error_msg = "Calendar unavailable"
-            if calendar_breaker.current_state == "open":
-                error_msg = "Calendar service is offline (Circuit Open)"
-            tasks["calendar"] = self._immediate({"error": error_msg})
+
+            async def _get_calendar_cache_first():
+                """Try local cache first, fall back to live API."""
+                # 1. Try cache
+                try:
+                    cached = await get_next_cached_event(user_id)
+                    if cached:
+                        self.logger.debug("calendar: served from cache for user=%s", user_id[:8])
+                        return {
+                            "summary": cached.get("title", ""),
+                            "start": cached.get("start_time", ""),
+                            "end": cached.get("end_time", ""),
+                            "location": cached.get("location", ""),
+                            "description": cached.get("description", ""),
+                            "source": cached.get("source", "cache"),
+                        }
+                except Exception as e:
+                    self.logger.debug("calendar: cache read failed: %s", e)
+
+                # 2. Fallback to live API (existing circuit-breaker logic)
+                if (
+                    calendar_service
+                    and calendar_service.is_initialized()
+                    and not calendar_breaker.current_state == "open"
+                ):
+                    try:
+
+                        @calendar_breaker
+                        async def _live_call():
+                            return await calendar_service.async_get_next_meeting(user_id=user_id)
+
+                        return await _live_call()
+                    except Exception as e:
+                        self.logger.warning("calendar: live API fallback failed: %s", e)
+
+                # 3. Both failed
+                error_msg = "Calendar unavailable"
+                if calendar_breaker.current_state == "open":
+                    error_msg = "Calendar service is offline (Circuit Open)"
+                return {"error": error_msg}
+
+            tasks["calendar"] = _get_calendar_cache_first()
 
         # Weather
         weather_service = get_service("weather")
