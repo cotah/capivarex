@@ -5,6 +5,7 @@ Monitoring configuration using Sentry.
 from __future__ import annotations
 
 import os
+import logging
 from typing import Any, Dict
 
 import sentry_sdk
@@ -13,6 +14,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 
 
 _SENTRY_INITIALIZED = False
+_logger = logging.getLogger("capivarex.monitoring")
 
 
 def init_sentry() -> None:
@@ -33,10 +35,10 @@ def init_sentry() -> None:
     release = os.getenv("RELEASE", "unbx-bot@4.29-god")
 
     if not sentry_dsn:
-        print("WARNING: SENTRY_DSN not configured. Monitoring disabled.")
+        _logger.warning("SENTRY_DSN not configured — monitoring disabled")
         return
     if "your-sentry-dsn" in sentry_dsn or "project-id" in sentry_dsn:
-        print("WARNING: SENTRY_DSN placeholder detected. Monitoring disabled.")
+        _logger.warning("SENTRY_DSN placeholder detected — monitoring disabled")
         return
 
     try:
@@ -57,11 +59,11 @@ def init_sentry() -> None:
             debug=environment == "development",
         )
     except Exception as exc:
-        print(f"WARNING: Failed to initialize Sentry: {exc}")
+        _logger.warning("Failed to initialize Sentry: %s", exc)
         return
 
     _SENTRY_INITIALIZED = True
-    print(f"Sentry monitoring initialized (env: {environment}, release: {release})")
+    _logger.info("Sentry initialized (env=%s, release=%s)", environment, release)
 
 
 def set_user_context(user_id: str, **kwargs: Any) -> None:

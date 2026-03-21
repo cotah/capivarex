@@ -98,6 +98,10 @@ class TestCreateCheckout:
         with (
             patch("api.routes.billing._get_db", return_value=db),
             patch(
+                "api.routes.billing.PLAN_PRICES",
+                {"professional": "price_test_pro", "executive": "price_test_exec"},
+            ),
+            patch(
                 "stripe.checkout.Session.create",
                 return_value=mock_session,
             ),

@@ -52,7 +52,11 @@ def verify_admin_token(request: Request) -> None:
 
 
 class PlanUpdateRequest(BaseModel):
-    plan: str  # "professional" | "executive"
+    plan: str = Field(
+        ...,
+        pattern=r"^(free|professional|executive|ara|ara_plus_1|capivarex_pro|capivarex_ultimate)$",
+        description="Valid plan names: free, professional, executive, ara, ara_plus_1, capivarex_pro, capivarex_ultimate",
+    )
 
 
 class QuotaOverrideRequest(BaseModel):
