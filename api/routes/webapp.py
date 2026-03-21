@@ -1844,6 +1844,23 @@ async def update_user_profile(
     user_id: str = Depends(verify_webapp_user),
 ):
     """Update the authenticated user's editable profile fields."""
+    return await _do_update_profile(body, user_id)
+
+
+@router.post("/user/profile")
+async def update_user_profile_post(
+    body: UserProfileUpdateRequest,
+    user_id: str = Depends(verify_webapp_user),
+):
+    """Update profile via POST (fallback — some proxies block PATCH preflight)."""
+    return await _do_update_profile(body, user_id)
+
+
+async def _do_update_profile(
+    body: UserProfileUpdateRequest,
+    user_id: str,
+):
+    """Update the authenticated user's editable profile fields."""
     db = _get_db()
 
     update_data = body.model_dump(exclude_none=True)
