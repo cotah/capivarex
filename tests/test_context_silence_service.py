@@ -101,10 +101,14 @@ class TestCheckMeeting:
 class TestCheckQuietHours:
     @pytest.mark.asyncio
     async def test_during_quiet(self):
+        # Dynamically compute quiet hours that always include current hour
+        now_hour = datetime.now(timezone.utc).hour
+        quiet_start = (now_hour - 2) % 24
+        quiet_end = (now_hour + 2) % 24
         with patch(
             "services.business.context_silence_service._get_quiet_hours",
             new_callable=AsyncMock,
-            return_value=(0, 23),
+            return_value=(quiet_start, quiet_end),
         ):
             result = await _check_quiet_hours("u1")
         assert result["silent"] is True
