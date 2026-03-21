@@ -308,3 +308,381 @@ class TestQuotaEnforcement:
 
         assert resp.status_code == 200
         assert resp.json()["response"] == "Hi there!"
+
+
+# ===========================================================================
+# Capivara Plan Checkout Tests
+# ===========================================================================
+
+
+class TestCapivaraCheckout:
+    """Tests for new Capivara plan checkout flows."""
+
+    @pytest.mark.parametrize(
+        "plan,expected_limit",
+        [
+            ("ara", 300),
+            ("ara_plus_1", 500),
+            ("capivarex_pro", 1000),
+            ("capivarex_ultimate", 999999),
+        ],
+    )
+    def test_create_checkout_capivara_plans(self, app_client, plan, expected_limit):
+        """Each Capivara plan should create a Stripe checkout session."""
+        db = _mock_db()
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = (
+            _make_supabase_result(
+                [{"email": "user@test.com", "stripe_customer_id": "cus_test"}]
+            )
+        )
+
+        mock_session = MagicMock()
+        mock_session.id = "cs_test_123"
+        mock_session.url = "https://checkout.stripe.com/pay/cs_test_123"
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch(
+                "api.routes.billing.PLAN_PRICES",
+                {
+                    "ara": "price_ara",
+                    "ara_plus_1": "price_ara_plus_1",
+                    "capivarex_pro": "price_pro",
+                    "capivarex_ultimate": "price_ult",
+                    "professional": "price_prof",
+                    "executive": "price_exec",
+                },
+            ),
+            patch("stripe.checkout.Session.create", return_value=mock_session),
+        ):
+            resp = app_client.post(
+                "/api/billing/create-checkout",
+                json={"plan": plan},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["checkout_url"] == "https://checkout.stripe.com/pay/cs_test_123"
+
+    def test_checkout_rejects_unconfigured_price(self, app_client):
+        """If Stripe price env var is not set (None), return 400 not 500."""
+        db = _mock_db()
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = (
+            _make_supabase_result(
+                [{"email": "user@test.com", "stripe_customer_id": "cus_test"}]
+            )
+        )
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch(
+                "api.routes.billing.PLAN_PRICES",
+                {"ara": None, "professional": None, "executive": None},
+            ),
+        ):
+            resp = app_client.post(
+                "/api/billing/create-checkout",
+                json={"plan": "ara"},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 400
+        assert "not yet available" in resp.json()["detail"]
+
+    def test_checkout_rejects_module_name_as_plan(self, app_client):
+        """Individual module names (ivi, oka, etc.) should be rejected by regex."""
+        resp = app_client.post(
+            "/api/billing/create-checkout",
+            json={"plan": "ivi"},
+            headers=_auth_header(),
+        )
+        assert resp.status_code == 422
+
+
+# ===========================================================================
+# Capivara Webhook Tests — checkout.session.completed with modules
+# ===========================================================================
+
+
+class TestCapivaraWebhook:
+    """Tests for Stripe webhooks handling new Capivara plans."""
+
+    def _make_checkout_event(self, plan, user_id="user-1", extra_meta=None):
+        meta = {"user_id": user_id, "plan": plan}
+        if extra_meta:
+            meta.update(extra_meta)
+        return {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "metadata": meta,
+                    "customer": "cus_capivara_123",
+                }
+            },
+        }
+
+    def test_webhook_ara_plan_sets_correct_limits(self, app_client):
+        """ARA plan should set 300 message limit."""
+        db = _mock_db()
+        event = self._make_checkout_event("ara")
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch("stripe.Webhook.construct_event", return_value=event),
+        ):
+            resp = app_client.post(
+                "/api/billing/webhook",
+                content=b"raw_body",
+                headers={"stripe-signature": "valid_sig"},
+            )
+
+        assert resp.status_code == 200
+        update_args = db.table("users").update.call_args[0][0]
+        assert update_args["plan"] == "ara"
+        assert update_args["messages_limit"] == 300
+
+    def test_webhook_ultimate_plan_sets_unlimited(self, app_client):
+        """CAPIVAREX Ultimate should set 999999 limit."""
+        db = _mock_db()
+        event = self._make_checkout_event("capivarex_ultimate")
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch("stripe.Webhook.construct_event", return_value=event),
+            patch(
+                "api.routes.billing.get_module_access_service",
+            ) as mock_access_svc,
+        ):
+            svc = AsyncMock()
+            mock_access_svc.return_value = svc
+            resp = app_client.post(
+                "/api/billing/webhook",
+                content=b"raw_body",
+                headers={"stripe-signature": "valid_sig"},
+            )
+
+        assert resp.status_code == 200
+        update_args = db.table("users").update.call_args[0][0]
+        assert update_args["plan"] == "capivarex_ultimate"
+        assert update_args["messages_limit"] == 999999
+
+        # Ultimate should unlock all 7 modules
+        assert svc.unlock_module.call_count == 7
+        unlocked = {call.args[1] for call in svc.unlock_module.call_args_list}
+        assert unlocked == {"ara", "ivi", "oka", "yara", "ayvu", "mbae", "pora"}
+
+    def test_webhook_module_addon_unlocks_single_module(self, app_client):
+        """Checkout with module_name metadata should unlock that module."""
+        db = _mock_db()
+        event = self._make_checkout_event("ara", extra_meta={"module_name": "ivi"})
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch("stripe.Webhook.construct_event", return_value=event),
+            patch("api.routes.billing.get_module_access_service") as mock_access_svc,
+        ):
+            svc = AsyncMock()
+            mock_access_svc.return_value = svc
+            resp = app_client.post(
+                "/api/billing/webhook",
+                content=b"raw_body",
+                headers={"stripe-signature": "valid_sig"},
+            )
+
+        assert resp.status_code == 200
+        svc.unlock_module.assert_any_call("user-1", "ivi")
+
+    def test_webhook_modules_csv_unlocks_multiple(self, app_client):
+        """Checkout with modules CSV metadata should unlock each module."""
+        db = _mock_db()
+        event = self._make_checkout_event(
+            "capivarex_pro", extra_meta={"modules": "ivi,yara,mbae"}
+        )
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch("stripe.Webhook.construct_event", return_value=event),
+            patch("api.routes.billing.get_module_access_service") as mock_access_svc,
+        ):
+            svc = AsyncMock()
+            mock_access_svc.return_value = svc
+            resp = app_client.post(
+                "/api/billing/webhook",
+                content=b"raw_body",
+                headers={"stripe-signature": "valid_sig"},
+            )
+
+        assert resp.status_code == 200
+        unlocked = {call.args[1] for call in svc.unlock_module.call_args_list}
+        assert {"ivi", "yara", "mbae"}.issubset(unlocked)
+
+    def test_webhook_subscription_deleted_resets_plan(self, app_client):
+        """Subscription deletion should reset user to professional plan."""
+        db = _mock_db()
+        # Return user when looking up by stripe_customer_id
+        db.table(
+            "users"
+        ).select.return_value.eq.return_value.limit.return_value.execute.return_value = (
+            _make_supabase_result([{"id": "user-1"}])
+        )
+        db.table(
+            "user_modules"
+        ).select.return_value.eq.return_value.in_.return_value.execute.return_value = (
+            _make_supabase_result([])
+        )
+
+        event = {
+            "type": "customer.subscription.deleted",
+            "data": {
+                "object": {
+                    "customer": "cus_capivara_123",
+                    "items": {"data": [{"id": "si_item_1"}]},
+                }
+            },
+        }
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch("stripe.Webhook.construct_event", return_value=event),
+        ):
+            resp = app_client.post(
+                "/api/billing/webhook",
+                content=b"raw_body",
+                headers={"stripe-signature": "valid_sig"},
+            )
+
+        assert resp.status_code == 200
+        # Verify plan was reset to professional
+        update_args = db.table("users").update.call_args[0][0]
+        assert update_args["plan"] == "professional"
+        assert update_args["messages_limit"] == 300
+
+    def test_webhook_subscription_updated_syncs_plan(self, app_client):
+        """Subscription update should sync plan based on Stripe price ID."""
+        db = _mock_db()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_capivara_123",
+                    "items": {
+                        "data": [{"price": {"id": "price_pro_test"}}]
+                    },
+                }
+            },
+        }
+
+        with (
+            patch("api.routes.billing._get_db", return_value=db),
+            patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", "whsec_test"),
+            patch("stripe.Webhook.construct_event", return_value=event),
+            patch(
+                "api.routes.billing.PLAN_PRICES",
+                {"capivarex_pro": "price_pro_test", "ara": "price_ara_test"},
+            ),
+            patch("api.routes.billing._notify_admin", new_callable=AsyncMock),
+        ):
+            resp = app_client.post(
+                "/api/billing/webhook",
+                content=b"raw_body",
+                headers={"stripe-signature": "valid_sig"},
+            )
+
+        assert resp.status_code == 200
+        update_args = db.table("users").update.call_args[0][0]
+        assert update_args["plan"] == "capivarex_pro"
+        assert update_args["messages_limit"] == 1000
+
+    def test_webhook_no_secret_returns_500(self, app_client):
+        """If STRIPE_WEBHOOK_SECRET is not configured, reject with 500."""
+        with patch("api.routes.billing.STRIPE_WEBHOOK_SECRET", ""):
+            resp = app_client.post(
+                "/api/billing/webhook",
+                content=b"raw_body",
+                headers={"stripe-signature": "sig"},
+            )
+
+        assert resp.status_code == 500
+
+
+# ===========================================================================
+# POST /api/billing/activate-bundle-modules
+# ===========================================================================
+
+
+class TestActivateBundleModules:
+    """Tests for the post-purchase module activation endpoint."""
+
+    def test_activate_valid_modules(self, app_client):
+        """Should unlock specified modules and return them."""
+        mock_svc = AsyncMock()
+        mock_svc.unlock_module = AsyncMock(return_value=True)
+
+        with patch(
+            "api.routes.billing.get_module_access_service", return_value=mock_svc
+        ):
+            resp = app_client.post(
+                "/api/billing/activate-bundle-modules",
+                json={"modules": ["ivi", "yara"]},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "ok"
+        assert set(body["unlocked"]) == {"ivi", "yara"}
+        assert mock_svc.unlock_module.call_count == 2
+
+    def test_activate_rejects_invalid_module(self, app_client):
+        """Should reject invalid module names with 400."""
+        resp = app_client.post(
+            "/api/billing/activate-bundle-modules",
+            json={"modules": ["invalid_module"]},
+            headers=_auth_header(),
+        )
+        assert resp.status_code == 400
+        assert "invalid_module" in resp.json()["detail"]
+
+    def test_activate_rejects_ara(self, app_client):
+        """ARA is always included — cannot be selected as add-on."""
+        resp = app_client.post(
+            "/api/billing/activate-bundle-modules",
+            json={"modules": ["ara"]},
+            headers=_auth_header(),
+        )
+        assert resp.status_code == 400
+
+    def test_activate_rejects_empty_list(self, app_client):
+        """Empty module list should return 400."""
+        resp = app_client.post(
+            "/api/billing/activate-bundle-modules",
+            json={"modules": []},
+            headers=_auth_header(),
+        )
+        assert resp.status_code == 400
+
+    def test_activate_all_valid_modules(self, app_client):
+        """Should accept all 6 selectable modules."""
+        mock_svc = AsyncMock()
+        mock_svc.unlock_module = AsyncMock(return_value=True)
+
+        with patch(
+            "api.routes.billing.get_module_access_service", return_value=mock_svc
+        ):
+            resp = app_client.post(
+                "/api/billing/activate-bundle-modules",
+                json={"modules": ["ivi", "oka", "yara", "ayvu", "mbae", "pora"]},
+                headers=_auth_header(),
+            )
+
+        assert resp.status_code == 200
+        assert len(resp.json()["unlocked"]) == 6
