@@ -753,7 +753,7 @@ class QuotaService(BaseService):
                     self._client()
                     .table("tenant_usage")
                     .select("id, used")
-                    .eq("tenant_id", f"user-{tenant_id}")
+                    .eq("tenant_id", str(tenant_id))
                     .eq("resource", "gpt_tokens")
                     .gte("period_start", period_start)
                     .execute()
@@ -784,7 +784,7 @@ class QuotaService(BaseService):
                         .table("tenant_usage")
                         .insert(
                             {
-                                "tenant_id": f"user-{tenant_id}",
+                                "tenant_id": str(tenant_id),
                                 "resource": "gpt_tokens",
                                 "used": 1,
                                 "period_start": period_start,

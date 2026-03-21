@@ -1927,7 +1927,7 @@ async def get_quota(user_id: str = Depends(verify_webapp_user)):
         usage_result = (
             db.table("tenant_usage")
             .select("used")
-            .eq("tenant_id", f"user-{user_id}")
+            .eq("tenant_id", str(user_id))
             .eq("resource", "messages")
             .gte("period_start", period_start)
             .order("period_start", desc=True)

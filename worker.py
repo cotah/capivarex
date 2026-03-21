@@ -192,6 +192,18 @@ async def check_reminders(ctx):
         logger.info("check_reminders: %d reminder(s) fired", len(fired))
 
 
+async def sync_calendars(ctx):
+    """Sync calendar events from Google/Microsoft for all connected users."""
+    from services.business.calendar_sync_service import sync_all_calendars
+
+    result = await sync_all_calendars()
+    if result.get("total_events", 0) > 0:
+        worker_logger.info(
+            "sync_calendars: %d users, %d events",
+            result["users_synced"], result["total_events"],
+        )
+
+
 # --- WORKER LIFECYCLE ---
 
 
@@ -237,10 +249,11 @@ class WorkerSettings:
     (Found in Upstash dashboard → Database → Details → Endpoint → redis://)
     """
 
-    functions = [generate_image_task, check_timers, check_reminders]
+    functions = [generate_image_task, check_timers, check_reminders, sync_calendars]
     cron_jobs = [
         cron(check_timers, second={0, 10, 20, 30, 40, 50}),  # a cada 10s
         cron(check_reminders, second={0, 30}),  # a cada 30s
+        cron(sync_calendars, minute={0, 15, 30, 45}),  # a cada 15min
     ]
     on_startup = startup
     on_shutdown = shutdown

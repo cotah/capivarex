@@ -9,7 +9,7 @@ Fluxo completo:
     2. EmailAgent recebe, resume e notifica no Telegram
     3. Utilizador responde: "sim responde" / "ignora" / "responde dizendo X"
     4. EmailAgent gera resposta com GPT e pede confirmação
-    5. Com confirmação, envia via Gmail API / Microsoft Graph (TODO)
+    5. Com confirmação, envia via Gmail API / Microsoft Graph
 
 Comandos suportados (no Telegram):
     "Mostra os meus emails"
@@ -223,53 +223,56 @@ class EmailAgent(BaseAgent):
         user_id: str = "",
         reply_to_message_id: Optional[str] = None,
         thread_id: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Envia email via Gmail API (OAuth2 per-user).
+        Envia email via Gmail API ou Microsoft Graph (OAuth2 per-user).
 
-        Args:
-            to: Email do destinatário
-            subject: Assunto do email
-            body: Corpo do email (texto plano)
-            user_id: ID do utilizador (obrigatório para OAuth2)
-            reply_to_message_id: Message-ID para reply
-            thread_id: Thread ID para manter na conversa
-
-        Returns:
-            Dict com resultado do envio
-
-        Raises:
-            RuntimeError: Se Gmail não conectado ou envio falhar
+        Detects the correct provider automatically based on user's connections,
+        or uses the explicit `provider` hint if given.
         """
         if not user_id:
-            return {
-                "success": False,
-                "error": t("email_user_id_required"),
-            }
+            return {"success": False, "error": t("email_user_id_required")}
 
         try:
-            gmail = get_service("gmail")
-            if not gmail or not gmail.is_initialized():
-                if gmail:
-                    await gmail.initialize()
-                else:
-                    return {
-                        "success": False,
-                        "error": t("email_gmail_unavailable"),
-                    }
-
-            # Verificar se user tem Gmail conectado
-            connected = await gmail.is_connected(user_id)
-            if not connected:
-                auth_url = gmail.get_auth_url(user_id)
+            # Resolve which service to use (gmail or outlook)
+            service, provider_name = await self._resolve_email_service(
+                user_id, provider or ""
+            )
+            if not service:
                 return {
                     "success": False,
-                    "error": t("email_gmail_not_connected"),
-                    "auth_url": auth_url,
-                    "message": t("email_need_connect_first"),
+                    "error": t("email_no_provider_connected"),
                 }
 
-            result = await gmail.send_email(
+            # Check if connected
+            connected = False
+            if provider_name == "gmail":
+                connected = await service.is_connected(user_id)
+                if not connected:
+                    auth_url = service.get_auth_url(user_id)
+                    return {
+                        "success": False,
+                        "error": t("email_gmail_not_connected"),
+                        "auth_url": auth_url,
+                        "message": t("email_need_connect_first"),
+                    }
+            elif provider_name == "outlook":
+                try:
+                    from services.auth.microsoft_oauth_service import (
+                        get_microsoft_oauth,
+                    )
+                    connected = await get_microsoft_oauth().is_connected(user_id)
+                except Exception:
+                    pass
+                if not connected:
+                    return {
+                        "success": False,
+                        "error": "Outlook not connected. Please connect your Microsoft account first.",
+                    }
+
+            # Send via the resolved provider
+            result = await service.send_email(
                 user_id=user_id,
                 to=to,
                 subject=subject,
@@ -280,16 +283,14 @@ class EmailAgent(BaseAgent):
 
             return {
                 "success": True,
+                "provider": provider_name,
                 "message_id": result.get("id", ""),
                 "thread_id": result.get("threadId", ""),
             }
 
         except Exception as e:
-            self.logger.error("Failed to send email: %s", e, exc_info=True)
-            return {
-                "success": False,
-                "error": str(e),
-            }
+            self.logger.error("Failed to send email via %s: %s", provider or "auto", e, exc_info=True)
+            return {"success": False, "error": str(e)}
 
     async def _list_emails(
         self,
@@ -890,6 +891,7 @@ class EmailAgent(BaseAgent):
                     user_id=user_id,
                     reply_to_message_id=pending.get("message_id", ""),
                     thread_id=pending.get("thread_id", ""),
+                    provider=pending.get("account", ""),
                 )
 
                 if not send_result.get("success"):
