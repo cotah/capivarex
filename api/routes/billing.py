@@ -49,11 +49,21 @@ if not STRIPE_PRICE_EXECUTIVE:
 PLAN_LIMITS: dict[str, int] = {
     "professional": 300,
     "executive": 999999,
+    # New Capivara plans (from quota_service.py PLANS dict)
+    "ara": 300,
+    "ara_plus_1": 500,
+    "capivarex_pro": 1000,
+    "capivarex_ultimate": 999999,
 }
 
 PLAN_PRICES: dict[str, str | None] = {
     "professional": STRIPE_PRICE_PROFESSIONAL,
     "executive": STRIPE_PRICE_EXECUTIVE,
+    # New Capivara bundle plans
+    "ara": os.getenv("STRIPE_PRICE_ARA"),
+    "ara_plus_1": os.getenv("STRIPE_PRICE_ARA_PLUS_1"),
+    "capivarex_pro": os.getenv("STRIPE_PRICE_CAPIVAREX_PRO"),
+    "capivarex_ultimate": os.getenv("STRIPE_PRICE_CAPIVAREX_ULTIMATE"),
 }
 
 # ---------------------------------------------------------------------------
@@ -92,10 +102,10 @@ def _plan_from_price(price_id: str | None) -> str | None:
     """Map a Stripe price ID back to a plan name."""
     if not price_id:
         return None
-    if price_id == STRIPE_PRICE_PROFESSIONAL:
-        return "professional"
-    if price_id == STRIPE_PRICE_EXECUTIVE:
-        return "executive"
+    # Reverse lookup from PLAN_PRICES dict
+    for plan_name, plan_price_id in PLAN_PRICES.items():
+        if plan_price_id and plan_price_id == price_id:
+            return plan_name
     return None
 
 
@@ -124,7 +134,10 @@ async def _notify_admin(message: str) -> None:
 
 
 class CreateCheckoutRequest(BaseModel):
-    plan: str = Field(..., pattern=r"^(professional|executive)$")
+    plan: str = Field(
+        ...,
+        pattern=r"^(professional|executive|ara|ara_plus_1|capivarex_pro|capivarex_ultimate)$",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -152,16 +165,20 @@ async def create_checkout(
         )
         if not user_row.data:
             # User exists in auth.users but not in public.users
-            # (created before trigger was active) — extract email from
-            # the JWT so the NOT NULL column is satisfied on upsert.
-            import jwt as pyjwt
-
-            token = request.headers.get("authorization", "").replace("Bearer ", "")
+            # (created before trigger was active) — get email from auth.users
+            user_email = ""
             try:
-                payload = pyjwt.decode(token, options={"verify_signature": False})
-                user_email = payload.get("email") or ""
+                auth_resp = (
+                    db.table("users")
+                    .select("email")
+                    .eq("id", user_id)
+                    .limit(1)
+                    .execute()
+                )
+                if auth_resp.data:
+                    user_email = auth_resp.data[0].get("email", "")
             except Exception:
-                user_email = ""
+                pass
 
             logger.warning(
                 "Billing: user={} not in public.users, upserting with email={}",
@@ -197,7 +214,12 @@ async def create_checkout(
                 f" for user={user_id[:8]}"
             )
 
-        price_id = PLAN_PRICES[body.plan]
+        price_id = PLAN_PRICES.get(body.plan)
+        if not price_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Plan '{body.plan}' is not yet available for purchase or Stripe price not configured.",
+            )
         session = stripe.checkout.Session.create(
             customer=customer_id,
             mode="subscription",

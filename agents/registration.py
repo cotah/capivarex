@@ -49,6 +49,8 @@ def register_all_agents() -> None:
     from .specialized.restaurant_agent import RestaurantAgent  # noqa: F401
     from .specialized.email_agent import EmailAgent  # noqa: F401
     from .specialized.music_agent import MusicAgent  # noqa: F401
+    from .specialized.maps_agent import MapsAgent  # noqa: F401
+    from .specialized.media_cast_agent import MediaCastAgent  # noqa: F401
 
 
 # Backward compatibility: importing this module still triggers registration

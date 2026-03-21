@@ -48,11 +48,10 @@ def get_user_plan_key(request: Request) -> str:
             _algo = os.environ.get("JWT_ALGORITHM", "HS256")
             if _secret:
                 payload = jwt.decode(token, _secret, algorithms=[_algo])
-            else:
-                # Dev/test: still verify structure but log warning
-                payload = jwt.decode(token, options={"verify_signature": False})
-            user_id = payload.get("sub", ip)
-            plan = payload.get("plan", "default")
+                user_id = payload.get("sub", ip)
+                plan = payload.get("plan", "default")
+            # If JWT_SECRET_KEY not set, fall back to IP-based rate limiting
+            # (never accept unverified tokens)
         except jwt.PyJWTError:
             pass
 
