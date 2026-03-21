@@ -135,9 +135,17 @@ class OutlookService(BaseService):
         subject: str,
         body: str,
         reply_to_id: Optional[str] = None,
-    ) -> bool:
-        """Send an email via Microsoft Graph."""
-        if reply_to_id:
+        reply_to_message_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send an email via Microsoft Graph.
+
+        Accepts both reply_to_id and reply_to_message_id for compatibility
+        with the email agent (which passes reply_to_message_id).
+        thread_id is accepted but ignored (Microsoft Graph handles threads internally).
+        """
+        _reply_id = reply_to_id or reply_to_message_id
+        if _reply_id:
             # Reply to existing message
             reply_body = {
                 "message": {"body": {"contentType": "Text", "content": body}},
@@ -145,7 +153,7 @@ class OutlookService(BaseService):
             result = await self._api(
                 user_id,
                 "POST",
-                f"/me/messages/{reply_to_id}/reply",
+                f"/me/messages/{_reply_id}/reply",
                 json_body=reply_body,
             )
         else:
@@ -162,6 +170,55 @@ class OutlookService(BaseService):
             }
             result = await self._api(user_id, "POST", "/me/sendMail", json_body=message)
 
+        return {"id": "", "threadId": ""} if result is not None else {}
+
+    async def send_email_with_attachment(
+        self,
+        user_id: str,
+        to: str,
+        subject: str,
+        body: str,
+        attachment_bytes: bytes,
+        attachment_filename: str,
+        attachment_mime: str = "application/octet-stream",
+    ) -> bool:
+        """Send an email with a file attachment via Microsoft Graph.
+
+        Args:
+            user_id: User UUID for OAuth2
+            to: Recipient email
+            subject: Email subject
+            body: Email body (plain text)
+            attachment_bytes: Raw file bytes
+            attachment_filename: Filename (e.g. "report.xlsx")
+            attachment_mime: MIME type of attachment
+
+        Returns:
+            True if sent successfully
+        """
+        import base64
+
+        attachment_b64 = base64.b64encode(attachment_bytes).decode("utf-8")
+
+        message = {
+            "message": {
+                "subject": subject,
+                "body": {"contentType": "Text", "content": body},
+                "toRecipients": [
+                    {"emailAddress": {"address": to}},
+                ],
+                "attachments": [
+                    {
+                        "@odata.type": "#microsoft.graph.fileAttachment",
+                        "name": attachment_filename,
+                        "contentType": attachment_mime,
+                        "contentBytes": attachment_b64,
+                    }
+                ],
+            },
+            "saveToSentItems": True,
+        }
+        result = await self._api(user_id, "POST", "/me/sendMail", json_body=message)
         return result is not None
 
     async def mark_as_read(self, user_id: str, message_id: str) -> bool:
