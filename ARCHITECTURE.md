@@ -1,9 +1,10 @@
 # CAPIVAREX — Complete Architecture Reference
 
-> **Version:** 4.29-GOD-REFACTORED
-> **Last updated:** March 17, 2026
+> **Version:** 5.0-CAPIVARA-MODULES
+> **Last updated:** March 21, 2026
 > **Based on:** Full codebase scan — 414 Python files, 84,456 lines of code
 > **Purpose:** The definitive source of truth. Any AI or developer reading this understands 100% of the project.
+> **Repos:** `cotah/capivarex` (backend), `cotah/capivarex-frontend` (frontend), `cotah/capivarex-admin` (admin)
 
 ---
 
@@ -52,9 +53,10 @@ CAPIVAREX is an AI-powered personal life assistant. Users interact via **WebApp 
 |-------|-----------|---------|
 | **Backend Framework** | Python 3.11 + FastAPI 0.129 | Async, high-performance REST API |
 | **Frontend** | Next.js 14 (TypeScript) | React, Tailwind CSS, on Vercel |
-| **Database** | Supabase (PostgreSQL) | 33 tables, Row Level Security |
+| **Database** | Supabase (PostgreSQL) | 46 tables, Row Level Security |
 | **Cache / Queue** | Redis (Upstash) | Timers, rate limiting, conversation cache, sessions |
-| **Primary AI** | OpenAI GPT-4o / GPT-4o-mini | Chat, orchestration, intent detection, code review |
+| **Primary AI** | OpenAI GPT-5.4-mini | Chat, all agents, intent detection |
+| **Orchestrator AI** | OpenAI GPT-5.4-nano | Intent routing (cheapest model) |
 | **Secondary AI** | Anthropic Claude Sonnet 4.5 | Code generation (dev agent primary) |
 | **Research AI** | Perplexity (Sonar) | Deep web research, news synthesis |
 | **Vision AI** | Google Gemini | Image analysis, receipt scanning |
@@ -735,13 +737,50 @@ User sends message (WebApp / Telegram / WhatsApp)
 
 ## 15. Plans and Billing
 
-| Plan | Price | Channels | Key Limits |
-|------|-------|----------|-----------|
-| **Free** | €0 | Telegram | 50 msg/day, basic features |
-| **Basic** | €0 | Telegram | Extended features |
-| **Me** | €4.99/mês | Telegram | Full AI, calendar, email, finance |
-| **Everywhere** | €9.99/mês | Telegram + WhatsApp | All features + WhatsApp AI assistant |
-| **Family** | (planned) | All | Multiple users |
+### Capivara Module Plans (current — March 2026)
+
+| Plan | Price | Modules Included | Key Limits |
+|------|-------|-----------------|-----------|
+| **ARA** | €19.99/mo | ARA (Life & Time) | 300 msg/day, all channels |
+| **ARA + 1** | €27.99/mo | ARA + 1 chosen Capivara | 500 msg/day |
+| **CAPIVAREX Pro** | €44.99/mo | ARA + 3 chosen Capivaras | 1000 msg/day, 30 min calls |
+| **CAPIVAREX Ultimate** | €89.99/mo | All 7 Capivaras | Unlimited, 120 min calls |
+
+### Capivara Modules (7 total)
+
+| Module | Name | Domain |
+|--------|------|--------|
+| **ARA** | Life & Time | Calendar, reminders, weather, notes, voice, maps, research, translate, tracking |
+| **IVI** | Financial | Finance, investments, budgets, tracking |
+| **OKA** | Knowledge | Research, education, study, deep learning |
+| **YARA** | Wellness | Sleep, exercise, nutrition, mental health |
+| **AYVU** | Communication | Email, calls, Telegram, WhatsApp |
+| **MBAE** | Productivity | Notes, reminders, tasks, project management |
+| **PORA** | Creative | Image generation, writing, design |
+
+### Legacy Plans (still supported)
+
+| Plan | Price | Channels |
+|------|-------|----------|
+| **Professional** | €39.99/mo | All |
+| **Executive** | €79.00/mo | All |
+
+### Billing Flow
+
+1. Frontend `PricingCards.tsx` → `redirectToCheckout(plan)` → backend `POST /api/billing/create-checkout`
+2. Backend creates Stripe Checkout Session with plan metadata
+3. User pays on Stripe → Stripe sends `checkout.session.completed` webhook
+4. Backend webhook handler: upserts plan in `tenant_subscriptions`, activates modules in `user_modules`
+5. For ARA+1 and Pro: user redirected to `/billing/select-modules` to choose which Capivaras
+6. Frontend calls `POST /api/billing/activate-bundle-modules` with selected modules
+
+### Key Tables
+
+| Table | Purpose |
+|-------|---------|
+| `tenant_subscriptions` | Plan name, Stripe subscription ID, limits |
+| `tenant_usage` | Daily message counters per user |
+| `user_modules` | Which Capivara modules each user has (user_id, module_name, status) |
 
 Billing via **Stripe**: checkout sessions, subscription webhooks, customer portal.
 

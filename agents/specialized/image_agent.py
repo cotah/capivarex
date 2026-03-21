@@ -179,7 +179,14 @@ class ImageAgent(BaseAgent):
             from arq import create_pool
             from arq.connections import RedisSettings
 
-            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            # ARQ requires socket-based Redis (redis://) — NOT the Upstash REST API
+            redis_url = os.getenv("REDIS_URL")
+            if not redis_url:
+                return AgentResponse(
+                    status=AgentStatus.ERROR,
+                    response="Image generation is temporarily unavailable.",
+                    error="REDIS_URL not configured for ARQ task queue",
+                )
             redis_settings = RedisSettings.from_dsn(redis_url)
             redis = await create_pool(redis_settings)
 

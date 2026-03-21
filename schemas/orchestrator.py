@@ -4,41 +4,49 @@
 from pydantic import BaseModel, Field
 from typing import Literal
 
-# Allowed agent types — must stay in sync with orchestrator_agent.py
+# Allowed agent types for Pydantic validation.
+# INTENTIONALLY includes ALL agents (active + disabled + coming_soon).
+# If GPT routes to a disabled agent, the orchestrator handles it gracefully
+# (returns "coming soon" or falls back to chat). Keeping all agents here
+# prevents Pydantic validation errors when GPT suggests a disabled agent.
+# See orchestrator_agent.py ALLOWED_AGENTS set for the runtime active list.
 ALLOWED_AGENTS = Literal[
+    # ── Active (15 agents) ──
     "chat",
+    "calendar",
+    "email",
+    "meeting",
+    "notes",
+    "reminder",
     "research",
-    "dev",
-    "weather",
+    "search",
+    "voice",
+    "translate",
+    "tracking",
     "finance",
+    "weather",
+    "timer",
+    "maps",
+    # ── Coming Soon Q3 2026 (13 agents) ──
+    "travel",
+    "restaurant",
+    "mercado",
+    "crypto",
+    "dev",
+    "github",
+    "twilio",
+    "traffic",
+    "leaving_now",
+    "transport",
+    "smarthome",
+    "car",
+    "music",
+    # ── Disabled (4 agents) ──
     "image",
     "video",
-    "voice",
-    "calendar",
-    "traffic",
-    "car",
-    "smarthome",
-    "github",
-    "time",
-    "translate",
-    "crypto",
-    "timer",
-    "reminder",
     "youtube",
-    "tracking",
-    "meeting",
-    "search",
-    "leaving_now",
-    "mercado",
-    "notes",
-    "restaurant",
-    "email",
-    "transport",
-    "travel",
-    "twilio",
-    "music",
-    "maps",
     "media_cast",
+    "time",
 ]
 
 

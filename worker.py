@@ -229,8 +229,12 @@ class WorkerSettings:
     Arq worker settings.
 
     Defines available tasks, lifecycle hooks, and Redis connection.
-    Uses REDIS_URL for the arq socket connection (required by arq internals).
-    The application code itself routes through Upstash REST via RedisService.
+
+    IMPORTANT: ARQ requires a socket-based Redis connection (redis:// protocol).
+    This is DIFFERENT from the Upstash REST API used by RedisService.
+    Set REDIS_URL in Railway with the Upstash socket endpoint:
+      redis://default:<password>@<host>.upstash.io:6379
+    (Found in Upstash dashboard → Database → Details → Endpoint → redis://)
     """
 
     functions = [generate_image_task, check_timers, check_reminders]
@@ -240,6 +244,15 @@ class WorkerSettings:
     ]
     on_startup = startup
     on_shutdown = shutdown
-    redis_settings = RedisSettings.from_dsn(
-        os.getenv("REDIS_URL", "redis://localhost:6379")
-    )
+
+    _redis_url = os.getenv("REDIS_URL", "")
+    if not _redis_url:
+        import logging as _logging
+
+        _logging.getLogger("arq.worker").warning(
+            "REDIS_URL not set — ARQ worker will not connect. "
+            "Set REDIS_URL=redis://default:<pass>@<host>.upstash.io:6379 in Railway."
+        )
+        _redis_url = "redis://localhost:6379"  # fallback (won't connect in prod)
+
+    redis_settings = RedisSettings.from_dsn(_redis_url)
