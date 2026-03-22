@@ -14,7 +14,6 @@ Entry point for the CAPIVAREX Bot API with:
 import asyncio
 import contextlib
 import os
-import re
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -644,73 +643,12 @@ setup_rate_limiting(app)
 setup_error_handlers(app)
 
 # ====================================================================
-# CORS — Manual handler (Starlette CORSMiddleware doesn't work on Railway)
+# CORS — Pure ASGI middleware (outermost layer, runs before everything)
+# Must be LAST add_middleware call so it's outermost in LIFO stack
 # ====================================================================
+from api.middleware.cors import CORSMiddleware as CapivarexCORSMiddleware  # noqa: E402
 
-_cors_allowed_origins: set[str] = {
-    "https://app.capivarex.com",
-    "https://capivarex.com",
-}
-
-# Add configured frontend/admin URLs
-_frontend_url = os.getenv("FRONTEND_URL")
-if _frontend_url:
-    _cors_allowed_origins.add(_frontend_url.rstrip("/"))
-_admin_url = os.getenv("ADMIN_URL")
-if _admin_url:
-    _cors_allowed_origins.add(_admin_url.rstrip("/"))
-
-# Vercel preview deploys
-_cors_origin_regex = re.compile(r"https://.*capivarex.*\.vercel\.app")
-
-# Development
-if os.getenv("ENVIRONMENT") == "development":
-    _cors_allowed_origins.update({
-        "http://localhost:3000",
-        "http://localhost:5173",
-    })
-
-
-def _is_allowed_origin(origin: str) -> bool:
-    """Check if origin is allowed for CORS."""
-    if not origin:
-        return False
-    if origin in _cors_allowed_origins:
-        return True
-    if _cors_origin_regex.fullmatch(origin):
-        return True
-    return False
-
-
-@app.middleware("http")
-async def cors_middleware(request: Request, call_next):
-    """Manual CORS middleware — handles preflight and adds headers to all responses."""
-    origin = request.headers.get("origin", "")
-
-    # Handle preflight OPTIONS
-    if request.method == "OPTIONS" and _is_allowed_origin(origin):
-        from starlette.responses import Response as StarletteResponse
-
-        return StarletteResponse(
-            status_code=200,
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-                "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Origin, X-Request-ID, X-Requested-With, Cache-Control",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "86400",
-            },
-        )
-
-    # Process request normally
-    response = await call_next(request)
-
-    # Add CORS headers to ALL responses for allowed origins
-    if _is_allowed_origin(origin):
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-
-    return response
+app.add_middleware(CapivarexCORSMiddleware)
 
 # ====================================================================
 # HEALTH CHECKS
