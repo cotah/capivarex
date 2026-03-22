@@ -37,7 +37,7 @@ _VERCEL_REGEX = re.compile(r"https://.*capivarex.*\.vercel\.app")
 # ── CORS response headers ───────────────────────────────────────────
 
 _CORS_METHODS = b"GET, POST, PUT, DELETE, PATCH, OPTIONS"
-_CORS_HEADERS = b"Authorization, Content-Type, Accept, Origin, X-Request-ID, X-Requested-With, Cache-Control"
+_CORS_HEADERS = b"Authorization, Content-Type, Accept, Origin, X-Request-ID, X-Requested-With, Cache-Control, baggage, sentry-trace"
 _CORS_MAX_AGE = b"86400"
 
 
