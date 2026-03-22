@@ -1819,7 +1819,7 @@ async def get_user_me(user_id: str = Depends(verify_webapp_user)):
         row = result.data[0]
 
         # Map DB column names → frontend field names
-        return {
+        response = {
             "id": row.get("id"),
             "email": row.get("email"),
             "name": row.get("full_name") or row.get("display_name") or "",
@@ -1830,6 +1830,24 @@ async def get_user_me(user_id: str = Depends(verify_webapp_user)):
             "messages_limit": row.get("messages_limit") or 30,
             "created_at": row.get("created_at"),
         }
+
+        # Fetch active modules (always includes 'ara')
+        try:
+            mod_result = (
+                db.table("user_modules")
+                .select("module_name")
+                .eq("user_id", user_id)
+                .eq("status", "active")
+                .execute()
+            )
+            modules = [r["module_name"] for r in (mod_result.data or [])]
+            if "ara" not in modules:
+                modules.insert(0, "ara")
+            response["modules"] = modules
+        except Exception:
+            response["modules"] = ["ara"]
+
+        return response
 
     except HTTPException:
         raise
