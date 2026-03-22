@@ -27,7 +27,7 @@ CAPIVARA_MODULES: Dict[str, Dict] = {
         "agents": [
             "chat", "calendar", "reminder", "weather", "notes",
             "timer", "translate", "research", "search", "voice",
-            "meeting", "tracking", "maps"
+            "meeting", "tracking", "maps", "email_summary"
         ],
         "stripe_price_env": "STRIPE_PRICE_ARA",  # env var name for Stripe price ID
         "price_eur": 19.99,
@@ -88,7 +88,7 @@ CAPIVARA_MODULES: Dict[str, Dict] = {
         "emoji": "🟠",
         "status": MODULE_STATUS_COMING_SOON,
         "always_included": False,
-        "agents": ["email", "dev", "github"],
+        "agents": ["email_management", "dev", "github"],
         "stripe_price_env": "STRIPE_PRICE_MBAE",
         "price_eur": 9.99,
     },
