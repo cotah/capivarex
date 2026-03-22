@@ -310,7 +310,6 @@ def save_tickets(tickets: dict):
                     "error_type": ticket.get("error_type", ""),
                     "top_frame": ticket.get("top_frame", ""),
                     "status": ticket.get("status", "new"),
-                    "count": ticket.get("count", 1),
                     "first_seen": ticket.get("first_seen", now),
                     "last_seen": ticket.get("last_seen", now),
                     "tenant_id": ticket.get("tenant_id") or "",
