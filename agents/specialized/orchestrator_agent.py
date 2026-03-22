@@ -198,9 +198,11 @@ class OrchestratorAgent(BaseAgent):
                         },
                     )
 
-            # Guard: transcription keywords must NOT go to voice (voice is TTS only)
+            # Guard: transcription keywords AND conversational questions about voice
+            # must NOT go to voice (voice is TTS only — explicit "say X" / "read X aloud").
             if decision == "voice":
                 _lower = prompt.lower()
+                # Transcription requests
                 _transcription_keywords = (
                     "transcrever",
                     "transcreve",
@@ -215,9 +217,50 @@ class OrchestratorAgent(BaseAgent):
                     "speech to text",
                     "audio to text",
                 )
+                # Conversational questions about voice capability — NOT TTS requests.
+                # These are questions/statements about using voice, not requests to
+                # convert a specific text to audio.
+                _conversational_voice_keywords = (
+                    "conversar por voz",
+                    "falar por voz",
+                    "consegue falar",
+                    "conseguimos falar",
+                    "podemos falar",
+                    "pode falar comigo",
+                    "fala comigo",
+                    "conversa por voz",
+                    "modo voz",
+                    "ativar voz",
+                    "ativa voz",
+                    "voice mode",
+                    "can you speak",
+                    "can we talk",
+                    "talk to me",
+                    "speak to me",
+                    "voice conversation",
+                    "voice chat",
+                    "hablar por voz",
+                    "podemos hablar",
+                    "conversar com voz",
+                    "usar voz",
+                    "usar o modo de voz",
+                    "voz hoje",
+                    "voz agora",
+                    "por voz hoje",
+                    "por voz agora",
+                    "voice today",
+                    "voice now",
+                    "talk by voice",
+                    "speak by voice",
+                )
                 if any(kw in _lower for kw in _transcription_keywords):
                     self.logger.info(
                         "Orchestrator: overriding 'voice' → 'chat' for transcription request"
+                    )
+                    decision = "chat"
+                elif any(kw in _lower for kw in _conversational_voice_keywords):
+                    self.logger.info(
+                        "Orchestrator: overriding 'voice' → 'chat' for conversational voice question"
                     )
                     decision = "chat"
 
