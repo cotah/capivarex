@@ -34,9 +34,11 @@ async def send_proactive_message(
 
     try:
         bot_client = Bot(token=token)
+        # Sanitize surrogates that crash httpx/urllib (UnicodeEncodeError)
+        clean_text = text.encode("utf-8", errors="replace").decode("utf-8")
         await bot_client.send_message(
             chat_id=chat_id,
-            text=text,
+            text=clean_text,
             reply_markup=reply_markup,
         )
         return True
