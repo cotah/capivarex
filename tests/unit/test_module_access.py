@@ -16,7 +16,7 @@ class TestModuleConfig:
     def test_all_active_agents_have_module(self):
         """Every agent in ALLOWED_AGENTS must belong to a module."""
         allowed_agents = {
-            "chat", "calendar", "email", "meeting", "notes", "reminder",
+            "chat", "calendar", "email_summary", "email_management", "meeting", "notes", "reminder",
             "research", "search", "voice", "translate", "tracking", "finance",
             "weather", "timer", "maps"
         }
@@ -43,7 +43,8 @@ class TestModuleConfig:
         assert AGENT_TO_MODULE["smarthome"] == "oka"
         assert AGENT_TO_MODULE["travel"] == "yara"
         assert AGENT_TO_MODULE["twilio"] == "ayvu"
-        assert AGENT_TO_MODULE["email"] == "mbae"
+        assert AGENT_TO_MODULE["email_summary"] == "ara"
+        assert AGENT_TO_MODULE["email_management"] == "mbae"
         assert AGENT_TO_MODULE["image"] == "pora"
 
     def test_all_8_modules_exist(self):
