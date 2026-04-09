@@ -7,7 +7,7 @@
 
 # Core Framework
 fastapi>=0.129,<0.130
-uvicorn>=0.40,<0.41
+uvicorn>=0.40,<0.43
 python-multipart>=0.0.22,<0.1
 pydantic>=2.12,<2.13
 python-dotenv>=1.2,<1.3
